@@ -11,11 +11,11 @@ import shutil
 from pathlib import Path
 
 sys.path.insert(0, os.path.abspath(os.path.join("..")))
-sys.path.insert(0, os.path.abspath(os.path.join("..", "lbm_caiman_python")))
+sys.path.insert(0, os.path.abspath(os.path.join("..", "lbm_suite2p_python")))
 
-from lbm_caiman_python import __version__
+from lbm_suite2p_python import __version__
 
-project = "LBM-CaImAn-Python"
+project = "LBM-Suite2p-Python"
 copyright = "2024, Elizabeth R. Miller Brain Observatory | The Rockefeller University. All Rights Reserved"
 release = __version__
 
@@ -23,6 +23,7 @@ release = __version__
 print(f'Copying sphinx source files ...')
 source_dir = Path(__file__).resolve().parent.parent / "demos" / "notebooks"
 dest_dir = Path(__file__).resolve().parent / "examples" / "notebooks"
+
 
 def copy_with_overwrite(src: Path, dst: Path):
     print(f'source: {src} being copied to destination: {dst}')
@@ -34,6 +35,7 @@ def copy_with_overwrite(src: Path, dst: Path):
         if dst.exists():
             dst.unlink()
         shutil.copy2(src, dst)
+
 
 if source_dir.exists():
     if dest_dir.exists():
@@ -87,13 +89,13 @@ images_config = {"cache_path": "./_images/"}
 templates_path = ["_templates"]
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
-html_title = "LBM-CaImAn-Python"
+html_title = "LBM-Suite2p-Python"
 
-html_logo = "_static/lcp_logo.svg"
+# html_logo = "_static/lcp_logo.svg"
 html_favicon = "_static/icon_caiman_python.svg"
 html_theme = "sphinx_book_theme"
 
-html_short_title = "LBM CaImAn Pipeline"
+html_short_title = "LBM Suite2p Pipeline"
 html_static_path = ["_static"]
 html_css_files = ["custom.css"]
 html_copy_source = True
@@ -116,7 +118,7 @@ intersphinx_disabled_reftypes = ["*"]
 
 html_theme_options = {
     "path_to_docs": "docs",
-    "repository_url": "https://github.com/MillerBrainObservatory/LBM-CaImAn-Python/",
+    "repository_url": "https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/",
     "repository_branch": "master",
     "use_edit_page_button": True,
     "use_source_button": True,
