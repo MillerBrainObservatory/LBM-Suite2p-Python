@@ -1,0 +1,56 @@
+name: Build and Deploy Docs
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [dev, master]
+  workflow_dispatch:
+    branches: [dev, master]
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build HTML Documentation
+        uses: ammaraskar/sphinx-action@8.0.2
+        with:
+          docs-folder: "docs/"
+          pre-build-command: |
+            # Install required system dependencies
+            apt-get update -y --allow-releaseinfo-change -qq
+            apt-get install --no-install-recommends -y \
+              build-essential \
+              libegl1-mesa \
+              libgl1-mesa-dri \
+              libxcb-xfixes0-dev \
+              mesa-vulkan-drivers \
+              git-lfs \
+              libglvnd-dev \
+              python3-pip
+
+            pip install git+https://github.com/atlab/scanreader.git
+            pip install lbm_suite2p_python
+
+          build-command: "make html"
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          publish_branch: gh-pages
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: docs/_build/html
+          force_orphan: true
+
+      - name: Prepare Deploy Tag
+        id: prepare_tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          echo "DEPLOY_TAG_NAME=deploy-${TAG_NAME}" >> "${GITHUB_OUTPUT}"
+
