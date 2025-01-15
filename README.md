@@ -1,5 +1,8 @@
 # LBM-Suite2p-Python
+
 Light Beads Microscopy Pipeline based on Suite2p.
+
+Very early in development.
 
 ## Installation
 
