@@ -5,15 +5,9 @@ import versioneer
 from pathlib import Path
 
 install_deps = [
-    # "tifffile",
-    # "numpy",
-    # "numba>=0.57.0",
-    # "scipy>=1.9.0",
     "fastplotlib[notebook]",
     # "scanreader @ git+https://github.com/atlab/scanreader.git@master#egg=scanreader",
-    # "matplotlib",
     # "lcp-mc",
-    # "fabric",
     "dask",
     "zarr",
     "jupyterlab",
