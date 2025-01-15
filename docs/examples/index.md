@@ -6,8 +6,7 @@
 maxdepth: 2
 numbered: 3
 ---
-notebooks/s2p_bin.ipynb
-notebooks/s2p_nb.ipynb
-notebooks/suite2p_demo.ipynb
-notebooks/suite2p_ops.ipynb
+notebooks/s2p_binaryfile.ipynb
+notebooks/s2p_pipeline.ipynb
+notebooks/suite2p_segmentation.ipynb
 ```
