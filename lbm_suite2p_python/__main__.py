@@ -70,10 +70,10 @@ def main():
         new_ops = lsp.ops_from_metadata(ops, metadata)
         new_ops['data_path'] = [_parse_data_path(args.data)]
         new_ops['tiff_list'] = [files[0]]
-        suite2p.run_s2p(ops)
+        ops = suite2p.run_s2p(ops)
 
     print("Processing complete -----------")
-    return
+    return ops
 
 
 if __name__ == "__main__":
