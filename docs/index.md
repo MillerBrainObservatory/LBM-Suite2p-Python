@@ -8,7 +8,8 @@ This is a template of the documentation with notebooks that will be updated as I
 ---
 maxdepth: 2
 ---
-examples/index
+Notebooks <examples/index>
+Suite2p Publication <publication>
 
 ```
 
