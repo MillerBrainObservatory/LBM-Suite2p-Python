@@ -72,11 +72,15 @@ def get_metadata(file: os.PathLike | str):
 
         num_rois = len(roi_group)
         num_planes = len(si["SI.hChannels.channelSave"])
-        scanfields = roi_group[0]["scanfields"]  # assuming single ROI scanfield configuration
+        sizes = [roi_group[i]["scanfields"][i]["sizeXY"] for i in range(num_rois)]
+        num_pixel_xys = [roi_group[i]["scanfields"][i]["pixelResolutionXY"] for i in range(num_rois)]
 
-        # ROI metadata
-        size_xy = scanfields["sizeXY"]
-        num_pixel_xy = scanfields["pixelResolutionXY"]
+        # see if each item in sizes is the same
+        assert all([sizes[0] == size for size in sizes]), "ROIs have different sizes"
+        assert all([num_pixel_xys[0] == num_pixel_xy for num_pixel_xy in num_pixel_xys]), "ROIs have different pixel resolutions"
+
+        size_xy = sizes[0]
+        num_pixel_xy = num_pixel_xys[0]
 
         # TIFF header-derived metadata
         sample_format = pages[0].dtype.name

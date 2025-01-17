@@ -48,9 +48,9 @@ def main():
     The main function that orchestrates the CLI operations.
     """
     print("\n")
-    print("-----------LBM-Caiman pipeline -----------")
+    print("-----------LBM-Suite2p-Pipeline -----------")
     print("\n")
-    parser = argparse.ArgumentParser(description="LBM-Caiman pipeline parameters")
+    parser = argparse.ArgumentParser(description="LBM-Suite2ppipeline parameters")
     parser = add_args(parser)
     args = parser.parse_args()
 
@@ -77,4 +77,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    ops_path = main()
+    print(ops_path)
