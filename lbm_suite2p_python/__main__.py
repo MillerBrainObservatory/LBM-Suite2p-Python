@@ -66,11 +66,13 @@ def main():
         ops = np.load(args.ops, allow_pickle=True).item()
     if args.data:
         files = [x for x in Path(args.data).glob('*.tif*')]
-        metadata = lsp.get_metadata(files[0])
-        new_ops = lsp.ops_from_metadata(ops, metadata)
-        new_ops['data_path'] = [_parse_data_path(args.data)]
-        new_ops['tiff_list'] = [files[0]]
-        ops = suite2p.run_s2p(ops)
+        for i, f in enumerate(files):
+            print(f"File {i}: {f}")
+            metadata = lsp.get_metadata(f)
+            new_ops = lsp.ops_from_metadata(ops, metadata)
+            new_ops['data_path'] = [_parse_data_path(args.data)]
+            new_ops['tiff_list'] = [files[i]]
+            ops = suite2p.run_s2p(new_ops)
 
     print("Processing complete -----------")
     return ops
@@ -78,4 +80,3 @@ def main():
 
 if __name__ == "__main__":
     ops_path = main()
-    print(ops_path)
