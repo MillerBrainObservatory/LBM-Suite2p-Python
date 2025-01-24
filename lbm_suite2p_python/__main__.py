@@ -2,6 +2,7 @@ import numpy as np
 import argparse
 from pathlib import Path
 from functools import partial
+import tifffile
 import lbm_suite2p_python as lsp
 import suite2p
 
@@ -43,6 +44,28 @@ def add_args(parser: argparse.ArgumentParser):
     return parser
 
 
+def combine_tiffs(files):
+    """
+    Combine tiff files into a single tiff file.
+
+    Input Tyx * N_files gives TNyx
+    """
+    # Load the first file to get the shape
+    first_file = files[0]
+    first_tiff = tifffile.imread(first_file)
+    num_files = len(files)
+    num_frames, height, width = first_tiff.shape
+
+    # Create the new tiff file
+    new_tiff = np.zeros((num_frames * num_files, height, width), dtype=first_tiff.dtype)
+
+    # Load the tiffs
+    for i, f in enumerate(files):
+        tiff = tifffile.imread(f)
+        new_tiff[i*num_frames:(i+1)*num_frames] = tiff
+
+    return new_tiff
+
 def main():
     """
     The main function that orchestrates the CLI operations.
@@ -59,23 +82,32 @@ def main():
         print("lbm_suite2p_python v{}".format(lsp.__version__))
         return
 
-    ops = suite2p.default_ops()
-
     # Load the ops file
     if args.ops:
         ops = np.load(args.ops, allow_pickle=True).item()
+    else:
+        ops = suite2p.default_ops()
     if args.data:
+        data_path = _parse_data_path(args.data)
         files = [x for x in Path(args.data).glob('*.tif*')]
-        for i, f in enumerate(files):
-            print(f"File {i}: {f}")
-            metadata = lsp.get_metadata(f)
-            new_ops = lsp.ops_from_metadata(ops, metadata)
-            new_ops['data_path'] = [_parse_data_path(args.data)]
-            new_ops['tiff_list'] = [files[i]]
-            ops = suite2p.run_s2p(new_ops)
+        metadata = lsp.get_metadata(files[0])
+        ops = lsp.ops_from_metadata(ops, metadata)
 
-    print("Processing complete -----------")
-    return ops
+        ops['data_path'] = [data_path]
+        save_path = Path(data_path).parent / 'res'
+
+        ops['save_path0'] = str(save_path)
+        ops['block_size'] = (64, 64)
+        ops['nplanes'] = 2
+        ops['tau'] = 1.5
+        ops['dx'] = [3.5, 3.5]
+        ops['dy'] = [3.5, 3.5]
+        ops['combined'] = False
+
+        new_ops = suite2p.run_s2p(ops)
+
+        print("Processing complete -----------")
+        return new_ops
 
 
 if __name__ == "__main__":
