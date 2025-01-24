@@ -62,9 +62,10 @@ def combine_tiffs(files):
     # Load the tiffs
     for i, f in enumerate(files):
         tiff = tifffile.imread(f)
-        new_tiff[i*num_frames:(i+1)*num_frames] = tiff
+        new_tiff[i * num_frames:(i + 1) * num_frames] = tiff
 
     return new_tiff
+
 
 def main():
     """
