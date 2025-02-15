@@ -5,9 +5,8 @@ import versioneer
 from pathlib import Path
 
 install_deps = [
+    "mbo_utilities @ git+https://github.com/MillerBrainObservatory/mbo_utilities.git@master",
     "fastplotlib[notebook]",
-    # "scanreader @ git+https://github.com/atlab/scanreader.git@master#egg=scanreader",
-    # "lcp-mc",
     "dask",
     "zarr",
     "jupyterlab",
