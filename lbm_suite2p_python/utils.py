@@ -119,7 +119,7 @@ def get_metadata(file: os.PathLike | str):
         raise ValueError(f"No metadata found in {file}.")
 
 
-def get_files_ext(base_dir, extension, max_depth) -> list:
+def get_files(base_dir, extension, max_depth) -> list:
     """
     Recursively searches for files with a specific extension up to a given depth and stores their paths in a pickle file.
 

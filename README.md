@@ -1,6 +1,6 @@
 # LBM-Suite2p-Python
 
-Light Beads Microscopy Pipeline based on Suite2p.
+Light Beads Microscopy Pipeline based on the suite2p pipeline with Cellpose and Suite3D.
 
 Very early in development.
 
@@ -10,8 +10,9 @@ Very early in development.
 git clone https://github.com/MillerBrainObservatory/LBM-Suite2p-Python.git
 cd LBM-Suite2p-Python
 
-conda create -n lsp python=3.9
+conda create -n lsp python=3.10
 conda activate lsp
 
 pip install .
+pip install https://github.com/MillerBrainObservatory/mbo_utilities.git
 ```
