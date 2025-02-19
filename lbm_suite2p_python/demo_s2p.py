@@ -21,6 +21,16 @@ mpl.rcParams.update({
 jet = mpl.cm.get_cmap('jet')
 jet.set_bad(color='k')
 
+def slurm():
+    ops = suite2p.default_ops()
+    ops['sparse_mode'] = 1
+    ops['threshold_scaling'] = 3.0
+    db = []
+    db.append({'data_path': ['D:/DATA/output']})
+    db.append({'data_path': ['D:/DATA/output2']})
+    for dbi in db:
+        opsEnd = suite2p.run_s2p(ops=ops, db=dbi)
+
 def main():
 
     # path setup
