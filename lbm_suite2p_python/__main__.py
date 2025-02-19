@@ -74,7 +74,7 @@ def main():
     print("\n")
     print("-----------LBM-Suite2p-Pipeline -----------")
     print("\n")
-    parser = argparse.ArgumentParser(description="LBM-Suite2ppipeline parameters")
+    parser = argparse.ArgumentParser(description="LBM-Suite2p-pipeline parameters")
     parser = add_args(parser)
     args = parser.parse_args()
 
@@ -112,4 +112,5 @@ def main():
 
 
 if __name__ == "__main__":
+    import demo_s2p
     ops_path = main()
