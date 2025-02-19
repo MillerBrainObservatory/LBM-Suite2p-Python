@@ -1,0 +1,2407 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>2. Suite2p Segmentation &#8212; LBM-Suite2p-Python</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/sphinx-book-theme.css?v=a3416100" />
+    <link rel="stylesheet" type="text/css" href="../../_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../_static/togglebutton.css?v=13237357" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=475cc00c" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../../_static/documentation_options.js?v=e4c16dfd"></script>
+    <script src="../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../_static/copybutton.js?v=f281be69"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../../_static/togglebutton.js?v=4a39c7ea"></script>
+    <script src="../../_static/scripts/sphinx-book-theme.js?v=887ef09a"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script defer="defer" src="https://unpkg.com/@popperjs/core@2"></script>
+    <script defer="defer" src="https://unpkg.com/tippy.js@6"></script>
+    <script defer="defer" src="../../_static/tippy/examples/notebooks/suite2p_segmentation.82ae8f93-a8be-4cb8-a005-55bfe92c75e9.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'examples/notebooks/suite2p_segmentation';</script>
+    <link rel="icon" href="../../_static/icon_caiman_python.svg"/>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Suite2p: beyond 10,000 neurons with standard two-photon microscopy" href="../../publication.html" />
+    <link rel="prev" title="1. Exploring Suite2p.io.BinaryFile" href="s2p_binaryfile.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">LBM-Suite2p-Python</p>
+  
+</a></div>
+        <div class="sidebar-primary-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://millerbrainobservatory.github.io/" title="MBO User Hub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><img src="../.././_static/icon_mbo_home.png" class="icon-link-image" alt="MBO User Hub"/></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/MillerBrainObservatory/" title="MBO Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">MBO Github</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://mbo.rockefeller.edu/contact/" title="Connect with MBO" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-regular fa-address-card fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Connect with MBO</span></a>
+        </li>
+</ul></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../index.html">Notebooks</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="s2p_binaryfile.html">1. Exploring Suite2p.io.BinaryFile</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">2. Suite2p Segmentation</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../../publication.html">Suite2p Publication</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/blob/master/docs/examples/notebooks/suite2p_segmentation.ipynb?plain=1" target="_blank"
+   class="btn btn-sm btn-source-file-button dropdown-item"
+   title="Show source"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-code"></i>
+  </span>
+<span class="btn__text-container">Show source</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/edit/master/docs/examples/notebooks/suite2p_segmentation.ipynb" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/issues/new?title=Issue%20on%20page%20%2Fexamples/notebooks/suite2p_segmentation.html&body=Your%20issue%20content%20here." target="_blank"
+   class="btn btn-sm btn-source-issues-button dropdown-item"
+   title="Open an issue"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-lightbulb"></i>
+  </span>
+<span class="btn__text-container">Open issue</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../../_sources/examples/notebooks/suite2p_segmentation.ipynb" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.ipynb</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Suite2p Segmentation</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section class="tex2jax_ignore mathjax_ignore" id="suite2p-segmentation">
+<h1><span class="section-number">2. </span>Suite2p Segmentation<a class="headerlink" href="#suite2p-segmentation" title="Link to this heading">#</a></h1>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">suite2p</span>
+<span class="kn">import</span> <span class="nn">lbm_suite2p_python</span> <span class="k">as</span> <span class="nn">lsp</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">matplotlib</span> <span class="k">as</span> <span class="nn">mpl</span>
+<span class="n">mpl</span><span class="o">.</span><span class="n">rcParams</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+    <span class="s1">&#39;axes.spines.left&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="s1">&#39;axes.spines.bottom&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="s1">&#39;axes.spines.top&#39;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="s1">&#39;axes.spines.right&#39;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="s1">&#39;legend.frameon&#39;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="s1">&#39;figure.subplot.wspace&#39;</span><span class="p">:</span> <span class="mf">.01</span><span class="p">,</span>
+    <span class="s1">&#39;figure.subplot.hspace&#39;</span><span class="p">:</span> <span class="mf">.01</span><span class="p">,</span>
+    <span class="s1">&#39;figure.figsize&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">18</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span>
+    <span class="s1">&#39;ytick.major.left&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+<span class="p">})</span>
+<span class="n">jet</span> <span class="o">=</span> <span class="n">mpl</span><span class="o">.</span><span class="n">cm</span><span class="o">.</span><span class="n">get_cmap</span><span class="p">(</span><span class="s1">&#39;jet&#39;</span><span class="p">)</span>
+<span class="n">jet</span><span class="o">.</span><span class="n">set_bad</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="s1">&#39;k&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>C:\Users\RBO\AppData\Local\Temp\ipykernel_1956\1385736914.py:13: MatplotlibDeprecationWarning: The get_cmap function was deprecated in Matplotlib 3.7 and will be removed in 3.11. Use ``matplotlib.colormaps[name]`` or ``matplotlib.colormaps.get_cmap()`` or ``pyplot.get_cmap()`` instead.
+  jet = mpl.cm.get_cmap(&#39;jet&#39;)
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">parent_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;E://datasets/single_hemisphere/zplanes&quot;</span><span class="p">)</span>
+<span class="n">files</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">parent_path</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s1">&#39;*.tif*&#39;</span><span class="p">)]</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">save_path</span> <span class="o">=</span> <span class="n">parent_path</span> <span class="o">/</span> <span class="s1">&#39;all_zplanes&#39;</span>
+<span class="n">db</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;data_path&#39;</span><span class="p">:</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">parent_path</span><span class="p">)],</span>
+    <span class="s1">&#39;save_path0&#39;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">save_path</span><span class="p">),</span>
+    <span class="s1">&#39;tiff_list&#39;</span><span class="p">:</span> <span class="n">files</span><span class="p">,</span>
+<span class="p">}</span>
+<span class="n">db</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;data_path&#39;: [&#39;E:\\datasets\\single_hemisphere\\zplanes&#39;],
+ &#39;save_path0&#39;: &#39;E:\\datasets\\single_hemisphere\\zplanes\\all_zplanes&#39;,
+ &#39;tiff_list&#39;: [WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_1.tiff&#39;),
+  WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_10.tiff&#39;),
+  WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_11.tiff&#39;),
+  WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_12.tiff&#39;),
+  WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_13.tiff&#39;),
+  WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_14.tiff&#39;),
+  WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_15.tiff&#39;),
+  WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_16.tiff&#39;),
+  WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_17.tiff&#39;),
+  WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_18.tiff&#39;),
+  WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_19.tiff&#39;),
+  WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_2.tiff&#39;),
+  WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_20.tiff&#39;),
+  WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_21.tiff&#39;),
+  WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_22.tiff&#39;),
+  WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_23.tiff&#39;),
+  WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_24.tiff&#39;),
+  WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_25.tiff&#39;),
+  WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_26.tiff&#39;),
+  WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_27.tiff&#39;),
+  WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_28.tiff&#39;),
+  WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_29.tiff&#39;),
+  WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_3.tiff&#39;),
+  WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_30.tiff&#39;),
+  WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_4.tiff&#39;),
+  WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_5.tiff&#39;),
+  WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_6.tiff&#39;),
+  WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_7.tiff&#39;),
+  WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_8.tiff&#39;),
+  WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_9.tiff&#39;)]}
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">ops</span> <span class="o">=</span> <span class="n">suite2p</span><span class="o">.</span><span class="n">default_ops</span><span class="p">()</span>
+<span class="n">metadata</span> <span class="o">=</span> <span class="n">lsp</span><span class="o">.</span><span class="n">get_metadata</span><span class="p">(</span><span class="n">files</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<span class="n">new_ops</span> <span class="o">=</span> <span class="n">lsp</span><span class="o">.</span><span class="n">ops_from_metadata</span><span class="p">(</span><span class="n">ops</span><span class="p">,</span> <span class="n">metadata</span><span class="p">)</span>
+<span class="n">ops</span><span class="p">[</span><span class="s1">&#39;nplanes&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">db</span><span class="p">[</span><span class="s1">&#39;tiff_list&#39;</span><span class="p">])</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">old_dy</span> <span class="o">=</span> <span class="n">ops</span><span class="p">[</span><span class="s1">&#39;dy&#39;</span><span class="p">]</span>
+<span class="n">ops</span><span class="p">[</span><span class="s1">&#39;dy&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">ops</span><span class="p">[</span><span class="s1">&#39;dy&#39;</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ops</span><span class="p">[</span><span class="s1">&#39;nplanes&#39;</span><span class="p">])]</span>
+<span class="n">old_dx</span> <span class="o">=</span> <span class="n">ops</span><span class="p">[</span><span class="s1">&#39;dx&#39;</span><span class="p">]</span>
+<span class="n">ops</span><span class="p">[</span><span class="s1">&#39;dx&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">ops</span><span class="p">[</span><span class="s1">&#39;dx&#39;</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ops</span><span class="p">[</span><span class="s1">&#39;nplanes&#39;</span><span class="p">])]</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">output_ops</span> <span class="o">=</span> <span class="n">suite2p</span><span class="o">.</span><span class="n">run_s2p</span><span class="p">(</span><span class="n">ops</span><span class="o">=</span><span class="n">ops</span><span class="p">,</span> <span class="n">db</span><span class="o">=</span><span class="n">db</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;data_path&#39;: [&#39;E:\\datasets\\single_hemisphere\\zplanes&#39;], &#39;save_path0&#39;: &#39;E:\\datasets\\single_hemisphere\\zplanes\\all_zplanes&#39;, &#39;tiff_list&#39;: [WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_1.tiff&#39;), WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_10.tiff&#39;), WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_11.tiff&#39;), WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_12.tiff&#39;), WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_13.tiff&#39;), WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_14.tiff&#39;), WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_15.tiff&#39;), WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_16.tiff&#39;), WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_17.tiff&#39;), WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_18.tiff&#39;), WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_19.tiff&#39;), WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_2.tiff&#39;), WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_20.tiff&#39;), WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_21.tiff&#39;), WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_22.tiff&#39;), WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_23.tiff&#39;), WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_24.tiff&#39;), WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_25.tiff&#39;), WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_26.tiff&#39;), WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_27.tiff&#39;), WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_28.tiff&#39;), WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_29.tiff&#39;), WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_3.tiff&#39;), WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_30.tiff&#39;), WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_4.tiff&#39;), WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_5.tiff&#39;), WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_6.tiff&#39;), WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_7.tiff&#39;), WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_8.tiff&#39;), WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/plane_9.tiff&#39;)]}
+tif
+** Found 30 tifs - converting to binary **
+2040 frames of binary, time 5.07 sec.
+4080 frames of binary, time 8.87 sec.
+6120 frames of binary, time 12.89 sec.
+8160 frames of binary, time 16.93 sec.
+time 676.52 sec. Wrote 8440 frames per binary for 30 planes
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; PLANE 0 &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+NOTE: not registered / registration forced with ops[&#39;do_registration&#39;]&gt;1
+      (no previous offsets to delete)
+NOTE: applying default C:\Users\RBO\.suite2p\classifiers\classifier_user.npy
+----------- REGISTRATION
+Reference frame, 16.96 sec.
+Registered 500/8440 in 18.29s
+Registered 1000/8440 in 36.28s
+Registered 1500/8440 in 54.47s
+Registered 2000/8440 in 72.58s
+Registered 2500/8440 in 90.71s
+Registered 3000/8440 in 108.76s
+Registered 3500/8440 in 126.83s
+Registered 4000/8440 in 144.94s
+Registered 4500/8440 in 163.08s
+Registered 5000/8440 in 181.05s
+Registered 5500/8440 in 199.03s
+Registered 6000/8440 in 217.14s
+Registered 6500/8440 in 235.18s
+Registered 7000/8440 in 252.96s
+Registered 7500/8440 in 270.91s
+Registered 8000/8440 in 288.66s
+Registered 8440/8440 in 304.14s
+----------- Total 332.09 sec
+Registration metrics, 28.55 sec.
+----------- ROI DETECTION
+Binning movie in chunks of length 05
+Binned movie of size [1688,976,616] created in 11.01 sec.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>c:\Users\RBO\miniforge3\envs\lsp\lib\site-packages\suite2p\detection\sparsedetect.py:286: UserWarning: Spatial scale estimation failed.  Setting spatial scale to 1 in order to continue.
+  warn(
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>NOTE: FORCED spatial scale ~6 pixels, time epochs 1.41, threshold 7.03 
+0 ROIs, score=217.55
+1000 ROIs, score=32.74
+2000 ROIs, score=23.25
+3000 ROIs, score=18.86
+4000 ROIs, score=16.29
+Detected 5000 ROIs, 103.84 sec
+After removing overlaps, 3173 ROIs remain
+----------- Total 119.49 sec.
+----------- EXTRACTION
+Masks created, 5.37 sec.
+Extracted fluorescence from 3173 ROIs in 8440 frames, 25.21 sec.
+----------- Total 31.31 sec.
+----------- CLASSIFICATION
+[&#39;npix_norm&#39;, &#39;compact&#39;, &#39;skew&#39;]
+----------- SPIKE DECONVOLUTION
+----------- Total 0.68 sec.
+Plane 0 processed in 512.69 sec (can open in GUI).
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; PLANE 1 &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+NOTE: not registered / registration forced with ops[&#39;do_registration&#39;]&gt;1
+      (no previous offsets to delete)
+NOTE: applying default C:\Users\RBO\.suite2p\classifiers\classifier_user.npy
+----------- REGISTRATION
+Reference frame, 16.68 sec.
+Registered 500/8440 in 18.13s
+Registered 1000/8440 in 35.99s
+Registered 1500/8440 in 53.78s
+Registered 2000/8440 in 71.59s
+Registered 2500/8440 in 89.57s
+Registered 3000/8440 in 107.43s
+Registered 3500/8440 in 125.37s
+Registered 4000/8440 in 143.30s
+Registered 4500/8440 in 161.36s
+Registered 5000/8440 in 179.36s
+Registered 5500/8440 in 197.35s
+Registered 6000/8440 in 215.32s
+Registered 6500/8440 in 233.26s
+Registered 7000/8440 in 251.45s
+Registered 7500/8440 in 269.24s
+Registered 8000/8440 in 287.07s
+Registered 8440/8440 in 302.48s
+----------- Total 330.42 sec
+Registration metrics, 27.72 sec.
+----------- ROI DETECTION
+Binning movie in chunks of length 05
+Binned movie of size [1688,970,600] created in 10.71 sec.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>c:\Users\RBO\miniforge3\envs\lsp\lib\site-packages\suite2p\detection\sparsedetect.py:286: UserWarning: Spatial scale estimation failed.  Setting spatial scale to 1 in order to continue.
+  warn(
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>NOTE: FORCED spatial scale ~6 pixels, time epochs 1.41, threshold 7.03 
+0 ROIs, score=223.29
+1000 ROIs, score=33.46
+2000 ROIs, score=23.15
+3000 ROIs, score=18.54
+4000 ROIs, score=16.13
+Detected 5000 ROIs, 106.71 sec
+After removing overlaps, 3040 ROIs remain
+----------- Total 122.06 sec.
+----------- EXTRACTION
+Masks created, 5.37 sec.
+Extracted fluorescence from 3040 ROIs in 8440 frames, 24.38 sec.
+----------- Total 30.45 sec.
+----------- CLASSIFICATION
+[&#39;npix_norm&#39;, &#39;compact&#39;, &#39;skew&#39;]
+----------- SPIKE DECONVOLUTION
+----------- Total 0.64 sec.
+Plane 1 processed in 511.82 sec (can open in GUI).
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; PLANE 2 &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+NOTE: not registered / registration forced with ops[&#39;do_registration&#39;]&gt;1
+      (no previous offsets to delete)
+NOTE: applying default C:\Users\RBO\.suite2p\classifiers\classifier_user.npy
+----------- REGISTRATION
+Reference frame, 16.45 sec.
+Registered 500/8440 in 17.96s
+Registered 1000/8440 in 35.95s
+Registered 1500/8440 in 53.93s
+Registered 2000/8440 in 72.09s
+Registered 2500/8440 in 90.15s
+Registered 3000/8440 in 107.96s
+Registered 3500/8440 in 125.93s
+Registered 4000/8440 in 143.88s
+Registered 4500/8440 in 161.86s
+Registered 5000/8440 in 179.81s
+Registered 5500/8440 in 197.89s
+Registered 6000/8440 in 215.89s
+Registered 6500/8440 in 233.98s
+Registered 7000/8440 in 251.91s
+Registered 7500/8440 in 270.07s
+Registered 8000/8440 in 288.06s
+Registered 8440/8440 in 303.51s
+----------- Total 331.02 sec
+Registration metrics, 27.92 sec.
+----------- ROI DETECTION
+Binning movie in chunks of length 05
+Binned movie of size [1688,968,600] created in 10.84 sec.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>c:\Users\RBO\miniforge3\envs\lsp\lib\site-packages\suite2p\detection\sparsedetect.py:286: UserWarning: Spatial scale estimation failed.  Setting spatial scale to 1 in order to continue.
+  warn(
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>NOTE: FORCED spatial scale ~6 pixels, time epochs 1.41, threshold 7.03 
+0 ROIs, score=222.25
+1000 ROIs, score=33.15
+2000 ROIs, score=22.99
+3000 ROIs, score=18.37
+4000 ROIs, score=15.87
+Detected 5000 ROIs, 101.98 sec
+After removing overlaps, 3082 ROIs remain
+----------- Total 117.36 sec.
+----------- EXTRACTION
+Masks created, 5.37 sec.
+Extracted fluorescence from 3082 ROIs in 8440 frames, 24.62 sec.
+----------- Total 30.58 sec.
+----------- CLASSIFICATION
+[&#39;npix_norm&#39;, &#39;compact&#39;, &#39;skew&#39;]
+----------- SPIKE DECONVOLUTION
+----------- Total 0.65 sec.
+Plane 2 processed in 507.96 sec (can open in GUI).
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; PLANE 3 &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+NOTE: not registered / registration forced with ops[&#39;do_registration&#39;]&gt;1
+      (no previous offsets to delete)
+NOTE: applying default C:\Users\RBO\.suite2p\classifiers\classifier_user.npy
+----------- REGISTRATION
+Reference frame, 16.63 sec.
+Registered 500/8440 in 17.73s
+Registered 1000/8440 in 35.66s
+Registered 1500/8440 in 53.66s
+Registered 2000/8440 in 71.63s
+Registered 2500/8440 in 89.67s
+Registered 3000/8440 in 107.71s
+Registered 3500/8440 in 125.57s
+Registered 4000/8440 in 143.53s
+Registered 4500/8440 in 161.43s
+Registered 5000/8440 in 179.47s
+Registered 5500/8440 in 197.37s
+Registered 6000/8440 in 215.32s
+Registered 6500/8440 in 233.16s
+Registered 7000/8440 in 251.16s
+Registered 7500/8440 in 269.02s
+Registered 8000/8440 in 286.99s
+Registered 8440/8440 in 302.52s
+----------- Total 330.21 sec
+Registration metrics, 25.17 sec.
+----------- ROI DETECTION
+Binning movie in chunks of length 05
+Binned movie of size [1688,878,598] created in 10.17 sec.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>c:\Users\RBO\miniforge3\envs\lsp\lib\site-packages\suite2p\detection\sparsedetect.py:286: UserWarning: Spatial scale estimation failed.  Setting spatial scale to 1 in order to continue.
+  warn(
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>NOTE: FORCED spatial scale ~6 pixels, time epochs 1.41, threshold 7.03 
+0 ROIs, score=170.07
+1000 ROIs, score=32.03
+2000 ROIs, score=21.63
+3000 ROIs, score=17.59
+4000 ROIs, score=15.31
+Detected 5000 ROIs, 96.33 sec
+After removing overlaps, 2947 ROIs remain
+----------- Total 111.00 sec.
+----------- EXTRACTION
+Masks created, 5.07 sec.
+Extracted fluorescence from 2947 ROIs in 8440 frames, 23.63 sec.
+----------- Total 29.33 sec.
+----------- CLASSIFICATION
+[&#39;npix_norm&#39;, &#39;compact&#39;, &#39;skew&#39;]
+----------- SPIKE DECONVOLUTION
+----------- Total 0.62 sec.
+Plane 3 processed in 496.84 sec (can open in GUI).
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; PLANE 4 &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+NOTE: not registered / registration forced with ops[&#39;do_registration&#39;]&gt;1
+      (no previous offsets to delete)
+NOTE: applying default C:\Users\RBO\.suite2p\classifiers\classifier_user.npy
+----------- REGISTRATION
+Reference frame, 16.57 sec.
+Registered 500/8440 in 17.99s
+Registered 1000/8440 in 35.93s
+Registered 1500/8440 in 53.83s
+Registered 2000/8440 in 71.80s
+Registered 2500/8440 in 89.92s
+Registered 3000/8440 in 107.74s
+Registered 3500/8440 in 125.56s
+Registered 4000/8440 in 143.45s
+Registered 4500/8440 in 161.30s
+Registered 5000/8440 in 179.33s
+Registered 5500/8440 in 197.04s
+Registered 6000/8440 in 215.19s
+Registered 6500/8440 in 233.16s
+Registered 7000/8440 in 251.10s
+Registered 7500/8440 in 269.06s
+Registered 8000/8440 in 286.95s
+Registered 8440/8440 in 302.73s
+----------- Total 330.36 sec
+Registration metrics, 27.79 sec.
+----------- ROI DETECTION
+Binning movie in chunks of length 05
+Binned movie of size [1688,968,598] created in 10.82 sec.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>c:\Users\RBO\miniforge3\envs\lsp\lib\site-packages\suite2p\detection\sparsedetect.py:286: UserWarning: Spatial scale estimation failed.  Setting spatial scale to 1 in order to continue.
+  warn(
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>NOTE: FORCED spatial scale ~6 pixels, time epochs 1.41, threshold 7.03 
+0 ROIs, score=231.31
+1000 ROIs, score=33.23
+2000 ROIs, score=23.13
+3000 ROIs, score=18.46
+4000 ROIs, score=15.80
+Detected 5000 ROIs, 100.45 sec
+After removing overlaps, 3053 ROIs remain
+----------- Total 115.87 sec.
+----------- EXTRACTION
+Masks created, 5.34 sec.
+Extracted fluorescence from 3053 ROIs in 8440 frames, 24.07 sec.
+----------- Total 29.99 sec.
+----------- CLASSIFICATION
+[&#39;npix_norm&#39;, &#39;compact&#39;, &#39;skew&#39;]
+----------- SPIKE DECONVOLUTION
+----------- Total 0.65 sec.
+Plane 4 processed in 505.09 sec (can open in GUI).
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; PLANE 5 &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+NOTE: not registered / registration forced with ops[&#39;do_registration&#39;]&gt;1
+      (no previous offsets to delete)
+NOTE: applying default C:\Users\RBO\.suite2p\classifiers\classifier_user.npy
+----------- REGISTRATION
+Reference frame, 16.53 sec.
+Registered 500/8440 in 17.88s
+Registered 1000/8440 in 35.89s
+Registered 1500/8440 in 54.02s
+Registered 2000/8440 in 71.95s
+Registered 2500/8440 in 90.03s
+Registered 3000/8440 in 108.00s
+Registered 3500/8440 in 125.98s
+Registered 4000/8440 in 143.94s
+Registered 4500/8440 in 161.91s
+Registered 5000/8440 in 179.83s
+Registered 5500/8440 in 197.63s
+Registered 6000/8440 in 215.71s
+Registered 6500/8440 in 233.70s
+Registered 7000/8440 in 251.54s
+Registered 7500/8440 in 269.39s
+Registered 8000/8440 in 287.27s
+Registered 8440/8440 in 302.93s
+----------- Total 330.52 sec
+Registration metrics, 27.76 sec.
+----------- ROI DETECTION
+Binning movie in chunks of length 05
+Binned movie of size [1688,968,598] created in 10.72 sec.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>c:\Users\RBO\miniforge3\envs\lsp\lib\site-packages\suite2p\detection\sparsedetect.py:286: UserWarning: Spatial scale estimation failed.  Setting spatial scale to 1 in order to continue.
+  warn(
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>NOTE: FORCED spatial scale ~6 pixels, time epochs 1.41, threshold 7.03 
+0 ROIs, score=227.99
+1000 ROIs, score=33.46
+2000 ROIs, score=22.90
+3000 ROIs, score=18.52
+4000 ROIs, score=15.95
+Detected 5000 ROIs, 100.97 sec
+After removing overlaps, 3027 ROIs remain
+----------- Total 116.26 sec.
+----------- EXTRACTION
+Masks created, 5.26 sec.
+Extracted fluorescence from 3027 ROIs in 8440 frames, 24.36 sec.
+----------- Total 30.32 sec.
+----------- CLASSIFICATION
+[&#39;npix_norm&#39;, &#39;compact&#39;, &#39;skew&#39;]
+----------- SPIKE DECONVOLUTION
+----------- Total 0.62 sec.
+Plane 5 processed in 505.89 sec (can open in GUI).
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; PLANE 6 &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+NOTE: not registered / registration forced with ops[&#39;do_registration&#39;]&gt;1
+      (no previous offsets to delete)
+NOTE: applying default C:\Users\RBO\.suite2p\classifiers\classifier_user.npy
+----------- REGISTRATION
+Reference frame, 16.63 sec.
+Registered 500/8440 in 17.84s
+Registered 1000/8440 in 35.86s
+Registered 1500/8440 in 53.90s
+Registered 2000/8440 in 71.89s
+Registered 2500/8440 in 89.77s
+Registered 3000/8440 in 107.55s
+Registered 3500/8440 in 125.42s
+Registered 4000/8440 in 143.34s
+Registered 4500/8440 in 161.58s
+Registered 5000/8440 in 179.40s
+Registered 5500/8440 in 197.50s
+Registered 6000/8440 in 215.36s
+Registered 6500/8440 in 233.39s
+Registered 7000/8440 in 251.50s
+Registered 7500/8440 in 269.43s
+Registered 8000/8440 in 287.42s
+Registered 8440/8440 in 303.11s
+----------- Total 330.87 sec
+Registration metrics, 28.08 sec.
+----------- ROI DETECTION
+Binning movie in chunks of length 05
+Binned movie of size [1688,970,604] created in 10.87 sec.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>c:\Users\RBO\miniforge3\envs\lsp\lib\site-packages\suite2p\detection\sparsedetect.py:286: UserWarning: Spatial scale estimation failed.  Setting spatial scale to 1 in order to continue.
+  warn(
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>NOTE: FORCED spatial scale ~6 pixels, time epochs 1.41, threshold 7.03 
+0 ROIs, score=227.99
+1000 ROIs, score=33.22
+2000 ROIs, score=22.88
+3000 ROIs, score=18.48
+4000 ROIs, score=15.96
+Detected 5000 ROIs, 101.19 sec
+After removing overlaps, 3022 ROIs remain
+----------- Total 116.64 sec.
+----------- EXTRACTION
+Masks created, 5.28 sec.
+Extracted fluorescence from 3022 ROIs in 8440 frames, 24.03 sec.
+----------- Total 29.99 sec.
+----------- CLASSIFICATION
+[&#39;npix_norm&#39;, &#39;compact&#39;, &#39;skew&#39;]
+----------- SPIKE DECONVOLUTION
+----------- Total 0.65 sec.
+Plane 6 processed in 506.76 sec (can open in GUI).
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; PLANE 7 &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+NOTE: not registered / registration forced with ops[&#39;do_registration&#39;]&gt;1
+      (no previous offsets to delete)
+NOTE: applying default C:\Users\RBO\.suite2p\classifiers\classifier_user.npy
+----------- REGISTRATION
+Reference frame, 16.52 sec.
+Registered 500/8440 in 18.03s
+Registered 1000/8440 in 36.04s
+Registered 1500/8440 in 54.14s
+Registered 2000/8440 in 72.12s
+Registered 2500/8440 in 90.16s
+Registered 3000/8440 in 108.00s
+Registered 3500/8440 in 126.04s
+Registered 4000/8440 in 143.97s
+Registered 4500/8440 in 161.87s
+Registered 5000/8440 in 179.97s
+Registered 5500/8440 in 198.16s
+Registered 6000/8440 in 216.18s
+Registered 6500/8440 in 234.08s
+Registered 7000/8440 in 252.15s
+Registered 7500/8440 in 270.05s
+Registered 8000/8440 in 288.21s
+Registered 8440/8440 in 303.92s
+----------- Total 331.51 sec
+Registration metrics, 28.19 sec.
+----------- ROI DETECTION
+Binning movie in chunks of length 05
+Binned movie of size [1688,970,608] created in 10.72 sec.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>c:\Users\RBO\miniforge3\envs\lsp\lib\site-packages\suite2p\detection\sparsedetect.py:286: UserWarning: Spatial scale estimation failed.  Setting spatial scale to 1 in order to continue.
+  warn(
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>NOTE: FORCED spatial scale ~6 pixels, time epochs 1.41, threshold 7.03 
+0 ROIs, score=220.84
+1000 ROIs, score=32.38
+2000 ROIs, score=23.25
+3000 ROIs, score=18.80
+4000 ROIs, score=16.30
+Detected 5000 ROIs, 97.93 sec
+After removing overlaps, 3166 ROIs remain
+----------- Total 113.34 sec.
+----------- EXTRACTION
+Masks created, 5.29 sec.
+Extracted fluorescence from 3166 ROIs in 8440 frames, 24.30 sec.
+----------- Total 30.19 sec.
+----------- CLASSIFICATION
+[&#39;npix_norm&#39;, &#39;compact&#39;, &#39;skew&#39;]
+----------- SPIKE DECONVOLUTION
+----------- Total 0.65 sec.
+Plane 7 processed in 504.32 sec (can open in GUI).
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; PLANE 8 &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+NOTE: not registered / registration forced with ops[&#39;do_registration&#39;]&gt;1
+      (no previous offsets to delete)
+NOTE: applying default C:\Users\RBO\.suite2p\classifiers\classifier_user.npy
+----------- REGISTRATION
+Reference frame, 16.60 sec.
+Registered 500/8440 in 17.99s
+Registered 1000/8440 in 35.97s
+Registered 1500/8440 in 53.79s
+Registered 2000/8440 in 71.71s
+Registered 2500/8440 in 89.83s
+Registered 3000/8440 in 107.71s
+Registered 3500/8440 in 125.64s
+Registered 4000/8440 in 143.60s
+Registered 4500/8440 in 161.74s
+Registered 5000/8440 in 179.90s
+Registered 5500/8440 in 197.91s
+Registered 6000/8440 in 215.78s
+Registered 6500/8440 in 233.89s
+Registered 7000/8440 in 251.83s
+Registered 7500/8440 in 269.75s
+Registered 8000/8440 in 287.69s
+Registered 8440/8440 in 303.44s
+----------- Total 331.12 sec
+Registration metrics, 27.68 sec.
+----------- ROI DETECTION
+Binning movie in chunks of length 05
+Binned movie of size [1688,966,602] created in 10.73 sec.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>c:\Users\RBO\miniforge3\envs\lsp\lib\site-packages\suite2p\detection\sparsedetect.py:286: UserWarning: Spatial scale estimation failed.  Setting spatial scale to 1 in order to continue.
+  warn(
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>NOTE: FORCED spatial scale ~6 pixels, time epochs 1.41, threshold 7.03 
+0 ROIs, score=227.09
+1000 ROIs, score=34.02
+2000 ROIs, score=23.31
+3000 ROIs, score=18.70
+4000 ROIs, score=16.10
+Detected 5000 ROIs, 101.48 sec
+After removing overlaps, 3064 ROIs remain
+----------- Total 116.81 sec.
+----------- EXTRACTION
+Masks created, 5.39 sec.
+Extracted fluorescence from 3064 ROIs in 8440 frames, 24.08 sec.
+----------- Total 30.08 sec.
+----------- CLASSIFICATION
+[&#39;npix_norm&#39;, &#39;compact&#39;, &#39;skew&#39;]
+----------- SPIKE DECONVOLUTION
+----------- Total 0.64 sec.
+Plane 8 processed in 506.86 sec (can open in GUI).
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; PLANE 9 &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+NOTE: not registered / registration forced with ops[&#39;do_registration&#39;]&gt;1
+      (no previous offsets to delete)
+NOTE: applying default C:\Users\RBO\.suite2p\classifiers\classifier_user.npy
+----------- REGISTRATION
+Reference frame, 16.64 sec.
+Registered 500/8440 in 17.89s
+Registered 1000/8440 in 35.90s
+Registered 1500/8440 in 53.79s
+Registered 2000/8440 in 71.90s
+Registered 2500/8440 in 90.05s
+Registered 3000/8440 in 108.02s
+Registered 3500/8440 in 126.07s
+Registered 4000/8440 in 144.02s
+Registered 4500/8440 in 162.01s
+Registered 5000/8440 in 180.02s
+Registered 5500/8440 in 198.12s
+Registered 6000/8440 in 216.16s
+Registered 6500/8440 in 233.95s
+Registered 7000/8440 in 252.01s
+Registered 7500/8440 in 270.01s
+Registered 8000/8440 in 287.98s
+Registered 8440/8440 in 303.76s
+----------- Total 331.45 sec
+Registration metrics, 27.96 sec.
+----------- ROI DETECTION
+Binning movie in chunks of length 05
+Binned movie of size [1688,970,604] created in 10.77 sec.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>c:\Users\RBO\miniforge3\envs\lsp\lib\site-packages\suite2p\detection\sparsedetect.py:286: UserWarning: Spatial scale estimation failed.  Setting spatial scale to 1 in order to continue.
+  warn(
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>NOTE: FORCED spatial scale ~6 pixels, time epochs 1.41, threshold 7.03 
+0 ROIs, score=233.75
+1000 ROIs, score=33.44
+2000 ROIs, score=23.11
+3000 ROIs, score=18.48
+4000 ROIs, score=16.09
+Detected 5000 ROIs, 101.07 sec
+After removing overlaps, 2991 ROIs remain
+----------- Total 116.44 sec.
+----------- EXTRACTION
+Masks created, 5.23 sec.
+Extracted fluorescence from 2991 ROIs in 8440 frames, 23.99 sec.
+----------- Total 29.79 sec.
+----------- CLASSIFICATION
+[&#39;npix_norm&#39;, &#39;compact&#39;, &#39;skew&#39;]
+----------- SPIKE DECONVOLUTION
+----------- Total 0.66 sec.
+Plane 9 processed in 506.78 sec (can open in GUI).
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; PLANE 10 &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+NOTE: not registered / registration forced with ops[&#39;do_registration&#39;]&gt;1
+      (no previous offsets to delete)
+NOTE: applying default C:\Users\RBO\.suite2p\classifiers\classifier_user.npy
+----------- REGISTRATION
+Reference frame, 16.60 sec.
+Registered 500/8440 in 18.46s
+Registered 1000/8440 in 36.35s
+Registered 1500/8440 in 54.35s
+Registered 2000/8440 in 72.30s
+Registered 2500/8440 in 90.46s
+Registered 3000/8440 in 108.30s
+Registered 3500/8440 in 126.22s
+Registered 4000/8440 in 144.14s
+Registered 4500/8440 in 162.25s
+Registered 5000/8440 in 180.33s
+Registered 5500/8440 in 198.25s
+Registered 6000/8440 in 216.27s
+Registered 6500/8440 in 234.42s
+Registered 7000/8440 in 252.45s
+Registered 7500/8440 in 270.54s
+Registered 8000/8440 in 288.44s
+Registered 8440/8440 in 304.22s
+----------- Total 331.89 sec
+Registration metrics, 27.75 sec.
+----------- ROI DETECTION
+Binning movie in chunks of length 05
+Binned movie of size [1688,968,602] created in 10.75 sec.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>c:\Users\RBO\miniforge3\envs\lsp\lib\site-packages\suite2p\detection\sparsedetect.py:286: UserWarning: Spatial scale estimation failed.  Setting spatial scale to 1 in order to continue.
+  warn(
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>NOTE: FORCED spatial scale ~6 pixels, time epochs 1.41, threshold 7.03 
+0 ROIs, score=220.37
+1000 ROIs, score=33.17
+2000 ROIs, score=23.09
+3000 ROIs, score=18.44
+4000 ROIs, score=16.02
+Detected 5000 ROIs, 100.40 sec
+After removing overlaps, 3015 ROIs remain
+----------- Total 115.72 sec.
+----------- EXTRACTION
+Masks created, 5.24 sec.
+Extracted fluorescence from 3015 ROIs in 8440 frames, 23.95 sec.
+----------- Total 29.78 sec.
+----------- CLASSIFICATION
+[&#39;npix_norm&#39;, &#39;compact&#39;, &#39;skew&#39;]
+----------- SPIKE DECONVOLUTION
+----------- Total 0.64 sec.
+Plane 10 processed in 506.18 sec (can open in GUI).
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; PLANE 11 &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+NOTE: not registered / registration forced with ops[&#39;do_registration&#39;]&gt;1
+      (no previous offsets to delete)
+NOTE: applying default C:\Users\RBO\.suite2p\classifiers\classifier_user.npy
+----------- REGISTRATION
+Reference frame, 16.49 sec.
+Registered 500/8440 in 18.29s
+Registered 1000/8440 in 36.23s
+Registered 1500/8440 in 54.23s
+Registered 2000/8440 in 72.19s
+Registered 2500/8440 in 90.17s
+Registered 3000/8440 in 108.15s
+Registered 3500/8440 in 126.05s
+Registered 4000/8440 in 144.09s
+Registered 4500/8440 in 162.04s
+Registered 5000/8440 in 180.07s
+Registered 5500/8440 in 198.23s
+Registered 6000/8440 in 216.37s
+Registered 6500/8440 in 234.45s
+Registered 7000/8440 in 252.58s
+Registered 7500/8440 in 270.57s
+Registered 8000/8440 in 288.60s
+Registered 8440/8440 in 304.38s
+----------- Total 331.92 sec
+Registration metrics, 27.68 sec.
+----------- ROI DETECTION
+Binning movie in chunks of length 05
+Binned movie of size [1688,968,598] created in 10.74 sec.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>c:\Users\RBO\miniforge3\envs\lsp\lib\site-packages\suite2p\detection\sparsedetect.py:286: UserWarning: Spatial scale estimation failed.  Setting spatial scale to 1 in order to continue.
+  warn(
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>NOTE: FORCED spatial scale ~6 pixels, time epochs 1.41, threshold 7.03 
+0 ROIs, score=227.03
+1000 ROIs, score=33.73
+2000 ROIs, score=23.23
+3000 ROIs, score=18.60
+4000 ROIs, score=16.09
+Detected 5000 ROIs, 101.56 sec
+After removing overlaps, 3020 ROIs remain
+----------- Total 116.91 sec.
+----------- EXTRACTION
+Masks created, 5.40 sec.
+Extracted fluorescence from 3020 ROIs in 8440 frames, 23.80 sec.
+----------- Total 29.77 sec.
+----------- CLASSIFICATION
+[&#39;npix_norm&#39;, &#39;compact&#39;, &#39;skew&#39;]
+----------- SPIKE DECONVOLUTION
+----------- Total 0.63 sec.
+Plane 11 processed in 507.34 sec (can open in GUI).
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; PLANE 12 &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+NOTE: not registered / registration forced with ops[&#39;do_registration&#39;]&gt;1
+      (no previous offsets to delete)
+NOTE: applying default C:\Users\RBO\.suite2p\classifiers\classifier_user.npy
+----------- REGISTRATION
+Reference frame, 16.85 sec.
+Registered 500/8440 in 18.08s
+Registered 1000/8440 in 35.92s
+Registered 1500/8440 in 53.90s
+Registered 2000/8440 in 71.71s
+Registered 2500/8440 in 89.68s
+Registered 3000/8440 in 107.57s
+Registered 3500/8440 in 125.61s
+Registered 4000/8440 in 143.74s
+Registered 4500/8440 in 161.90s
+Registered 5000/8440 in 179.91s
+Registered 5500/8440 in 197.84s
+Registered 6000/8440 in 215.90s
+Registered 6500/8440 in 233.85s
+Registered 7000/8440 in 251.96s
+Registered 7500/8440 in 269.86s
+Registered 8000/8440 in 287.86s
+Registered 8440/8440 in 303.66s
+----------- Total 331.63 sec
+Registration metrics, 27.35 sec.
+----------- ROI DETECTION
+Binning movie in chunks of length 05
+Binned movie of size [1688,968,594] created in 10.69 sec.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>c:\Users\RBO\miniforge3\envs\lsp\lib\site-packages\suite2p\detection\sparsedetect.py:286: UserWarning: Spatial scale estimation failed.  Setting spatial scale to 1 in order to continue.
+  warn(
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>NOTE: FORCED spatial scale ~6 pixels, time epochs 1.41, threshold 7.03 
+0 ROIs, score=240.66
+1000 ROIs, score=33.24
+2000 ROIs, score=22.96
+3000 ROIs, score=18.47
+4000 ROIs, score=15.98
+Detected 5000 ROIs, 102.33 sec
+After removing overlaps, 3048 ROIs remain
+----------- Total 117.60 sec.
+----------- EXTRACTION
+Masks created, 5.29 sec.
+Extracted fluorescence from 3048 ROIs in 8440 frames, 24.34 sec.
+----------- Total 30.20 sec.
+----------- CLASSIFICATION
+[&#39;npix_norm&#39;, &#39;compact&#39;, &#39;skew&#39;]
+----------- SPIKE DECONVOLUTION
+----------- Total 0.64 sec.
+Plane 12 processed in 507.90 sec (can open in GUI).
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; PLANE 13 &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+NOTE: not registered / registration forced with ops[&#39;do_registration&#39;]&gt;1
+      (no previous offsets to delete)
+NOTE: applying default C:\Users\RBO\.suite2p\classifiers\classifier_user.npy
+----------- REGISTRATION
+Reference frame, 16.91 sec.
+Registered 500/8440 in 17.83s
+Registered 1000/8440 in 35.86s
+Registered 1500/8440 in 53.77s
+Registered 2000/8440 in 71.77s
+Registered 2500/8440 in 89.83s
+Registered 3000/8440 in 107.95s
+Registered 3500/8440 in 125.89s
+Registered 4000/8440 in 144.05s
+Registered 4500/8440 in 162.01s
+Registered 5000/8440 in 179.93s
+Registered 5500/8440 in 197.96s
+Registered 6000/8440 in 216.04s
+Registered 6500/8440 in 233.89s
+Registered 7000/8440 in 252.05s
+Registered 7500/8440 in 270.00s
+Registered 8000/8440 in 287.85s
+Registered 8440/8440 in 303.66s
+----------- Total 331.66 sec
+Registration metrics, 28.07 sec.
+----------- ROI DETECTION
+Binning movie in chunks of length 05
+Binned movie of size [1688,970,604] created in 10.75 sec.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>c:\Users\RBO\miniforge3\envs\lsp\lib\site-packages\suite2p\detection\sparsedetect.py:286: UserWarning: Spatial scale estimation failed.  Setting spatial scale to 1 in order to continue.
+  warn(
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>NOTE: FORCED spatial scale ~6 pixels, time epochs 1.41, threshold 7.03 
+0 ROIs, score=229.48
+1000 ROIs, score=33.60
+2000 ROIs, score=23.22
+3000 ROIs, score=18.55
+4000 ROIs, score=16.05
+Detected 5000 ROIs, 101.63 sec
+After removing overlaps, 3024 ROIs remain
+----------- Total 116.97 sec.
+----------- EXTRACTION
+Masks created, 5.40 sec.
+Extracted fluorescence from 3024 ROIs in 8440 frames, 24.34 sec.
+----------- Total 30.32 sec.
+----------- CLASSIFICATION
+[&#39;npix_norm&#39;, &#39;compact&#39;, &#39;skew&#39;]
+----------- SPIKE DECONVOLUTION
+----------- Total 0.67 sec.
+Plane 13 processed in 508.11 sec (can open in GUI).
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; PLANE 14 &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+NOTE: not registered / registration forced with ops[&#39;do_registration&#39;]&gt;1
+      (no previous offsets to delete)
+NOTE: applying default C:\Users\RBO\.suite2p\classifiers\classifier_user.npy
+----------- REGISTRATION
+Reference frame, 16.68 sec.
+Registered 500/8440 in 18.24s
+Registered 1000/8440 in 36.13s
+Registered 1500/8440 in 54.15s
+Registered 2000/8440 in 72.28s
+Registered 2500/8440 in 90.32s
+Registered 3000/8440 in 108.21s
+Registered 3500/8440 in 126.36s
+Registered 4000/8440 in 144.15s
+Registered 4500/8440 in 162.06s
+Registered 5000/8440 in 180.13s
+Registered 5500/8440 in 198.29s
+Registered 6000/8440 in 216.17s
+Registered 6500/8440 in 234.34s
+Registered 7000/8440 in 252.36s
+Registered 7500/8440 in 270.18s
+Registered 8000/8440 in 288.14s
+Registered 8440/8440 in 303.96s
+----------- Total 331.70 sec
+Registration metrics, 27.13 sec.
+----------- ROI DETECTION
+Binning movie in chunks of length 05
+Binned movie of size [1688,962,596] created in 10.63 sec.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>c:\Users\RBO\miniforge3\envs\lsp\lib\site-packages\suite2p\detection\sparsedetect.py:286: UserWarning: Spatial scale estimation failed.  Setting spatial scale to 1 in order to continue.
+  warn(
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>NOTE: FORCED spatial scale ~6 pixels, time epochs 1.41, threshold 7.03 
+0 ROIs, score=238.75
+1000 ROIs, score=33.04
+2000 ROIs, score=23.01
+3000 ROIs, score=18.49
+4000 ROIs, score=15.91
+Detected 5000 ROIs, 100.90 sec
+After removing overlaps, 3045 ROIs remain
+----------- Total 116.09 sec.
+----------- EXTRACTION
+Masks created, 5.25 sec.
+Extracted fluorescence from 3045 ROIs in 8440 frames, 24.32 sec.
+----------- Total 30.25 sec.
+----------- CLASSIFICATION
+[&#39;npix_norm&#39;, &#39;compact&#39;, &#39;skew&#39;]
+----------- SPIKE DECONVOLUTION
+----------- Total 0.68 sec.
+Plane 14 processed in 506.46 sec (can open in GUI).
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; PLANE 15 &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+NOTE: not registered / registration forced with ops[&#39;do_registration&#39;]&gt;1
+      (no previous offsets to delete)
+NOTE: applying default C:\Users\RBO\.suite2p\classifiers\classifier_user.npy
+----------- REGISTRATION
+Reference frame, 16.60 sec.
+Registered 500/8440 in 17.99s
+Registered 1000/8440 in 35.99s
+Registered 1500/8440 in 53.99s
+Registered 2000/8440 in 71.96s
+Registered 2500/8440 in 90.16s
+Registered 3000/8440 in 108.23s
+Registered 3500/8440 in 126.15s
+Registered 4000/8440 in 144.14s
+Registered 4500/8440 in 162.11s
+Registered 5000/8440 in 180.03s
+Registered 5500/8440 in 198.05s
+Registered 6000/8440 in 216.07s
+Registered 6500/8440 in 234.12s
+Registered 7000/8440 in 252.17s
+Registered 7500/8440 in 270.13s
+Registered 8000/8440 in 288.14s
+Registered 8440/8440 in 303.68s
+----------- Total 331.35 sec
+Registration metrics, 27.19 sec.
+----------- ROI DETECTION
+Binning movie in chunks of length 05
+Binned movie of size [1688,960,594] created in 10.71 sec.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>c:\Users\RBO\miniforge3\envs\lsp\lib\site-packages\suite2p\detection\sparsedetect.py:286: UserWarning: Spatial scale estimation failed.  Setting spatial scale to 1 in order to continue.
+  warn(
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>NOTE: FORCED spatial scale ~6 pixels, time epochs 1.41, threshold 7.03 
+0 ROIs, score=238.45
+1000 ROIs, score=33.06
+2000 ROIs, score=22.66
+3000 ROIs, score=18.43
+4000 ROIs, score=15.83
+Detected 5000 ROIs, 106.41 sec
+After removing overlaps, 2996 ROIs remain
+----------- Total 121.81 sec.
+----------- EXTRACTION
+Masks created, 5.28 sec.
+Extracted fluorescence from 2996 ROIs in 8440 frames, 24.48 sec.
+----------- Total 30.33 sec.
+----------- CLASSIFICATION
+[&#39;npix_norm&#39;, &#39;compact&#39;, &#39;skew&#39;]
+----------- SPIKE DECONVOLUTION
+----------- Total 0.62 sec.
+Plane 15 processed in 511.71 sec (can open in GUI).
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; PLANE 16 &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+NOTE: not registered / registration forced with ops[&#39;do_registration&#39;]&gt;1
+      (no previous offsets to delete)
+NOTE: applying default C:\Users\RBO\.suite2p\classifiers\classifier_user.npy
+----------- REGISTRATION
+Reference frame, 16.62 sec.
+Registered 500/8440 in 18.21s
+Registered 1000/8440 in 36.26s
+Registered 1500/8440 in 54.24s
+Registered 2000/8440 in 72.16s
+Registered 2500/8440 in 90.31s
+Registered 3000/8440 in 108.39s
+Registered 3500/8440 in 126.39s
+Registered 4000/8440 in 144.27s
+Registered 4500/8440 in 162.32s
+Registered 5000/8440 in 180.46s
+Registered 5500/8440 in 198.46s
+Registered 6000/8440 in 216.61s
+Registered 6500/8440 in 234.66s
+Registered 7000/8440 in 252.58s
+Registered 7500/8440 in 270.77s
+Registered 8000/8440 in 288.62s
+Registered 8440/8440 in 304.43s
+----------- Total 332.07 sec
+Registration metrics, 28.42 sec.
+----------- ROI DETECTION
+Binning movie in chunks of length 05
+Binned movie of size [1688,968,604] created in 11.11 sec.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>c:\Users\RBO\miniforge3\envs\lsp\lib\site-packages\suite2p\detection\sparsedetect.py:286: UserWarning: Spatial scale estimation failed.  Setting spatial scale to 1 in order to continue.
+  warn(
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>NOTE: FORCED spatial scale ~6 pixels, time epochs 1.41, threshold 7.03 
+0 ROIs, score=222.27
+1000 ROIs, score=33.85
+2000 ROIs, score=23.15
+3000 ROIs, score=18.63
+4000 ROIs, score=16.17
+Detected 5000 ROIs, 107.17 sec
+After removing overlaps, 3045 ROIs remain
+----------- Total 123.91 sec.
+----------- EXTRACTION
+Masks created, 5.56 sec.
+Extracted fluorescence from 3045 ROIs in 8440 frames, 28.38 sec.
+----------- Total 40.39 sec.
+----------- CLASSIFICATION
+[&#39;npix_norm&#39;, &#39;compact&#39;, &#39;skew&#39;]
+----------- SPIKE DECONVOLUTION
+----------- Total 0.66 sec.
+Plane 16 processed in 525.87 sec (can open in GUI).
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; PLANE 17 &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+NOTE: not registered / registration forced with ops[&#39;do_registration&#39;]&gt;1
+      (no previous offsets to delete)
+NOTE: applying default C:\Users\RBO\.suite2p\classifiers\classifier_user.npy
+----------- REGISTRATION
+Reference frame, 16.76 sec.
+Registered 500/8440 in 18.20s
+Registered 1000/8440 in 36.40s
+Registered 1500/8440 in 54.67s
+Registered 2000/8440 in 72.94s
+Registered 2500/8440 in 91.17s
+Registered 3000/8440 in 109.01s
+Registered 3500/8440 in 126.88s
+Registered 4000/8440 in 144.86s
+Registered 4500/8440 in 162.88s
+Registered 5000/8440 in 180.76s
+Registered 5500/8440 in 198.94s
+Registered 6000/8440 in 217.01s
+Registered 6500/8440 in 234.91s
+Registered 7000/8440 in 253.02s
+Registered 7500/8440 in 271.01s
+Registered 8000/8440 in 288.79s
+Registered 8440/8440 in 304.73s
+----------- Total 332.59 sec
+Registration metrics, 28.20 sec.
+----------- ROI DETECTION
+Binning movie in chunks of length 05
+Binned movie of size [1688,974,604] created in 10.81 sec.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>c:\Users\RBO\miniforge3\envs\lsp\lib\site-packages\suite2p\detection\sparsedetect.py:286: UserWarning: Spatial scale estimation failed.  Setting spatial scale to 1 in order to continue.
+  warn(
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>NOTE: FORCED spatial scale ~6 pixels, time epochs 1.41, threshold 7.03 
+0 ROIs, score=234.06
+1000 ROIs, score=33.76
+2000 ROIs, score=23.35
+3000 ROIs, score=18.63
+4000 ROIs, score=16.23
+Detected 5000 ROIs, 105.18 sec
+After removing overlaps, 3032 ROIs remain
+----------- Total 120.67 sec.
+----------- EXTRACTION
+Masks created, 5.42 sec.
+Extracted fluorescence from 3032 ROIs in 8440 frames, 24.27 sec.
+----------- Total 30.37 sec.
+----------- CLASSIFICATION
+[&#39;npix_norm&#39;, &#39;compact&#39;, &#39;skew&#39;]
+----------- SPIKE DECONVOLUTION
+----------- Total 0.63 sec.
+Plane 17 processed in 512.91 sec (can open in GUI).
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; PLANE 18 &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+NOTE: not registered / registration forced with ops[&#39;do_registration&#39;]&gt;1
+      (no previous offsets to delete)
+NOTE: applying default C:\Users\RBO\.suite2p\classifiers\classifier_user.npy
+----------- REGISTRATION
+Reference frame, 16.67 sec.
+Registered 500/8440 in 18.42s
+Registered 1000/8440 in 36.42s
+Registered 1500/8440 in 54.58s
+Registered 2000/8440 in 72.51s
+Registered 2500/8440 in 90.41s
+Registered 3000/8440 in 108.52s
+Registered 3500/8440 in 126.40s
+Registered 4000/8440 in 144.40s
+Registered 4500/8440 in 162.39s
+Registered 5000/8440 in 180.27s
+Registered 5500/8440 in 198.40s
+Registered 6000/8440 in 216.38s
+Registered 6500/8440 in 234.40s
+Registered 7000/8440 in 252.51s
+Registered 7500/8440 in 270.60s
+Registered 8000/8440 in 288.50s
+Registered 8440/8440 in 304.53s
+----------- Total 332.39 sec
+Registration metrics, 27.78 sec.
+----------- ROI DETECTION
+Binning movie in chunks of length 05
+Binned movie of size [1688,966,596] created in 10.89 sec.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>c:\Users\RBO\miniforge3\envs\lsp\lib\site-packages\suite2p\detection\sparsedetect.py:286: UserWarning: Spatial scale estimation failed.  Setting spatial scale to 1 in order to continue.
+  warn(
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>NOTE: FORCED spatial scale ~6 pixels, time epochs 1.41, threshold 7.03 
+0 ROIs, score=228.92
+1000 ROIs, score=33.08
+2000 ROIs, score=22.81
+3000 ROIs, score=18.44
+4000 ROIs, score=15.95
+Detected 5000 ROIs, 100.24 sec
+After removing overlaps, 3078 ROIs remain
+----------- Total 115.78 sec.
+----------- EXTRACTION
+Masks created, 5.38 sec.
+Extracted fluorescence from 3078 ROIs in 8440 frames, 24.72 sec.
+----------- Total 30.67 sec.
+----------- CLASSIFICATION
+[&#39;npix_norm&#39;, &#39;compact&#39;, &#39;skew&#39;]
+----------- SPIKE DECONVOLUTION
+----------- Total 0.70 sec.
+Plane 18 processed in 507.72 sec (can open in GUI).
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; PLANE 19 &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+NOTE: not registered / registration forced with ops[&#39;do_registration&#39;]&gt;1
+      (no previous offsets to delete)
+NOTE: applying default C:\Users\RBO\.suite2p\classifiers\classifier_user.npy
+----------- REGISTRATION
+Reference frame, 16.90 sec.
+Registered 500/8440 in 19.49s
+Registered 1000/8440 in 37.78s
+Registered 1500/8440 in 55.75s
+Registered 2000/8440 in 73.81s
+Registered 2500/8440 in 91.85s
+Registered 3000/8440 in 109.96s
+Registered 3500/8440 in 127.95s
+Registered 4000/8440 in 145.96s
+Registered 4500/8440 in 164.13s
+Registered 5000/8440 in 182.25s
+Registered 5500/8440 in 200.42s
+Registered 6000/8440 in 218.56s
+Registered 6500/8440 in 236.70s
+Registered 7000/8440 in 254.83s
+Registered 7500/8440 in 272.96s
+Registered 8000/8440 in 290.84s
+Registered 8440/8440 in 306.73s
+----------- Total 334.75 sec
+Registration metrics, 28.11 sec.
+----------- ROI DETECTION
+Binning movie in chunks of length 05
+Binned movie of size [1688,968,598] created in 10.89 sec.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>c:\Users\RBO\miniforge3\envs\lsp\lib\site-packages\suite2p\detection\sparsedetect.py:286: UserWarning: Spatial scale estimation failed.  Setting spatial scale to 1 in order to continue.
+  warn(
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>NOTE: FORCED spatial scale ~6 pixels, time epochs 1.41, threshold 7.03 
+0 ROIs, score=247.28
+1000 ROIs, score=33.77
+2000 ROIs, score=23.09
+3000 ROIs, score=18.49
+4000 ROIs, score=15.96
+Detected 5000 ROIs, 103.87 sec
+After removing overlaps, 3033 ROIs remain
+----------- Total 119.44 sec.
+----------- EXTRACTION
+Masks created, 5.40 sec.
+Extracted fluorescence from 3033 ROIs in 8440 frames, 24.17 sec.
+----------- Total 30.39 sec.
+----------- CLASSIFICATION
+[&#39;npix_norm&#39;, &#39;compact&#39;, &#39;skew&#39;]
+----------- SPIKE DECONVOLUTION
+----------- Total 0.65 sec.
+Plane 19 processed in 514.02 sec (can open in GUI).
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; PLANE 20 &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+NOTE: not registered / registration forced with ops[&#39;do_registration&#39;]&gt;1
+      (no previous offsets to delete)
+NOTE: applying default C:\Users\RBO\.suite2p\classifiers\classifier_user.npy
+----------- REGISTRATION
+Reference frame, 17.18 sec.
+Registered 500/8440 in 19.44s
+Registered 1000/8440 in 37.90s
+Registered 1500/8440 in 56.74s
+Registered 2000/8440 in 74.92s
+Registered 2500/8440 in 93.13s
+Registered 3000/8440 in 111.20s
+Registered 3500/8440 in 129.35s
+Registered 4000/8440 in 147.43s
+Registered 4500/8440 in 165.38s
+Registered 5000/8440 in 183.32s
+Registered 5500/8440 in 201.18s
+Registered 6000/8440 in 219.40s
+Registered 6500/8440 in 237.35s
+Registered 7000/8440 in 255.30s
+Registered 7500/8440 in 273.30s
+Registered 8000/8440 in 291.26s
+Registered 8440/8440 in 307.19s
+----------- Total 335.47 sec
+Registration metrics, 27.93 sec.
+----------- ROI DETECTION
+Binning movie in chunks of length 05
+Binned movie of size [1688,970,600] created in 10.74 sec.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>c:\Users\RBO\miniforge3\envs\lsp\lib\site-packages\suite2p\detection\sparsedetect.py:286: UserWarning: Spatial scale estimation failed.  Setting spatial scale to 1 in order to continue.
+  warn(
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>NOTE: FORCED spatial scale ~6 pixels, time epochs 1.41, threshold 7.03 
+0 ROIs, score=232.47
+1000 ROIs, score=32.40
+2000 ROIs, score=22.89
+3000 ROIs, score=18.52
+4000 ROIs, score=16.00
+Detected 5000 ROIs, 105.73 sec
+After removing overlaps, 3081 ROIs remain
+----------- Total 121.12 sec.
+----------- EXTRACTION
+Masks created, 5.33 sec.
+Extracted fluorescence from 3081 ROIs in 8440 frames, 24.26 sec.
+----------- Total 30.20 sec.
+----------- CLASSIFICATION
+[&#39;npix_norm&#39;, &#39;compact&#39;, &#39;skew&#39;]
+----------- SPIKE DECONVOLUTION
+----------- Total 0.68 sec.
+Plane 20 processed in 515.89 sec (can open in GUI).
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; PLANE 21 &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+NOTE: not registered / registration forced with ops[&#39;do_registration&#39;]&gt;1
+      (no previous offsets to delete)
+NOTE: applying default C:\Users\RBO\.suite2p\classifiers\classifier_user.npy
+----------- REGISTRATION
+Reference frame, 16.51 sec.
+Registered 500/8440 in 18.46s
+Registered 1000/8440 in 36.46s
+Registered 1500/8440 in 54.43s
+Registered 2000/8440 in 72.29s
+Registered 2500/8440 in 90.36s
+Registered 3000/8440 in 108.32s
+Registered 3500/8440 in 126.33s
+Registered 4000/8440 in 144.25s
+Registered 4500/8440 in 162.17s
+Registered 5000/8440 in 180.10s
+Registered 5500/8440 in 198.00s
+Registered 6000/8440 in 216.12s
+Registered 6500/8440 in 234.07s
+Registered 7000/8440 in 252.15s
+Registered 7500/8440 in 270.06s
+Registered 8000/8440 in 288.15s
+Registered 8440/8440 in 303.86s
+----------- Total 331.43 sec
+Registration metrics, 27.87 sec.
+----------- ROI DETECTION
+Binning movie in chunks of length 05
+Binned movie of size [1688,968,602] created in 10.95 sec.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>c:\Users\RBO\miniforge3\envs\lsp\lib\site-packages\suite2p\detection\sparsedetect.py:286: UserWarning: Spatial scale estimation failed.  Setting spatial scale to 1 in order to continue.
+  warn(
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>NOTE: FORCED spatial scale ~6 pixels, time epochs 1.41, threshold 7.03 
+0 ROIs, score=222.45
+1000 ROIs, score=32.91
+2000 ROIs, score=23.02
+3000 ROIs, score=18.55
+4000 ROIs, score=16.03
+Detected 5000 ROIs, 98.75 sec
+After removing overlaps, 3111 ROIs remain
+----------- Total 114.30 sec.
+----------- EXTRACTION
+Masks created, 5.41 sec.
+Extracted fluorescence from 3111 ROIs in 8440 frames, 24.26 sec.
+----------- Total 30.25 sec.
+----------- CLASSIFICATION
+[&#39;npix_norm&#39;, &#39;compact&#39;, &#39;skew&#39;]
+----------- SPIKE DECONVOLUTION
+----------- Total 0.68 sec.
+Plane 21 processed in 504.94 sec (can open in GUI).
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; PLANE 22 &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+NOTE: not registered / registration forced with ops[&#39;do_registration&#39;]&gt;1
+      (no previous offsets to delete)
+NOTE: applying default C:\Users\RBO\.suite2p\classifiers\classifier_user.npy
+----------- REGISTRATION
+Reference frame, 16.51 sec.
+Registered 500/8440 in 18.27s
+Registered 1000/8440 in 36.10s
+Registered 1500/8440 in 54.05s
+Registered 2000/8440 in 72.04s
+Registered 2500/8440 in 90.20s
+Registered 3000/8440 in 108.18s
+Registered 3500/8440 in 126.26s
+Registered 4000/8440 in 144.20s
+Registered 4500/8440 in 162.21s
+Registered 5000/8440 in 180.14s
+Registered 5500/8440 in 198.25s
+Registered 6000/8440 in 216.37s
+Registered 6500/8440 in 234.36s
+Registered 7000/8440 in 252.38s
+Registered 7500/8440 in 270.41s
+Registered 8000/8440 in 288.36s
+Registered 8440/8440 in 304.32s
+----------- Total 332.13 sec
+Registration metrics, 28.50 sec.
+----------- ROI DETECTION
+Binning movie in chunks of length 05
+Binned movie of size [1688,972,604] created in 10.92 sec.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>c:\Users\RBO\miniforge3\envs\lsp\lib\site-packages\suite2p\detection\sparsedetect.py:286: UserWarning: Spatial scale estimation failed.  Setting spatial scale to 1 in order to continue.
+  warn(
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>NOTE: FORCED spatial scale ~6 pixels, time epochs 1.41, threshold 7.03 
+0 ROIs, score=221.90
+1000 ROIs, score=33.17
+2000 ROIs, score=22.73
+3000 ROIs, score=18.39
+4000 ROIs, score=15.88
+Detected 5000 ROIs, 103.42 sec
+After removing overlaps, 3003 ROIs remain
+----------- Total 119.15 sec.
+----------- EXTRACTION
+Masks created, 5.37 sec.
+Extracted fluorescence from 3003 ROIs in 8440 frames, 24.18 sec.
+----------- Total 30.12 sec.
+----------- CLASSIFICATION
+[&#39;npix_norm&#39;, &#39;compact&#39;, &#39;skew&#39;]
+----------- SPIKE DECONVOLUTION
+----------- Total 0.62 sec.
+Plane 22 processed in 510.93 sec (can open in GUI).
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; PLANE 23 &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+NOTE: not registered / registration forced with ops[&#39;do_registration&#39;]&gt;1
+      (no previous offsets to delete)
+NOTE: applying default C:\Users\RBO\.suite2p\classifiers\classifier_user.npy
+----------- REGISTRATION
+Reference frame, 16.67 sec.
+Registered 500/8440 in 17.93s
+Registered 1000/8440 in 35.85s
+Registered 1500/8440 in 53.81s
+Registered 2000/8440 in 71.94s
+Registered 2500/8440 in 90.09s
+Registered 3000/8440 in 108.20s
+Registered 3500/8440 in 126.27s
+Registered 4000/8440 in 144.22s
+Registered 4500/8440 in 162.08s
+Registered 5000/8440 in 180.18s
+Registered 5500/8440 in 198.30s
+Registered 6000/8440 in 216.46s
+Registered 6500/8440 in 234.36s
+Registered 7000/8440 in 252.35s
+Registered 7500/8440 in 270.38s
+Registered 8000/8440 in 288.32s
+Registered 8440/8440 in 304.17s
+----------- Total 331.95 sec
+Registration metrics, 27.99 sec.
+----------- ROI DETECTION
+Binning movie in chunks of length 05
+Binned movie of size [1688,968,602] created in 10.88 sec.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>c:\Users\RBO\miniforge3\envs\lsp\lib\site-packages\suite2p\detection\sparsedetect.py:286: UserWarning: Spatial scale estimation failed.  Setting spatial scale to 1 in order to continue.
+  warn(
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>NOTE: FORCED spatial scale ~6 pixels, time epochs 1.41, threshold 7.03 
+0 ROIs, score=229.37
+1000 ROIs, score=32.99
+2000 ROIs, score=22.92
+3000 ROIs, score=18.59
+4000 ROIs, score=16.10
+Detected 5000 ROIs, 99.11 sec
+After removing overlaps, 3052 ROIs remain
+----------- Total 114.62 sec.
+----------- EXTRACTION
+Masks created, 5.29 sec.
+Extracted fluorescence from 3052 ROIs in 8440 frames, 24.77 sec.
+----------- Total 30.65 sec.
+----------- CLASSIFICATION
+[&#39;npix_norm&#39;, &#39;compact&#39;, &#39;skew&#39;]
+----------- SPIKE DECONVOLUTION
+----------- Total 0.66 sec.
+Plane 23 processed in 506.28 sec (can open in GUI).
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; PLANE 24 &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+NOTE: not registered / registration forced with ops[&#39;do_registration&#39;]&gt;1
+      (no previous offsets to delete)
+NOTE: applying default C:\Users\RBO\.suite2p\classifiers\classifier_user.npy
+----------- REGISTRATION
+Reference frame, 16.63 sec.
+Registered 500/8440 in 18.06s
+Registered 1000/8440 in 36.27s
+Registered 1500/8440 in 54.25s
+Registered 2000/8440 in 72.33s
+Registered 2500/8440 in 90.39s
+Registered 3000/8440 in 108.37s
+Registered 3500/8440 in 126.27s
+Registered 4000/8440 in 144.30s
+Registered 4500/8440 in 162.31s
+Registered 5000/8440 in 180.45s
+Registered 5500/8440 in 198.54s
+Registered 6000/8440 in 216.59s
+Registered 6500/8440 in 234.57s
+Registered 7000/8440 in 252.52s
+Registered 7500/8440 in 270.49s
+Registered 8000/8440 in 288.40s
+Registered 8440/8440 in 304.30s
+----------- Total 332.05 sec
+Registration metrics, 27.98 sec.
+----------- ROI DETECTION
+Binning movie in chunks of length 05
+Binned movie of size [1688,968,600] created in 10.76 sec.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>c:\Users\RBO\miniforge3\envs\lsp\lib\site-packages\suite2p\detection\sparsedetect.py:286: UserWarning: Spatial scale estimation failed.  Setting spatial scale to 1 in order to continue.
+  warn(
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>NOTE: FORCED spatial scale ~6 pixels, time epochs 1.41, threshold 7.03 
+0 ROIs, score=226.07
+1000 ROIs, score=33.55
+2000 ROIs, score=23.23
+3000 ROIs, score=18.81
+4000 ROIs, score=16.08
+Detected 5000 ROIs, 102.86 sec
+After removing overlaps, 3071 ROIs remain
+----------- Total 118.23 sec.
+----------- EXTRACTION
+Masks created, 5.27 sec.
+Extracted fluorescence from 3071 ROIs in 8440 frames, 24.32 sec.
+----------- Total 30.16 sec.
+----------- CLASSIFICATION
+[&#39;npix_norm&#39;, &#39;compact&#39;, &#39;skew&#39;]
+----------- SPIKE DECONVOLUTION
+----------- Total 0.70 sec.
+Plane 24 processed in 509.53 sec (can open in GUI).
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; PLANE 25 &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+NOTE: not registered / registration forced with ops[&#39;do_registration&#39;]&gt;1
+      (no previous offsets to delete)
+NOTE: applying default C:\Users\RBO\.suite2p\classifiers\classifier_user.npy
+----------- REGISTRATION
+Reference frame, 16.67 sec.
+Registered 500/8440 in 17.97s
+Registered 1000/8440 in 35.82s
+Registered 1500/8440 in 53.89s
+Registered 2000/8440 in 71.77s
+Registered 2500/8440 in 89.81s
+Registered 3000/8440 in 107.89s
+Registered 3500/8440 in 125.74s
+Registered 4000/8440 in 143.99s
+Registered 4500/8440 in 162.03s
+Registered 5000/8440 in 180.12s
+Registered 5500/8440 in 197.90s
+Registered 6000/8440 in 215.96s
+Registered 6500/8440 in 233.80s
+Registered 7000/8440 in 251.99s
+Registered 7500/8440 in 269.90s
+Registered 8000/8440 in 287.94s
+Registered 8440/8440 in 303.86s
+----------- Total 331.57 sec
+Registration metrics, 28.19 sec.
+----------- ROI DETECTION
+Binning movie in chunks of length 05
+Binned movie of size [1688,970,604] created in 10.91 sec.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>c:\Users\RBO\miniforge3\envs\lsp\lib\site-packages\suite2p\detection\sparsedetect.py:286: UserWarning: Spatial scale estimation failed.  Setting spatial scale to 1 in order to continue.
+  warn(
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>NOTE: FORCED spatial scale ~6 pixels, time epochs 1.41, threshold 7.03 
+0 ROIs, score=230.25
+1000 ROIs, score=33.57
+2000 ROIs, score=23.19
+3000 ROIs, score=18.71
+4000 ROIs, score=16.06
+Detected 5000 ROIs, 100.47 sec
+After removing overlaps, 3024 ROIs remain
+----------- Total 116.00 sec.
+----------- EXTRACTION
+Masks created, 5.26 sec.
+Extracted fluorescence from 3024 ROIs in 8440 frames, 24.16 sec.
+----------- Total 29.99 sec.
+----------- CLASSIFICATION
+[&#39;npix_norm&#39;, &#39;compact&#39;, &#39;skew&#39;]
+----------- SPIKE DECONVOLUTION
+----------- Total 0.64 sec.
+Plane 25 processed in 506.80 sec (can open in GUI).
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; PLANE 26 &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+NOTE: not registered / registration forced with ops[&#39;do_registration&#39;]&gt;1
+      (no previous offsets to delete)
+NOTE: applying default C:\Users\RBO\.suite2p\classifiers\classifier_user.npy
+----------- REGISTRATION
+Reference frame, 16.72 sec.
+Registered 500/8440 in 18.10s
+Registered 1000/8440 in 36.25s
+Registered 1500/8440 in 54.22s
+Registered 2000/8440 in 72.26s
+Registered 2500/8440 in 90.34s
+Registered 3000/8440 in 108.34s
+Registered 3500/8440 in 126.39s
+Registered 4000/8440 in 144.41s
+Registered 4500/8440 in 162.38s
+Registered 5000/8440 in 180.39s
+Registered 5500/8440 in 198.44s
+Registered 6000/8440 in 216.52s
+Registered 6500/8440 in 234.43s
+Registered 7000/8440 in 252.27s
+Registered 7500/8440 in 270.15s
+Registered 8000/8440 in 288.29s
+Registered 8440/8440 in 304.16s
+----------- Total 331.92 sec
+Registration metrics, 27.77 sec.
+----------- ROI DETECTION
+Binning movie in chunks of length 05
+Binned movie of size [1688,972,598] created in 10.70 sec.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>c:\Users\RBO\miniforge3\envs\lsp\lib\site-packages\suite2p\detection\sparsedetect.py:286: UserWarning: Spatial scale estimation failed.  Setting spatial scale to 1 in order to continue.
+  warn(
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>NOTE: FORCED spatial scale ~6 pixels, time epochs 1.41, threshold 7.03 
+0 ROIs, score=229.13
+1000 ROIs, score=33.53
+2000 ROIs, score=23.04
+3000 ROIs, score=18.52
+4000 ROIs, score=16.12
+Detected 5000 ROIs, 111.66 sec
+After removing overlaps, 3047 ROIs remain
+----------- Total 126.97 sec.
+----------- EXTRACTION
+Masks created, 5.25 sec.
+Extracted fluorescence from 3047 ROIs in 8440 frames, 24.67 sec.
+----------- Total 30.50 sec.
+----------- CLASSIFICATION
+[&#39;npix_norm&#39;, &#39;compact&#39;, &#39;skew&#39;]
+----------- SPIKE DECONVOLUTION
+----------- Total 0.65 sec.
+Plane 26 processed in 518.21 sec (can open in GUI).
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; PLANE 27 &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+NOTE: not registered / registration forced with ops[&#39;do_registration&#39;]&gt;1
+      (no previous offsets to delete)
+NOTE: applying default C:\Users\RBO\.suite2p\classifiers\classifier_user.npy
+----------- REGISTRATION
+Reference frame, 16.51 sec.
+Registered 500/8440 in 18.38s
+Registered 1000/8440 in 36.34s
+Registered 1500/8440 in 54.22s
+Registered 2000/8440 in 72.24s
+Registered 2500/8440 in 90.43s
+Registered 3000/8440 in 108.37s
+Registered 3500/8440 in 126.42s
+Registered 4000/8440 in 144.51s
+Registered 4500/8440 in 162.46s
+Registered 5000/8440 in 180.35s
+Registered 5500/8440 in 198.32s
+Registered 6000/8440 in 216.47s
+Registered 6500/8440 in 234.50s
+Registered 7000/8440 in 252.56s
+Registered 7500/8440 in 270.63s
+Registered 8000/8440 in 288.59s
+Registered 8440/8440 in 304.58s
+----------- Total 332.18 sec
+Registration metrics, 27.88 sec.
+----------- ROI DETECTION
+Binning movie in chunks of length 05
+Binned movie of size [1688,968,598] created in 10.73 sec.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>c:\Users\RBO\miniforge3\envs\lsp\lib\site-packages\suite2p\detection\sparsedetect.py:286: UserWarning: Spatial scale estimation failed.  Setting spatial scale to 1 in order to continue.
+  warn(
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>NOTE: FORCED spatial scale ~6 pixels, time epochs 1.41, threshold 7.03 
+0 ROIs, score=240.97
+1000 ROIs, score=33.22
+2000 ROIs, score=22.79
+3000 ROIs, score=18.34
+4000 ROIs, score=15.88
+Detected 5000 ROIs, 106.06 sec
+After removing overlaps, 3023 ROIs remain
+----------- Total 121.46 sec.
+----------- EXTRACTION
+Masks created, 5.39 sec.
+Extracted fluorescence from 3023 ROIs in 8440 frames, 24.25 sec.
+----------- Total 30.23 sec.
+----------- CLASSIFICATION
+[&#39;npix_norm&#39;, &#39;compact&#39;, &#39;skew&#39;]
+----------- SPIKE DECONVOLUTION
+----------- Total 0.65 sec.
+Plane 27 processed in 512.82 sec (can open in GUI).
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; PLANE 28 &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+NOTE: not registered / registration forced with ops[&#39;do_registration&#39;]&gt;1
+      (no previous offsets to delete)
+NOTE: applying default C:\Users\RBO\.suite2p\classifiers\classifier_user.npy
+----------- REGISTRATION
+Reference frame, 16.81 sec.
+Registered 500/8440 in 18.00s
+Registered 1000/8440 in 36.15s
+Registered 1500/8440 in 54.26s
+Registered 2000/8440 in 72.46s
+Registered 2500/8440 in 90.51s
+Registered 3000/8440 in 108.48s
+Registered 3500/8440 in 126.49s
+Registered 4000/8440 in 144.66s
+Registered 4500/8440 in 162.63s
+Registered 5000/8440 in 180.66s
+Registered 5500/8440 in 198.63s
+Registered 6000/8440 in 216.83s
+Registered 6500/8440 in 234.72s
+Registered 7000/8440 in 252.76s
+Registered 7500/8440 in 270.92s
+Registered 8000/8440 in 289.03s
+Registered 8440/8440 in 304.91s
+----------- Total 332.85 sec
+Registration metrics, 28.43 sec.
+----------- ROI DETECTION
+Binning movie in chunks of length 05
+Binned movie of size [1688,978,612] created in 11.10 sec.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>c:\Users\RBO\miniforge3\envs\lsp\lib\site-packages\suite2p\detection\sparsedetect.py:286: UserWarning: Spatial scale estimation failed.  Setting spatial scale to 1 in order to continue.
+  warn(
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>NOTE: FORCED spatial scale ~6 pixels, time epochs 1.41, threshold 7.03 
+0 ROIs, score=235.22
+1000 ROIs, score=32.58
+2000 ROIs, score=23.28
+3000 ROIs, score=19.10
+4000 ROIs, score=16.48
+Detected 5000 ROIs, 95.40 sec
+After removing overlaps, 3265 ROIs remain
+----------- Total 111.18 sec.
+----------- EXTRACTION
+Masks created, 5.46 sec.
+Extracted fluorescence from 3265 ROIs in 8440 frames, 25.14 sec.
+----------- Total 31.19 sec.
+----------- CLASSIFICATION
+[&#39;npix_norm&#39;, &#39;compact&#39;, &#39;skew&#39;]
+----------- SPIKE DECONVOLUTION
+----------- Total 0.72 sec.
+Plane 28 processed in 504.83 sec (can open in GUI).
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; PLANE 29 &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+NOTE: not registered / registration forced with ops[&#39;do_registration&#39;]&gt;1
+      (no previous offsets to delete)
+NOTE: applying default C:\Users\RBO\.suite2p\classifiers\classifier_user.npy
+----------- REGISTRATION
+Reference frame, 16.63 sec.
+Registered 500/8440 in 18.01s
+Registered 1000/8440 in 36.03s
+Registered 1500/8440 in 53.92s
+Registered 2000/8440 in 71.88s
+Registered 2500/8440 in 89.95s
+Registered 3000/8440 in 107.88s
+Registered 3500/8440 in 126.10s
+Registered 4000/8440 in 144.01s
+Registered 4500/8440 in 161.97s
+Registered 5000/8440 in 179.98s
+Registered 5500/8440 in 197.99s
+Registered 6000/8440 in 215.97s
+Registered 6500/8440 in 233.85s
+Registered 7000/8440 in 251.99s
+Registered 7500/8440 in 269.90s
+Registered 8000/8440 in 287.98s
+Registered 8440/8440 in 303.64s
+----------- Total 331.35 sec
+Registration metrics, 28.20 sec.
+----------- ROI DETECTION
+Binning movie in chunks of length 05
+Binned movie of size [1688,974,604] created in 10.86 sec.
+</pre></div>
+</div>
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>c:\Users\RBO\miniforge3\envs\lsp\lib\site-packages\suite2p\detection\sparsedetect.py:286: UserWarning: Spatial scale estimation failed.  Setting spatial scale to 1 in order to continue.
+  warn(
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>NOTE: FORCED spatial scale ~6 pixels, time epochs 1.41, threshold 7.03 
+0 ROIs, score=220.02
+1000 ROIs, score=32.82
+2000 ROIs, score=22.67
+3000 ROIs, score=18.38
+4000 ROIs, score=15.99
+Detected 5000 ROIs, 105.10 sec
+After removing overlaps, 3105 ROIs remain
+----------- Total 120.58 sec.
+----------- EXTRACTION
+Masks created, 5.49 sec.
+Extracted fluorescence from 3105 ROIs in 8440 frames, 24.52 sec.
+----------- Total 30.64 sec.
+----------- CLASSIFICATION
+[&#39;npix_norm&#39;, &#39;compact&#39;, &#39;skew&#39;]
+----------- SPIKE DECONVOLUTION
+----------- Total 0.65 sec.
+Plane 29 processed in 511.85 sec (can open in GUI).
+total = 15979.85 sec.
+Creating combined view
+</pre></div>
+</div>
+<div class="output traceback highlight-ipythontb notranslate"><div class="highlight"><pre><span></span><span class="gt">---------------------------------------------------------------------------</span>
+<span class="ne">IndexError</span><span class="g g-Whitespace">                                </span>Traceback (most recent call last)
+<span class="n">Cell</span> <span class="n">In</span><span class="p">[</span><span class="mi">57</span><span class="p">],</span> <span class="n">line</span> <span class="mi">1</span>
+<span class="ne">----&gt; </span><span class="mi">1</span> <span class="n">output_ops</span> <span class="o">=</span> <span class="n">suite2p</span><span class="o">.</span><span class="n">run_s2p</span><span class="p">(</span><span class="n">ops</span><span class="o">=</span><span class="n">ops</span><span class="p">,</span> <span class="n">db</span><span class="o">=</span><span class="n">db</span><span class="p">)</span>
+
+<span class="nn">File c:\Users\RBO\miniforge3\envs\lsp\lib\site-packages\suite2p\run_s2p.py:559,</span> in <span class="ni">run_s2p</span><span class="nt">(ops, db, server)</span>
+<span class="g g-Whitespace">    </span><span class="mi">557</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ops_paths</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">ops</span><span class="p">[</span><span class="s2">&quot;combined&quot;</span><span class="p">]</span> <span class="ow">and</span> <span class="n">ops</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;roidetect&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">):</span>
+<span class="g g-Whitespace">    </span><span class="mi">558</span>     <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Creating combined view&quot;</span><span class="p">)</span>
+<span class="ne">--&gt; </span><span class="mi">559</span>     <span class="n">io</span><span class="o">.</span><span class="n">combined</span><span class="p">(</span><span class="n">save_folder</span><span class="p">,</span> <span class="n">save</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="g g-Whitespace">    </span><span class="mi">561</span> <span class="c1"># save to NWB</span>
+<span class="g g-Whitespace">    </span><span class="mi">562</span> <span class="k">if</span> <span class="n">ops</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;save_NWB&quot;</span><span class="p">):</span>
+
+<span class="nn">File c:\Users\RBO\miniforge3\envs\lsp\lib\site-packages\suite2p\io\save.py:130,</span> in <span class="ni">combined</span><span class="nt">(save_folder, save)</span>
+<span class="g g-Whitespace">    </span><span class="mi">128</span> <span class="n">xrange</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">dx</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="n">dx</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">+</span> <span class="n">Lx</span><span class="p">[</span><span class="n">k</span><span class="p">])</span>
+<span class="g g-Whitespace">    </span><span class="mi">129</span> <span class="n">yrange</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">dy</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="n">dy</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">+</span> <span class="n">Ly</span><span class="p">[</span><span class="n">k</span><span class="p">])</span>
+<span class="ne">--&gt; </span><span class="mi">130</span> <span class="n">meanImg</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ix_</span><span class="p">(</span><span class="n">yrange</span><span class="p">,</span> <span class="n">xrange</span><span class="p">)]</span> <span class="o">=</span> <span class="n">ops</span><span class="p">[</span><span class="s2">&quot;meanImg&quot;</span><span class="p">]</span>
+<span class="g g-Whitespace">    </span><span class="mi">131</span> <span class="n">meanImgE</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ix_</span><span class="p">(</span><span class="n">yrange</span><span class="p">,</span> <span class="n">xrange</span><span class="p">)]</span> <span class="o">=</span> <span class="n">ops</span><span class="p">[</span><span class="s2">&quot;meanImgE&quot;</span><span class="p">]</span>
+<span class="g g-Whitespace">    </span><span class="mi">132</span> <span class="k">if</span> <span class="n">ops</span><span class="p">[</span><span class="s2">&quot;nchannels&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+
+<span class="ne">IndexError</span>: arrays used as indices must be of integer (or boolean) type
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">list</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">output_ops</span><span class="p">[</span><span class="s1">&#39;save_path&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">iterdir</span><span class="p">())</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/results_singlefile/suite2p/plane0/data.bin&#39;),
+ WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/results_singlefile/suite2p/plane0/F.npy&#39;),
+ WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/results_singlefile/suite2p/plane0/Fneu.npy&#39;),
+ WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/results_singlefile/suite2p/plane0/iscell.npy&#39;),
+ WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/results_singlefile/suite2p/plane0/ops.npy&#39;),
+ WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/results_singlefile/suite2p/plane0/spks.npy&#39;),
+ WindowsPath(&#39;E:/datasets/single_hemisphere/zplanes/results_singlefile/suite2p/plane0/stat.npy&#39;)]
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">output_op_file</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">output_ops</span><span class="p">[</span><span class="s1">&#39;save_path&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s1">&#39;ops.npy&#39;</span><span class="p">),</span> <span class="n">allow_pickle</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+<span class="n">output_op_file</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="o">==</span> <span class="n">output_ops</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>True
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">output_ops</span><span class="p">[</span><span class="s1">&#39;refImg&#39;</span><span class="p">],</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">,</span> <span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">&quot;Reference Image for Registration&quot;</span><span class="p">);</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">output_ops</span><span class="p">[</span><span class="s1">&#39;max_proj&#39;</span><span class="p">],</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">&quot;Registered Image, Max Projection&quot;</span><span class="p">);</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">output_ops</span><span class="p">[</span><span class="s1">&#39;meanImg&#39;</span><span class="p">],</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">&quot;Mean registered image&quot;</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">output_ops</span><span class="p">[</span><span class="s1">&#39;meanImgE&#39;</span><span class="p">],</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">&quot;High-pass filtered Mean registered image&quot;</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<img alt="../../_images/ec08f717f78bd2447eac4d90ee2b726c4113505705a128523c958b422ba771d3.png" src="../../_images/ec08f717f78bd2447eac4d90ee2b726c4113505705a128523c958b422ba771d3.png" />
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">stats_file</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_ops</span><span class="p">[</span><span class="s1">&#39;save_path&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s1">&#39;stat.npy&#39;</span><span class="p">)</span>
+<span class="n">iscell</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">output_ops</span><span class="p">[</span><span class="s1">&#39;save_path&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s1">&#39;iscell.npy&#39;</span><span class="p">),</span> <span class="n">allow_pickle</span><span class="o">=</span><span class="kc">True</span><span class="p">)[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span>
+<span class="n">stats</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">stats_file</span><span class="p">,</span> <span class="n">allow_pickle</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">stats</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">iscell</span><span class="o">.</span><span class="n">shape</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>((4409,), (4409,))
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">im</span> <span class="o">=</span> <span class="n">suite2p</span><span class="o">.</span><span class="n">ROI</span><span class="o">.</span><span class="n">stats_dicts_to_3d_array</span><span class="p">(</span><span class="n">stats</span><span class="p">,</span> <span class="n">Ly</span><span class="o">=</span><span class="n">output_ops</span><span class="p">[</span><span class="s1">&#39;Ly&#39;</span><span class="p">],</span> <span class="n">Lx</span><span class="o">=</span><span class="n">output_ops</span><span class="p">[</span><span class="s1">&#39;Lx&#39;</span><span class="p">],</span> <span class="n">label_id</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">im</span><span class="p">[</span><span class="n">im</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">output_ops</span><span class="p">[</span><span class="s1">&#39;max_proj&#39;</span><span class="p">],</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">&quot;Registered Image, Max Projection&quot;</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanmax</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;jet&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">&quot;All ROIs Found&quot;</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanmax</span><span class="p">(</span><span class="n">im</span><span class="p">[</span><span class="o">~</span><span class="n">iscell</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="p">),</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;jet&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">&quot;All Non-Cell ROIs&quot;</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanmax</span><span class="p">(</span><span class="n">im</span><span class="p">[</span><span class="n">iscell</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;jet&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">&quot;All Cell ROIs&quot;</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>C:\Users\RBO\AppData\Local\Temp\ipykernel_1956\2986013853.py:9: RuntimeWarning: All-NaN slice encountered
+  plt.imshow(np.nanmax(im, axis=0), cmap=&#39;jet&#39;)
+C:\Users\RBO\AppData\Local\Temp\ipykernel_1956\2986013853.py:13: RuntimeWarning: All-NaN slice encountered
+  plt.imshow(np.nanmax(im[~iscell], axis=0, ), cmap=&#39;jet&#39;)
+C:\Users\RBO\AppData\Local\Temp\ipykernel_1956\2986013853.py:17: RuntimeWarning: All-NaN slice encountered
+  plt.imshow(np.nanmax(im[iscell], axis=0), cmap=&#39;jet&#39;)
+</pre></div>
+</div>
+<img alt="../../_images/8e658ff829f234542d01e51ff8104f62e64b13d13adce775d03b219750814ef2.png" src="../../_images/8e658ff829f234542d01e51ff8104f62e64b13d13adce775d03b219750814ef2.png" />
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">f_cells</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">output_ops</span><span class="p">[</span><span class="s1">&#39;save_path&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s1">&#39;F.npy&#39;</span><span class="p">))</span>
+<span class="n">f_neuropils</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">output_ops</span><span class="p">[</span><span class="s1">&#39;save_path&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s1">&#39;Fneu.npy&#39;</span><span class="p">))</span>
+<span class="n">spks</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">output_ops</span><span class="p">[</span><span class="s1">&#39;save_path&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s1">&#39;spks.npy&#39;</span><span class="p">))</span>
+<span class="n">f_cells</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">f_neuropils</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">spks</span><span class="o">.</span><span class="n">shape</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>((4409, 8440), (4409, 8440), (4409, 8440))
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="nb">len</span><span class="p">(</span><span class="n">iscell</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>4589
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">im</span><span class="p">[</span><span class="n">iscell</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>(741, 1000, 720)
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">[</span><span class="mi">20</span><span class="p">,</span><span class="mi">20</span><span class="p">])</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="s2">&quot;Flourescence and Deconvolved Traces for Different ROIs&quot;</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">0.92</span><span class="p">);</span>
+<span class="n">rois</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">f_cells</span><span class="p">))[::</span><span class="mi">800</span><span class="p">]</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">roi</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">rois</span><span class="p">):</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">rois</span><span class="p">),</span> <span class="mi">1</span><span class="p">,</span> <span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="p">)</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="n">f_cells</span><span class="p">[</span><span class="n">roi</span><span class="p">]</span>
+    <span class="n">f_neu</span> <span class="o">=</span> <span class="n">f_neuropils</span><span class="p">[</span><span class="n">roi</span><span class="p">]</span>
+    <span class="n">sp</span> <span class="o">=</span> <span class="n">spks</span><span class="p">[</span><span class="n">roi</span><span class="p">]</span>
+    <span class="c1"># Adjust spks range to match range of fluroescence traces</span>
+    <span class="n">fmax</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="n">f_neu</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+    <span class="n">fmin</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">f_neu</span><span class="o">.</span><span class="n">min</span><span class="p">())</span>
+    <span class="n">frange</span> <span class="o">=</span> <span class="n">fmax</span> <span class="o">-</span> <span class="n">fmin</span>
+    <span class="n">sp</span> <span class="o">/=</span> <span class="n">sp</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+    <span class="n">sp</span> <span class="o">*=</span> <span class="n">frange</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Cell Fluorescence&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">f_neu</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Neuropil Fluorescence&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">sp</span> <span class="o">+</span> <span class="n">fmin</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Deconvolved&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">xticks</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">f_cells</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">f_cells</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">/</span><span class="mi">10</span><span class="p">))</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;ROI </span><span class="si">{</span><span class="n">roi</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">rotation</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&quot;frame&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">bbox_to_anchor</span><span class="o">=</span><span class="p">(</span><span class="mf">0.93</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<img alt="../../_images/c5186230558f7460f784de10407216151e96e50288faeaf0afd07e9a51434b97.png" src="../../_images/c5186230558f7460f784de10407216151e96e50288faeaf0afd07e9a51434b97.png" />
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">output_ops</span><span class="p">[</span><span class="s1">&#39;save_path&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&#39;E:\\datasets\\single_hemisphere\\zplanes\\results_singlefile\\suite2p\\plane0&#39;
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="s2p_binaryfile.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title"><span class="section-number">1. </span>Exploring Suite2p.io.BinaryFile</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="../../publication.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Suite2p: beyond 10,000 neurons with standard two-photon microscopy</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Author name not set
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2024, Elizabeth R. Miller Brain Observatory | The Rockefeller University. All Rights Reserved.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>
