@@ -43,13 +43,16 @@ def main():
     files = mbo.get_files(data_path)
     metadata = mbo.get_metadata(files[0])
     ops = suite2p.default_ops()
-    ops = mbo.params_from_metadata(metadata, 'suite2p', ops)
+    ops = mbo.params_from_metadata(metadata, ops)
 
     # change params
     # make sure tiff list is a list
-    ops['keep_movie_raw'] = True
-    ops["data_path"] = [str(data_path),]
-    ops["tiff_list"] = [str(Path(files[0]).name)]
+    ops["data_path"] = [str(data_path)]
+    ops["save_path0"] = "test1"
+    ops["tiff_list"] = [
+        str(Path(files[1]).name),
+    ]
+    ops['iplane'] = 'plane_2'
 
     output_ops = suite2p.run_s2p(ops=ops)
 
