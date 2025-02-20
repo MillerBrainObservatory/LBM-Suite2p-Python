@@ -64,6 +64,31 @@ def combine_tiffs(files):
 
     return new_tiff
 
+def run_plane(input_file_path, save_path, ops):
+
+    input_file_path = Path(input_file_path)
+    if not input_file_path.is_file():
+        raise FileNotFoundError(f"Input data file {input_file_path} does not exist. Must be an existing file.")
+
+    # # handle files
+    # files = mbo.get_files(input_data_path, 'tif')
+
+    ops["tiff_list"] = [
+        str(Path(input_file_path).name),
+    ]
+
+    # get metadata
+    metadata = mbo.get_metadata(input_file_path)
+    ops = mbo.params_from_metadata(metadata, ops)
+
+    # handle save path
+    ops["save_path0"] = save_path
+    ops["save_folder"] = input_file_path.stem  # path/to/filename.ext becomes "filename"
+    db = {'data_path': [str(input_file_path.parent)]}  # suite2p expects List[str]
+
+    output_ops = suite2p.run_s2p(ops=ops, db=db)
+    return output_ops
+
 
 def main():
     """
@@ -86,24 +111,8 @@ def main():
     else:
         ops = suite2p.default_ops()
     if args.data:
-        # handle data path
-        data_path = str(Path(args.data).expanduser().resolve())
-        files = mbo.get_files(data_path, 'tif')
-
-        ops["tiff_list"] = [
-            str(Path(files[0]).name),
-        ]
-
-        # get metadata
-        metadata = mbo.get_metadata(files[0])
-        ops = mbo.params_from_metadata(metadata, ops)
-
-        # handle save path
         save_path = r"D:\W2_DATA\kbarber\2025-02-10\mk303\results"
-        ops["save_path0"] = save_path
-        db = {'data_path': [str(data_path)]}
-
-        output_ops = suite2p.run_s2p(ops=ops, db=db)
+        output_ops = run_plane(input_file_path=args.data, save_path=save_path, ops=ops)
 
         plot_registration(output_ops, os.path.join(save_path, "registration.png"))
         plot_segmentation(output_ops, os.path.join(save_path, "segmentation.png"))

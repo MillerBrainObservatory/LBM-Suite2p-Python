@@ -4,6 +4,10 @@ import numpy as np
 
 import suite2p
 
+def post_process(ops):
+    pass
+
+
 def plot_registration(ops, savepath):
     plt.subplot(1, 4, 1)
     plt.imshow(ops['refImg'], cmap='gray', )
