@@ -71,7 +71,7 @@ def run_plane(ops, input_file_path, save_path, save_folder=None):
     ops_file = os.path.join(save_path, input_file_path.stem, "plane0", "ops.npy")
     if Path(ops_file).is_file():
         print("Ops file already exists. Skipping.")
-        return np.load(ops_file).item()
+        return np.load(ops_file, allow_pickle=True).item()
     db = {'data_path': [str(input_file_path.parent)]}  # suite2p expects List[str]
 
     output_ops = suite2p.run_s2p(ops=ops, db=db)
@@ -114,16 +114,18 @@ def main():
             print("Processing complete -----------")
 
 
-def post_process(ops, overwrite=False):
-    reg_fname = os.path.join(ops["save_path"], "registration.png")
-    seg_fname = os.path.join(ops["save_path"], "segmentation.png")
-    tra_fname = os.path.join(ops["save_path"], "traces.png")
-    if not Path(reg_fname).is_file() and not overwrite:
-        plot_registration(ops, reg_fname)
-    if not Path(seg_fname).is_file() and not overwrite:
-        plot_segmentation(ops, seg_fname)
-    if not Path(tra_fname).is_file() and not overwrite:
-        plot_traces(ops, tra_fname)
+def post_process(ops, overwrite=True):
+    """Plot registration, segmentation and traces to the ops path."""
+    filenames = {
+        "registration.png": plot_registration,
+        "segmentation.png": plot_segmentation,
+        "traces.png": plot_traces
+    }
+
+    for fname, plot_func in filenames.items():
+        path = Path(ops["save_path"]) / fname
+        if overwrite or not path.exists():
+            plot_func(ops, str(path))
 
 
 if __name__ == "__main__":
