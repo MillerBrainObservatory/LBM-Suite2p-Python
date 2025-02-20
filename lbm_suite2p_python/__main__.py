@@ -38,7 +38,7 @@ def add_args(parser: argparse.ArgumentParser):
     parser.add_argument('--version', type=str, help='Print the version of the package.')
     parser.add_argument('--ops', type=str, help='Path to the ops .npy file.')
     parser.add_argument('--data', type=str, help='Path to the data.')
-    parser.add_argument('--max-depth', type=str, help='Number of subdirectories to check for files to process.')
+    parser.add_argument('--max-depth', type=int, help='Number of subdirectories to check for files to process.')
 
     return parser
 
