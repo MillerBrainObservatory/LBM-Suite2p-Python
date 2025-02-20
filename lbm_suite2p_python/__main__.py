@@ -1,4 +1,6 @@
 import os
+import pathlib
+
 import numpy as np
 import argparse
 from pathlib import Path
@@ -113,9 +115,40 @@ def main():
                 post_process(output_ops, overwrite=True)
             print("Processing complete -----------")
 
+            # batch was ran, lets accumulate data
+            # these functions will expect a list of ops with size == len(planes)
+            ops_files = mbo.get_files(save_path, 'ops.npy', max_depth=2)
+            zstats = get_zplane_stats(ops_files, overwrite=True)
+
+
+
+def get_zplane_stats(ops_files: list[str | Path], overwrite: bool=True):
+    plane_stats = {}
+    for i, file in enumerate(ops_files):
+        output_ops = np.load(file, allow_pickle=True).item()
+        iscell = np.load(Path(output_ops['save_path']).joinpath('iscell.npy'), allow_pickle=True)[:, 0].astype(bool)
+        num_accepted = len(iscell)
+        num_rejected = len(~iscell)
+        plane_stats[i + 1] = (num_accepted, num_rejected, file)
+
+    common_path = os.path.commonpath(ops_files)
+    plane_save = os.path.join(common_path, "plane_stats.npy")
+    plane_stats = np.array(
+        list(plane_stats.items()),
+        dtype=[("plane", "i4"), ("accepted_rejected", "2i4")],
+    )
+
+    if not Path(plane_save).is_file():
+        np.save(plane_save, plane_stats)
+    elif Path(plane_save).is_file() and overwrite:
+        np.save(plane_save, plane_stats)
+    else:
+        print(f"File {plane_save} already exists. Skipping.")
+    return plane_stats
 
 def post_process(ops, overwrite=True):
     """Plot registration, segmentation and traces to the ops path."""
+    print(f"Post processing started.")
     filenames = {
         "registration.png": plot_registration,
         "segmentation.png": plot_segmentation,

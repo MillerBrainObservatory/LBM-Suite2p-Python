@@ -1,13 +1,24 @@
 from pathlib import Path
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import tifffile
 import numpy as np
 
 import suite2p
 
-def post_process(ops):
-    pass
-
+mpl.rcParams.update({
+    'axes.spines.left': True,
+    'axes.spines.bottom': True,
+    'axes.spines.top': False,
+    'axes.spines.right': False,
+    'legend.frameon': False,
+    'figure.subplot.wspace': .01,
+    'figure.subplot.hspace': .01,
+    'figure.figsize': (18, 13),
+    'ytick.major.left': True,
+})
+jet = mpl.cm.get_cmap('jet')
+jet.set_bad(color='k')
 
 def plot_registration(ops, savepath):
 
@@ -27,7 +38,7 @@ def plot_registration(ops, savepath):
     plt.subplot(1, 4, 4)
     plt.imshow(ops['meanImgE'], cmap='gray')
     plt.title("High-pass filtered Mean registered image")
-    plt.savefig(savepath, dpi=300, bbox_inches='tight')
+    plt.savefig(savepath, dpi=300)
     print(f'Saved to {savepath}')
 
 def plot_segmentation(ops, savepath):
@@ -63,7 +74,7 @@ def plot_traces(ops, savepath):
     f_neuropils = np.load(Path(ops['save_path']).joinpath('Fneu.npy'))
     spks = np.load(Path(ops['save_path']).joinpath('spks.npy'))
 
-    plt.figure(figsize=[20, 20])
+    plt.figure()
     plt.suptitle("Fluorescence and Deconvolved Traces for Different ROIs", y=0.92)
 
     num_rois = min(20, len(f_cells))
@@ -97,7 +108,7 @@ def plot_traces(ops, savepath):
             plt.legend(bbox_to_anchor=(0.93, 2))
 
     plt.tight_layout()
-    plt.savefig(savepath, dpi=300, bbox_inches='tight')
+    plt.savefig(savepath, dpi=300)
 
 def combine_tiffs(files):
     """
