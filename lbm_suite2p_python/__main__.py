@@ -1,24 +1,22 @@
+import os
 import numpy as np
 import argparse
 from pathlib import Path
 from functools import partial
 import tifffile
 import lbm_suite2p_python as lsp
+from lbm_suite2p_python.utils import (
+    plot_registration,
+    plot_segmentation,
+    plot_traces,
+)
+import mbo_utilities as mbo
+
 import suite2p
 
 current_file = Path(__file__).parent
 
 print = partial(print, flush=True)
-
-
-def _parse_data_path(value):
-    """
-    Cast the value to an integer if possible, otherwise treat as a file path.
-    """
-    try:
-        return int(value)
-    except ValueError:
-        return str(Path(value).expanduser().resolve())  # expand ~
 
 
 def add_args(parser: argparse.ArgumentParser):
@@ -83,34 +81,35 @@ def main():
         print("lbm_suite2p_python v{}".format(lsp.__version__))
         return
 
-    # Load the ops file
     if args.ops:
         ops = np.load(args.ops, allow_pickle=True).item()
     else:
         ops = suite2p.default_ops()
     if args.data:
-        data_path = _parse_data_path(args.data)
-        files = [x for x in Path(args.data).glob('*.tif*')]
-        metadata = lsp.get_metadata(files[0])
-        ops = lsp.ops_from_metadata(ops, metadata)
+        # handle data path
+        data_path = str(Path(args.data).expanduser().resolve())
+        files = mbo.get_files(data_path, 'tif')
 
-        ops['data_path'] = [data_path]
-        save_path = Path(data_path).parent / 'res'
+        ops["tiff_list"] = [
+            str(Path(files[0]).name),
+        ]
 
-        ops['save_path0'] = str(save_path)
-        ops['block_size'] = (64, 64)
-        ops['nplanes'] = 2
-        ops['tau'] = 1.5
-        ops['dx'] = [3.5, 3.5]
-        ops['dy'] = [3.5, 3.5]
-        ops['combined'] = False
+        # get metadata
+        metadata = mbo.get_metadata(files[0])
+        ops = mbo.params_from_metadata(metadata, ops)
 
-        new_ops = suite2p.run_s2p(ops)
+        # handle save path
+        save_path = r"D:\W2_DATA\kbarber\2025-02-10\mk303\results"
+        ops["save_path0"] = save_path
+
+        output_ops = suite2p.run_s2p(ops=ops)
+
+        plot_registration(output_ops, os.path.join(save_path, "registration.png"))
+        plot_segmentation(output_ops, os.path.join(save_path, "segmentation.png"))
+        plot_traces(output_ops, os.path.join(save_path, "traces.png"))
 
         print("Processing complete -----------")
-        return new_ops
 
 
 if __name__ == "__main__":
-    import demo_s2p
-    ops_path = main()
+     main()
