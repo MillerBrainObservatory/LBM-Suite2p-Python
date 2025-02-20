@@ -7,12 +7,14 @@ Very early in development.
 ## Installation
 
 ``` bash
-git clone https://github.com/MillerBrainObservatory/LBM-Suite2p-Python.git
-cd LBM-Suite2p-Python
-
 conda create -n lsp python=3.10
 conda activate lsp
+pip install https://github.com/MillerBrainObservatory/LBM_Suite2p_python.git
+```
 
-pip install .
-pip install https://github.com/MillerBrainObservatory/mbo_utilities.git
+## Usage
+
+``` bash
+lsp --path/to/file.tiff # run a single z-plane
+lsp --path/do/dir --max-depth 2 # run all z-planes up to this depth
 ```
