@@ -42,7 +42,7 @@ def add_args(parser: argparse.ArgumentParser):
 
     return parser
 
-def run_plane(input_file_path, save_path, ops):
+def run_plane(ops, input_file_path, save_path, save_folder=None):
 
     input_file_path = Path(input_file_path)
     if not input_file_path.is_file():
@@ -61,12 +61,17 @@ def run_plane(input_file_path, save_path, ops):
 
     # handle save path
     ops["save_path0"] = save_path
-    ops["save_folder"] = input_file_path.stem  # path/to/filename.ext becomes "filename"
+    if save_folder is None:
+        ops["save_folder"] = input_file_path.stem  # path/to/filename.ext becomes "filename"
+    else:
+        if not isinstance(save_folder, str):
+            raise TypeError("save_folder must be a string representing the folder name to save results to.")
 
-    ops_file = os.path.join(save_path, input_file_path.stem, "ops.npy")
+    # TODO: add the plane0 as argument when we figure out how to change it
+    ops_file = os.path.join(save_path, input_file_path.stem, "plane0", "ops.npy")
     if Path(ops_file).is_file():
         print("Ops file already exists. Skipping.")
-        return ops_file
+        return np.load(ops_file).item()
     db = {'data_path': [str(input_file_path.parent)]}  # suite2p expects List[str]
 
     output_ops = suite2p.run_s2p(ops=ops, db=db)
@@ -96,29 +101,29 @@ def main():
     if args.data:
         save_path = r"D:\W2_DATA\kbarber\2025-02-10\mk303\results"
         if Path(args.data).is_file():
-            output_ops = run_plane(input_file_path=args.data, save_path=save_path, ops=ops)
-
-            reg_fname = os.path.join(output_ops["save_path"], "registration.png")
-            seg_fname = os.path.join(output_ops["save_path"], "segmentation.png")
-            tra_fname = os.path.join(output_ops["save_path"], "traces.png")
-            if not Path(reg_fname).is_file():
-                plot_registration(output_ops, reg_fname)
-            if not Path(seg_fname).is_file():
-                plot_segmentation(output_ops, seg_fname)
-            if not Path(tra_fname).is_file():
-                plot_traces(output_ops, os.path.join(save_path, "traces.png"))
-
+            output_ops = run_plane(ops, input_file_path=args.data, save_path=save_path,)
+            post_process(output_ops, overwrite=True)
             print("Processing complete -----------")
+
         elif Path(args.data).is_dir():
             files = mbo.get_files(args.data, 'tiff', max_depth=args.max_depth)
             for file in files:
                 print(f"Processing {file} ---------------")
                 output_ops = run_plane(input_file_path=file, save_path=save_path, ops=ops)
-                plot_registration(output_ops, os.path.join(output_ops['save_path'], "registration.png"))
-                plot_segmentation(output_ops, os.path.join(output_ops['save_path'], "segmentation.png"))
-                plot_traces(output_ops, os.path.join(save_path, "traces.png"))
+                post_process(output_ops, overwrite=True)
+            print("Processing complete -----------")
 
-                print("Processing complete -----------")
+
+def post_process(ops, overwrite=False):
+    reg_fname = os.path.join(ops["save_path"], "registration.png")
+    seg_fname = os.path.join(ops["save_path"], "segmentation.png")
+    tra_fname = os.path.join(ops["save_path"], "traces.png")
+    if not Path(reg_fname).is_file() and not overwrite:
+        plot_registration(ops, reg_fname)
+    if not Path(seg_fname).is_file() and not overwrite:
+        plot_segmentation(ops, seg_fname)
+    if not Path(tra_fname).is_file() and not overwrite:
+        plot_traces(ops, tra_fname)
 
 
 if __name__ == "__main__":
