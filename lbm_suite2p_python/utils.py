@@ -51,7 +51,6 @@ def plot_segmentation(ops, savepath):
     plt.tight_layout()
     plt.savefig(savepath, dpi=300, bbox_inches='tight')
 
-
 def plot_traces(ops, savepath):
 
     f_cells = np.load(Path(ops['save_path']).joinpath('F.npy'))
@@ -93,7 +92,6 @@ def plot_traces(ops, savepath):
 
     plt.tight_layout()
     plt.savefig(savepath, dpi=300, bbox_inches='tight')
-
 
 def make_subdir_from_list(files: list):
     """Put each file in a list of filepaths into its own subdirectory"""
