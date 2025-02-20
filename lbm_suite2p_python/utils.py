@@ -1,5 +1,6 @@
 from pathlib import Path
 import matplotlib.pyplot as plt
+import tifffile
 import numpy as np
 
 import suite2p
@@ -9,6 +10,8 @@ def post_process(ops):
 
 
 def plot_registration(ops, savepath):
+
+    plt.figure()
     plt.subplot(1, 4, 1)
     plt.imshow(ops['refImg'], cmap='gray', )
     plt.title("Reference Image for Registration")
@@ -24,7 +27,6 @@ def plot_registration(ops, savepath):
     plt.subplot(1, 4, 4)
     plt.imshow(ops['meanImgE'], cmap='gray')
     plt.title("High-pass filtered Mean registered image")
-    plt.tight_layout()
     plt.savefig(savepath, dpi=300, bbox_inches='tight')
     print(f'Saved to {savepath}')
 
@@ -37,6 +39,7 @@ def plot_segmentation(ops, savepath):
     im = suite2p.ROI.stats_dicts_to_3d_array(stats, Ly=ops['Ly'], Lx=ops['Lx'], label_id=True)
     im[im == 0] = np.nan
 
+    plt.figure()
     plt.subplot(1, 4, 1)
     plt.imshow(ops['max_proj'], cmap='gray')
     plt.title("Registered Image, Max Projection")
@@ -52,8 +55,7 @@ def plot_segmentation(ops, savepath):
     plt.subplot(1, 4, 4)
     plt.imshow(np.nanmax(im[iscell], axis=0), cmap='jet')
     plt.title("All Cell ROIs")
-    plt.tight_layout()
-    plt.savefig(savepath, dpi=300, bbox_inches='tight')
+    plt.savefig(savepath, dpi=300)
 
 def plot_traces(ops, savepath):
 
@@ -96,6 +98,28 @@ def plot_traces(ops, savepath):
 
     plt.tight_layout()
     plt.savefig(savepath, dpi=300, bbox_inches='tight')
+
+def combine_tiffs(files):
+    """
+    Combine tiff files into a single tiff file.
+
+    Input Tyx * N_files gives TNyx
+    """
+    # Load the first file to get the shape
+    first_file = files[0]
+    first_tiff = tifffile.imread(first_file)
+    num_files = len(files)
+    num_frames, height, width = first_tiff.shape
+
+    # Create the new tiff file
+    new_tiff = np.zeros((num_frames * num_files, height, width), dtype=first_tiff.dtype)
+
+    # Load the tiffs
+    for i, f in enumerate(files):
+        tiff = tifffile.imread(f)
+        new_tiff[i * num_frames:(i + 1) * num_frames] = tiff
+
+    return new_tiff
 
 def make_subdir_from_list(files: list):
     """Put each file in a list of filepaths into its own subdirectory"""

@@ -42,29 +42,6 @@ def add_args(parser: argparse.ArgumentParser):
 
     return parser
 
-
-def combine_tiffs(files):
-    """
-    Combine tiff files into a single tiff file.
-
-    Input Tyx * N_files gives TNyx
-    """
-    # Load the first file to get the shape
-    first_file = files[0]
-    first_tiff = tifffile.imread(first_file)
-    num_files = len(files)
-    num_frames, height, width = first_tiff.shape
-
-    # Create the new tiff file
-    new_tiff = np.zeros((num_frames * num_files, height, width), dtype=first_tiff.dtype)
-
-    # Load the tiffs
-    for i, f in enumerate(files):
-        tiff = tifffile.imread(f)
-        new_tiff[i * num_frames:(i + 1) * num_frames] = tiff
-
-    return new_tiff
-
 def run_plane(input_file_path, save_path, ops):
 
     input_file_path = Path(input_file_path)
