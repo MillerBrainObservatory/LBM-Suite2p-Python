@@ -101,8 +101,9 @@ def main():
         # handle save path
         save_path = r"D:\W2_DATA\kbarber\2025-02-10\mk303\results"
         ops["save_path0"] = save_path
+        db = {'data_path': [str(data_path)]}
 
-        output_ops = suite2p.run_s2p(ops=ops)
+        output_ops = suite2p.run_s2p(ops=ops, db=db)
 
         plot_registration(output_ops, os.path.join(save_path, "registration.png"))
         plot_segmentation(output_ops, os.path.join(save_path, "segmentation.png"))
