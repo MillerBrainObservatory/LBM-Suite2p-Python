@@ -34,7 +34,7 @@ def load_ops(ops_input: str | Path | list[str | Path]):
     elif isinstance(ops_input, dict):
         return ops_input
 
-def plot_fluorescence_grid_auto(f_cells_list, savepath, roi_range=(0, 500), frame_range=(0, 1000), sorted=False):
+def plot_fluorescence_grid_auto(f_cells_list, savepath, roi_range=(0, 500), frame_range=(0, 1000), sorted=True):
     """
     Generates an auto-sized square grid plot of Z-score normalized fluorescence heatmaps for multiple f_cells.
 
@@ -64,7 +64,6 @@ def plot_fluorescence_grid_auto(f_cells_list, savepath, roi_range=(0, 500), fram
     The function dynamically arranges the heatmaps into a square-like grid while ensuring that each row
     is labeled with the corresponding planes it represents. Sorting (if enabled) orders ROIs in descending
     order of mean absolute Z-score.
-
     """
 
     n = len(f_cells_list)
@@ -558,7 +557,7 @@ def plot_segmentation(ops, savepath):
     plt.title("All Cell ROIs")
     plt.savefig(savepath, dpi=300)
 
-def plot_traces(ops, savepath):
+def plot_traces(ops, savepath, nframes=None, ntraces=None):
     """
     Plots fluorescence and deconvolved traces for randomly selected ROIs.
 
@@ -568,11 +567,15 @@ def plot_traces(ops, savepath):
         Dictionary loaded from `ops.npy`, containing suite2p output data.
     savepath : str or Path
         Path to save the generated figure.
+    nframes : int or None
+        Number of frames to include.
+    ntraces : int or None
+        Number of ROIs to include.
 
     Notes
     -----
-    - Randomly selects up to 20 ROIs for visualization.
-    - Subsamples time points to avoid overcrowding.
+    - If `nframes` is None, all frames are used.
+    - If `ntraces` is None, up to 20 ROIs are randomly selected.
     - The figure contains multiple subplots, one per ROI, displaying:
       - Raw fluorescence trace.
       - Neuropil fluorescence trace.
@@ -582,41 +585,58 @@ def plot_traces(ops, savepath):
     f_neuropils = np.load(Path(ops['save_path']).joinpath('Fneu.npy'))
     spks = np.load(Path(ops['save_path']).joinpath('spks.npy'))
 
-    plt.figure()
-    plt.suptitle("Fluorescence and Deconvolved Traces for Different ROIs", y=0.92)
+    total_rois = f_cells.shape[0]
+    total_frames = f_cells.shape[1]
 
-    num_rois = min(20, len(f_cells))
-    rois = np.random.choice(len(f_cells), num_rois, replace=False)
+    if ntraces is None:
+        ntraces = min(20, total_rois)
+    else:
+        ntraces = min(ntraces, total_rois)
 
-    T = f_cells.shape[1]
-    subsample_factor = max(1, T // 300)
-    timepoints = np.arange(0, T, subsample_factor)
+    if nframes is None:
+        nframes = total_frames
+    else:
+        nframes = min(nframes, total_frames)
+
+    rois = np.random.choice(total_rois, ntraces, replace=False)
+    subsample_factor = max(1, nframes // 300)
+    timepoints = np.arange(0, nframes, subsample_factor)
+
+    fig, axes = plt.subplots(ntraces, 1, figsize=(12, 1.5 * ntraces), sharex=True)
+    fig.suptitle("Fluorescence and Deconvolved Traces for Randomly Selected ROIs", fontsize=26, fontweight='bold', fontname="Arial", y=0.98)
+
+    if ntraces == 1:
+        axes = [axes]
 
     for i, roi in enumerate(rois):
-        plt.subplot(num_rois, 1, i + 1)
-        f = f_cells[roi][::subsample_factor]
-        f_neu = f_neuropils[roi][::subsample_factor]
-        sp = spks[roi][::subsample_factor]
+        ax = axes[i]
 
-        fmax = np.maximum(f.max(), f_neu.max())
-        fmin = np.minimum(f.min(), f_neu.min())
+        f = f_cells[roi, :nframes][::subsample_factor]
+        f_neu = f_neuropils[roi, :nframes][::subsample_factor]
+        sp = spks[roi, :nframes][::subsample_factor]
+
+        fmax = max(f.max(), f_neu.max())
+        fmin = min(f.min(), f_neu.min())
         frange = fmax - fmin
-        sp /= sp.max()
-        sp *= frange
+        if sp.max() > 0:
+            sp = (sp / sp.max()) * frange
 
-        plt.plot(timepoints, f, label="Cell Fluorescence")
-        plt.plot(timepoints, f_neu, label="Neuropil Fluorescence")
-        plt.plot(timepoints, sp + fmin, label="Deconvolved")
+        ax.plot(timepoints, f, label="Cell Fluorescence", linewidth=1.5)
+        ax.plot(timepoints, f_neu, label="Neuropil Fluorescence", linewidth=1.5)
+        ax.plot(timepoints, sp + fmin, label="Deconvolved", linewidth=1.5, linestyle='dashed')
 
-        plt.xticks(np.linspace(0, T, 10))
-        plt.ylabel(f"ROI {roi}", rotation=0)
-        plt.xlabel("Frame")
+        ax.set_yticks([fmin, fmax])
+        ax.set_yticklabels([f"{fmin:.1f}", f"{fmax:.1f}"], fontsize=12, fontweight='bold', fontname="Arial", rotation=45)
+
+        ax.set_ylabel(f"ROI {roi}", rotation=90, labelpad=10, fontsize=14, fontweight='bold', fontname="Arial", va="center", ha="right")
 
         if i == 0:
-            plt.legend(bbox_to_anchor=(0.93, 2))
+            ax.legend(loc="upper center", bbox_to_anchor=(0.5, 2.3), fontsize=18, ncol=3, frameon=False)
 
-    plt.tight_layout()
+    axes[-1].set_xlabel("Frame Index", fontsize=16, fontweight='bold', fontname="Arial")
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
     plt.savefig(savepath, dpi=300)
+    plt.close()
 
 def combine_tiffs(files):
     """
