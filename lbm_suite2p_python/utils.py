@@ -1,9 +1,7 @@
 import os
 from pathlib import Path
 import matplotlib as mpl
-import matplotlib.pyplot as plt
 import tifffile
-import numpy as np
 
 import suite2p
 
@@ -29,6 +27,11 @@ import seaborn as sns
 from scipy.stats import zscore
 import math
 
+def load_ops(ops_input: str | Path | list[str | Path]):
+    if isinstance(ops_input, (str, Path)):
+        return np.load(ops_input, allow_pickle=True).item()
+    elif isinstance(ops_input, dict):
+        return ops_input
 
 def plot_fluorescence_grid_auto(f_cells_list, savepath, roi_range=(0, 500), frame_range=(0, 1000), sorted=False):
     """
@@ -192,6 +195,58 @@ def plot_roi_maps(ops_list, savepath):
 
     plt.savefig(savepath, dpi=1200)
 
+def plot_volume_signal(filepath, savepath):
+    """
+    Plots the mean fluorescence signal per z-plane with standard deviation error bars.
+
+    This function loads signal statistics from a `.npy` file and visualizes the mean
+    fluorescence signal per z-plane, with error bars representing the standard deviation.
+
+    Parameters
+    ----------
+    filepath : str or Path
+        Path to the `.npy` file containing the volume stats. The output of `get_volume_stats()`.
+    savepath : str or Path
+        Path to save the generated figure.
+
+    Notes
+    -----
+    - The `.npy` file should contain structured data with `plane`, `mean_trace`, and `std_trace` fields.
+    - Error bars represent the standard deviation of the fluorescence signal.
+    """
+
+    plane_stats = np.load(filepath)
+
+    planes = plane_stats["plane"]
+    mean_signal = plane_stats["mean_trace"]
+    std_signal = plane_stats["std_trace"]
+
+    plt.figure(figsize=(10, 6), facecolor="black")
+    ax = plt.gca()
+    ax.set_facecolor("black")
+
+    plt.xlabel("Z-Plane", fontsize=14, fontweight="bold", color="white")
+    plt.ylabel("Mean Signal (ΔF/F)", fontsize=14, fontweight="bold", color="white")
+    plt.title("Mean Fluorescence Signal per Z-Plane", fontsize=16, fontweight="bold", color="white")
+
+    plt.errorbar(planes, mean_signal, yerr=std_signal, fmt='o-', color="cyan",
+                 ecolor="lightblue", elinewidth=2, capsize=4, markersize=6, alpha=0.8, label="Mean ± STD")
+
+    plt.xticks(planes, fontsize=12, fontweight="bold", color="white")
+    plt.yticks(fontsize=12, fontweight="bold", color="white")
+
+    plt.grid(axis="y", linestyle="--", alpha=0.4, color="white")
+
+    ax.spines["bottom"].set_color("white")
+    ax.spines["left"].set_color("white")
+    ax.spines["top"].set_color("white")
+    ax.spines["right"].set_color("white")
+
+    plt.legend(fontsize=12, facecolor="black", edgecolor="white", labelcolor="white")
+
+    plt.savefig(savepath, bbox_inches="tight", facecolor="black")
+    plt.show()
+
 def plot_volume_stats(filepath, savepath):
     """
     Plots the number of accepted and rejected neurons per z-plane.
@@ -285,15 +340,25 @@ def get_volume_stats(ops_files: list[str | Path], overwrite: bool=True):
 
         output_ops = np.load(file, allow_pickle=True).item()
         iscell = np.load(Path(output_ops['save_path']).joinpath('iscell.npy'), allow_pickle=True)[:, 0].astype(bool)
+        traces = np.load(Path(output_ops['save_path']).joinpath('F.npy'), allow_pickle=True)
+        mean_trace = np.mean(traces)
+        std_trace = np.std(traces)
         num_accepted = len(iscell)
         num_rejected = len(~iscell)
-        plane_stats[i + 1] = (num_accepted, num_rejected, file)
+        plane_stats[i + 1] = (num_accepted, num_rejected, mean_trace, std_trace, file)
 
     common_path = os.path.commonpath(ops_files)
     plane_save = os.path.join(common_path, "volume_stats.npy")
     plane_stats_npy = np.array(
-        [(plane, accepted, rejected, filepath) for plane, (accepted, rejected, filepath) in plane_stats.items()],
-        dtype=[("plane", "i4"), ("accepted", "i4"), ("rejected", "i4"), ("filepath", "U255")]
+        [(plane, accepted, rejected, mean_trace, std_trace, filepath) for plane, (accepted, rejected, mean_trace, std_trace, filepath) in plane_stats.items()],
+        dtype=[
+            ("plane", "i4"),
+            ("accepted", "i4"),
+            ("rejected", "i4"),
+            ("mean_trace", "f8"),
+            ("std_trace", "f8"),
+            ("filepath", "U255")
+        ]
     )
 
     if not Path(plane_save).is_file():
@@ -332,7 +397,7 @@ def post_process(ops_fname, overwrite=True):
         "traces.png": plot_traces
     }
 
-    ops_loaded = np.load(ops_fname, allow_pickle=True).item()
+    ops_loaded = load_ops(ops_fname)
     for fname, plot_func in filenames.items():
         path = Path(ops_loaded["save_path"]) / fname
         if overwrite or not path.exists():
@@ -542,3 +607,13 @@ def make_subdir_from_list(files: list):
         plane_path.mkdir(exist_ok=True)
         new_fname = plane_path / file.name
         file.rename(new_fname)
+
+def get_fcells_list(ops_list: list):
+    if not isinstance(ops_list, list):
+        raise ValueError("`ops_list` must be a list")
+    f_cells_list = []
+    for ops in ops_list:
+        ops = load_ops(ops)
+        f_cells = np.load(Path(ops['save_path']).joinpath('F.npy'))
+        f_cells_list.append(f_cells)
+    return f_cells_list
