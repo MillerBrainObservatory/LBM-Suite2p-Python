@@ -238,7 +238,7 @@ def plot_execution_time(filepath, savepath):
     for bar, total in zip(bars3, total_time):
         height = bar.get_y() + bar.get_height()
         if total > 1:  # Only label if execution time is large enough to be visible
-            plt.text(bar.get_x() + bar.get_width()/2, height + 2, f"{int(total)}s",
+            plt.text(bar.get_x() + bar.get_width()/2, height + 2, f"{int(total)}",
                      ha="center", va="bottom", fontsize=12, color="white", fontweight="bold")
 
     plt.xticks(planes, fontsize=12, fontweight="bold", color="white")
