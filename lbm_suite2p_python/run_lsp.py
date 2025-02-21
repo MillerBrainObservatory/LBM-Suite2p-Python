@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+import mbo_utilities as mbo
 
 import suite2p
 
@@ -46,6 +47,11 @@ def run_plane(ops, input_file_path, save_path, save_folder=None):
     input_file_path = Path(input_file_path)
     if not input_file_path.is_file():
         raise FileNotFoundError(f"Input data file {input_file_path} does not exist. Must be an existing file.")
+    save_path = Path(save_path)
+
+    if not save_path.is_dir():
+        # we don't want to allow an incorrect root filepath
+        save_path.mkdir(parents=False, exist_ok=True)
 
     ops["tiff_list"] = [
         str(Path(input_file_path).name),
@@ -56,7 +62,7 @@ def run_plane(ops, input_file_path, save_path, save_folder=None):
     ops = mbo.params_from_metadata(metadata, ops)
 
     # handle save path
-    ops["save_path0"] = save_path
+    ops["save_path0"] = str(save_path)
     if save_folder is None:
         ops["save_folder"] = input_file_path.stem  # path/to/filename.ext becomes "filename"
     else:

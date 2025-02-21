@@ -3,7 +3,6 @@ import argparse
 from pathlib import Path
 from functools import partial
 import lbm_suite2p_python as lsp
-from lbm_suite2p_python.run_lsp import run_volume, run_plane
 from lbm_suite2p_python.utils import (
     post_process,
 )
@@ -67,12 +66,12 @@ def main():
         else:
             save_path = Path(args.data).parent / 'results'
         if Path(args.data).is_file():
-            output_ops = run_plane(ops, input_file_path=args.data, save_path=str(save_path))
+            output_ops = lsp.run_plane(ops, input_file_path=args.data, save_path=str(save_path))
             post_process(output_ops, overwrite=True)
             print("Processing complete -----------")
         elif Path(args.data).is_dir():
             files = mbo.get_files(args.data, 'tiff', max_depth=args.max_depth)
-            output_ops = run_volume(ops, files, save_path=str(save_path), save_folder=str(save_path))
+            output_ops = lsp.run_volume(ops, files, save_path=str(save_path), save_folder=str(save_path))
             print("Processing complete -----------")
         else:
             raise FileNotFoundError(f"Input data file {args.data} does not exist. Must be an existing file.")
