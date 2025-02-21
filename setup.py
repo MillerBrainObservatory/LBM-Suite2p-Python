@@ -6,7 +6,6 @@ from pathlib import Path
 
 install_deps = [
     "mbo_utilities @ git+https://github.com/MillerBrainObservatory/mbo_utilities.git@master",
-    "fastplotlib[notebook]",
     "dask",
     "zarr",
     "jupyterlab",
