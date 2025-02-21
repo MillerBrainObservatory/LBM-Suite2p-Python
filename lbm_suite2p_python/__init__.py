@@ -7,6 +7,9 @@ __all__ = [
     "plot_segmentation",
     "plot_registration",
     "plot_traces",
-    "get_zplane_stats",
-    "post_process"
+    "post_process",
+    "get_volume_stats",
+    "plot_volume_stats",
+    "plot_roi_maps",
+    "plot_fluorescence_grid_auto"
 ]
