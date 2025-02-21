@@ -6,8 +6,9 @@ import argparse
 from pathlib import Path
 from functools import partial
 import lbm_suite2p_python as lsp
+from lbm_suite2p_python import plot_volume_stats, plot_roi_maps
 from lbm_suite2p_python.utils import (
-    get_zplane_stats,
+    get_volume_stats,
     post_process
 )
 import mbo_utilities as mbo
@@ -39,6 +40,8 @@ def add_args(parser: argparse.ArgumentParser):
     parser.add_argument('--ops', type=str, help='Path to the ops .npy file.')
     parser.add_argument('--data', type=str, help='Path to the data.')
     parser.add_argument('--max-depth', type=int, help='Number of subdirectories to check for files to process.')
+    parser.add_argument('--overwrite', action='store_true', help='Overwrite existing files.')
+    parser.add_argument('--skip-existing', action='store_true', help='Skip existing files.')
 
     return parser
 
@@ -69,9 +72,9 @@ def run_plane(ops, input_file_path, save_path, save_folder=None):
 
     # TODO: add the plane0 as argument when we figure out how to change it
     ops_file = os.path.join(save_path, input_file_path.stem, "plane0", "ops.npy")
-    if Path(ops_file).is_file():
+    if Path(ops_file).is_file() or ops.get("skip_existing", False):
         print("Ops file already exists. Skipping.")
-        return np.load(ops_file, allow_pickle=True).item()
+        return ops_file
     db = {'data_path': [str(input_file_path.parent)]}  # suite2p expects List[str]
 
     output_ops = suite2p.run_s2p(ops=ops, db=db)
@@ -107,16 +110,24 @@ def main():
 
         elif Path(args.data).is_dir():
             files = mbo.get_files(args.data, 'tiff', max_depth=args.max_depth)
+            all_ops = []
             for file in files:
                 print(f"Processing {file} ---------------")
                 output_ops = run_plane(input_file_path=file, save_path=save_path, ops=ops)
-                post_process(output_ops, overwrite=True)
-            print("Processing complete -----------")
+                all_ops.append(output_ops)
+                post_process(output_ops, overwrite=False)
 
             # batch was ran, lets accumulate data
-            # these functions will expect a list of ops with size == len(planes)
-            ops_files = mbo.get_files(save_path, 'ops.npy', max_depth=2)
-            zstats = get_zplane_stats(ops_files, overwrite=True)
+            acc_rej_bar_savepath = os.path.join(save_path, "acc_rej_bar.png")
+            zstats_file = get_volume_stats(all_ops, overwrite=True)
+            plot_volume_stats(zstats_file, acc_rej_bar_savepath)
+
+            max_cell_noncell_savepath = os.path.join(save_path, "max_cell_noncell.png")
+            plot_roi_maps(all_ops, max_cell_noncell_savepath)
+
+            print("Processing complete -----------")
+
+
 
 
 
