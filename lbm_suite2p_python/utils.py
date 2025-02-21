@@ -1,7 +1,14 @@
 import os
+import numpy as np
 from pathlib import Path
+
+from scipy.stats import zscore
+import math
+
+import matplotlib.pyplot as plt
 import matplotlib as mpl
-import tifffile
+import seaborn as sns
+from colorsys import hsv_to_rgb
 
 import suite2p
 
@@ -19,13 +26,6 @@ mpl.rcParams.update({
 jet = mpl.cm.get_cmap('jet')
 jet.set_bad(color='k')
 
-from colorsys import hsv_to_rgb
-
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-from scipy.stats import zscore
-import math
 
 def load_ops(ops_input: str | Path | list[str | Path]):
     if isinstance(ops_input, (str, Path)):
@@ -195,6 +195,67 @@ def plot_roi_maps(ops_list, savepath):
 
     plt.savefig(savepath, dpi=1200)
 
+def plot_execution_time(filepath, savepath):
+    """
+    Plots the execution time for each processing step per z-plane.
+
+    This function loads execution timing data from a `.npy` file and visualizes the
+    runtime of different processing steps as a stacked bar plot with a black background.
+
+    Parameters
+    ----------
+    filepath : str or Path
+        Path to the `.npy` file containing the volume timing stats.
+    savepath : str or Path
+        Path to save the generated figure.
+
+    Notes
+    -----
+    - The `.npy` file should contain structured data with `plane`, `registration`,
+      `detection`, `extraction`, `classification`, `deconvolution`, and `total_plane_runtime` fields.
+    """
+
+    plane_stats = np.load(filepath)
+
+    planes = plane_stats["plane"]
+    reg_time = plane_stats["registration"]
+    detect_time = plane_stats["detection"]
+    extract_time = plane_stats["extraction"]
+    total_time = plane_stats["total_plane_runtime"]
+
+    plt.figure(figsize=(10, 6), facecolor="black")
+    ax = plt.gca()
+    ax.set_facecolor("black")
+
+    plt.xlabel("Z-Plane", fontsize=14, fontweight="bold", color="white")
+    plt.ylabel("Execution Time (s)", fontsize=14, fontweight="bold", color="white")
+    plt.title("Execution Time per Processing Step", fontsize=16, fontweight="bold", color="white")
+
+    plt.bar(planes, reg_time, label="Registration", alpha=0.8, color="#FF5733")
+    plt.bar(planes, detect_time, label="Detection", alpha=0.8, bottom=reg_time, color="#33FF57")
+    bars3 = plt.bar(planes, extract_time, label="Extraction", alpha=0.8, bottom=reg_time + detect_time, color="#3357FF")
+
+    for bar, total in zip(bars3, total_time):
+        height = bar.get_y() + bar.get_height()
+        if total > 1:  # Only label if execution time is large enough to be visible
+            plt.text(bar.get_x() + bar.get_width()/2, height + 2, f"{int(total)}s",
+                     ha="center", va="bottom", fontsize=12, color="white", fontweight="bold")
+
+    plt.xticks(planes, fontsize=12, fontweight="bold", color="white")
+    plt.yticks(fontsize=12, fontweight="bold", color="white")
+
+    plt.grid(axis="y", linestyle="--", alpha=0.4, color="white")
+
+    ax.spines["bottom"].set_color("white")
+    ax.spines["left"].set_color("white")
+    ax.spines["top"].set_color("white")
+    ax.spines["right"].set_color("white")
+
+    plt.legend(fontsize=12, facecolor="black", edgecolor="white", labelcolor="white", loc="upper left", bbox_to_anchor=(1, 1))
+
+    plt.savefig(savepath, bbox_inches="tight", facecolor="black")
+    plt.show()
+
 def plot_volume_signal(filepath, savepath):
     """
     Plots the mean fluorescence signal per z-plane with standard deviation error bars.
@@ -343,18 +404,28 @@ def get_volume_stats(ops_files: list[str | Path], overwrite: bool=True):
         std_trace = np.std(traces)
         num_accepted = np.sum(iscell)
         num_rejected = np.sum(~iscell)
-        plane_stats[i + 1] = (num_accepted, num_rejected, mean_trace, std_trace, file)
+        timing = output_ops['timing']
+        plane_stats[i + 1] = (num_accepted, num_rejected, mean_trace, std_trace, timing, file)
 
     common_path = os.path.commonpath(ops_files)
     plane_save = os.path.join(common_path, "volume_stats.npy")
     plane_stats_npy = np.array(
-        [(plane, accepted, rejected, mean_trace, std_trace, filepath) for plane, (accepted, rejected, mean_trace, std_trace, filepath) in plane_stats.items()],
+        [(plane, accepted, rejected, mean_trace, std_trace,
+          timing["registration"], timing["detection"], timing["extraction"],
+          timing["classification"], timing["deconvolution"], timing["total_plane_runtime"], filepath)
+         for plane, (accepted, rejected, mean_trace, std_trace, timing, filepath) in plane_stats.items()],
         dtype=[
             ("plane", "i4"),
             ("accepted", "i4"),
             ("rejected", "i4"),
             ("mean_trace", "f8"),
             ("std_trace", "f8"),
+            ("registration", "f8"),
+            ("detection", "f8"),
+            ("extraction", "f8"),
+            ("classification", "f8"),
+            ("deconvolution", "f8"),
+            ("total_plane_runtime", "f8"),
             ("filepath", "U255")
         ]
     )

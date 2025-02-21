@@ -10,7 +10,8 @@ from lbm_suite2p_python.utils import (
     get_volume_stats,
     post_process,
     plot_fluorescence_grid_auto,
-    plot_volume_signal
+    plot_volume_signal,
+    plot_execution_time,
 )
 import mbo_utilities as mbo
 
@@ -67,8 +68,9 @@ def run_volume(ops, input_file_list, save_path, save_folder=None):
     zstats_file = get_volume_stats(all_ops, overwrite=True)
 
     plot_volume_stats(zstats_file, os.path.join(save_path, "acc_rej_bar.png"))
-    plot_volume_signal(zstats_file, os.path.join(save_path, "volume_signal_savepath.png"))
+    plot_volume_signal(zstats_file, os.path.join(save_path, "mean_volume_signal.png"))
     plot_roi_maps(all_ops, os.path.join(save_path, "max_cell_noncell.png"))
+    plot_execution_time(zstats_file, os.path.join(save_path, "execution_time.png"))
 
     fcells_list = get_fcells_list(all_ops)
     flourescence_savepath = os.path.join(save_path, "flourescence.png")

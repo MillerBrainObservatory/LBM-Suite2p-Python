@@ -15,4 +15,5 @@ __all__ = [
     "plot_roi_maps",
     "plot_fluorescence_grid_auto",
     "plot_volume_signal",
+    "plot_execution_time"
 ]
