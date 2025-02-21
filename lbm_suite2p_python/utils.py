@@ -1,6 +1,7 @@
 import os
 import numpy as np
 from pathlib import Path
+import tifffile
 
 from scipy.stats import zscore
 import math
