@@ -335,16 +335,14 @@ def get_volume_stats(ops_files: list[str | Path], overwrite: bool=True):
 
     plane_stats = {}
     for i, file in enumerate(ops_files):
-        if not isinstance(file, (Path, str)):
-            raise ValueError(f"Input list must contain string or Path objects. Not {type(file)}")
 
-        output_ops = np.load(file, allow_pickle=True).item()
+        output_ops = load_ops(file)
         iscell = np.load(Path(output_ops['save_path']).joinpath('iscell.npy'), allow_pickle=True)[:, 0].astype(bool)
         traces = np.load(Path(output_ops['save_path']).joinpath('F.npy'), allow_pickle=True)
         mean_trace = np.mean(traces)
         std_trace = np.std(traces)
-        num_accepted = len(iscell)
-        num_rejected = len(~iscell)
+        num_accepted = np.sum(iscell)
+        num_rejected = np.sum(~iscell)
         plane_stats[i + 1] = (num_accepted, num_rejected, mean_trace, std_trace, file)
 
     common_path = os.path.commonpath(ops_files)

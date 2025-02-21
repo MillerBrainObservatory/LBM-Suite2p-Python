@@ -45,6 +45,37 @@ def add_args(parser: argparse.ArgumentParser):
 
     return parser
 
+def run_volume(ops, input_file_list, save_path, save_folder=None):
+    """"""
+    if save_folder is None:
+        ops["save_folder"] = Path(input_file_list[0]).stem  # path/to/filename.ext becomes "filename"
+    else:
+        if not isinstance(save_folder, str):
+            raise TypeError("save_folder must be a string representing the folder name to save results to.")
+
+    all_ops = []
+    for file in input_file_list:
+        print(f"Processing {file} ---------------")
+        output_ops = run_plane(input_file_path=file, save_path=str(save_path), ops=ops)
+        if isinstance(output_ops, dict):
+            # convert to path
+            output_ops = output_ops["ops_path"]
+        all_ops.append(output_ops)
+        post_process(output_ops, overwrite=False)
+
+    # batch was ran, lets accumulate data
+    zstats_file = get_volume_stats(all_ops, overwrite=True)
+
+    plot_volume_stats(zstats_file, os.path.join(save_path, "acc_rej_bar.png"))
+    plot_volume_signal(zstats_file, os.path.join(save_path, "volume_signal_savepath.png"))
+    plot_roi_maps(all_ops, os.path.join(save_path, "max_cell_noncell.png"))
+
+    fcells_list = get_fcells_list(all_ops)
+    flourescence_savepath = os.path.join(save_path, "flourescence.png")
+    plot_fluorescence_grid_auto(fcells_list, flourescence_savepath)
+
+    return all_ops
+
 def run_plane(ops, input_file_path, save_path, save_folder=None):
 
     input_file_path = Path(input_file_path)
@@ -69,13 +100,15 @@ def run_plane(ops, input_file_path, save_path, save_folder=None):
 
     # TODO: add the plane0 as argument when we figure out how to change it
     ops_file = os.path.join(save_path, input_file_path.stem, "plane0", "ops.npy")
-    if Path(ops_file).is_file() or ops.get("skip_existing", False):
-        print("Ops file already exists. Skipping.")
+    stat_file = os.path.join(save_path, input_file_path.stem, "plane0", "stat.npy")
+    iscell = os.path.join(save_path, input_file_path.stem, "plane0", "iscell.npy")
+    if Path(ops_file).is_file() and Path(stat_file).is_file() and Path(iscell).is_file():
+        print(f"{input_file_path} already has segmentation results. Skipping execution.")
         return ops_file
-    db = {'data_path': [str(input_file_path.parent)]}  # suite2p expects List[str]
-
-    output_ops = suite2p.run_s2p(ops=ops, db=db)
-    return output_ops
+    else:
+        db = {'data_path': [str(input_file_path.parent)]}  # suite2p expects List[str]
+        output_ops = suite2p.run_s2p(ops=ops, db=db)
+        return output_ops
 
 
 def main():
@@ -103,33 +136,18 @@ def main():
             save_path = Path(args.save)
         else:
             save_path = Path(args.data).parent / 'results'
-            # save_path = Path(args.data).parent / 'lbm_results'
         if Path(args.data).is_file():
             output_ops = run_plane(ops, input_file_path=args.data, save_path=str(save_path))
             post_process(output_ops, overwrite=True)
             print("Processing complete -----------")
-
         elif Path(args.data).is_dir():
             files = mbo.get_files(args.data, 'tiff', max_depth=args.max_depth)
-            all_ops = []
-            for file in files:
-                print(f"Processing {file} ---------------")
-                output_ops = run_plane(input_file_path=file, save_path=str(save_path), ops=ops)
-                all_ops.append(output_ops)
-                post_process(output_ops, overwrite=False)
-
-            # batch was ran, lets accumulate data
-            zstats_file = get_volume_stats(all_ops, overwrite=True)
-
-            plot_volume_stats(zstats_file, os.path.join(save_path, "acc_rej_bar.png"))
-            plot_volume_signal(zstats_file, os.path.join(save_path, "volume_signal_savepath.png"))
-            plot_roi_maps(all_ops, os.path.join(save_path, "max_cell_noncell.png"))
-
-            fcells_list = get_fcells_list(all_ops)
-            flourescence_savepath = os.path.join(save_path, "flourescence.png")
-            plot_fluorescence_grid_auto(fcells_list, flourescence_savepath)
-
+            output_ops = run_volume(ops, files, save_path=str(save_path), save_folder=str(save_path))
             print("Processing complete -----------")
+        else:
+            raise FileNotFoundError(f"Input data file {args.data} does not exist. Must be an existing file.")
+
+        return output_ops
 
 
 
