@@ -9,7 +9,8 @@ import lbm_suite2p_python as lsp
 from lbm_suite2p_python import plot_volume_stats, plot_roi_maps
 from lbm_suite2p_python.utils import (
     get_volume_stats,
-    post_process
+    post_process,
+    plot_fluorescence_grid_auto,
 )
 import mbo_utilities as mbo
 
@@ -80,6 +81,14 @@ def run_plane(ops, input_file_path, save_path, save_folder=None):
     output_ops = suite2p.run_s2p(ops=ops, db=db)
     return output_ops
 
+def _get_fcells_from_ops_list(ops_list):
+    f_cells_list = []
+    for ops in ops_list:
+        ops = np.load(ops, allow_pickle=True).item()
+        f_cells = np.load(Path(ops['save_path']).joinpath('F.npy'))
+        print(f_cells.shape)
+        f_cells_list.append(f_cells)
+    return f_cells_list
 
 def main():
     """
@@ -124,6 +133,10 @@ def main():
 
             max_cell_noncell_savepath = os.path.join(save_path, "max_cell_noncell.png")
             plot_roi_maps(all_ops, max_cell_noncell_savepath)
+
+            fcells_list = _get_fcells_from_ops_list(ops)
+            flourescence_savepath = os.path.join(save_path, "flourescence.png")
+            plot_fluorescence_grid_auto(fcells_list, flourescence_savepath)
 
             print("Processing complete -----------")
 
