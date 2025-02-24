@@ -59,7 +59,10 @@ def run_plane(ops, input_file_path, save_path, save_folder=None):
 
     # get metadata
     metadata = mbo.get_metadata(input_file_path)
-    ops = mbo.params_from_metadata(metadata, ops)
+    if ops is None:
+        ops = mbo.params_from_metadata(metadata, ops)
+    else:
+        ops = ops
 
     # handle save path
     ops["save_path0"] = str(save_path)
