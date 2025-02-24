@@ -287,7 +287,7 @@ def plot_volume_signal(filepath, savepath):
     ax.set_facecolor("black")
 
     plt.xlabel("Z-Plane", fontsize=14, fontweight="bold", color="white")
-    plt.ylabel("Mean Signal (ΔF/F)", fontsize=14, fontweight="bold", color="white")
+    plt.ylabel("Mean Raw Signal", fontsize=14, fontweight="bold", color="white")
     plt.title("Mean Fluorescence Signal per Z-Plane", fontsize=16, fontweight="bold", color="white")
 
     plt.errorbar(planes, mean_signal, yerr=std_signal, fmt='o-', color="cyan",
