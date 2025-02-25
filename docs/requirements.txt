@@ -15,3 +15,4 @@ sphinx_design
 sphinxcontrib-images
 sphinxcontrib-video
 myst_nb
+seaborn
