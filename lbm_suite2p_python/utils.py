@@ -473,65 +473,24 @@ def post_process(ops_fname, overwrite=True):
             plot_func(ops_loaded, str(path))
 
 def plot_registration(ops, savepath):
-    """
-    Plots registration images from suite2p processing.
+    plt.figure(figsize=(12, 6), facecolor='black')
 
-    TODO: Allow dict or path to dict
+    for i, (key, title) in enumerate([
+        ('refImg', "Ref Image"),
+        ('max_proj', "Max Projection"),
+        ('meanImg', "Mean Image"),
+        ('meanImgE', "High-pass Filtered Mean Image")
+    ]):
+        plt.subplot(1, 4, i + 1)
+        plt.imshow(ops[key], cmap='gray')
+        plt.title(title, fontweight='bold', color='white')
+        plt.xticks([])
+        plt.yticks([])
 
-    Parameters
-    ----------
-    ops : dict
-        Dictionary loaded from `ops.npy`, containing suite2p output data.
-    savepath : str or Path
-        Path to save the generated figure.
-
-    Notes
-    -----
-    - The figure contains four subplots:
-      1. Reference image used for registration.
-      2. Max projection of the registered image.
-      3. Mean registered image.
-      4. High-pass filtered mean registered image.
-    """
-    plt.figure()
-    plt.subplot(1, 4, 1)
-    plt.imshow(ops['refImg'], cmap='gray', )
-    plt.title("Reference Image for Registration")
-
-    plt.subplot(1, 4, 2)
-    plt.imshow(ops['max_proj'], cmap='gray')
-    plt.title("Registered Image, Max Projection")
-
-    plt.subplot(1, 4, 3)
-    plt.imshow(ops['meanImg'], cmap='gray')
-    plt.title("Mean registered image")
-
-    plt.subplot(1, 4, 4)
-    plt.imshow(ops['meanImgE'], cmap='gray')
-    plt.title("High-pass filtered Mean registered image")
-    plt.savefig(savepath, dpi=300)
-    print(f'Saved to {savepath}')
+    plt.savefig(savepath, dpi=300, facecolor='black')
+    plt.show()
 
 def plot_segmentation(ops, savepath):
-    """
-    Plots segmented ROIs from suite2p processing.
-
-    Parameters
-    ----------
-    ops : dict
-        Dictionary loaded from `ops.npy`, containing suite2p output data.
-    savepath : str or Path
-        Path to save the generated figure.
-
-    Notes
-    -----
-    - Uses `stat.npy` and `iscell.npy` to differentiate cell vs. non-cell ROIs.
-    - The figure contains four subplots:
-      1. Max projection of the registered image.
-      2. Overlay of all detected ROIs.
-      3. Overlay of non-cell ROIs.
-      4. Overlay of cell ROIs.
-    """
     stats_file = Path(ops['save_path']).joinpath('stat.npy')
     iscell = np.load(Path(ops['save_path']).joinpath('iscell.npy'), allow_pickle=True)[:, 0].astype(bool)
     stats = np.load(stats_file, allow_pickle=True)
@@ -539,23 +498,25 @@ def plot_segmentation(ops, savepath):
     im = suite2p.ROI.stats_dicts_to_3d_array(stats, Ly=ops['Ly'], Lx=ops['Lx'], label_id=True)
     im[im == 0] = np.nan
 
-    plt.figure()
-    plt.subplot(1, 4, 1)
-    plt.imshow(ops['max_proj'], cmap='gray')
-    plt.title("Registered Image, Max Projection")
+    accepted_cells = np.sum(iscell)
+    rejected_cells = np.sum(~iscell)
 
-    plt.subplot(1, 4, 2)
-    plt.imshow(np.nanmax(im, axis=0), cmap='jet')
-    plt.title("All ROIs Found")
+    plt.figure(figsize=(12, 6), facecolor='black')
 
-    plt.subplot(1, 4, 3)
-    plt.imshow(np.nanmax(im[~iscell], axis=0, ), cmap='jet')
-    plt.title("All Non-Cell ROIs")
+    for i, (data, title, color) in enumerate([
+        (ops['max_proj'], "Max Projection", 'white'),
+        (np.nanmax(im, axis=0) if im.size > 0 and np.any(~np.isnan(im)) else np.ones_like(ops['max_proj']), "All ROIs Found", 'white'),
+        (np.nanmax(im[~iscell], axis=0) if np.any(~iscell) else np.ones_like(ops['max_proj']), f"Non-Cell ROIs ({rejected_cells})", 'red'),
+        (np.nanmax(im[iscell], axis=0) if np.any(iscell) else np.ones_like(ops['max_proj']), f"Cell ROIs ({accepted_cells})", 'green')
+    ]):
+        plt.subplot(1, 4, i + 1)
+        plt.imshow(data, cmap='jet' if i > 0 else 'gray')
+        plt.title(title, fontweight='bold', color=color)
+        plt.xticks([])
+        plt.yticks([])
 
-    plt.subplot(1, 4, 4)
-    plt.imshow(np.nanmax(im[iscell], axis=0), cmap='jet')
-    plt.title("All Cell ROIs")
-    plt.savefig(savepath, dpi=300)
+    plt.savefig(savepath, dpi=300, facecolor='black')
+    plt.show()
 
 def plot_traces(ops, savepath, nframes=None, ntraces=None):
     """

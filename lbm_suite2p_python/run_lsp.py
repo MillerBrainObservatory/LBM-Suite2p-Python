@@ -6,7 +6,6 @@ import suite2p
 
 from lbm_suite2p_python import post_process, get_volume_stats, plot_volume_stats, plot_volume_signal, plot_roi_maps, \
     plot_execution_time, get_fcells_list, plot_fluorescence_grid_auto
-from lbm_suite2p_python.__main__ import print
 
 
 def run_volume(ops, input_file_list, save_path, save_folder=None):
@@ -28,6 +27,7 @@ def run_volume(ops, input_file_list, save_path, save_folder=None):
         post_process(output_ops, overwrite=False)
 
     # batch was ran, lets accumulate data
+    print('running volumetric statistics')
     zstats_file = get_volume_stats(all_ops, overwrite=True)
 
     plot_volume_stats(zstats_file, os.path.join(save_path, "acc_rej_bar.png"))
