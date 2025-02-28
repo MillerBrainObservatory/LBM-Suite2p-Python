@@ -39,6 +39,7 @@ def load_ops(ops_input: str | Path | list[str | Path]):
     elif isinstance(ops_input, dict):
         return ops_input
 
+
 def plot_fluorescence_grid_auto(f_cells_list, savepath, roi_range=(0, 500), frame_range=(0, 1000), sorted=True):
     """
     Generates an auto-sized square grid plot of Z-score normalized fluorescence heatmaps for multiple f_cells.
@@ -125,6 +126,7 @@ def plot_fluorescence_grid_auto(f_cells_list, savepath, roi_range=(0, 500), fram
     plt.savefig(savepath, dpi=1200, bbox_inches="tight", facecolor="black")
     plt.show()
 
+
 def plot_roi_maps(ops_list, savepath):
     """
     Generates a 3-row x N-column plot of max projection and ROI maps for multiple ops files.
@@ -200,6 +202,7 @@ def plot_roi_maps(ops_list, savepath):
 
     plt.savefig(savepath, dpi=1200)
 
+
 def plot_execution_time(filepath, savepath):
     """
     Plots the execution time for each processing step per z-plane.
@@ -243,7 +246,7 @@ def plot_execution_time(filepath, savepath):
     for bar, total in zip(bars3, total_time):
         height = bar.get_y() + bar.get_height()
         if total > 1:  # Only label if execution time is large enough to be visible
-            plt.text(bar.get_x() + bar.get_width()/2, height + 2, f"{int(total)}",
+            plt.text(bar.get_x() + bar.get_width() / 2, height + 2, f"{int(total)}",
                      ha="center", va="bottom", fontsize=12, color="white", fontweight="bold")
 
     plt.xticks(planes, fontsize=12, fontweight="bold", color="white")
@@ -256,10 +259,12 @@ def plot_execution_time(filepath, savepath):
     ax.spines["top"].set_color("white")
     ax.spines["right"].set_color("white")
 
-    plt.legend(fontsize=12, facecolor="black", edgecolor="white", labelcolor="white", loc="upper left", bbox_to_anchor=(1, 1))
+    plt.legend(fontsize=12, facecolor="black", edgecolor="white", labelcolor="white", loc="upper left",
+               bbox_to_anchor=(1, 1))
 
     plt.savefig(savepath, bbox_inches="tight", facecolor="black")
     plt.show()
+
 
 def plot_volume_signal(filepath, savepath):
     """
@@ -313,6 +318,7 @@ def plot_volume_signal(filepath, savepath):
     plt.savefig(savepath, bbox_inches="tight", facecolor="black")
     plt.show()
 
+
 def plot_volume_stats(filepath, savepath):
     """
     Plots the number of accepted and rejected neurons per z-plane.
@@ -347,19 +353,20 @@ def plot_volume_stats(filepath, savepath):
     plt.title("Accepted vs. Rejected Neurons per Z-Plane", fontsize=16, fontweight="bold", color="white")
 
     bars1 = plt.bar(planes, accepted, label="Accepted Neurons", alpha=0.8, color="#4CAF50")  # Light green
-    bars2 = plt.bar(planes, rejected, label="Rejected Neurons", alpha=0.8, bottom=accepted, color="#F57C00")  # Light orange
+    bars2 = plt.bar(planes, rejected, label="Rejected Neurons", alpha=0.8, bottom=accepted,
+                    color="#F57C00")  # Light orange
 
     for bar in bars1:
         height = bar.get_height()
         if height > 0:
-            plt.text(bar.get_x() + bar.get_width()/2, height/2, f"{int(height)}",
+            plt.text(bar.get_x() + bar.get_width() / 2, height / 2, f"{int(height)}",
                      ha="center", va="center", fontsize=12, color="white", fontweight="bold")
 
     for bar1, bar2 in zip(bars1, bars2):
         height1 = bar1.get_height()
         height2 = bar2.get_height()
         if height2 > 0:
-            plt.text(bar2.get_x() + bar2.get_width()/2, height1 + height2/2, f"{int(height2)}",
+            plt.text(bar2.get_x() + bar2.get_width() / 2, height1 + height2 / 2, f"{int(height2)}",
                      ha="center", va="center", fontsize=12, color="white", fontweight="bold")
 
     plt.xticks(planes, fontsize=12, fontweight="bold", color="white")
@@ -376,7 +383,8 @@ def plot_volume_stats(filepath, savepath):
 
     plt.savefig(savepath, bbox_inches="tight", facecolor="black")
 
-def get_volume_stats(ops_files: list[str | Path], overwrite: bool=True):
+
+def get_volume_stats(ops_files: list[str | Path], overwrite: bool = True):
     """
     Plots the number of accepted and rejected neurons per z-plane.
 
@@ -401,7 +409,6 @@ def get_volume_stats(ops_files: list[str | Path], overwrite: bool=True):
 
     plane_stats = {}
     for i, file in enumerate(ops_files):
-
         output_ops = load_ops(file)
         iscell = np.load(Path(output_ops['save_path']).joinpath('iscell.npy'), allow_pickle=True)[:, 0].astype(bool)
         traces = np.load(Path(output_ops['save_path']).joinpath('F.npy'), allow_pickle=True)
@@ -443,6 +450,7 @@ def get_volume_stats(ops_files: list[str | Path], overwrite: bool=True):
         print(f"File {plane_save} already exists. Skipping.")
     return plane_save
 
+
 def post_process(ops_fname, overwrite=True):
     """
     Runs post-processing functions for suite2p output.
@@ -477,6 +485,7 @@ def post_process(ops_fname, overwrite=True):
         if overwrite or not path.exists():
             plot_func(ops_loaded, str(path))
 
+
 def plot_registration(ops, savepath):
     plt.figure(figsize=(12, 6), facecolor='black')
 
@@ -494,6 +503,7 @@ def plot_registration(ops, savepath):
 
     plt.savefig(savepath, dpi=300, facecolor='black')
     plt.show()
+
 
 def plot_segmentation(ops, savepath, overlay=True, fig_label=None):
     stats_file = Path(ops['save_path']).joinpath('stat.npy')
@@ -526,7 +536,8 @@ def plot_segmentation(ops, savepath, overlay=True, fig_label=None):
         (max_proj if overlay else np.zeros_like(max_proj), non_cell_rois, f"Non-Cell ROIs ({rejected_cells})", 'Reds',
          'red'),
         (
-        max_proj if overlay else np.zeros_like(max_proj), cell_rois, f"Cell ROIs ({accepted_cells})", 'Greens', 'green')
+                max_proj if overlay else np.zeros_like(max_proj), cell_rois, f"Cell ROIs ({accepted_cells})", 'Greens',
+                'green')
     ])):
         if i == 0:
             ax.set_ylabel(fig_label, color='white', fontweight='bold', fontsize=14)
@@ -542,6 +553,7 @@ def plot_segmentation(ops, savepath, overlay=True, fig_label=None):
 
     plt.savefig(savepath, dpi=300, facecolor='black')
     plt.show()
+
 
 def plot_traces(ops, savepath, nframes=None, ntraces=None):
     """
@@ -589,7 +601,8 @@ def plot_traces(ops, savepath, nframes=None, ntraces=None):
     timepoints = np.arange(0, nframes, subsample_factor)
 
     fig, axes = plt.subplots(ntraces, 1, figsize=(12, 1.5 * ntraces), sharex=True)
-    fig.suptitle("Fluorescence and Deconvolved Traces for Randomly Selected ROIs", fontsize=26, fontweight='bold', fontname="Arial", y=0.98)
+    fig.suptitle("Fluorescence and Deconvolved Traces for Randomly Selected ROIs", fontsize=26, fontweight='bold',
+                 fontname="Arial", y=0.98)
 
     if ntraces == 1:
         axes = [axes]
@@ -612,9 +625,11 @@ def plot_traces(ops, savepath, nframes=None, ntraces=None):
         ax.plot(timepoints, sp + fmin, label="Deconvolved", linewidth=1.5, linestyle='dashed')
 
         ax.set_yticks([fmin, fmax])
-        ax.set_yticklabels([f"{fmin:.1f}", f"{fmax:.1f}"], fontsize=12, fontweight='bold', fontname="Arial", rotation=45)
+        ax.set_yticklabels([f"{fmin:.1f}", f"{fmax:.1f}"], fontsize=12, fontweight='bold', fontname="Arial",
+                           rotation=45)
 
-        ax.set_ylabel(f"ROI {roi}", rotation=90, labelpad=10, fontsize=14, fontweight='bold', fontname="Arial", va="center", ha="right")
+        ax.set_ylabel(f"ROI {roi}", rotation=90, labelpad=10, fontsize=14, fontweight='bold', fontname="Arial",
+                      va="center", ha="right")
 
         if i == 0:
             ax.legend(loc="upper center", bbox_to_anchor=(0.5, 2.3), fontsize=18, ncol=3, frameon=False)
@@ -623,6 +638,7 @@ def plot_traces(ops, savepath, nframes=None, ntraces=None):
     plt.tight_layout(rect=[0, 0, 1, 0.96])
     plt.savefig(savepath, dpi=300)
     plt.close()
+
 
 def combine_tiffs(files):
     """
@@ -659,6 +675,7 @@ def combine_tiffs(files):
 
     return new_tiff
 
+
 def make_subdir_from_list(files: list):
     """
     Moves each file in a list into its own subdirectory.
@@ -684,6 +701,7 @@ def make_subdir_from_list(files: list):
         new_fname = plane_path / file.name
         file.rename(new_fname)
 
+
 def get_fcells_list(ops_list: list):
     if not isinstance(ops_list, list):
         raise ValueError("`ops_list` must be a list")
@@ -693,6 +711,7 @@ def get_fcells_list(ops_list: list):
         f_cells = np.load(Path(ops['save_path']).joinpath('F.npy'))
         f_cells_list.append(f_cells)
     return f_cells_list
+
 
 def calculate_crosstalk_coeff(im3d, exclude_below=1, sigma=0.01, peak_width=1,
                               verbose=True, estimate_gamma=True, estimate_from_last_n_planes=None,
@@ -788,6 +807,7 @@ def calculate_crosstalk_coeff(im3d, exclude_below=1, sigma=0.01, peak_width=1,
 
     return m_opts, m_firsts, best_m
 
+
 def sum_log_lik_one_line(m, x, y, b=0, sigma_0=10, c=1e-10, m_penalty=0):
     mu = m * x + b
     lik_line = gaussian(y, mu, sigma_0)
@@ -797,5 +817,6 @@ def sum_log_lik_one_line(m, x, y, b=0, sigma_0=10, c=1e-10, m_penalty=0):
 
     return -log_lik
 
+
 def gaussian(x, mu, sigma):
-    return np.exp(-0.5 * ((x - mu) / sigma) ** 2) / (sigma * np.sqrt(2*np.pi))
+    return np.exp(-0.5 * ((x - mu) / sigma) ** 2) / (sigma * np.sqrt(2 * np.pi))
