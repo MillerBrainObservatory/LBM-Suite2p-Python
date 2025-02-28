@@ -486,21 +486,24 @@ def post_process(ops_fname, overwrite=True):
             plot_func(ops_loaded, str(path))
 
 
-def plot_registration(ops, savepath):
-    plt.figure(figsize=(12, 6), facecolor='black')
+def plot_registration(ops, savepath, fig_label=None):
+    fig, axes = plt.subplots(1, 4, figsize=(12, 6), facecolor='black')
 
-    for i, (key, title) in enumerate([
+    for i, (ax, (key, title)) in enumerate(zip(axes, [
         ('refImg', "Reference Image"),
         ('max_proj', "Max Projection"),
         ('meanImg', "Mean Image"),
         ('meanImgE', "High-passed Filtered Mean Image")
-    ]):
-        plt.subplot(1, 4, i + 1)
-        plt.imshow(ops[key], cmap='gray')
-        plt.title(title, fontweight='bold', color='white')
-        plt.xticks([])
-        plt.yticks([])
+    ])):
+        ax.imshow(ops[key], cmap='gray')
+        ax.set_title(title, fontweight='bold', color='white', fontsize=14, pad=2)
+        ax.set_xticks([])
+        ax.set_yticks([])
 
+        if i == 0 and fig_label:
+            ax.set_ylabel(fig_label, fontweight='bold', color='white', fontsize=14)
+
+    plt.tight_layout()
     plt.savefig(savepath, dpi=300, facecolor='black')
     plt.show()
 
