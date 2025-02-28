@@ -17,4 +17,4 @@ sphinxcontrib-video
 myst_nb
 seaborn
 scipy
-skimage
+scikit-image
