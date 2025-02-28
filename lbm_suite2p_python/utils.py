@@ -495,8 +495,7 @@ def plot_registration(ops, savepath):
     plt.savefig(savepath, dpi=300, facecolor='black')
     plt.show()
 
-
-def plot_segmentation(ops, savepath, fig_title=None, overlay=False, alpha=0.5):
+def plot_segmentation(ops, savepath, overlay=True, fig_label=None):
     stats_file = Path(ops['save_path']).joinpath('stat.npy')
     iscell = np.load(Path(ops['save_path']).joinpath('iscell.npy'), allow_pickle=True)[:, 0].astype(bool)
     stats = np.load(stats_file, allow_pickle=True)
@@ -508,36 +507,38 @@ def plot_segmentation(ops, savepath, fig_title=None, overlay=False, alpha=0.5):
     rejected_cells = np.sum(~iscell)
 
     def resize_to_max_proj(mask, target_shape):
-        return resize(mask, target_shape, mode='constant', anti_aliasing=True, preserve_range=True) if mask.shape != target_shape else mask
+        return resize(mask, target_shape, mode='constant', anti_aliasing=True,
+                      preserve_range=True) if mask.shape != target_shape else mask
 
     max_proj = ops['max_proj']
     shape = max_proj.shape
 
     all_rois = resize_to_max_proj(np.nanmax(im, axis=0), shape)
-    non_cell_rois = resize_to_max_proj(np.nanmax(im[~iscell], axis=0) if np.any(~iscell) else np.zeros_like(im[0]), shape)
+    non_cell_rois = resize_to_max_proj(np.nanmax(im[~iscell], axis=0) if np.any(~iscell) else np.zeros_like(im[0]),
+                                       shape)
     cell_rois = resize_to_max_proj(np.nanmax(im[iscell], axis=0) if np.any(iscell) else np.zeros_like(im[0]), shape)
 
-    if overlay:
-        all_rois = np.where(np.isnan(all_rois), max_proj, all_rois)
-        non_cell_rois = np.where(np.isnan(non_cell_rois), max_proj, non_cell_rois)
-        cell_rois = np.where(np.isnan(cell_rois), max_proj, cell_rois)
+    fig, axes = plt.subplots(1, 4, figsize=(12, 6), facecolor='black')
 
-    plt.figure(figsize=(12, 7), facecolor='black')
+    for i, (ax, (base_image, overlay_image, title, color_map, text_color)) in enumerate(zip(axes, [
+        (max_proj, None, "Max Projection", None, 'white'),
+        (max_proj if overlay else np.zeros_like(max_proj), all_rois, "All ROIs Found", 'gray', 'white'),
+        (max_proj if overlay else np.zeros_like(max_proj), non_cell_rois, f"Non-Cell ROIs ({rejected_cells})", 'Reds',
+         'red'),
+        (
+        max_proj if overlay else np.zeros_like(max_proj), cell_rois, f"Cell ROIs ({accepted_cells})", 'Greens', 'green')
+    ])):
+        if i == 0:
+            ax.set_ylabel(fig_label, color='white', fontweight='bold', fontsize=14)
 
-    if fig_title:
-        plt.suptitle(fig_title, fontweight='bold', color='white', fontsize=14, y=0.88)
+        ax.imshow(base_image, cmap='gray', vmin=0, vmax=np.nanpercentile(max_proj, 99))
+        if overlay_image is not None:
+            ax.imshow(overlay_image, cmap=color_map, alpha=0.8, vmax=np.nanpercentile(overlay_image, 95))
+        ax.set_title(title, fontweight='bold', color=text_color, fontsize=14, pad=2)
+        ax.set_xticks([])
+        ax.set_yticks([])
 
-    for i, (data, title, text_color, alpha, cmap) in enumerate([
-        (max_proj, "Max Projection", 'white', 1.0, 'gray'),
-        (all_rois, "All ROIs Found", 'white', 0.7, 'gray'),
-        (non_cell_rois, f"Non-Cell ROIs ({rejected_cells})", 'red', 0.7, 'Reds'),
-        (cell_rois, f"Cell ROIs ({accepted_cells})", 'green', 0.5, ListedColormap([(0, 1, 0, 0), (0.5, 1, 0.5, alpha)]))
-    ]):
-        plt.subplot(1, 4, i + 1)
-        plt.imshow(data, cmap=cmap, vmin=0, vmax=np.nanpercentile(data, 99), alpha=alpha)
-        plt.title(title, fontweight='bold', color=text_color, fontsize=12)
-        plt.xticks([])
-        plt.yticks([])
+    plt.tight_layout()
 
     plt.savefig(savepath, dpi=300, facecolor='black')
     plt.show()
