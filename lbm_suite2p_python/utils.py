@@ -200,7 +200,7 @@ def plot_roi_maps(ops_list, savepath):
 
         axes[0, idx].set_title(f"z-plane {idx + 1}", fontsize=36, fontweight="bold")
 
-    plt.savefig(savepath, dpi=1200)
+    plt.savefig(savepath, dpi=600)
 
 
 def plot_execution_time(filepath, savepath):
@@ -451,41 +451,6 @@ def get_volume_stats(ops_files: list[str | Path], overwrite: bool = True):
     return plane_save
 
 
-def post_process(ops_fname, overwrite=True):
-    """
-    Runs post-processing functions for suite2p output.
-
-    This function loads an `ops.npy` file and runs a set of predefined plotting functions
-    to generate registration, segmentation, and trace visualizations.
-
-    Parameters
-    ----------
-    ops_fname : str or Path
-        Path to the `ops.npy` file.
-    overwrite : bool, optional
-        Whether to overwrite existing output files (default is True).
-
-    Notes
-    -----
-    - Generates and saves the following plots in the same directory as `ops.npy`:
-      - `registration.png` (reference & registered images)
-      - `segmentation.png` (ROI segmentation)
-      - `traces.png` (fluorescence & deconvolved traces)
-    """
-    print(f"Post processing started.")
-    filenames = {
-        "registration.png": plot_registration,
-        "segmentation.png": plot_segmentation,
-        "traces.png": plot_traces
-    }
-
-    ops_loaded = load_ops(ops_fname)
-    for fname, plot_func in filenames.items():
-        path = Path(ops_loaded["save_path"]) / fname
-        if overwrite or not path.exists():
-            plot_func(ops_loaded, str(path))
-
-
 def plot_registration(ops, savepath, fig_label=None):
     fig, axes = plt.subplots(1, 4, figsize=(12, 6), facecolor='black')
 
@@ -558,61 +523,51 @@ def plot_segmentation(ops, savepath, overlay=True, fig_label=None):
     plt.show()
 
 
-def plot_traces(ops, savepath, nframes=None, ntraces=None):
-    """
-    Plots fluorescence and deconvolved traces for randomly selected ROIs.
-
-    Parameters
-    ----------
-    ops : dict
-        Dictionary loaded from `ops.npy`, containing suite2p output data.
-    savepath : str or Path
-        Path to save the generated figure.
-    nframes : int or None
-        Number of frames to include.
-    ntraces : int or None
-        Number of ROIs to include.
-
-    Notes
-    -----
-    - If `nframes` is None, all frames are used.
-    - If `ntraces` is None, up to 20 ROIs are randomly selected.
-    - The figure contains multiple subplots, one per ROI, displaying:
-      - Raw fluorescence trace.
-      - Neuropil fluorescence trace.
-      - Deconvolved spikes, normalized to match fluorescence range.
-    """
+def plot_traces(ops, savepath, nframes=None, ntraces=5, show_best=False):
+    fps = ops['fs']
     f_cells = np.load(Path(ops['save_path']).joinpath('F.npy'))
     f_neuropils = np.load(Path(ops['save_path']).joinpath('Fneu.npy'))
     spks = np.load(Path(ops['save_path']).joinpath('spks.npy'))
 
-    total_rois = f_cells.shape[0]
-    total_frames = f_cells.shape[1]
+    total_rois, total_frames = f_cells.shape
+    total_time = total_frames / fps
+    max_time = 600 if total_time > 600 else total_time
+    nframes = min(nframes if nframes is not None else int(max_time * fps), total_frames)
 
-    if ntraces is None:
-        ntraces = min(20, total_rois)
+    if max_time < 1:
+        time_factor, time_unit = 1000, "ms"
+    elif max_time < 60:
+        time_factor, time_unit = 1, "s"
+    elif max_time < 3600:
+        time_factor, time_unit = 1 / 60, "min"
     else:
-        ntraces = min(ntraces, total_rois)
+        time_factor, time_unit = 1 / 3600, "hr"
 
-    if nframes is None:
-        nframes = total_frames
-    else:
-        nframes = min(nframes, total_frames)
-
-    rois = np.random.choice(total_rois, ntraces, replace=False)
+    timepoints = np.linspace(0, max_time * time_factor, nframes)
     subsample_factor = max(1, nframes // 300)
-    timepoints = np.arange(0, nframes, subsample_factor)
+    timepoints = timepoints[::subsample_factor]
 
-    fig, axes = plt.subplots(ntraces, 1, figsize=(12, 1.5 * ntraces), sharex=True)
-    fig.suptitle("Fluorescence and Deconvolved Traces for Randomly Selected ROIs", fontsize=26, fontweight='bold',
-                 fontname="Arial", y=0.98)
+    valid_rois = np.where(f_cells.mean(axis=1) > 0)[0]
 
-    if ntraces == 1:
-        axes = [axes]
+    if show_best:
+        z_F = (f_cells[valid_rois] - f_cells[valid_rois].mean(axis=1, keepdims=True)) / (
+                    f_cells[valid_rois].std(axis=1, keepdims=True) + 1e-10)
+        z_Fneu = (f_neuropils[valid_rois] - f_neuropils[valid_rois].mean(axis=1, keepdims=True)) / (
+                    f_neuropils[valid_rois].std(axis=1, keepdims=True) + 1e-10)
+        z_scores = np.abs(z_F.mean(axis=1) - z_Fneu.mean(axis=1))
+        selected_rois = valid_rois[np.argsort(z_scores)[-ntraces:][::-1]]
+    else:
+        selected_rois = np.random.choice(valid_rois, ntraces, replace=False)
 
-    for i, roi in enumerate(rois):
+    fig, axes = plt.subplots(ntraces, 1, figsize=(12, 2 * ntraces), sharex=True)
+
+    if show_best:
+        fig.suptitle("Traces with Largest Difference (of Z Scores) from Neuropil", fontsize=24, fontweight='bold', fontname="Arial", y=0.95)
+    else:
+        fig.suptitle("Fluorescence and Deconvolved Traces for Randomly Selected ROIs", fontsize = 26, fontweight = 'bold', fontname = "Arial", y = 0.98)
+
+    for i, roi in enumerate(selected_rois):
         ax = axes[i]
-
         f = f_cells[roi, :nframes][::subsample_factor]
         f_neu = f_neuropils[roi, :nframes][::subsample_factor]
         sp = spks[roi, :nframes][::subsample_factor]
@@ -635,12 +590,15 @@ def plot_traces(ops, savepath, nframes=None, ntraces=None):
                       va="center", ha="right")
 
         if i == 0:
-            ax.legend(loc="upper center", bbox_to_anchor=(0.5, 2.3), fontsize=18, ncol=3, frameon=False)
+            ax.legend(loc="upper center", bbox_to_anchor=(0.5, 1.24), fontsize=14, ncol=3, frameon=False)
 
-    axes[-1].set_xlabel("Frame Index", fontsize=16, fontweight='bold', fontname="Arial")
-    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    axes[-1].set_xlabel(f"Time ({time_unit})", fontsize=16, fontweight='bold', fontname="Arial")
+    axes[-1].set_xlim([0, timepoints[-1]])
+
+    plt.subplots_adjust(top=0.88)
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
     plt.savefig(savepath, dpi=300)
-    plt.close()
+    plt.show()
 
 
 def combine_tiffs(files):
@@ -823,3 +781,13 @@ def sum_log_lik_one_line(m, x, y, b=0, sigma_0=10, c=1e-10, m_penalty=0):
 
 def gaussian(x, mu, sigma):
     return np.exp(-0.5 * ((x - mu) / sigma) ** 2) / (sigma * np.sqrt(2 * np.pi))
+
+def collect_result_png(ops_list):
+    if not isinstance(ops_list, list):
+        raise ValueError("`ops_list` must be a list")
+    png_list = []
+    for ops in ops_list:
+        ops = load_ops(ops)
+        f_cells = np.load(Path(ops['save_path']).joinpath('segmentation.png'))
+        png_list.append(f_cells)
+    return png_list
