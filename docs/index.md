@@ -11,6 +11,7 @@ maxdepth: 2
 Functions <api>
 Notebooks <examples/index>
 Suite2p Publication <publication>
+Manual Curation <manual_curation>
 
 ```
 
@@ -26,7 +27,6 @@ Suite2p Publication <publication>
 | [#690](https://github.com/MouseLand/suite2p/issues/690) | Channel Registration | Discussion on **registering one channel to another**. |
 | [#627](https://github.com/MouseLand/suite2p/issues/627) | Fluorescence & Neuropil Signals | Explanation of `F` (Fluorescence) and `Fneu` (Neuropil Fluorescence) in Suite2p output. |
 | [#758](https://github.com/MouseLand/suite2p/issues/758#issuecomment-956588935) | Running on a Cluster | More discussion on **looping over databases (`dbs`)** when running Suite2p on a cluster. |
-
 
 ## Snippets
 

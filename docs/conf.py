@@ -75,7 +75,7 @@ source_suffix = {
     ".md": "myst-nb",
 }
 
-autodoc_mock_imports = ['scanreader', 'caiman']
+autodoc_mock_imports = ['scanreader']
 
 nb_execution_mode = "off"
 
@@ -92,7 +92,7 @@ templates_path = ["_templates"]
 html_title = "LBM-Suite2p-Python"
 
 # html_logo = "_static/lcp_logo.svg"
-html_favicon = "_static/icon_caiman_python.svg"
+# html_favicon = "_static/icon_suite2p_python.svg"
 html_theme = "sphinx_book_theme"
 
 html_short_title = "LBM Suite2p Pipeline"

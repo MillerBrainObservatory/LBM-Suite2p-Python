@@ -19,7 +19,7 @@
 - Disadvantage that it relies on low-frequencys: neuropil, small graduents of pixel fluctuation
    - High frequency is essential for registration, i.e. edges, activity
 
-[Whitened Image]("./_images/whitened.png")
+[Whitened Image]("whitened.png")
 
 ## ROI Detection
 
