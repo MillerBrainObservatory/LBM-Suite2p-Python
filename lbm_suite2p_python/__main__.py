@@ -3,9 +3,6 @@ import argparse
 from pathlib import Path
 from functools import partial
 import lbm_suite2p_python as lsp
-from lbm_suite2p_python.utils import (
-    post_process,
-)
 import mbo_utilities as mbo
 
 import suite2p
@@ -67,7 +64,6 @@ def main():
             save_path = Path(args.data).parent / 'results'
         if Path(args.data).is_file():
             output_ops = lsp.run_plane(ops, input_file_path=args.data, save_path=str(save_path))
-            post_process(output_ops, overwrite=True)
             print("Processing complete -----------")
         elif Path(args.data).is_dir():
             files = mbo.get_files(args.data, 'tiff', max_depth=args.max_depth)

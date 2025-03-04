@@ -6,7 +6,6 @@ __version__ = _version.get_versions()['version']
 
 __all__ = [
     "load_ops",
-    "post_process",
     "get_volume_stats",
     "get_fcells_list",
     "plot_segmentation",
