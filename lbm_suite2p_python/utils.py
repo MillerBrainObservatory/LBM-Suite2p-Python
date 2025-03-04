@@ -6,7 +6,6 @@ from multiprocessing import Pool
 from scipy.signal import find_peaks
 from scipy.stats import gamma
 from skimage.transform import resize
-from matplotlib.colors import ListedColormap
 
 from scipy.stats import zscore
 import math
