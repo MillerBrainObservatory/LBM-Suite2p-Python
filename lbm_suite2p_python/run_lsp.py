@@ -4,11 +4,19 @@ import mbo_utilities as mbo
 
 import suite2p
 
-from lbm_suite2p_python import plot_roi_maps, \
-    plot_fluorescence_grid_auto, load_ops, plot_segmentation, plot_registration, \
+from lbm_suite2p_python import (
+    load_ops,
+    plot_segmentation,
+    plot_registration,
     plot_traces
-from lbm_suite2p_python.volume import plot_execution_time, plot_volume_signal, plot_volume_stats, get_volume_stats, \
+)
+from lbm_suite2p_python.volume import (
+    plot_execution_time,
+    plot_volume_signal,
+    plot_volume_stats,
+    get_volume_stats,
     get_fcells_list
+)
 
 
 def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
