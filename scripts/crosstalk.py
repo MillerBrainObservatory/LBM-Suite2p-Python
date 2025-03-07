@@ -14,6 +14,8 @@ import seaborn as sns
 import lbm_suite2p_python as lsp
 import mbo_utilities as mbo
 
+import lbm_suite2p_python.crosstalk
+
 
 def calculate_crosstalk_coeff(im3d, exclude_below=1, sigma=0.01, peak_width=1,
                               verbose=True, estimate_gamma=True, estimate_from_last_n_planes=None,
@@ -58,10 +60,10 @@ def calculate_crosstalk_coeff(im3d, exclude_below=1, sigma=0.01, peak_width=1,
 
         # For each potential scaling factor, 0 0.01 0.02 ... 1
         if n_proc == 1:
-            liks = n.array([lsp.sum_log_lik_one_line(m, X[idxs], Y[idxs], sigma_0=sigma, m_penalty=m_penalty) for m in ms])
+            liks = n.array([lbm_suite2p_python.crosstalk.sum_log_lik_one_line(m, X[idxs], Y[idxs], sigma_0=sigma, m_penalty=m_penalty) for m in ms])
         else:
             p = Pool(n_proc)
-            liks = p.starmap(lsp.sum_log_lik_one_line, [(m, X[idxs], Y[idxs], 0, sigma, 1e-10, m_penalty) for m in ms])
+            liks = p.starmap(lbm_suite2p_python.crosstalk.sum_log_lik_one_line, [(m, X[idxs], Y[idxs], 0, sigma, 1e-10, m_penalty) for m in ms])
             liks = n.array(liks)
 
         m_opt = ms[n.argmin(liks)]

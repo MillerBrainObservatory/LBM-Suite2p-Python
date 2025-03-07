@@ -4,23 +4,26 @@ import mbo_utilities as mbo
 
 import suite2p
 
-from lbm_suite2p_python import  get_volume_stats, plot_volume_stats, plot_volume_signal, plot_roi_maps, \
-    plot_execution_time, get_fcells_list, plot_fluorescence_grid_auto, load_ops, plot_segmentation, plot_registration, \
+from lbm_suite2p_python import plot_roi_maps, \
+    plot_fluorescence_grid_auto, load_ops, plot_segmentation, plot_registration, \
     plot_traces
+from lbm_suite2p_python.volume import plot_execution_time, plot_volume_signal, plot_volume_stats, get_volume_stats, \
+    get_fcells_list
 
 
 def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
     """"""
-    if save_folder is None:
-        ops["save_folder"] = Path(input_file_list[0]).stem  # path/to/filename.ext becomes "filename"
-    else:
-        if not isinstance(save_folder, str):
-            raise TypeError("save_folder must be a string representing the folder name to save results to.")
 
     all_ops = []
     for file in input_file_list:
         print(f"Processing {file} ---------------")
-        output_ops = run_plane(input_file_path=file, save_path=str(save_path), ops=ops, replot=replot)
+        output_ops = run_plane(
+            ops=ops,
+            input_file_path=file,
+            save_path=str(save_path),
+            save_folder=save_folder,
+            replot=replot
+        )
         all_ops.append(output_ops)
 
     # batch was ran, lets accumulate data
@@ -28,6 +31,7 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
     if isinstance(all_ops[0], dict):
         all_ops = [ops['ops_path'] for ops in all_ops]
 
+    # volumetric stats / graphs
     zstats_file = get_volume_stats(all_ops, overwrite=True)
 
     plot_volume_stats(zstats_file, os.path.join(save_path, "acc_rej_bar.png"))
@@ -44,12 +48,16 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
 
 def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
     input_file_path = Path(input_file_path)
+    if save_folder is None:
+        ops["save_folder"] = Path(input_file_path).stem  # path/to/filename.ext becomes "filename"
+    else:
+        if not isinstance(save_folder, str):
+            raise TypeError("save_folder must be a string representing the folder name to save results to.")
     if not input_file_path.is_file():
         raise FileNotFoundError(f"Input data file {input_file_path} does not exist. Must be an existing file.")
 
     save_path = Path(save_path)
-    if not save_path.is_dir():
-        save_path.mkdir(parents=False, exist_ok=True)  # Prevent incorrect root creation
+    save_path.mkdir(parents=True, exist_ok=True)  # Prevent incorrect root creation
 
     ops["tiff_list"] = [input_file_path.name]
 
@@ -59,7 +67,11 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
 
     # Handle save path
     ops["save_path0"] = str(save_path)
-    save_folder = save_folder if isinstance(save_folder, str) else input_file_path.stem
+
+    if save_folder is None:
+        save_folder = save_path.name
+        # ops["save_folder"] = save_folder
+
     zplane = input_file_path.stem
     plane_path = save_path / save_folder / "plane0"
 
@@ -69,8 +81,7 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
         "stat": plane_path / "stat.npy",
         "iscell": plane_path / "iscell.npy",
         "registration": plane_path / "registration.png",
-        "segmentation_overlay": plane_path / "segmentation_overlay.png",
-        "segmentation_masks": plane_path / "segmentation_masks.png",
+        "segmentation": plane_path / "segmentation.png",
         "traces": plane_path / "traces.png",
     }
 
@@ -80,17 +91,49 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
         print(f"{input_file_path} already has segmentation results. Skipping execution.")
         output_ops = load_ops(expected_files["ops"])
     else:
-        db = {'data_path': [str(input_file_path.parent)]}  # Suite2p expects List[str]
+        db = {'data_path': [str(input_file_path.parent)], 'save_folder': [str(save_folder)], 'save_path0': [str(save_path)]}
         output_ops = suite2p.run_s2p(ops=ops, db=db)
 
     # If replot is False, skip existing plots
     # its computationally cheap to run these plotting functions and its often helpful to access these quickly
-    if replot or not all(expected_files[key].is_file() for key in ["registration", "segmentation_overlay", "segmentation_masks", "traces"]):
-        print(f"Generating missing plots for {zplane}...")
+    try:
+        if replot or not all(expected_files[key].is_file() for key in ["registration", "segmentation_overlay", "segmentation_masks", "traces"]):
+            print(f"Generating missing plots for {zplane}...")
 
-        plot_registration(output_ops, expected_files["registration"], fig_label=zplane)
-        plot_segmentation(output_ops, expected_files["segmentation_overlay"], fig_label=zplane, overlay=True)
-        plot_segmentation(output_ops, expected_files["segmentation_masks"], fig_label=zplane, overlay=False)
-        plot_traces(output_ops, expected_files["traces"], show_best=True)
+            registration_path = Path(expected_files["registration"])
+            registration_path.parent.mkdir(parents=True, exist_ok=True)  # Ensure directory exists
+
+            # Ensure the file does not exist
+            if registration_path.exists():
+                try:
+                    registration_path.unlink()
+                except PermissionError:
+                    print(f"Error: Cannot delete {registration_path}. Ensure it is not open elsewhere.")
+
+            plot_registration(output_ops, registration_path, fig_label=zplane)
+
+            segmentation_path = Path(expected_files["segmentation"])
+            segmentation_path.parent.mkdir(parents=True, exist_ok=True)
+            if segmentation_path.exists():
+                try:
+                    segmentation_path.unlink()
+                except PermissionError:
+                    print('Error: Cannot delete {segmentation_path}. Ensure it is not open elsewhere.')
+
+            plot_segmentation(output_ops, segmentation_path, fig_label=zplane)
+
+            traces_path = Path(expected_files["traces"])
+            traces_path.parent.mkdir(parents=True, exist_ok=True)
+            if traces_path.exists():
+                try:
+                    traces_path.unlink()
+                except PermissionError:
+                    print('Error: Cannot delete {traces_path}. Ensure it is not open elsewhere.')
+
+                plot_traces(output_ops, traces_path,)
+
+    except Exception as e: # don't lose the raw file if this fails
+        print(e)
+        print('Returning...')
 
     return output_ops
