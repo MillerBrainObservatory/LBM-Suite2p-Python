@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 
 import suite2p
+from scipy.ndimage import percentile_filter
 
 mpl.rcParams.update({
     'axes.spines.left': True,
@@ -237,3 +238,29 @@ def plot_traces(ops, savepath, nframes=None, ntraces=5, show_best=False):
 
 def gaussian(x, mu, sigma):
     return np.exp(-0.5 * ((x - mu) / sigma) ** 2) / (sigma * np.sqrt(2 * np.pi))
+
+
+def compute_dff(f_trace, window_size=300, percentile=8):
+    """
+    Compute ΔF/F₀ using a rolling percentile baseline.
+
+    Parameters:
+    -----------
+    f_trace : np.ndarray
+        (N_neurons, N_frames) fluorescence traces.
+    window_size : int
+        Size of the rolling window (in frames).
+    percentile : int
+        Percentile to use for baseline F₀ estimation.
+
+    Returns:
+    --------
+    dff : np.ndarray
+        (N_neurons, N_frames) ΔF/F₀ traces.
+    """
+    f0 = np.array([
+        percentile_filter(f, percentile, size=window_size, mode='nearest')
+        for f in f_trace
+    ])
+    return (f_trace - f0) / (f0 + 1e-6)  # 1e-6 to avoid division by zero
+

@@ -21,7 +21,6 @@ from lbm_suite2p_python.volume import (
 
 def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
     """"""
-
     all_ops = []
     for file in input_file_list:
         print(f"Processing {file} ---------------")
@@ -53,6 +52,45 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
 
 
 def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
+    """
+    Processes a single imaging plane using suite2p, handling registration, segmentation,
+    and plotting of results.
+
+    Parameters
+    ----------
+    ops : dict
+        Dictionary containing suite2p parameters.
+    input_file_path : str or Path
+        Path to the input TIFF file.
+    save_path : str or Path
+        Directory to save the results.
+    save_folder : str, optional
+        Subdirectory for saving results (default: filename of input file).
+    replot : bool, optional
+        If True, regenerates plots even if they exist (default: False).
+
+    Returns
+    -------
+    dict
+        Processed ops dictionary containing results.
+
+    Raises
+    ------
+    FileNotFoundError
+        If `input_file_path` does not exist.
+    TypeError
+        If `save_folder` is not a string.
+    Exception
+        If plotting functions fail.
+
+    Example
+    -----
+    input_files = mbo.get_files(assembled_path, str_contains='tif', max_depth=3)
+    metadata = mbo.get_metadata(input_files[0])
+    ops = suite2p.default_ops()
+    mbo_ops = mbo.params_from_metadata(metadata, ops) # handles framerate, Lx/Ly, etc
+    output_ops = lsp.run_plane(mbo_ops, input_files[0], save_path)
+    """
     input_file_path = Path(input_file_path)
     if save_folder is None:
        save_folder = Path(input_file_path).stem  # path/to/filename.ext becomes "filename"
@@ -92,12 +130,23 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
 
     # If segmentation results exist, skip processing
     # we may want to include optional args for registration / segmentation separately
+    db = {}
     if all(expected_files[key].is_file() for key in ["ops", "stat", "iscell"]):
         print(f"{input_file_path} already has segmentation results. Skipping execution.")
         output_ops = load_ops(expected_files["ops"])
     else:
         db = {'data_path': [str(input_file_path.parent)], 'save_folder': str(save_folder), 'save_path0': str(save_path)}
         output_ops = suite2p.run_s2p(ops=ops, db=db)
+
+    raw_path = save_path.joinpath("suite2p", "plane0", "data.bin")
+    where_raw_should_be_path = plane_path / 'data.bin'
+    print(f'{raw_path.is_file()}')
+    if ops["keep_movie_raw"]:
+        print(f'Moving {raw_path} -> {where_raw_should_be_path}')
+        raw_path.rename(where_raw_should_be_path)
+    else:
+        print(f"Deleting {raw_path} due to parameter keep_movie_raw=False.")
+        raw_path.unlink()
 
     # If replot is False, skip existing plots
     # its computationally cheap to run these plotting functions and its often helpful to access these quickly
