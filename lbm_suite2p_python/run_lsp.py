@@ -141,12 +141,15 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
     raw_path = save_path.joinpath("suite2p", "plane0", "data.bin")
     where_raw_should_be_path = plane_path / 'data.bin'
     print(f'{raw_path.is_file()}')
-    if ops["keep_movie_raw"]:
-        print(f'Moving {raw_path} -> {where_raw_should_be_path}')
-        raw_path.rename(where_raw_should_be_path)
-    else:
-        print(f"Deleting {raw_path} due to parameter keep_movie_raw=False.")
-        raw_path.unlink()
+    if raw_path.is_file():
+        if ops["keep_movie_raw"]:
+            print(f'Moving {raw_path} -> {where_raw_should_be_path}')
+            raw_path.rename(where_raw_should_be_path)
+        else:
+            # remove the data file, then the folder to prevent permission error
+            print(f"Deleting {raw_path} due to parameter keep_movie_raw=False.")
+            raw_path.unlink()
+            raw_path.parent.parent.unlink()
 
     # If replot is False, skip existing plots
     # its computationally cheap to run these plotting functions and its often helpful to access these quickly
