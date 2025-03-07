@@ -16,7 +16,6 @@ from lbm_suite2p_python.volume import (
     plot_volume_signal,
     plot_volume_stats,
     get_volume_stats,
-    get_fcells_list
 )
 
 
@@ -56,7 +55,7 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
 def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
     input_file_path = Path(input_file_path)
     if save_folder is None:
-        ops["save_folder"] = Path(input_file_path).stem  # path/to/filename.ext becomes "filename"
+       save_folder = Path(input_file_path).stem  # path/to/filename.ext becomes "filename"
     else:
         if not isinstance(save_folder, str):
             raise TypeError("save_folder must be a string representing the folder name to save results to.")
@@ -65,6 +64,7 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
 
     save_path = Path(save_path)
     save_path.mkdir(parents=True, exist_ok=True)  # Prevent incorrect root creation
+    save_path0 = str(save_path)
 
     ops["tiff_list"] = [input_file_path.name]
 
@@ -72,8 +72,6 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
     metadata = mbo.get_metadata(input_file_path)
     ops = ops if ops else mbo.params_from_metadata(metadata, ops)
 
-    # Handle save path
-    ops["save_path0"] = str(save_path)
 
     if save_folder is None:
         save_folder = save_path.name
@@ -98,7 +96,7 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
         print(f"{input_file_path} already has segmentation results. Skipping execution.")
         output_ops = load_ops(expected_files["ops"])
     else:
-        db = {'data_path': [str(input_file_path.parent)], 'save_folder': [str(save_folder)], 'save_path0': [str(save_path)]}
+        db = {'data_path': [str(input_file_path.parent)], 'save_folder': str(save_folder), 'save_path0': str(save_path)}
         output_ops = suite2p.run_s2p(ops=ops, db=db)
 
     # If replot is False, skip existing plots
