@@ -1,4 +1,5 @@
 import os
+import traceback
 from pathlib import Path
 import mbo_utilities as mbo
 
@@ -42,15 +43,13 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
     # volumetric stats / graphs
     zstats_file = get_volume_stats(all_ops, overwrite=True)
 
-    plot_volume_stats(zstats_file, os.path.join(save_path, "acc_rej_bar.png"))
-    plot_volume_signal(zstats_file, os.path.join(save_path, "mean_volume_signal.png"))
-    plot_roi_maps(all_ops, os.path.join(save_path, "max_cell_noncell.png"))
-    plot_execution_time(zstats_file, os.path.join(save_path, "execution_time.png"))
-
-    fcells_list = get_fcells_list(all_ops)
-    flourescence_savepath = os.path.join(save_path, "flourescence.png")
-    plot_fluorescence_grid_auto(fcells_list, flourescence_savepath)
-
+    try:
+        plot_volume_stats(zstats_file, os.path.join(save_path, "acc_rej_bar.png"))
+        plot_volume_signal(zstats_file, os.path.join(save_path, "mean_volume_signal.png"))
+        plot_execution_time(zstats_file, os.path.join(save_path, "execution_time.png"))
+    except Exception:
+        print("Volume statistics failed")
+        traceback.print_exc()
     return all_ops
 
 
