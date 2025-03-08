@@ -16,15 +16,11 @@ def get_common_path(ops_files):
     If there is a single file or no common path, return the first non-empty path.
     """
     if len(ops_files) == 1:
-        print(f"only 1 op file")
         path = Path(ops_files[0]).parent
         while path.exists() and len(list(path.iterdir())) == 1:  # Traverse up if only one item exists
-            print(f"traversing")
             path = path.parent
-        print(f"returning {path}")
         return path
     else:
-        print(f"multi_file, {os.path.commonpath(ops_files)}")
         return Path(os.path.commonpath(ops_files))
 
 
@@ -246,7 +242,6 @@ def get_volume_stats(ops_files: list[str | Path], overwrite: bool = True):
 
     # edge case: the common path will be ops.npy if there's only a single file
     common_path = get_common_path(ops_files)
-    print(common_path)
 
     plane_save = os.path.join(common_path, "volume_stats.npy")
     plane_stats_npy = np.array(
@@ -357,14 +352,14 @@ def plot_volume_projection(ops, savepath, fig_label=None, vmin=None, vmax=None, 
     plt.show()
 
 
-def save_images_to_movie(image_dir, savepath, duration=None, format=".mp4"):
+def save_images_to_movie(image_input, savepath, duration=None, format=".mp4"):
     """
-    Convert a sequence of saved images into a movie with PowerPoint-compatible encoding.
+    Convert a sequence of saved images into a movie.
 
     Parameters
     ----------
-    image_dir : str or Path
-        Directory containing saved segmentation images.
+    image_input : str, Path, or list
+        Directory containing saved segmentation images or a list of image file paths.
     savepath : str or Path
         Path to save the video file.
     duration : int, optional
@@ -372,14 +367,19 @@ def save_images_to_movie(image_dir, savepath, duration=None, format=".mp4"):
     format : str, optional
         Video format: ".mp4" (PowerPoint-compatible), ".avi" (lossless), ".mov" (ProRes). Default is ".mp4".
     """
-    image_dir = Path(image_dir)
     savepath = Path(savepath).with_suffix(format)  # Ensure correct file extension
     temp_video = savepath.with_suffix(".avi")  # Temporary AVI file for MOV conversion
     savepath.parent.mkdir(parents=True, exist_ok=True)
 
-    image_files = sorted(glob.glob(str(image_dir / "*.png")) +
-                         glob.glob(str(image_dir / "*.jpg")) +
-                         glob.glob(str(image_dir / "*.tif")))
+    if isinstance(image_input, (str, Path)):
+        image_dir = Path(image_input)
+        image_files = sorted(glob.glob(str(image_dir / "*.png")) +
+                             glob.glob(str(image_dir / "*.jpg")) +
+                             glob.glob(str(image_dir / "*.tif")))
+    elif isinstance(image_input, list):
+        image_files = sorted(map(str, image_input))
+    else:
+        raise ValueError("image_input must be a directory path or a list of file paths.")
 
     if not image_files:
         return
@@ -409,18 +409,16 @@ def save_images_to_movie(image_dir, savepath, duration=None, format=".mp4"):
     video_writer.release()
 
     if format == ".mp4":
-        fixed_mp4 = savepath.with_suffix(".pptx.mp4")
         ffmpeg_cmd = [
             "ffmpeg", "-y", "-i", str(video_path),
             "-vcodec", "libx264",
             "-acodec", "aac",
             "-preset", "slow",
             "-crf", "18",
-            str(fixed_mp4)
+            str(savepath)  # Save directly to `savepath`
         ]
         subprocess.run(ffmpeg_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        video_path.unlink()
-        print(f"✅ PowerPoint-compatible MP4 saved at {fixed_mp4}")
+        print(f"MP4 saved at {savepath}")
 
     elif format == ".mov":
         ffmpeg_cmd = [
