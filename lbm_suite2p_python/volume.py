@@ -10,6 +10,23 @@ from matplotlib import pyplot as plt, patches
 
 from lbm_suite2p_python import load_ops
 
+def get_common_path(ops_files):
+    """
+    Find the common path of all files in `ops_files`.
+    If there is a single file or no common path, return the first non-empty path.
+    """
+    if len(ops_files) == 1:
+        print(f"only 1 op file")
+        path = Path(ops_files[0]).parent
+        while path.exists() and len(list(path.iterdir())) == 1:  # Traverse up if only one item exists
+            print(f"traversing")
+            path = path.parent
+        print(f"returning {path}")
+        return path
+    else:
+        print(f"multi_file, {os.path.commonpath(ops_files)}")
+        return Path(os.path.commonpath(ops_files))
+
 
 def plot_execution_time(filepath, savepath):
     """
@@ -227,7 +244,10 @@ def get_volume_stats(ops_files: list[str | Path], overwrite: bool = True):
         timing = output_ops['timing']
         plane_stats[i + 1] = (num_accepted, num_rejected, mean_trace, std_trace, timing, file)
 
-    common_path = os.path.commonpath(ops_files)
+    # edge case: the common path will be ops.npy if there's only a single file
+    common_path = get_common_path(ops_files)
+    print(common_path)
+
     plane_save = os.path.join(common_path, "volume_stats.npy")
     plane_stats_npy = np.array(
         [(plane, accepted, rejected, mean_trace, std_trace,
@@ -249,9 +269,10 @@ def get_volume_stats(ops_files: list[str | Path], overwrite: bool = True):
             ("filepath", "U255")
         ]
     )
-
+    # if the file doesn't exist, save it
     if not Path(plane_save).is_file():
         np.save(plane_save, plane_stats_npy)
+    # if the file does exist, only save if overwrite is true
     elif Path(plane_save).is_file() and overwrite:
         np.save(plane_save, plane_stats_npy)
     else:

@@ -20,7 +20,39 @@ from lbm_suite2p_python.volume import (
 
 
 def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
-    """"""
+    """
+    Processes a volumetric imaging dataset by running Suite2p on multiple planes
+    and aggregating volumetric statistics.
+
+    Parameters
+    ----------
+    ops : dict | list
+        Dictionary containing Suite2p parameters.
+    input_file_list : list of str or Path
+        List of file paths corresponding to imaging planes.
+    save_path : str or Path
+        Directory to save the results.
+    save_folder : str, optional
+        Subdirectory for saving results (default: None).
+    replot : bool, optional
+        If True, regenerates plots even if they exist (default: False).
+
+    Returns
+    -------
+    list
+        List of processed ops dictionaries or paths to ops files.
+
+    Raises
+    ------
+    Exception
+        If volumetric statistics or plots fail.
+
+    Notes
+    -----
+    - Calls `run_plane` for each plane in `input_file_list`.
+    - Computes and saves volumetric statistics.
+    - Generates summary plots of segmentation and execution metrics.
+    """
     all_ops = []
     for file in input_file_list:
         print(f"Processing {file} ---------------")
@@ -34,11 +66,10 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
         all_ops.append(output_ops)
 
     # batch was ran, lets accumulate data
-    print('running volumetric statistics')
+    # print('running volumetric statistics')
     if isinstance(all_ops[0], dict):
         all_ops = [ops['ops_path'] for ops in all_ops]
 
-    # volumetric stats / graphs
     zstats_file = get_volume_stats(all_ops, overwrite=True)
 
     try:
@@ -48,6 +79,8 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
     except Exception:
         print("Volume statistics failed")
         traceback.print_exc()
+
+    print(f"Processing completed for {len(input_file_list)} files.")
     return all_ops
 
 
@@ -102,14 +135,12 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
 
     save_path = Path(save_path)
     save_path.mkdir(parents=True, exist_ok=True)  # Prevent incorrect root creation
-    save_path0 = str(save_path)
 
     ops["tiff_list"] = [input_file_path.name]
 
     # Get metadata and initialize ops
     metadata = mbo.get_metadata(input_file_path)
     ops = ops if ops else mbo.params_from_metadata(metadata, ops)
-
 
     if save_folder is None:
         save_folder = save_path.name
@@ -127,10 +158,10 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
         "segmentation": plane_path / "segmentation.png",
         "traces": plane_path / "traces.png",
     }
+    print(expected_files)
 
     # If segmentation results exist, skip processing
     # we may want to include optional args for registration / segmentation separately
-    db = {}
     if all(expected_files[key].is_file() for key in ["ops", "stat", "iscell"]):
         print(f"{input_file_path} already has segmentation results. Skipping execution.")
         output_ops = load_ops(expected_files["ops"])
@@ -144,12 +175,17 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
     if raw_path.is_file():
         if ops["keep_movie_raw"]:
             print(f'Moving {raw_path} -> {where_raw_should_be_path}')
-            raw_path.rename(where_raw_should_be_path)
+            try:
+                raw_path.rename(where_raw_should_be_path)
+            except Exception as e:
+                print(f'Failed to rename {raw_path} to {where_raw_should_be_path}')
         else:
-            # remove the data file, then the folder to prevent permission error
-            print(f"Deleting {raw_path} due to parameter keep_movie_raw=False.")
-            raw_path.unlink()
-            raw_path.parent.parent.unlink()
+            try:
+                print(f"Deleting {raw_path} due to parameter keep_movie_raw=False.")
+                raw_path.unlink()
+                raw_path.parent.parent.unlink()
+            except Exception as e:
+                print(f'Failed to delete {raw_path} due to {e}')
 
     # If replot is False, skip existing plots
     # its computationally cheap to run these plotting functions and its often helpful to access these quickly
@@ -168,9 +204,13 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
                     print(f"Error: Cannot delete {registration_path}. Ensure it is not open elsewhere.")
 
             plot_registration(output_ops, registration_path, fig_label=zplane)
+            print(f"Registration plots saved to {registration_path}.")
 
             segmentation_path = Path(expected_files["segmentation"])
             segmentation_path.parent.mkdir(parents=True, exist_ok=True)
+            print("-----------------------------")
+            print(segmentation_path)
+            print("-----------------------------")
             if segmentation_path.exists():
                 try:
                     segmentation_path.unlink()
@@ -178,6 +218,7 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
                     print('Error: Cannot delete {segmentation_path}. Ensure it is not open elsewhere.')
 
             plot_segmentation(output_ops, segmentation_path, fig_label=zplane)
+            print(f"Segmentation plots saved to {segmentation_path}.")
 
             traces_path = Path(expected_files["traces"])
             traces_path.parent.mkdir(parents=True, exist_ok=True)
@@ -187,7 +228,8 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
                 except PermissionError:
                     print('Error: Cannot delete {traces_path}. Ensure it is not open elsewhere.')
 
-                plot_traces(output_ops, traces_path,)
+            plot_traces(output_ops, traces_path,)
+            print(f"Trace plots saved to {traces_path}.")
 
     except Exception as e: # don't lose the raw file if this fails
         print(e)
