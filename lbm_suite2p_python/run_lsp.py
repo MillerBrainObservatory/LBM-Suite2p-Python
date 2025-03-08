@@ -66,7 +66,6 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
         all_ops.append(output_ops)
 
     # batch was ran, lets accumulate data
-    # print('running volumetric statistics')
     if isinstance(all_ops[0], dict):
         all_ops = [ops['ops_path'] for ops in all_ops]
 
@@ -125,31 +124,26 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
     output_ops = lsp.run_plane(mbo_ops, input_files[0], save_path)
     """
     input_file_path = Path(input_file_path)
-    if save_folder is None:
-       save_folder = Path(input_file_path).stem  # path/to/filename.ext becomes "filename"
-    else:
-        if not isinstance(save_folder, str):
-            raise TypeError("save_folder must be a string representing the folder name to save results to.")
     if not input_file_path.is_file():
-        raise FileNotFoundError(f"Input data file {input_file_path} does not exist. Must be an existing file.")
+        raise FileNotFoundError(f"Input data file {input_file_path} does not exist.")
 
     save_path = Path(save_path)
-    save_path.mkdir(parents=True, exist_ok=True)  # Prevent incorrect root creation
-
-    ops["tiff_list"] = [input_file_path.name]
-
-    # Get metadata and initialize ops
-    metadata = mbo.get_metadata(input_file_path)
-    ops = ops if ops else mbo.params_from_metadata(metadata, ops)
+    save_path.mkdir(parents=True, exist_ok=True)
 
     if save_folder is None:
-        save_folder = save_path.name
-        # ops["save_folder"] = save_folder
+        save_folder = input_file_path.stem
+    elif not isinstance(save_folder, (str, Path)):
+        raise TypeError("save_folder must be a string or path-like object.")
+    else:
+        save_folder = Path(save_folder)
 
-    zplane = input_file_path.stem
+    if ops is None:
+        ops = suite2p.default_ops()
+    metadata = mbo.get_metadata(input_file_path)
+    ops = mbo.params_from_metadata(metadata, ops)
+    ops["tiff_list"] = [input_file_path.name]
+
     plane_path = save_path / save_folder / "plane0"
-
-    # Expected output files
     expected_files = {
         "ops": plane_path / "ops.npy",
         "stat": plane_path / "stat.npy",
@@ -158,81 +152,56 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
         "segmentation": plane_path / "segmentation.png",
         "traces": plane_path / "traces.png",
     }
-    print(expected_files)
 
-    # If segmentation results exist, skip processing
-    # we may want to include optional args for registration / segmentation separately
     if all(expected_files[key].is_file() for key in ["ops", "stat", "iscell"]):
         print(f"{input_file_path} already has segmentation results. Skipping execution.")
         output_ops = load_ops(expected_files["ops"])
     else:
-        db = {'data_path': [str(input_file_path.parent)], 'save_folder': str(save_folder), 'save_path0': str(save_path)}
+        db = {"data_path": [str(input_file_path.parent)], "save_folder": save_folder, "save_path0": str(save_path)}
         output_ops = suite2p.run_s2p(ops=ops, db=db)
 
-    raw_path = save_path.joinpath("suite2p", "plane0", "data.bin")
-    where_raw_should_be_path = plane_path / 'data.bin'
-    print(f'{raw_path.is_file()}')
+    # remove when we set data.bin path correctly
+    # monkey patch to deal with default suite2p/plane0/data.bin save path
+    raw_path = save_path / "suite2p" / "plane0" / "data.bin"
+    where_raw_should_be_path = plane_path / "data.bin"
     if raw_path.is_file():
         if ops["keep_movie_raw"]:
-            print(f'Moving {raw_path} -> {where_raw_should_be_path}')
-            try:
+            print(f"Moving {raw_path} -> {where_raw_should_be_path}")
+            if not where_raw_should_be_path.exists():
                 raw_path.rename(where_raw_should_be_path)
-            except Exception as e:
-                print(f'Failed to rename {raw_path} to {where_raw_should_be_path}')
+            else:
+                print(f"Warning: {where_raw_should_be_path} already exists. Skipping rename.")
         else:
             try:
-                print(f"Deleting {raw_path} due to parameter keep_movie_raw=False.")
+                print(f"Deleting {raw_path} due to ops['keep_movie_raw=False'].")
                 raw_path.unlink()
-                raw_path.parent.parent.unlink()
+                if not any(raw_path.parent.parent.iterdir()):
+                    raw_path.parent.parent.rmdir()
             except Exception as e:
-                print(f'Failed to delete {raw_path} due to {e}')
+                print(f"Failed to delete {raw_path}: {e}")
 
-    # If replot is False, skip existing plots
-    # its computationally cheap to run these plotting functions and its often helpful to access these quickly
     try:
-        if replot or not all(expected_files[key].is_file() for key in ["registration", "segmentation_overlay", "segmentation_masks", "traces"]):
-            print(f"Generating missing plots for {zplane}...")
+        if replot or not all(expected_files[key].is_file() for key in
+                             ["registration", "segmentation_overlay", "segmentation_masks", "traces"]):
+            print(f"Generating missing plots for {input_file_path.stem}...")
 
-            registration_path = Path(expected_files["registration"])
-            registration_path.parent.mkdir(parents=True, exist_ok=True)  # Ensure directory exists
+            def safe_delete(file_path):
+                if file_path.exists():
+                    try:
+                        file_path.unlink()
+                    except PermissionError:
+                        print(f"Error: Cannot delete {file_path}. Ensure it is not open elsewhere.")
 
-            # Ensure the file does not exist
-            if registration_path.exists():
-                try:
-                    registration_path.unlink()
-                except PermissionError:
-                    print(f"Error: Cannot delete {registration_path}. Ensure it is not open elsewhere.")
+            safe_delete(expected_files["registration"])
+            plot_registration(output_ops, expected_files["registration"], fig_label=input_file_path.stem)
 
-            plot_registration(output_ops, registration_path, fig_label=zplane)
-            print(f"Registration plots saved to {registration_path}.")
+            safe_delete(expected_files["segmentation"])
+            plot_segmentation(output_ops, expected_files["segmentation"], fig_label=input_file_path.stem)
 
-            segmentation_path = Path(expected_files["segmentation"])
-            segmentation_path.parent.mkdir(parents=True, exist_ok=True)
-            print("-----------------------------")
-            print(segmentation_path)
-            print("-----------------------------")
-            if segmentation_path.exists():
-                try:
-                    segmentation_path.unlink()
-                except PermissionError:
-                    print('Error: Cannot delete {segmentation_path}. Ensure it is not open elsewhere.')
+            safe_delete(expected_files["traces"])
+            plot_traces(output_ops, expected_files["traces"])
 
-            plot_segmentation(output_ops, segmentation_path, fig_label=zplane)
-            print(f"Segmentation plots saved to {segmentation_path}.")
-
-            traces_path = Path(expected_files["traces"])
-            traces_path.parent.mkdir(parents=True, exist_ok=True)
-            if traces_path.exists():
-                try:
-                    traces_path.unlink()
-                except PermissionError:
-                    print('Error: Cannot delete {traces_path}. Ensure it is not open elsewhere.')
-
-            plot_traces(output_ops, traces_path,)
-            print(f"Trace plots saved to {traces_path}.")
-
-    except Exception as e: # don't lose the raw file if this fails
-        print(e)
-        print('Returning...')
+    except Exception as e:
+        print(f"Plotting failed: {e}")
 
     return output_ops
