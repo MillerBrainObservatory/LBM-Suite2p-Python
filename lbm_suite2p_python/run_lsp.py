@@ -16,6 +16,8 @@ from lbm_suite2p_python.volume import (
     plot_volume_signal,
     plot_volume_stats,
     get_volume_stats,
+    save_images_to_movie
+    # plot_volume_projection
 )
 
 if mbo.is_running_jupyter():
@@ -75,11 +77,14 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
         all_ops = [ops['ops_path'] for ops in all_ops]
 
     zstats_file = get_volume_stats(all_ops, overwrite=True)
+    all_imgs = mbo.get_files(save_path, "segmentation.png", 4)
+    save_images_to_movie(all_imgs, os.path.join(save_path, "segmentation_volume.mp4"))
 
     try:
         plot_volume_stats(zstats_file, os.path.join(save_path, "acc_rej_bar.png"))
         plot_volume_signal(zstats_file, os.path.join(save_path, "mean_volume_signal.png"))
         plot_execution_time(zstats_file, os.path.join(save_path, "execution_time.png"))
+        save_images_to_movie(zstats_file, os.path.join(save_path, "execution_time.png"))
     except Exception:
         print("Volume statistics failed")
         traceback.print_exc()
