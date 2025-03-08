@@ -18,6 +18,11 @@ from lbm_suite2p_python.volume import (
     get_volume_stats,
 )
 
+if mbo.is_running_jupyter():
+    from tqdm.notebook import tqdm
+else:
+    from tqdm import tqdm
+
 
 def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
     """
@@ -54,7 +59,7 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
     - Generates summary plots of segmentation and execution metrics.
     """
     all_ops = []
-    for file in input_file_list:
+    for file in tqdm(input_file_list, desc="Processing Planes"):
         print(f"Processing {file} ---------------")
         output_ops = run_plane(
             ops=ops,
@@ -81,7 +86,6 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
 
     print(f"Processing completed for {len(input_file_list)} files.")
     return all_ops
-
 
 def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
     """
@@ -181,8 +185,8 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
                 print(f"Failed to delete {raw_path}: {e}")
 
     try:
-        if replot or not all(expected_files[key].is_file() for key in
-                             ["registration", "segmentation_overlay", "segmentation_masks", "traces"]):
+        if replot or not all(expected_files[key].is_file() for key in [
+            "registration", "segmentation", "traces"]):
             print(f"Generating missing plots for {input_file_path.stem}...")
 
             def safe_delete(file_path):
@@ -192,15 +196,12 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
                     except PermissionError:
                         print(f"Error: Cannot delete {file_path}. Ensure it is not open elsewhere.")
 
-            safe_delete(expected_files["registration"])
+            for key in ["registration", "segmentation", "traces"]:
+                safe_delete(expected_files[key])
+
             plot_registration(output_ops, expected_files["registration"], fig_label=input_file_path.stem)
-
-            safe_delete(expected_files["segmentation"])
             plot_segmentation(output_ops, expected_files["segmentation"], fig_label=input_file_path.stem)
-
-            safe_delete(expected_files["traces"])
             plot_traces(output_ops, expected_files["traces"])
-
     except Exception as e:
         print(f"Plotting failed: {e}")
 
