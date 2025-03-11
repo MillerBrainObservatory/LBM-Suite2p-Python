@@ -229,7 +229,7 @@ def gaussian(x, mu, sigma):
     return np.exp(-0.5 * ((x - mu) / sigma) ** 2) / (sigma * np.sqrt(2 * np.pi))
 
 
-def compute_dff(f_trace, window_size=300, percentile=8):
+def compute_dff_percentile(f_trace, window_size=300, percentile=8):
     """
     Compute ΔF/F₀ using a rolling percentile baseline.
 
