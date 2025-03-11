@@ -14,5 +14,5 @@ __all__ = [
     "run_plane",
     "save_images_to_movie",
     "plot_volume_signal",
-    "plot_volume_projection"
+    "plot_projection"
 ]

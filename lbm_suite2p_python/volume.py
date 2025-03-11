@@ -5,23 +5,9 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-import tifffile
 from matplotlib import pyplot as plt, patches
 
-from lbm_suite2p_python import load_ops
-
-def get_common_path(ops_files):
-    """
-    Find the common path of all files in `ops_files`.
-    If there is a single file or no common path, return the first non-empty path.
-    """
-    if len(ops_files) == 1:
-        path = Path(ops_files[0]).parent
-        while path.exists() and len(list(path.iterdir())) == 1:  # Traverse up if only one item exists
-            path = path.parent
-        return path
-    else:
-        return Path(os.path.commonpath(ops_files))
+from lbm_suite2p_python import load_ops, get_common_path
 
 
 def plot_execution_time(filepath, savepath):
@@ -275,83 +261,6 @@ def get_volume_stats(ops_files: list[str | Path], overwrite: bool = True):
     return plane_save
 
 
-def plot_volume_projection(ops, savepath, fig_label=None, vmin=None, vmax=None, add_scalebar=False, proj="meanImg"):
-    """
-    Plot only the max projection image without any segmentation masks.
-
-    Parameters:
-    -----------
-    ops : dict
-        Suite2p ops dictionary containing the 'max_proj' image and optional 'dx' for scalebar.
-    savepath : str or Path
-        Path to save the output figure.
-    fig_label : str, optional
-        Label for the figure (Z-plane name or other identifier).
-    vmin : float, optional
-        Minimum intensity for the grayscale image. Default is 2nd percentile.
-    vmax : float, optional
-        Maximum intensity for the grayscale image. Default is 98th percentile.
-    add_scalebar : bool, optional
-        Whether to add a 100 μm scale bar to the image. Requires 'dx' in ops.
-    proj : str, optional
-        Summary projection to use for the background. Options are "meanImg", "max_proj", "meanImgE". Default is "meanImg".
-    """
-
-    if proj == "meanImg":
-        txt = "Mean-Image"
-    elif proj == "max_proj":
-        txt = "Max-Projection"
-    elif proj == "meanImgE":
-        txt = "Mean-Image (Enhanced)"
-    else:
-        raise ValueError("Unknown projection type. Options are ['meanImg', 'max_proj', 'meanImgE']")
-
-    savepath = Path(savepath)
-    data = ops[proj]
-    shape = data.shape
-
-    fig, ax = plt.subplots(figsize=(6, 6), facecolor='black')
-
-    vmin = np.nanpercentile(data, 2) if vmin is None else vmin
-    vmax = np.nanpercentile(data, 98) if vmax is None else vmax
-
-    if vmax - vmin < 1e-6:
-        vmax = vmin + 1e-6  # Add small offset to prevent NaN issues
-
-    # data = np.clip(data_norm * 255, 0, 255).astype(np.uint8)
-
-    ax.imshow(data, cmap='gray', vmin=vmin, vmax=vmax)
-
-    ax.text(0.5, 1.02, txt, transform=ax.transAxes,
-            fontsize=14, fontweight='bold', fontname="Courier New",
-            color='white', ha='center', va='bottom')
-
-    if fig_label:
-        fig_label = fig_label.replace("_", " ").replace("-", " ").replace(".", " ")
-        ax.set_ylabel(fig_label, color='white', fontweight='bold', fontsize=12)
-
-    ax.set_xticks([])
-    ax.set_yticks([])
-
-    if add_scalebar and 'dx' in ops:
-        pixel_size = ops['dx']
-        scale_bar_length = 100 / pixel_size
-
-        scalebar_x = shape[1] * 0.05
-        scalebar_y = shape[0] * 0.90
-
-        ax.add_patch(patches.Rectangle(
-            (scalebar_x, scalebar_y), scale_bar_length, 5, edgecolor='white', facecolor='white'))
-        ax.text(scalebar_x + scale_bar_length / 2, scalebar_y - 10, "100 μm",
-                color='white', fontsize=10, ha='center', fontweight='bold')
-
-    plt.tight_layout()
-    savepath.parent.mkdir(parents=True, exist_ok=True)
-
-    plt.savefig(savepath, dpi=300, facecolor='black')
-    plt.show()
-
-
 def save_images_to_movie(image_input, savepath, duration=None, format=".mp4"):
     """
     Convert a sequence of saved images into a movie.
@@ -430,68 +339,6 @@ def save_images_to_movie(image_input, savepath, duration=None, format=".mp4"):
         ]
         subprocess.run(ffmpeg_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         temp_video.unlink()
-
-
-def combine_tiffs(files):
-    """
-    Combines multiple TIFF files into a single stacked TIFF.
-
-    This function concatenates multiple 3D TIFF files (`T x Y x X`) along the time axis
-    to create a single output TIFF.
-
-    Parameters
-    ----------
-    files : list of str or Path
-        List of file paths to the TIFF files to be combined.
-
-    Returns
-    -------
-    np.ndarray
-        A 3D NumPy array representing the concatenated TIFF stack.
-
-    Notes
-    -----
-    - Input TIFFs should have identical spatial dimensions (`Y x X`).
-    - The output shape will be `(T_total, Y, X)`, where `T_total` is the sum of all input time points.
-    """
-    first_file = files[0]
-    first_tiff = tifffile.imread(first_file)
-    num_files = len(files)
-    num_frames, height, width = first_tiff.shape
-
-    new_tiff = np.zeros((num_frames * num_files, height, width), dtype=first_tiff.dtype)
-
-    for i, f in enumerate(files):
-        tiff = tifffile.imread(f)
-        new_tiff[i * num_frames:(i + 1) * num_frames] = tiff
-
-    return new_tiff
-
-
-def make_subdir_from_list(files: list):
-    """
-    Moves each file in a list into its own subdirectory.
-
-    This function organizes a list of file paths by moving each file into a
-    subdirectory named after its stem.
-
-    Parameters
-    ----------
-    files : list of Path
-        List of file paths to be moved into subdirectories.
-
-    Notes
-    -----
-    - The function creates a subdirectory named after the file stem and moves the file into it.
-    - If the filename contains plane information (e.g., `plane_01`), the plane name is extracted for directory naming.
-    """
-    for file in files:
-        fpath = file.parent / file.stem
-        plane_name = fpath.stem.rpartition('_')[:-2][0]
-        plane_path = file.parent / plane_name
-        plane_path.mkdir(exist_ok=True)
-        new_fname = plane_path / file.name
-        file.rename(new_fname)
 
 
 def get_fcells_list(ops_list: list):

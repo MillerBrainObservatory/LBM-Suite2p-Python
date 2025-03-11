@@ -9,15 +9,15 @@ from lbm_suite2p_python import (
     load_ops,
     plot_segmentation,
     plot_registration,
-    plot_traces
+    plot_traces,
+    plot_projection
 )
 from lbm_suite2p_python.volume import (
     plot_execution_time,
     plot_volume_signal,
     plot_volume_stats,
     get_volume_stats,
-    save_images_to_movie
-    # plot_volume_projection
+    save_images_to_movie,
 )
 
 if mbo.is_running_jupyter():
@@ -76,18 +76,27 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
     if isinstance(all_ops[0], dict):
         all_ops = [ops['ops_path'] for ops in all_ops]
 
-    zstats_file = get_volume_stats(all_ops, overwrite=True)
-    all_imgs = mbo.get_files(save_path, "segmentation.png", 4)
-    save_images_to_movie(all_imgs, os.path.join(save_path, "segmentation_volume.mp4"))
-
     try:
+        zstats_file = get_volume_stats(all_ops, overwrite=True)
+
+        all_segs = mbo.get_files(save_path, "segmentation.png", 4)
+        all_means = mbo.get_files(save_path, "mean_image.png", 4)
+        all_maxs = mbo.get_files(save_path, "max_projection_image.png", 4)
+        all_traces = mbo.get_files(save_path, "traces.png", 4)
+
+        save_images_to_movie(all_segs, os.path.join(save_path, "segmentation_volume.mp4"))
+        save_images_to_movie(all_means, os.path.join(save_path, "mean_images_volume.mp4"))
+        save_images_to_movie(all_maxs, os.path.join(save_path, "max_images_volume.mp4"))
+        save_images_to_movie(all_traces, os.path.join(save_path, "traces_volume.mp4"))
+
         plot_volume_stats(zstats_file, os.path.join(save_path, "acc_rej_bar.png"))
         plot_volume_signal(zstats_file, os.path.join(save_path, "mean_volume_signal.png"))
         plot_execution_time(zstats_file, os.path.join(save_path, "execution_time.png"))
-        save_images_to_movie(zstats_file, os.path.join(save_path, "execution_time.png"))
+
     except Exception:
-        print("Volume statistics failed")
-        traceback.print_exc()
+        print("Volume statistics failed. Showing ops:")
+        print(all_ops)
+        print("Traceback: ", traceback.format_exc())
 
     print(f"Processing completed for {len(input_file_list)} files.")
     return all_ops
@@ -159,6 +168,8 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
         "iscell": plane_path / "iscell.npy",
         "registration": plane_path / "registration.png",
         "segmentation": plane_path / "segmentation.png",
+        "meanImg" : plane_path / "mean_image.png",
+        "max_proj" : plane_path / "max_projection_image.png",
         "traces": plane_path / "traces.png",
     }
 
@@ -205,8 +216,25 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
                 safe_delete(expected_files[key])
 
             plot_registration(output_ops, expected_files["registration"], fig_label=input_file_path.stem)
-            plot_segmentation(output_ops, expected_files["segmentation"], fig_label=input_file_path.stem)
             plot_traces(output_ops, expected_files["traces"])
+            plot_projection(
+                output_ops,
+                expected_files["segmentation"],
+                fig_label=input_file_path.stem,
+                display_masks=True,
+                add_scalebar=True,
+                proj="max_proj"
+            )
+            # do one for mean/max image, no masks
+            for projection in ["meanImg", "max_proj"]:
+                plot_projection(
+                    output_ops,
+                    expected_files[projection],
+                    fig_label=input_file_path.stem,
+                    display_masks=False,
+                    add_scalebar=True,
+                    proj=projection
+                )
     except Exception as e:
         print(f"Plotting failed: {e}")
 

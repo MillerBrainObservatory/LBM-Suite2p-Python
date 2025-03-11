@@ -1,6 +1,9 @@
+import os
+
 import numpy as np
 from pathlib import Path
 
+import tifffile
 from matplotlib import patches
 
 import matplotlib.pyplot as plt
@@ -50,109 +53,95 @@ def resize_to_max_proj(mask, target_shape):
     return resized_mask
 
 
-def plot_registration(ops, savepath, fig_label=None):
-    fig, axes = plt.subplots(1, 4, figsize=(12, 6), facecolor='black')
+def plot_projection(
+        ops,
+        savepath,
+        fig_label=None,
+        vmin=None,
+        vmax=None,
+        add_scalebar=False,
+        proj="meanImg",
+        display_masks=False, accepted_only=False
+):
+    if proj == "meanImg":
+        txt = "Mean-Image"
+    elif proj == "max_proj":
+        txt = "Max-Projection"
+    elif proj == "meanImgE":
+        txt = "Mean-Image (Enhanced)"
+    else:
+        raise ValueError("Unknown projection type. Options are ['meanImg', 'max_proj', 'meanImgE']")
 
-    for i, (ax, (key, title)) in enumerate(zip(axes, [
-        ('refImg', "Reference Image"),
-        ('max_proj', "Max Projection"),
-        ('meanImg', "Mean Image"),
-        ('meanImgE', "High-passed Filtered Mean Image")
-    ])):
-        ax.imshow(ops[key], cmap='gray')
-        ax.set_title(title, fontweight='bold', color='white', fontsize=14, pad=2)
-        ax.set_xticks([])
-        ax.set_yticks([])
-
-        if i == 0 and fig_label:
-            ax.set_ylabel(fig_label, fontweight='bold', color='white', fontsize=14)
-
-    plt.tight_layout()
     savepath = Path(savepath)
-    if not savepath.parent.is_dir():
-        savepath.mkdir(parents=True)
-    plt.savefig(savepath, dpi=300, facecolor='black')
-    plt.show()
-
-
-def plot_segmentation(ops, savepath, fig_label=None, accepted_only=False, vmin=None, vmax=None, add_scalebar=False):
-    savepath = Path(savepath)
-
-    stats_file = Path(ops['save_path']).joinpath('stat.npy')
-    iscell = np.load(Path(ops['save_path']).joinpath('iscell.npy'), allow_pickle=True)[:, 0].astype(bool)
-    stats = np.load(stats_file, allow_pickle=True)
-
-    im = suite2p.ROI.stats_dicts_to_3d_array(stats, Ly=ops['Ly'], Lx=ops['Lx'], label_id=True)
-    im[im == 0] = np.nan
-
-    accepted_cells = np.sum(iscell)
-    rejected_cells = np.sum(~iscell)
-
-    max_proj = ops['max_proj']
-    shape = max_proj.shape
-
-    # Resize masks correctly (using your function)
-    cell_rois = resize_to_max_proj(np.nanmax(im[iscell], axis=0) if np.any(iscell) else np.zeros_like(im[0]), shape)
-
-    green_overlay = np.zeros((*shape, 4), dtype=np.float32)
-    green_overlay[..., 1] = 1
-    green_overlay[..., 3] = (cell_rois > 0) * 1.0
-
+    data = ops[proj]
+    shape = data.shape
     fig, ax = plt.subplots(figsize=(6, 6), facecolor='black')
+    vmin = np.nanpercentile(data, 2) if vmin is None else vmin
+    vmax = np.nanpercentile(data, 98) if vmax is None else vmax
 
-    if vmin is None:
-        vmin = np.nanpercentile(max_proj, 2)
-    if vmax is None:
-        vmax = np.nanpercentile(max_proj, 98)
+    if vmax - vmin < 1e-6:
+        vmax = vmin + 1e-6
+    ax.imshow(data, cmap='gray', vmin=vmin, vmax=vmax)
 
-    ax.imshow(max_proj, cmap='gray', vmin=vmin, vmax=vmax)
-    ax.imshow(green_overlay)
-
-    if not accepted_only:
-        non_cell_rois = resize_to_max_proj(np.nanmax(im[~iscell], axis=0) if np.any(~iscell) else np.zeros_like(im[0]),
-                                           shape)
-
-        magenta_overlay = np.zeros((*shape, 4), dtype=np.float32)
-        magenta_overlay[..., 0] = 1
-        magenta_overlay[..., 2] = 1
-        magenta_overlay[..., 3] = (non_cell_rois > 0) * 0.5
-
-        ax.imshow(magenta_overlay)
-
-    title_text = f"Accepted: {accepted_cells:03d}   |   Rejected: {rejected_cells:03d}"
-    ax.text(0.37, 1.02, f"Accepted: {accepted_cells:03d}", transform=ax.transAxes,
+    # move projection title higher if masks are displayed to avoid overlap.
+    proj_title_y = 1.07 if display_masks else 1.02
+    ax.text(0.5, proj_title_y, txt, transform=ax.transAxes,
             fontsize=14, fontweight='bold', fontname="Courier New",
-            color='lime', ha='right', va='bottom')
-
-    ax.text(0.63, 1.02, f"Rejected: {rejected_cells:03d}", transform=ax.transAxes,
-            fontsize=14, fontweight='bold', fontname="Courier New",
-            color='magenta', ha='left', va='bottom')
-
+            color='white', ha='center', va='bottom')
     if fig_label:
         fig_label = fig_label.replace("_", " ").replace("-", " ").replace(".", " ")
         ax.set_ylabel(fig_label, color='white', fontweight='bold', fontsize=12)
-
     ax.set_xticks([])
     ax.set_yticks([])
-
+    if display_masks:
+        stats_file = Path(ops['save_path']).joinpath('stat.npy')
+        iscell = np.load(Path(ops['save_path']).joinpath('iscell.npy'), allow_pickle=True)[:, 0].astype(bool)
+        stats = np.load(stats_file, allow_pickle=True)
+        im = suite2p.ROI.stats_dicts_to_3d_array(stats, Ly=ops['Ly'], Lx=ops['Lx'], label_id=True)
+        im[im == 0] = np.nan
+        accepted_cells = np.sum(iscell)
+        rejected_cells = np.sum(~iscell)
+        cell_rois = resize_to_max_proj(
+            np.nanmax(im[iscell], axis=0) if np.any(iscell) else np.zeros_like(im[0]),
+            shape)
+        green_overlay = np.zeros((*shape, 4), dtype=np.float32)
+        green_overlay[..., 1] = 1
+        green_overlay[..., 3] = (cell_rois > 0) * 1.0
+        ax.imshow(green_overlay)
+        if not accepted_only:
+            non_cell_rois = resize_to_max_proj(
+                np.nanmax(im[~iscell], axis=0) if np.any(~iscell) else np.zeros_like(im[0]),
+                shape)
+            magenta_overlay = np.zeros((*shape, 4), dtype=np.float32)
+            magenta_overlay[..., 0] = 1
+            magenta_overlay[..., 2] = 1
+            magenta_overlay[..., 3] = (non_cell_rois > 0) * 0.5
+            ax.imshow(magenta_overlay)
+        ax.text(0.37, 1.02, f"Accepted: {accepted_cells:03d}", transform=ax.transAxes,
+                fontsize=14, fontweight='bold', fontname="Courier New",
+                color='lime', ha='right', va='bottom')
+        ax.text(0.63, 1.02, f"Rejected: {rejected_cells:03d}", transform=ax.transAxes,
+                fontsize=14, fontweight='bold', fontname="Courier New",
+                color='magenta', ha='left', va='bottom')
     if add_scalebar and 'dx' in ops:
         pixel_size = ops['dx']
         scale_bar_length = 100 / pixel_size
-
         scalebar_x = shape[1] * 0.05
         scalebar_y = shape[0] * 0.90
-
         ax.add_patch(patches.Rectangle(
-            (scalebar_x, scalebar_y), scale_bar_length, 5, edgecolor='white', facecolor='white'))
-        ax.text(scalebar_x + scale_bar_length / 2, scalebar_y - 10, "100 μm",
-                color='white', fontsize=10, ha='center', fontweight='bold')
+            (scalebar_x, scalebar_y), scale_bar_length, 5,
+            edgecolor='white', facecolor='white'))
+        ax.text(scalebar_x + scale_bar_length / 2, scalebar_y - 10,
+                "100 μm", color='white', fontsize=10, ha='center', fontweight='bold')
+
+    # remove the spines that will show up as white bars
+    for spine in ax.spines.values():
+        spine.set_visible(False)
 
     plt.tight_layout()
     savepath.parent.mkdir(parents=True, exist_ok=True)
-
     plt.savefig(savepath, dpi=300, facecolor='black')
     plt.show()
-
 
 def plot_traces(ops, savepath, nframes=None, ntraces=5, show_best=False):
     fps = ops['fs']
@@ -264,3 +253,80 @@ def compute_dff(f_trace, window_size=300, percentile=8):
     ])
     return (f_trace - f0) / (f0 + 1e-6)  # 1e-6 to avoid division by zero
 
+
+def get_common_path(ops_files: list | tuple):
+    """
+    Find the common path of all files in `ops_files`.
+    If there is a single file or no common path, return the first non-empty path.
+    """
+    if not isinstance(ops_files, (list, tuple)):
+        ops_files = [ops_files]
+    if len(ops_files) == 1:
+        path = Path(ops_files[0]).parent
+        while path.exists() and len(list(path.iterdir())) <= 1:  # Traverse up if only one item exists
+            path = path.parent
+        return path
+    else:
+        return Path(os.path.commonpath(ops_files))
+
+
+def combine_tiffs(files):
+    """
+    Combines multiple TIFF files into a single stacked TIFF.
+
+    This function concatenates multiple 3D TIFF files (`T x Y x X`) along the time axis
+    to create a single output TIFF.
+
+    Parameters
+    ----------
+    files : list of str or Path
+        List of file paths to the TIFF files to be combined.
+
+    Returns
+    -------
+    np.ndarray
+        A 3D NumPy array representing the concatenated TIFF stack.
+
+    Notes
+    -----
+    - Input TIFFs should have identical spatial dimensions (`Y x X`).
+    - The output shape will be `(T_total, Y, X)`, where `T_total` is the sum of all input time points.
+    """
+    first_file = files[0]
+    first_tiff = tifffile.imread(first_file)
+    num_files = len(files)
+    num_frames, height, width = first_tiff.shape
+
+    new_tiff = np.zeros((num_frames * num_files, height, width), dtype=first_tiff.dtype)
+
+    for i, f in enumerate(files):
+        tiff = tifffile.imread(f)
+        new_tiff[i * num_frames:(i + 1) * num_frames] = tiff
+
+    return new_tiff
+
+
+def make_subdir_from_list(files: list):
+    """
+    Moves each file in a list into its own subdirectory.
+
+    This function organizes a list of file paths by moving each file into a
+    subdirectory named after its stem.
+
+    Parameters
+    ----------
+    files : list of Path
+        List of file paths to be moved into subdirectories.
+
+    Notes
+    -----
+    - The function creates a subdirectory named after the file stem and moves the file into it.
+    - If the filename contains plane information (e.g., `plane_01`), the plane name is extracted for directory naming.
+    """
+    for file in files:
+        fpath = file.parent / file.stem
+        plane_name = fpath.stem.rpartition('_')[:-2][0]
+        plane_path = file.parent / plane_name
+        plane_path.mkdir(exist_ok=True)
+        new_fname = plane_path / file.name
+        file.rename(new_fname)
