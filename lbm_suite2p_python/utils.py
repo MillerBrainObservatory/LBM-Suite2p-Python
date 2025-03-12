@@ -1,4 +1,5 @@
 import os
+import subprocess
 
 import numpy as np
 from pathlib import Path
@@ -27,7 +28,29 @@ jet = mpl.cm.get_cmap('jet')
 jet.set_bad(color='k')
 
 
+def smooth_video(input_path, output_path, target_fps=60):
+    filter_str = f"minterpolate=fps={target_fps}:mi_mode=mci:mc_mode=aobmc:me=umh:vsbmc=1"
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-i", input_path,
+        "-vf", filter_str,
+        "-fps_mode", "cfr",
+        "-r", str(target_fps),
+        "-c:v", "libx264",
+        "-crf", "18",
+        "-preset", "slow",
+        output_path
+    ]
+
+    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if result.returncode != 0:
+        print("FFmpeg error:", result.stderr)
+        raise subprocess.CalledProcessError(result.returncode, cmd, output=result.stdout, stderr=result.stderr)
+
+
 def load_ops(ops_input: str | Path | list[str | Path]):
+    """ Simple utility load a suite2p npy file"""
     if isinstance(ops_input, (str, Path)):
         return np.load(ops_input, allow_pickle=True).item()
     elif isinstance(ops_input, dict):
@@ -51,6 +74,74 @@ def resize_to_max_proj(mask, target_shape):
     start_x = (tx - sx) // 2
     resized_mask[start_y:start_y + sy, start_x:start_x + sx] = mask
     return resized_mask
+
+
+def convert_to_rgba(zstack):
+    """
+    Converts a grayscale Z-stack (14x500x500) to an RGBA format (14x500x500x4).
+
+    Parameters
+    ----------
+    zstack : np.ndarray
+        Input grayscale Z-stack with shape (num_slices, height, width).
+
+    Returns
+    -------
+    np.ndarray
+        RGBA Z-stack with shape (num_slices, height, width, 4).
+    """
+    # Normalize grayscale values to [0,1] range
+    normalized = (zstack - zstack.min()) / (zstack.max() - zstack.min())
+
+    # Convert to RGB (repeat grayscale across RGB channels)
+    rgba_stack = np.zeros((*zstack.shape, 4), dtype=np.float32)
+    rgba_stack[..., :3] = np.repeat(normalized[..., np.newaxis], 3, axis=-1)
+
+    # Set alpha channel to fully opaque (1.0)
+    rgba_stack[..., 3] = 1.0
+
+    return rgba_stack
+
+
+def load_traces(ops):
+    """
+    Load fluorescence traces and related data from an ops file directory and return valid cells.
+
+    This function loads the raw fluorescence traces, neuropil traces, and spike data from the directory
+    specified in the ops dictionary. It also loads the 'iscell' file and returns only the traces corresponding
+    to valid cells (i.e. where iscell is True).
+
+    Parameters
+    ----------
+    ops : dict
+        Dictionary containing at least the key 'save_path', which specifies the directory where the following
+        files are stored: 'F.npy', 'Fneu.npy', 'spks.npy', and 'iscell.npy'.
+
+    Returns
+    -------
+    F_valid : ndarray
+        Array of fluorescence traces for valid cells (n_valid x n_timepoints).
+    Fneu_valid : ndarray
+        Array of neuropil fluorescence traces for valid cells (n_valid x n_timepoints).
+    spks_valid : ndarray
+        Array of spike data for valid cells (n_valid x n_timepoints).
+
+    Notes
+    -----
+    The 'iscell.npy' file is expected to be an array where the first column (iscell[:, 0]) contains
+    boolean values indicating valid cells.
+    """
+    save_path = Path(ops['save_path'])
+    F = np.load(save_path.joinpath('F.npy'))
+    Fneu = np.load(save_path.joinpath('Fneu.npy'))
+    spks = np.load(save_path.joinpath('spks.npy'))
+    iscell = np.load(save_path.joinpath('iscell.npy'), allow_pickle=True)[:, 0].astype(bool)
+
+    F_valid = F[iscell]
+    Fneu_valid = Fneu[iscell]
+    spks_valid = spks[iscell]
+
+    return F_valid, Fneu_valid, spks_valid
 
 
 def plot_projection(
@@ -143,6 +234,7 @@ def plot_projection(
     plt.savefig(savepath, dpi=300, facecolor='black')
     plt.show()
 
+
 def plot_traces(ops, savepath, nframes=None, ntraces=5, show_best=False):
     fps = ops['fs']
     f_cells = np.load(Path(ops['save_path']).joinpath('F.npy'))
@@ -229,7 +321,7 @@ def gaussian(x, mu, sigma):
     return np.exp(-0.5 * ((x - mu) / sigma) ** 2) / (sigma * np.sqrt(2 * np.pi))
 
 
-def compute_dff_percentile(f_trace, window_size=300, percentile=8):
+def dff_percentile(f_trace, window_size=300, percentile=8):
     """
     Compute ΔF/F₀ using a rolling percentile baseline.
 
