@@ -5,7 +5,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-from matplotlib import pyplot as plt, patches
+from matplotlib import pyplot as plt
 
 from lbm_suite2p_python import load_ops, get_common_path
 
