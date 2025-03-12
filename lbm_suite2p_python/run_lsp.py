@@ -7,8 +7,6 @@ import suite2p
 
 from lbm_suite2p_python import (
     load_ops,
-    plot_segmentation,
-    plot_registration,
     plot_traces,
     plot_projection
 )
@@ -215,7 +213,6 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
             for key in ["registration", "segmentation", "traces"]:
                 safe_delete(expected_files[key])
 
-            plot_registration(output_ops, expected_files["registration"], fig_label=input_file_path.stem)
             plot_traces(output_ops, expected_files["traces"])
             plot_projection(
                 output_ops,
