@@ -7,8 +7,6 @@ __version__ = _version.get_versions()['version']
 
 __all__ = [
     "load_ops",
-    "plot_segmentation",
-    "plot_registration",
     "plot_traces",
     "run_volume",
     "run_plane",
