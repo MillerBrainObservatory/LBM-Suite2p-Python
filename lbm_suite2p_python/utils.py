@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 
 import suite2p
-from scipy.ndimage import percentile_filter
+from scipy.ndimage import percentile_filter, gaussian_filter1d, uniform_filter1d
 
 mpl.rcParams.update({
     'axes.spines.left': True,
@@ -345,6 +345,27 @@ def dff_percentile(f_trace, window_size=300, percentile=8):
     ])
     return (f_trace - f0) / (f0 + 1e-6)  # 1e-6 to avoid division by zero
 
+
+def dff_maxmin(f_trace, fps, smooth_window=5):
+    """Compute DF/F₀ using a 5s Gaussian filter followed by rolling max-min ('maxmin')."""
+    window_size = int(5 * fps)
+
+    # Step 1: Apply Gaussian filter for initial baseline estimation
+    f_smoothed = gaussian_filter1d(f_trace, sigma=window_size, axis=1)
+
+    # Step 2: Rolling max-min baseline
+    f_min = uniform_filter1d(f_smoothed, size=window_size, axis=1, mode="nearest")
+    f_max = uniform_filter1d(f_trace, size=window_size, axis=1, mode="nearest")
+    f_baseline = (f_min + f_max) / 2  # Approximate rolling baseline
+
+    # Step 3: Compute ΔF/F₀
+    dff = (f_trace - f_baseline) / (f_baseline + 1e-8)
+
+    # Step 4: Normalize 0 to 1 for visualization
+    dff_n = (dff - np.min(dff, axis=1, keepdims=True)) / (np.max(dff, axis=1, keepdims=True) - np.min(dff, axis=1, keepdims=True) + 1e-8)
+    dff_smooth = uniform_filter1d(dff_n, size=smooth_window, axis=1)
+
+    return dff_smooth
 
 def get_common_path(ops_files: list | tuple):
     """
