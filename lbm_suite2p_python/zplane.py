@@ -306,11 +306,13 @@ def plot_traces_anch(f, save_path="./stacked_traces.png", fps=17.0,
     linekw = dict(color="white", linewidth=3)
     time_bar_length = min(10, 0.1 * (x_upper - x_lower))
 
-    # time scalebar; tweak pad and size to adjust position and length
+    # time scalebar
     hsb = AnchoredHScaleBar(size=time_bar_length,
                             label=f"{time_bar_length:.0f} s",
                             loc=4, frameon=False, pad=0.6, sep=4,
                             linekw=linekw, ax=ax)
+
+    # (y_max-ymin)*N, change N to move scale further from graph in Y, same for (x_upper-x_lower)*N
     hsb.set_bbox_to_anchor((new_x_upper - (x_upper - x_lower)*0.1,
                             y_min - (y_max - y_min)*0.09), transform=ax.transData)
     ax.add_artist(hsb)
@@ -318,7 +320,7 @@ def plot_traces_anch(f, save_path="./stacked_traces.png", fps=17.0,
     dff_bar_height = 0.1 * (y_max - y_min)
     y_bar = y_min + 0.05 * (y_max - y_min)
 
-    # dff scalebar; tweak spacer_width to adjust gap between bar and text
+    # dff scalebar; spacer_width controls gap between bar and text
     vsb = AnchoredVScaleBar(height=dff_bar_height,
                             label=f"{dff_bar_height:.1f} % dF/F",
                             loc='lower left', frameon=False, pad=0, sep=4,
