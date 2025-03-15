@@ -6,8 +6,137 @@ from pathlib import Path
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
+from rastermap import Rastermap
+from rastermap.utils import bin1d
 
 from lbm_suite2p_python import load_ops, get_common_path
+
+
+def plot_rastermap(
+        spks,
+        model,
+        fps=17,
+        bin_size=10,
+        vmin=0,
+        vmax=0.8,
+        xmin=0,
+        xmax=None,
+        save_path=None,
+        title=None,
+        title_kwargs={},
+        fig_text=""
+):
+
+    if bin_size in [0, 1]:
+        ntype = "neurons"
+    elif bin_size > 1:
+        ntype = "superneurons"
+    else:
+        raise ValueError(f"Invalid value for bin_size: {bin_size}")
+
+    # sort by activity and create "superneurons"
+    # if bin_size == 0 or 1, these are neurons, not superneurons
+    sn = bin1d(spks[model.isort], bin_size, axis=0)
+    current_neurons, current_time = sn.shape
+
+    if xmax is None or xmax < xmin:
+        xmax = spks.shape[1]
+
+    current_time = np.round((xmax - xmin) / fps, 1)
+
+    fig, ax = plt.subplots(figsize=(6, 3), dpi=200)
+    print(f"Plotting from {xmin} : {xmax}")
+    img = ax.imshow(sn[:, xmin:xmax], cmap="gray_r", vmin=vmin, vmax=vmax, aspect="auto")
+
+    fig.patch.set_facecolor("black")
+    ax.set_facecolor("black")
+    ax.tick_params(axis='both', labelbottom=False, labelleft=False, length=0)
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+
+    heatmap_pos = ax.get_position()
+
+    scalebar_length = heatmap_pos.width * 0.1         # 10% width of heatmap
+    scalebar_duration = np.round(current_time * 0.1)  # 10% of the displayed time in heatmap
+
+    x_start = heatmap_pos.x1 - scalebar_length
+    x_end = heatmap_pos.x1
+    y_position = heatmap_pos.y0
+
+    # Add scalebar line
+    fig.lines.append(plt.Line2D([x_start, x_end], [y_position - 0.03, y_position - 0.03],
+                                transform=fig.transFigure, color='white', linewidth=2, solid_capstyle='butt'))
+
+    fig.text(
+        x=(x_start + x_end) / 2,
+        y=y_position - 0.045,  # slightly below the scalebar, adjust as needed
+        s=f"{scalebar_duration:.0f} s",
+        ha="center", va="top",
+        color="white", fontsize=6
+    )
+
+    axins = fig.add_axes([
+        heatmap_pos.x0,                  # exactly aligned with heatmap's left edge
+        heatmap_pos.y0 - 0.03,           # slightly below the heatmap
+        heatmap_pos.width * 0.1,         # 20% width of heatmap
+        0.015                            # height of the colorbar
+    ])
+
+    cbar = fig.colorbar(img, cax=axins, orientation="horizontal", ticks=[vmin, vmax])
+    cbar.ax.tick_params(labelsize=5, colors="white", pad=2)
+    cbar.outline.set_edgecolor("white")
+
+    fig.text(
+        heatmap_pos.x0,
+        heatmap_pos.y0 - 0.1,  # below the colorbar with spacing
+        "z-scored",
+        ha="left", va="top",
+        color="white", fontsize=6
+    )
+
+    # Decide the length of the scalebar in neuron points (e.g., 10% of current_neurons)
+    scalebar_neurons = int(0.1 * current_neurons)
+
+    # Vertical scalebar positioning (right edge)
+    x_position = heatmap_pos.x1 + 0.01  # slightly right of heatmap
+    y_start = heatmap_pos.y0
+    y_end = y_start + (heatmap_pos.height * scalebar_neurons / current_neurons)
+
+    # Create vertical white line (scalebar)
+    line = plt.Line2D(
+        [x_position, x_position], [y_start, y_end],
+        transform=fig.transFigure, color='white', linewidth=2
+    )
+    line.set_figure(fig)
+    fig.lines.append(line)
+
+    # Label the scalebar with number of neuron points represented
+    fig.text(
+        x=x_position + 0.008,
+        y=y_start,
+        s=f"{current_neurons} {ntype}",
+        ha="left", va="bottom",
+        color="white", fontsize=4, rotation=90
+    )
+
+    if fig_text:
+        fig.text(
+            x=(heatmap_pos.x0 + heatmap_pos.x1) / 2,
+            y=y_start - 0.085,  # vertically between existing scalebars
+            s=fig_text,
+            ha="center", va="top",
+            color="white", fontsize=6
+        )
+
+    if title is not None:
+        plt.suptitle(title, **title_kwargs)
+
+    if save_path is not None:
+        save_path = Path(save_path)
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(save_path, dpi=200, facecolor="black", bbox_inches="tight")
+
+    return fig, ax
 
 
 def plot_execution_time(filepath, savepath):
