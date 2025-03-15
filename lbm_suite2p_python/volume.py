@@ -16,7 +16,7 @@ def plot_rastermap(
         spks,
         model,
         fps=17,
-        bin_size=10,
+        bin_size=None,
         vmin=0,
         vmax=0.8,
         xmin=0,
@@ -26,7 +26,9 @@ def plot_rastermap(
         title_kwargs={},
         fig_text=""
 ):
-
+    if bin_size is None:
+        print(f"binningn in time by a factor of: {bin_size}")
+        bin_size = spks.shape[1] / 200
     if bin_size in [0, 1]:
         ntype = "neurons"
     elif bin_size > 1:
@@ -36,7 +38,8 @@ def plot_rastermap(
 
     # sort by activity and create "superneurons"
     # if bin_size == 0 or 1, these are neurons, not superneurons
-    sn = bin1d(spks[model.isort], bin_size, axis=0)
+    embedding = model.X_embedding
+    sn = bin1d(embedding, bin_size, axis=1)
     current_neurons, current_time = sn.shape
 
     if xmax is None or xmax < xmin:
