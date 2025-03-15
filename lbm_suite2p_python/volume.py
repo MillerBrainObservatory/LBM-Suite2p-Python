@@ -6,17 +6,78 @@ from pathlib import Path
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
-from rastermap import Rastermap
 from rastermap.utils import bin1d
 
 from lbm_suite2p_python import load_ops, get_common_path
 
 
+def load_results_dict(ops_filepath, apply_zscore=True, z_plane=None):
+    """
+    Load stat, iscell, spks files and return as a dict
+
+    parameters
+    ----------
+    ops_filepath : str or Path
+        path to the ops.npy file.
+    apply_zscore : bool, optional
+        whether to apply zscore to traces (default is False).
+    z_plane : int or None, optional
+        the z-plane index for this file. If provided, it is stored in the output.
+
+    returns
+    -------
+    dict
+        dictionary with keys:
+         - 'output_ops': dict loaded from ops file,
+         - 'spks': spks (2d array: neurons x time),
+         - 'stats': stats loaded from stat.npy,
+         - 'iscell': boolean array from iscell.npy,
+         - 'xy': x-y positions from stats,
+         - 'z_plane': an array (of shape [n_neurons,]) with the provided z_plane index.
+    """
+    from pathlib import Path
+    from scipy.stats import zscore
+
+    ops_filepath = Path(ops_filepath)
+    output_ops = load_ops(ops_filepath)
+    save_path = Path(output_ops['save_path'])
+    mean_img = output_ops["meanImg"]
+
+    stats_file = save_path.joinpath('stat.npy')
+    spks_file = save_path.joinpath('spks.npy')
+    iscell_file = save_path.joinpath('iscell.npy')
+
+    iscell = np.load(iscell_file, allow_pickle=True)[:, 0].astype(bool)
+    stats = np.load(stats_file, allow_pickle=True)[iscell]
+    spks = np.load(spks_file, allow_pickle=True)[iscell]
+
+    if apply_zscore:
+        spks = zscore(spks, axis=1)
+
+    xy = np.array([s["med"] for s in stats])
+    n_neurons = spks.shape[0]
+    if z_plane is None:
+        # If not provided, assign a default of 0
+        z_plane_arr = np.zeros(n_neurons, dtype=int)
+    else:
+        z_plane_arr = np.full(n_neurons, z_plane, dtype=int)
+
+    return {
+        'output_ops': output_ops,
+        'spks': spks,
+        'stats': stats,
+        'iscell': iscell,
+        'xy': xy,
+        'mean_image': mean_img,
+        'z_plane': z_plane_arr
+    }
+
+
 def plot_rastermap(
         spks,
         model,
+        neuron_bin_size=None,
         fps=17,
-        bin_size=None,
         vmin=0,
         vmax=0.8,
         xmin=0,
@@ -24,28 +85,29 @@ def plot_rastermap(
         save_path=None,
         title=None,
         title_kwargs={},
-        fig_text=""
+        fig_text=None
 ):
-    if bin_size is None:
-        print(f"binningn in time by a factor of: {bin_size}")
-        bin_size = spks.shape[1] / 200
-    if bin_size in [0, 1]:
-        ntype = "neurons"
-    elif bin_size > 1:
+    n_neurons, n_timepoints = spks.shape
+
+    if neuron_bin_size is None:
+        neuron_bin_size = max(1, n_neurons // 500)  # default internal rastermap binning
+        print(f"Neuron binning factor (default): {neuron_bin_size}")
+    if neuron_bin_size > 1:
+        sn = bin1d(spks[model.isort], neuron_bin_size, axis=0)
         ntype = "superneurons"
     else:
-        raise ValueError(f"Invalid value for bin_size: {bin_size}")
+        sn = spks[model.isort]
+        ntype = "neurons"
 
-    # sort by activity and create "superneurons"
-    # if bin_size == 0 or 1, these are neurons, not superneurons
-    embedding = model.X_embedding
-    sn = bin1d(embedding, bin_size, axis=1)
-    current_neurons, current_time = sn.shape
+    print(xmax)
+    if xmax is None or xmax < xmin or xmax > sn.shape[1]:
+        xmax = sn.shape[1]
+    print(xmax)
 
-    if xmax is None or xmax < xmin:
-        xmax = spks.shape[1]
+    sn = sn[:, xmin:xmax]
 
     current_time = np.round((xmax - xmin) / fps, 1)
+    current_neurons = sn.shape[0]
 
     fig, ax = plt.subplots(figsize=(6, 3), dpi=200)
     print(f"Plotting from {xmin} : {xmax}")
@@ -66,13 +128,12 @@ def plot_rastermap(
     x_end = heatmap_pos.x1
     y_position = heatmap_pos.y0
 
-    # Add scalebar line
     fig.lines.append(plt.Line2D([x_start, x_end], [y_position - 0.03, y_position - 0.03],
                                 transform=fig.transFigure, color='white', linewidth=2, solid_capstyle='butt'))
 
     fig.text(
         x=(x_start + x_end) / 2,
-        y=y_position - 0.045,  # slightly below the scalebar, adjust as needed
+        y=y_position - 0.045,  # slightly below the scalebar
         s=f"{scalebar_duration:.0f} s",
         ha="center", va="top",
         color="white", fontsize=6
@@ -97,15 +158,12 @@ def plot_rastermap(
         color="white", fontsize=6
     )
 
-    # Decide the length of the scalebar in neuron points (e.g., 10% of current_neurons)
     scalebar_neurons = int(0.1 * current_neurons)
 
-    # Vertical scalebar positioning (right edge)
     x_position = heatmap_pos.x1 + 0.01  # slightly right of heatmap
     y_start = heatmap_pos.y0
     y_end = y_start + (heatmap_pos.height * scalebar_neurons / current_neurons)
 
-    # Create vertical white line (scalebar)
     line = plt.Line2D(
         [x_position, x_position], [y_start, y_end],
         transform=fig.transFigure, color='white', linewidth=2
@@ -113,23 +171,24 @@ def plot_rastermap(
     line.set_figure(fig)
     fig.lines.append(line)
 
-    # Label the scalebar with number of neuron points represented
     fig.text(
         x=x_position + 0.008,
         y=y_start,
-        s=f"{current_neurons} {ntype}",
+        s=f"{scalebar_neurons} {ntype}",
         ha="left", va="bottom",
-        color="white", fontsize=4, rotation=90
+        color="white", fontsize=6, rotation=90
     )
 
-    if fig_text:
-        fig.text(
-            x=(heatmap_pos.x0 + heatmap_pos.x1) / 2,
-            y=y_start - 0.085,  # vertically between existing scalebars
-            s=fig_text,
-            ha="center", va="top",
-            color="white", fontsize=6
-        )
+    if fig_text is None:
+        fig_text = f"Neurons: {spks.shape[1]}, Superneurons: {sn.shape[0]}, n_clusters: {model.n_PCs}, n_PCs: {model.n_clusters}, locality: {model.locality}"
+
+    fig.text(
+        x=(heatmap_pos.x0 + heatmap_pos.x1) / 2,
+        y=y_start - 0.085,  # vertically between existing scalebars
+        s=fig_text,
+        ha="center", va="top",
+        color="white", fontsize=6
+    )
 
     if title is not None:
         plt.suptitle(title, **title_kwargs)

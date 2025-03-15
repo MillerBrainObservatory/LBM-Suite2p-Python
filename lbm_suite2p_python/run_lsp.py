@@ -2,6 +2,7 @@ import os
 import traceback
 from pathlib import Path
 import mbo_utilities as mbo
+import numpy as np
 
 import suite2p
 
@@ -16,12 +17,21 @@ from lbm_suite2p_python.volume import (
     plot_volume_stats,
     get_volume_stats,
     save_images_to_movie,
+    load_results_dict, plot_rastermap,
 )
 
 if mbo.is_running_jupyter():
     from tqdm.notebook import tqdm
 else:
     from tqdm import tqdm
+
+try:
+    from rastermap import Rastermap, utils
+    HAS_RASTERMAP = True
+except ImportError:
+    Rastermap = None
+    utils = None
+    HAS_RASTERMAP = False
 
 
 def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
@@ -91,6 +101,20 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
         plot_volume_signal(zstats_file, os.path.join(save_path, "mean_volume_signal.png"))
         plot_execution_time(zstats_file, os.path.join(save_path, "execution_time.png"))
 
+        res_z = [load_results_dict(ops_path, apply_zscore=True, z_plane=i) for i, ops_path in enumerate(all_ops)]
+        all_spks = np.concatenate([res['spks'] for res in res_z], axis=0)
+        # all_iscell = np.stack([res['iscell'] for res in res_z], axis=-1)
+        if HAS_RASTERMAP:
+            model = Rastermap(
+                n_clusters=100,
+                n_PCs=100,
+                locality=0.75,
+                time_lag_window=15,
+            ).fit(all_spks)
+            np.save(os.path.join(save_path, "model.npy"), model)
+            title_kwargs = {"fontsize": 8, "y": 0.95}
+            plot_rastermap(all_spks,model, neuron_bin_size=20, xmax=min(2000, all_spks.shape[1]), save_path=os.path.join(save_path, "rastermap.png"), title_kwargs=title_kwargs, title="Rastermap Sorted Activity")
+
     except Exception:
         print("Volume statistics failed. Showing ops:")
         print(all_ops)
@@ -155,6 +179,7 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
 
     if ops is None:
         ops = suite2p.default_ops()
+
     metadata = mbo.get_metadata(input_file_path)
     ops = mbo.params_from_metadata(metadata, ops)
     ops["tiff_list"] = [input_file_path.name]
