@@ -132,6 +132,8 @@ def plot_traces(
         line width for data points
 
     """
+    if isinstance(f, dict):
+        f = np.load(Path(f["ops_path"]).parent.joinpath("F.npy"))
 
     _, n_timepoints = f.shape
 

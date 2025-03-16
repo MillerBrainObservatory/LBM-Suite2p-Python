@@ -103,6 +103,7 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
 
         res_z = [load_results_dict(ops_path, apply_zscore=True, z_plane=i) for i, ops_path in enumerate(all_ops)]
         all_spks = np.concatenate([res['spks'] for res in res_z], axis=0)
+        print(type(all_spks))
         # all_iscell = np.stack([res['iscell'] for res in res_z], axis=-1)
         if HAS_RASTERMAP:
             model = Rastermap(
@@ -258,6 +259,6 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
                     proj=projection
                 )
     except Exception as e:
-        print(f"Plotting failed: {e}")
+        traceback.print_exc()
 
     return output_ops
