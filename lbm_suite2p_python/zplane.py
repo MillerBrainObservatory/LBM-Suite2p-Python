@@ -291,10 +291,13 @@ def plot_traces_anch(f, save_path="./stacked_traces.png", fps=17.0,
     # extra whitespace on right
     extra = 0.05 * x_range
     new_x_upper = x_upper + extra
+
     ax.set_xlim(x_lower, new_x_upper)
     ax.set_ylim(y_min, y_max)
+
     xticks = np.linspace(x_lower, new_x_upper, 10)
     yticks = np.linspace(y_min, y_max, 10)
+
     ax.set_xticks(xticks)
     ax.set_yticks(yticks)
 
@@ -302,6 +305,7 @@ def plot_traces_anch(f, save_path="./stacked_traces.png", fps=17.0,
     ax.tick_params(axis='both', which='both', labelbottom=False, labelleft=False, length=0)
     ax.set_axisbelow(True)
     ax.grid(True, color='gray', linewidth=0.1, linestyle='--')
+
     for spine in ax.spines.values():
         spine.set_visible(False)
 
@@ -326,10 +330,42 @@ def plot_traces_anch(f, save_path="./stacked_traces.png", fps=17.0,
     vsb = AnchoredVScaleBar(height=dff_bar_height,
                             label=f"{dff_bar_height:.1f} % dF/F",
                             loc='lower left', frameon=False, pad=0, sep=4,
-                            linekw=linekw, ax=ax, spacer_width=0)
+                            linekw=linekw, ax=ax, spacer_width=0
+                            )
     vsb.set_bbox_to_anchor((new_x_upper - (x_upper - x_lower)*0.05, y_bar), transform=ax.transData)
     ax.add_artist(vsb)
     save_path = Path(save_path)
     save_path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(save_path, dpi=300, facecolor='black', bbox_inches='tight')
     plt.close(fig)
+
+
+def plot_noise_distribution(noise_levels, save_path, plane_idx, title="Noise Level Distribution"):
+    """
+    Plots and saves the distribution of noise levels across neurons as a standardized image.
+
+    Parameters:
+    - noise_levels (numpy.ndarray): Noise levels for each neuron.
+    - save_path (Path): Directory where images will be saved.
+    - plane_idx (int): Index of the imaging plane.
+    - title (str): Title of the plot.
+    """
+    save_path.mkdir(parents=True, exist_ok=True)
+
+    plt.figure(figsize=(8, 5))
+    plt.hist(noise_levels, bins=50, color="gray", alpha=0.7, edgecolor="black")
+
+    mean_noise = np.mean(noise_levels)
+    plt.axvline(mean_noise, color='r', linestyle='dashed', linewidth=2, label=f"Mean: {mean_noise:.2f}")
+
+    plt.xlabel("Noise Level", fontsize=14, fontweight="bold")
+    plt.ylabel("Number of Neurons", fontsize=14, fontweight="bold")
+    plt.title(title, fontsize=16, fontweight="bold")
+    plt.legend(fontsize=12)
+
+    plt.xticks(fontsize=12)
+    plt.yticks(fontsize=12)
+
+    plt.savefig(save_path / f"plane_{plane_idx}.png", dpi=200, bbox_inches="tight")
+    plt.close()
+
