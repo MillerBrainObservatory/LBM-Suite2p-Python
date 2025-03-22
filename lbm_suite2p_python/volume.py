@@ -11,7 +11,27 @@ from rastermap.utils import bin1d
 from lbm_suite2p_python import load_ops, get_common_path
 
 
-def load_results_dict(ops_filepath, apply_zscore=True, z_plane=None):
+def update_ops_paths(ops_files: str | list):
+    """Update save_path, save_path0, and save_folder in an ops dictionary based on its current location."""
+    if isinstance(ops_files, (str,Path)):
+        ops_files = [ops_files]
+
+    for ops_file in ops_files:
+        ops = np.load(ops_file, allow_pickle=True).item()
+
+        ops_path = Path(ops_file)
+        plane0_folder = ops_path.parent
+        plane_folder = plane0_folder.parent
+
+        ops["save_path"] = str(plane0_folder)
+        ops["save_path0"] = str(plane_folder)
+        ops["save_folder"] = plane_folder.name
+        ops["ops_path"] = ops_path
+
+        np.save(ops_file, ops)
+
+
+def load_results_dict(ops_filepath, apply_zscore=True, z_plane=None) -> dict:
     """
     Load stat, iscell, spks files and return as a dict
 
