@@ -50,7 +50,9 @@ class AnchoredHScaleBar(matplotlib.offsetbox.AnchoredOffsetbox):
     """
     def __init__(self, size=1, label="", loc=2, ax=None, pad=0.4,
                  borderpad=0.5, ppad=0, sep=2, prop=None,
-                 frameon=True, linekw={}, **kwargs):
+                 frameon=True, linekw=None, **kwargs):
+        if linekw is None:
+            linekw = {}
         if ax is None:
             ax = plt.gca()
         trans = ax.get_xaxis_transform()
@@ -154,14 +156,26 @@ def plot_traces(
     colors = cmap(np.linspace(0, 1, displayed_neurons))
     perm = get_color_permutation(displayed_neurons)
     colors = colors[perm]
-    # np.random.shuffle(colors)
 
     fig, ax = plt.subplots(figsize=(10, 6), facecolor='black')
-    for i in range(displayed_neurons):
-        trace = f[i, :current_frame+1]
+
+    for i in reversed(range(displayed_neurons)):
+        trace = f[i, :current_frame + 1]
         baseline = np.percentile(trace, 8)
         shifted_trace = (trace - baseline) + i * offset
-        ax.plot(data_time[:current_frame+1], shifted_trace, color=colors[i], lw=lw)
+
+        ax.plot(data_time[:current_frame + 1], shifted_trace, color=colors[i], lw=lw, zorder=-i)
+
+        # Mask only the parts of the trace that extend behind the next higher trace
+        if i < displayed_neurons - 1:
+            prev_trace = f[i + 1, :current_frame + 1]
+            prev_baseline = np.percentile(prev_trace, 8)
+            prev_shifted = (prev_trace - prev_baseline) + (i + 1) * offset
+
+            mask = shifted_trace > prev_shifted  # Only mask where the current trace is behind
+            ax.fill_between(data_time[:current_frame + 1], shifted_trace, prev_shifted,
+                            where=mask, color='black', zorder=-i - 1)
+
     all_shifted = [(f[i, :current_frame+1] - np.percentile(f[i, :current_frame+1], 10)) + i * offset
                    for i in range(displayed_neurons)]
 
@@ -177,13 +191,10 @@ def plot_traces(
 
     yticks = np.linspace(y_min, y_max, 10)
     ax.set_yticks(yticks)
-
-    # show x-axis labels and hide y-axis labels
     ax.tick_params(axis='x', which='both', labelbottom=False, length=0)
     ax.tick_params(axis='y', which='both', labelleft=False, length=0)
 
     ax.set_axisbelow(True)
-    # ax.grid(True, color='gray', linewidth=0.2, linestyle='--')
 
     for spine in ax.spines.values():
         spine.set_visible(False)
