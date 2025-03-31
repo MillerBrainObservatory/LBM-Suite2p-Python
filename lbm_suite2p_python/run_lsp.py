@@ -246,7 +246,7 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
                 fig_label=input_file_path.stem,
                 display_masks=True,
                 add_scalebar=True,
-                proj="max_proj"
+                proj="meanImg"
             )
             # do one for mean/max image, no masks
             for projection in ["meanImg", "max_proj"]:
