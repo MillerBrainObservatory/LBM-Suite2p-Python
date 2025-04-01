@@ -9,7 +9,7 @@ install_deps = [
     "dask",
     "zarr",
     "jupyterlab",
-    "suite2p[all]",
+    # "suite2p[all]",
     "rastermap",
 ]
 
