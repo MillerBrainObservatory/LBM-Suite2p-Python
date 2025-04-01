@@ -15,5 +15,6 @@ __all__ = [
     "plot_volume_signal",
     "plot_projection",
     "plot_rastermap",
-    "load_results_dict"
+    "load_results_dict",
+    "get_common_path"
 ]
