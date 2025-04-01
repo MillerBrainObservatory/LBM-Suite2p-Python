@@ -45,7 +45,7 @@ jobs:
             cd LBM-Suite2p-Python
             pip install .
 
-          build-command: "make html"
+          build-command: "make -k html"
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
