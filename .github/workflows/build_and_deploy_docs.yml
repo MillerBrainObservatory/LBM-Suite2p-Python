@@ -17,7 +17,9 @@ jobs:
       group: ${{ github.workflow }}-${{ github.ref }}
     steps:
       - uses: actions/checkout@v4
-
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.10
       - name: Build HTML Documentation
         uses: ammaraskar/sphinx-action@8.0.2
         with:
