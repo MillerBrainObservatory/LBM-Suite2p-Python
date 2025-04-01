@@ -22,7 +22,6 @@ jobs:
           sudo apt-get update -y --allow-releaseinfo-change -qq
           sudo apt-get install --no-install-recommends -y \
             build-essential \
-            libegl1-mesa \
             libgl1-mesa-dri \
             libxcb-xfixes0-dev \
             mesa-vulkan-drivers \
