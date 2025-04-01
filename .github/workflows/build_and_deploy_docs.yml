@@ -2,9 +2,9 @@ name: Build and Deploy Docs
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
-    branches: [dev, master]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -18,14 +18,16 @@ jobs:
         with:
           python-version: '3.9'
 
-      - name: Install dependencies
+      - name: Upgrade pip and install Sphinx
         run: |
           python -m pip install --upgrade pip
-          pip install -e .
-          pip install sphinx
+          pip install wheel setuptools sphinx
 
-      # - name: Patch conf.py
-      #   run: sed -i '/from lbm_suite2p_python import __version__/ s/^/#/' docs/conf.py
+      - name: Install package minimally
+        run: pip install --no-deps -e .
+
+      - name: Patch docs conf
+        run: sed -i '/from lbm_suite2p_python import __version__/ s/^/#/' docs/conf.py
 
       - name: Build Docs
         working-directory: docs
