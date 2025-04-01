@@ -183,7 +183,6 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
 
     metadata = mbo.get_metadata(input_file_path)
     ops = mbo.params_from_metadata(metadata, ops)
-    ops["tiff_list"] = [input_file_path.name]
 
     plane_path = save_path / save_folder / "plane0"
     expected_files = {
@@ -201,7 +200,7 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
         print(f"{input_file_path} already has segmentation results. Skipping execution.")
         output_ops = load_ops(expected_files["ops"])
     else:
-        db = {"data_path": [str(input_file_path.parent)], "save_folder": save_folder, "save_path0": str(save_path)}
+        db = {"data_path": [str(input_file_path.parent)], "save_folder": save_folder, "save_path0": str(save_path), "tiff_list": [input_file_path.name]}
         output_ops = suite2p.run_s2p(ops=ops, db=db)
 
     # remove when we set data.bin path correctly
