@@ -2,38 +2,62 @@ name: Build and Deploy Docs
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
-    branches: [main]
+    branches: [dev, master]
   workflow_dispatch:
+    branches: [dev, master]
 
 jobs:
   docs:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
 
-      - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: '3.9'
+          python-version: '3.10'
 
-      - name: Upgrade pip and install Sphinx
-        run: |
-          python -m pip install --upgrade pip
-          pip install wheel setuptools sphinx
+      - name: Build HTML Documentation
+        uses: ammaraskar/sphinx-action@8.0.2
+        with:
+          docs-folder: "docs/"
+          pre-build-command: |
+            # Install required system dependencies
+            apt-get update -y --allow-releaseinfo-change -qq
+            apt-get install --no-install-recommends -y \
+              build-essential \
+              libegl1-mesa \
+              libgl1-mesa-dri \
+              libxcb-xfixes0-dev \
+              mesa-vulkan-drivers \
+              git-lfs \
+              libglvnd-dev \
+              python3-pip
 
-      - name: Install package minimally
-        run: pip install --no-deps -e .
+            pip install "suite2p[all]"
+            pip install git+https://github.com/atlab/scanreader.git
+            git clone https://github.com/MillerBrainObservatory/LBM-Suite2p-Python.git
+            cd LBM-Suite2p-Python
+            pip install .
 
-      - name: Patch docs conf
-        run: sed -i '/from lbm_suite2p_python import __version__/ s/^/#/' docs/conf.py
-
-      - name: Build Docs
-        working-directory: docs
-        run: make html
+          build-command: "make html"
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
+          publish_branch: gh-pages
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: docs/_build/html
+          force_orphan: true
+
+      - name: Prepare Deploy Tag
+        id: prepare_tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          echo "DEPLOY_TAG_NAME=deploy-${TAG_NAME}" >> "${GITHUB_OUTPUT}"
