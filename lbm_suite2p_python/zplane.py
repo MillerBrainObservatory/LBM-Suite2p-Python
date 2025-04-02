@@ -251,107 +251,158 @@ def animate_traces(
         start_neurons=20,
         window=120,
         title="",
-        offset=None,
         lw=0.5,
         cmap='tab10',
         signal_units="dff",
         anim_fps=60,
-        expand_after=60,
-        expansion_factor=1.0
+        time_limit=None,
+        expand_after=5,
+        speed_factor=1.0,
+        expansion_factor=2.0,
 ):
+
     n_neurons, n_timepoints = f.shape
     data_time = np.arange(n_timepoints) / fps
     T_data = data_time[-1]
+
+    # use baseline of trace to determine the distance between traces
     current_frame = min(int(window * fps), n_timepoints - 1)
     p10 = np.percentile(f[:start_neurons, :current_frame+1], 10, axis=1)
     p90 = np.percentile(f[:start_neurons, :current_frame+1], 90, axis=1)
     gap = np.median(p90 - p10) * 1.2
-    offset = gap
+
     cmap_inst = plt.get_cmap(cmap)
     colors = cmap_inst(np.linspace(0, 1, start_neurons))
-    perm = get_color_permutation(start_neurons)
+    perm = lsp.get_color_permutation(start_neurons)
     colors = colors[perm]
+
+    all_shifted = []
+    for i in range(start_neurons):
+        trace = f[i, :current_frame+1]
+        baseline = np.percentile(trace, 8)
+        shifted = (trace - baseline) + i * gap
+        all_shifted.append(shifted)
+    all_y = np.concatenate(all_shifted)
+    y_min = np.min(all_y)
+    y_max = np.max(all_y)
+
     fig, ax = plt.subplots(figsize=(10, 6), facecolor='black')
     ax.set_facecolor('black')
     ax.tick_params(axis='x', labelbottom=False, length=0)
     ax.tick_params(axis='y', labelleft=False, length=0)
     for spine in ax.spines.values():
         spine.set_visible(False)
-    ax.grid(True, color='gray', linewidth=0.1, linestyle='--')
-    hsb = AnchoredHScaleBar(size=0.1*window,
-                                label=format_time(0.1*window),
+
+    lines = []
+    for i in range(start_neurons):
+        line, = ax.plot([], [], color=colors[i], lw=lw, zorder=-i)
+        lines.append(line)
+    fills = []
+
+    linekw = dict(color="white", linewidth=3)
+    hsb = lsp.AnchoredHScaleBar(size=0.1 * window, label=lsp.format_time(0.1 * window),
                                 loc=4, frameon=False, pad=0.6, sep=4,
-                                linekw=dict(color="white", linewidth=3), ax=ax)
-    vsb = AnchoredVScaleBar(height=0.1, label="",
+                                linekw=linekw, ax=ax)
+    vsb = lsp.AnchoredVScaleBar(height=0.1, label="",
                                 loc='lower left', frameon=False, pad=0, sep=4,
-                                linekw=dict(color="white", linewidth=3), ax=ax, spacer_width=0)
+                                linekw=linekw, ax=ax, spacer_width=0)
+    # Anchor scalebars in fixed positions (axes coordinates)
+    hsb.set_bbox_to_anchor((0.9, 0.1), transform=ax.transAxes)
+    vsb.set_bbox_to_anchor((0.05, 0.1), transform=ax.transAxes)
     ax.add_artist(hsb)
     ax.add_artist(vsb)
+
+    def init():
+        for i in range(start_neurons):
+            trace = f[i, :current_frame+1]
+            baseline = np.percentile(trace, 8)
+            shifted = (trace - baseline) + i * gap
+            lines[i].set_data(data_time[:current_frame+1], shifted)
+        extra = 0.05 * window
+        ax.set_xlim(0, window + extra)
+        ax.set_ylim(y_min - 0.05 * abs(y_min), y_max + 0.05 * abs(y_max))
+        return lines + [hsb, vsb]
+
     def update(frame):
-        t = frame / anim_fps
-        if t + window > T_data:
-            t = T_data - window
-        if t < expand_after:
-            x_lower = t
-            x_upper = t + window
+        if frame >= total_frames - 1:
+            x_min = T_data - window
+            x_max = T_data
         else:
-            x_lower = t
-            x_upper = t + window + expansion_factor * (t - expand_after)
-        i_lower, i_upper = int(x_lower * fps), int(x_upper * fps)
+            t = speed_factor * frame / anim_fps
+            if t + window > T_data:
+                t = T_data - window
+            if t < expand_after:
+                x_min = t
+                x_max = t + window
+            else:
+                x_min = t
+                x_max = t + window + expansion_factor * (t - expand_after)
+                if x_max > T_data:
+                    x_max = T_data
+
+        i_lower = int(x_min * fps)
+        i_upper = int(x_max * fps)
         if i_upper <= i_lower:
             i_upper = i_lower + 1
-        for line in ax.lines[:]:
-            line.remove()
-        for coll in ax.collections[:]:
-            coll.remove()
-        for i in reversed(range(start_neurons)):
+
+        for fill in fills:
+            fill.remove()
+        fills.clear()
+
+        all_shifted = []
+        for i in range(start_neurons):
             trace = f[i, i_lower:i_upper]
             baseline = np.percentile(trace, 8)
-            shifted = (trace - baseline) + i * offset
-            ax.plot(data_time[i_lower:i_upper], shifted, color=colors[i], lw=lw, zorder=-i)
-            if i < start_neurons - 1:
-                trace2 = f[i+1, i_lower:i_upper]
-                base2 = np.percentile(trace2, 8)
-                shifted2 = (trace2 - base2) + (i+1) * offset
-                mask = shifted > shifted2
-                ax.fill_between(data_time[i_lower:i_upper], shifted, shifted2, where=mask, color='black', zorder=-i-1)
-        all_shifted = [(f[i, i_lower:i_upper] - np.percentile(f[i, i_lower:i_upper], 10)) + i * offset
-                       for i in range(start_neurons)]
+            shifted = (trace - baseline) + i * gap
+            lines[i].set_data(data_time[i_lower:i_upper], shifted)
+            all_shifted.append(shifted)
+
+        for i in range(start_neurons - 1):
+            trace = f[i, i_lower:i_upper]
+            baseline = np.percentile(trace, 8)
+            shifted = (trace - baseline) + i * gap
+            trace2 = f[i+1, i_lower:i_upper]
+            base2 = np.percentile(trace2, 8)
+            shifted2 = (trace2 - base2) + (i+1) * gap
+            mask = shifted > shifted2
+            fill = ax.fill_between(data_time[i_lower:i_upper], shifted, shifted2,
+                                   where=mask, color='black', zorder=-i-1)
+            fills.append(fill)
+
         all_y = np.concatenate(all_shifted)
-        y_min, y_max = np.min(all_y), np.max(all_y)
-        extra = 0.05 * (x_upper - x_lower)
-        new_x_upper = x_upper + extra
-        ax.set_xlim(x_lower, new_x_upper)
-        xticks = np.linspace(x_lower, new_x_upper, 10)
-        ax.set_xticks(xticks)
-        ax.set_xticklabels([format_time(tick) for tick in xticks])
-        ax.set_ylim(y_min - 0.05 * abs(y_min), y_max + 0.05 * abs(y_max))
-        time_bar_length = 0.1 * (x_upper - x_lower)
-        time_label = (f"{time_bar_length:.0f} s" if time_bar_length < 60 else
-                      f"{time_bar_length/60:.0f} min" if time_bar_length < 3600 else
-                      f"{time_bar_length/3600:.1f} hr")
-        hsb.set_bbox_to_anchor((new_x_upper - (x_upper - x_lower)*0.1, y_min - (y_max - y_min)*0.09),
-                               transform=ax.transData)
-        hsb.txt.set_text(time_label)
+        y_min_new = np.min(all_y)
+        y_max_new = np.max(all_y)
+        extra_axis = 0.05 * (x_max - x_min)
+        ax.set_xlim(x_min, x_max + extra_axis)
+        ax.set_ylim(y_min_new - 0.05 * abs(y_min_new), y_max_new + 0.05 * abs(y_max_new))
+
+        time_bar_length = 0.1 * (x_max - x_min)
+        hsb.txt.set_text(lsp.format_time(time_bar_length))
         bottom_base = np.percentile(f[0, i_lower:i_upper], 8)
-        y_bar = np.min(f[0, i_lower:i_upper] - bottom_base)
+        # y_bar = np.min(f[0, i_lower:i_upper] - bottom_base)
         if signal_units == "dff":
-            rounded = round((0.1*(y_max-y_min))/5)*5
+            rounded = round((0.1*(y_max_new-y_min_new))/5)*5
             dff_label = f"{rounded:.0f} % ΔF/F₀"
         else:
-            rounded = round((0.1*(y_max-y_min))/5)*5
+            rounded = round((0.1*(y_max_new-y_min_new))/5)*5
             dff_label = f"{rounded:.0f} raw signal (a.u)"
-        vsb.set_bbox_to_anchor((new_x_upper - (x_upper - x_lower)*0.05, y_bar),
-                               transform=ax.transData)
         vsb.txt.set_text(dff_label)
+
         if title:
             ax.set_title(title, fontsize=16, fontweight="bold", color="white")
         ax.set_ylabel(f"Neuron Count: {start_neurons}", fontsize=8, fontweight="bold", labelpad=2)
-        return ax.lines + [hsb, vsb] + ax.collections
-    total_frames = int((T_data - window) * anim_fps)
-    ani = FuncAnimation(fig, update, frames=total_frames, interval=1000/anim_fps, blit=True)
+        return lines + [hsb, vsb] + fills
+
+
+    if time_limit is not None:
+        total_frames = int(time_limit * anim_fps)
+    else:
+        total_frames = int((T_data - window) * anim_fps)
+    ani = FuncAnimation(fig, update, frames=total_frames, init_func=init, interval=1000/anim_fps, blit=True)
     ani.save(save_path, fps=anim_fps)
+
     plt.close(fig)
+
 
 def plot_noise_distribution(noise_levels, save_path, plane_idx, title="Noise Level Distribution"):
     """
