@@ -273,7 +273,7 @@ def animate_traces(
 
     cmap_inst = plt.get_cmap(cmap)
     colors = cmap_inst(np.linspace(0, 1, start_neurons))
-    perm = lsp.get_color_permutation(start_neurons)
+    perm = get_color_permutation(start_neurons)
     colors = colors[perm]
 
     all_shifted = []
@@ -300,10 +300,10 @@ def animate_traces(
     fills = []
 
     linekw = dict(color="white", linewidth=3)
-    hsb = lsp.AnchoredHScaleBar(size=0.1 * window, label=lsp.format_time(0.1 * window),
+    hsb = AnchoredHScaleBar(size=0.1 * window, label=format_time(0.1 * window),
                                 loc=4, frameon=False, pad=0.6, sep=4,
                                 linekw=linekw, ax=ax)
-    vsb = lsp.AnchoredVScaleBar(height=0.1, label="",
+    vsb = AnchoredVScaleBar(height=0.1, label="",
                                 loc='lower left', frameon=False, pad=0, sep=4,
                                 linekw=linekw, ax=ax, spacer_width=0)
     # Anchor scalebars in fixed positions (axes coordinates)
@@ -377,8 +377,8 @@ def animate_traces(
         ax.set_ylim(y_min_new - 0.05 * abs(y_min_new), y_max_new + 0.05 * abs(y_max_new))
 
         time_bar_length = 0.1 * (x_max - x_min)
-        hsb.txt.set_text(lsp.format_time(time_bar_length))
-        bottom_base = np.percentile(f[0, i_lower:i_upper], 8)
+        hsb.txt.set_text(format_time(time_bar_length))
+        # bottom_base = np.percentile(f[0, i_lower:i_upper], 8)
         # y_bar = np.min(f[0, i_lower:i_upper] - bottom_base)
         if signal_units == "dff":
             rounded = round((0.1*(y_max_new-y_min_new))/5)*5
