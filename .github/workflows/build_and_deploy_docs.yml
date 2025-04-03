@@ -26,15 +26,16 @@ jobs:
         with:
           python-version: '3.9'
 
-      - name: prebuild
+      - name: Pre-build Dependencies
         run: |
           sudo apt-get update -y -qq
           sudo apt-get install --no-install-recommends -y ffmpeg libegl1-mesa-dev libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers xorg-dev
+
+      - name: Build Docs
         uses: ammaraskar/sphinx-action@8.0.2
         with:
           docs-folder: "docs/"
           build-command: "sphinx-build -b html ./ _build/html --keep-going"
-
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
