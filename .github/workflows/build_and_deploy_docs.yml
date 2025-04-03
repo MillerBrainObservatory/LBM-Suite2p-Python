@@ -45,7 +45,7 @@ jobs:
             cd LBM-Suite2p-Python
             pip install .
 
-          build-command: "make -k html"
+          build-command: "sphinx-build -b html ./ _build/html --keep-going"
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
