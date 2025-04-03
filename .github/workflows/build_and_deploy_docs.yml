@@ -37,8 +37,7 @@ jobs:
               libxcb-xfixes0-dev \
               mesa-vulkan-drivers \
               git-lfs \
-              libglvnd-dev \
-              python3-pip
+              libglvnd-dev
 
             pip install git+https://github.com/atlab/scanreader.git
             git clone https://github.com/MillerBrainObservatory/LBM-Suite2p-Python.git
