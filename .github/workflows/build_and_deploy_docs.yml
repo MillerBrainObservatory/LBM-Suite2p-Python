@@ -16,6 +16,9 @@ jobs:
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}
     steps:
+
+      - name: Build HTML Documentation
+
       - uses: actions/checkout@v4
       - name: Set up Python
 
@@ -23,32 +26,22 @@ jobs:
         with:
           python-version: '3.9'
 
-      - name: Build HTML Documentation
+      - name: Install llvmpipe and lavapipe for offscreen canvas
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        run: |
+          sudo apt-get update -y -qq
+          sudo apt-get install --no-install-recommends -y ffmpeg libegl1-mesa-dev libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers xorg-dev
+
         uses: ammaraskar/sphinx-action@8.0.2
         with:
           docs-folder: "docs/"
-          pre-build-command: |
-            # Install required system dependencies
-            apt-get update -y --allow-releaseinfo-change -qq
-            apt-get install --no-install-recommends -y \
-              build-essential \
-              # libegl1-mesa \
-              # libgl1-mesa-dri \
-              # libxcb-xfixes0-dev \
-              # mesa-vulkan-drivers \
-              git-lfs \
-              libglvnd-dev
-
-            pip install git+https://github.com/atlab/scanreader.git
-            git clone https://github.com/MillerBrainObservatory/LBM-Suite2p-Python.git
-            cd LBM-Suite2p-Python
-            pip install .
-
           build-command: "sphinx-build -b html ./ _build/html --keep-going"
+
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
+          lfs: true
           publish_branch: gh-pages
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: docs/_build/html
