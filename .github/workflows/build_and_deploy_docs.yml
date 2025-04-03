@@ -26,12 +26,10 @@ jobs:
         with:
           python-version: '3.9'
 
-      - name: Install llvmpipe and lavapipe for offscreen canvas
-        if: ${{ matrix.os == 'ubuntu-latest' }}
+      - name: prebuild
         run: |
           sudo apt-get update -y -qq
           sudo apt-get install --no-install-recommends -y ffmpeg libegl1-mesa-dev libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers xorg-dev
-
         uses: ammaraskar/sphinx-action@8.0.2
         with:
           docs-folder: "docs/"
