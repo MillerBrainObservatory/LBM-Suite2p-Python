@@ -6,43 +6,44 @@ on:
   pull_request:
     branches: [dev, master]
   workflow_dispatch:
-    branches: [dev, master]
 
 jobs:
   docs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Conda environment (Python 3.10)
-        uses: conda-incubator/setup-miniconda@v2
-        with:
-          activate-environment: lsp
-          environment-name: lsp
-          python-version: 3.10
-          auto-activate-base: false
-
-      - name: Install package + dependencies
-        shell: bash -l {0} 
+      - name: Install Miniforge3
         run: |
+          wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-$(uname -m).sh"
+          bash Miniforge3.sh -b -p "${HOME}/conda"
+          echo "$HOME/conda/bin" >> $GITHUB_PATH
+          echo "CONDA_BASE=$HOME/conda" >> $GITHUB_ENV
+
+      - name: Set up environment and install dependencies
+        shell: bash -l {0}
+        run: |
+          source "${CONDA_BASE}/etc/profile.d/conda.sh"
+          conda activate
+          conda create -y -n lsp python=3.10
+          conda activate lsp
           pip install git+https://github.com/MillerBrainObservatory/LBM_Suite2p_python.git
           pip install -r docs/requirements.txt
 
       - name: Build Docs
         shell: bash -l {0}
         run: |
+          source "${CONDA_BASE}/etc/profile.d/conda.sh"
+          conda activate lsp
           sphinx-build -b html docs/ docs/_build/html --keep-going
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
-          lfs: true
           publish_branch: gh-pages
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: docs/_build/html
