@@ -40,10 +40,6 @@ jobs:
           conda run -n pip install -r docs/requirements.txt
           conda run -n lsp sphinx-build -b html docs/ docs/_build/html --keep-going
 
-          # build docs
-          pip install sphinx
-          sphinx-build -b html docs/ docs/_build/html --keep-going
-
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
