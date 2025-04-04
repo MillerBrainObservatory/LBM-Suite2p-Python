@@ -45,10 +45,6 @@ class AnchoredHScaleBar(matplotlib.offsetbox.AnchoredOffsetbox):
         spacing parameters.
     linekw : dict, optional
         line properties.
-
-    notes
-    -----
-    tweak 'size' for bar length; this value remains fixed.
     """
     def __init__(self, size=1, label="", loc=2, ax=None, pad=0.4,
                  borderpad=0.5, ppad=0, sep=2, prop=None,
@@ -90,10 +86,6 @@ class AnchoredVScaleBar(matplotlib.offsetbox.AnchoredOffsetbox):
         Line properties.
     spacer_width : float, optional
         Width of spacer between bar and text.
-
-    Notes
-    -----
-    Tweak 'height' for bar length.
     """
     def __init__(self, height=1, label="", loc=2, ax=None, pad=0.4,
                  borderpad=0.5, ppad=0, sep=2, prop=None,
