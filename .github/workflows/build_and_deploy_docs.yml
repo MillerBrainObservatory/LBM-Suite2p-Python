@@ -33,7 +33,8 @@ jobs:
           source "$CONDA_BASE/etc/profile.d/conda.sh"
           conda create -y -n lsp python=3.10
           conda install -n lsp -c conda-forge numpy tifffile matplotlib
-          conda run -n lsp pip install git+https://github.com/MillerBrainObservatory/LBM_Suite2p_python.git
+
+          conda run -n lsp pip install git+https://github.com/MillerBrainObservatory/LBM-Suite2p-Python.git
           conda run -n lsp pip install sphinx
           conda run -n lsp sphinx-build -b html docs/ docs/_build/html --keep-going
 
