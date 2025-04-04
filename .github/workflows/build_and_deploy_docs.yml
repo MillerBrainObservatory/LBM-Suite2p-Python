@@ -32,7 +32,7 @@ jobs:
           conda create -y -n lsp python=3.10
           conda activate lsp
           pip install git+https://github.com/MillerBrainObservatory/LBM_Suite2p_python.git
-          pip install -r docs/requirements.txt
+          # pip install git+https://github.com/MillerBrainObservatory/mbo_utilities.git
 
       - name: Build Docs
         shell: bash -l {0}
