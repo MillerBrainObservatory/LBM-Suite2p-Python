@@ -27,7 +27,6 @@ extras_require = {
         "pydata_sphinx_theme",
         "sphinx_design",
         "sphinxcontrib-images",
-        "sphinxcontrib-video",
         "sphinx_tippy",
         "myst_nb",
     ],

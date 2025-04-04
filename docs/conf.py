@@ -57,7 +57,6 @@ myst_enable_extensions = [
 
 extensions = [
     "sphinx.ext.autodoc",
-    "sphinxcontrib.video",
     "myst_nb",
     "sphinx_copybutton",
     "sphinx_togglebutton",
