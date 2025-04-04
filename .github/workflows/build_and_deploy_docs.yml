@@ -27,18 +27,19 @@ jobs:
       - name: Install system deps
         run: sudo apt-get install -y git ffmpeg libegl1-mesa-dev libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers xorg-dev
 
+
       - name: Set up Conda env and install Python deps
         shell: bash
+
         run: |
           source "$CONDA_BASE/etc/profile.d/conda.sh"
           conda create -y -n lsp python=3.10
-          conda install -n lsp -c conda-forge numpy tifffile matplotlib
-
-          conda run -n git clone https://github.com/MillerBrainObservatory/LBM-Suite2p-Python.git
-          conda run -n cd LBM-Suite2p-Python
-          conda run -n pip install -e .
-          conda run -n pip install -r docs/requirements.txt
-          conda run -n lsp sphinx-build -b html docs/ docs/_build/html --keep-going
+          conda activate lsp
+          git clone https://github.com/MillerBrainObservatory/LBM-Suite2p-Python.git
+          cd LBM-Suite2p-Python
+          pip install -e .
+          pip install -r docs/requirements.txt
+          sphinx-build -b html docs/ docs/_build/html --keep-going
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
