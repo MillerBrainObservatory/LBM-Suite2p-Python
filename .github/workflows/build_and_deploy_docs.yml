@@ -25,7 +25,7 @@ jobs:
           echo "CONDA_BASE=$HOME/conda" >> $GITHUB_ENV
 
       - name: Install system deps
-        run: sudo apt-get install -y git
+        run: sudo apt-get install -y git ffmpeg libegl1-mesa-dev libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers xorg-dev
 
       - name: Set up Conda env and install Python deps
         shell: bash -l {0}
@@ -34,7 +34,6 @@ jobs:
           conda create -y -n lsp python=3.10
           conda activate lsp
           conda install -c conda-forge numpy tifffile matplotlib 
-          pip install ffmpeg libegl1-mesa-dev libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers xorg-dev
           pip install git+https://github.com/MillerBrainObservatory/LBM_Suite2p_python.git
           # pip install git+https://github.com/MillerBrainObservatory/mbo_utilities.git
 
