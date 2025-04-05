@@ -34,7 +34,6 @@ jobs:
           source "$CONDA_BASE/etc/profile.d/conda.sh"
           conda create -y -n lsp python=3.10
           conda activate lsp
-          cd LBM-Suite2p-Python
           pip install -e .
           pip install -r docs/requirements.txt
           sphinx-build -b html docs/ docs/_build/html --keep-going
