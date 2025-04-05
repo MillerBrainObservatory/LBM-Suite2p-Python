@@ -126,7 +126,7 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
     print(f"Processing completed for {len(input_file_list)} files.")
     return all_ops
 
-def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
+def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False, dryrun=False):
     """
     Processes a single imaging plane using suite2p, handling registration, segmentation,
     and plotting of results.
@@ -143,6 +143,8 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
         Subdirectory for saving results (default: filename of input file).
     replot : bool, optional
         If True, regenerates plots even if they exist (default: False).
+    dryrun : bool, optional
+        If True, print input files that will be processed and filepaths that will be created.
 
     Returns
     -------
@@ -168,10 +170,17 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
     """
     input_file_path = Path(input_file_path)
     if not input_file_path.is_file():
-        raise FileNotFoundError(f"Input data file {input_file_path} does not exist.")
+        if dryrun:
+            print(f"Input file {input_file_path} does not exist.")
+            return
+        else:
+            raise FileNotFoundError(f"Input data file {input_file_path} does not exist.")
 
     save_path = Path(save_path)
-    save_path.mkdir(parents=True, exist_ok=True)
+    if dryrun:
+        print(f"Input file {input_file_path} will save in {save_path}")
+    else:
+        save_path.mkdir(parents=True, exist_ok=True)
 
     if save_folder is None:
         save_folder = input_file_path.stem
@@ -180,13 +189,17 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
     else:
         save_folder = Path(save_folder)
 
+    print(f"saving to {save_folder}")
+
     if ops is None:
         ops = suite2p.default_ops()
+
+
+    plane_path = save_path / save_folder / "plane0"
 
     metadata = mbo.get_metadata(input_file_path)
     ops = mbo.params_from_metadata(metadata, ops)
 
-    plane_path = save_path / save_folder / "plane0"
     expected_files = {
         "ops": plane_path / "ops.npy",
         "stat": plane_path / "stat.npy",
@@ -202,8 +215,12 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
         print(f"{input_file_path} already has segmentation results. Skipping execution.")
         output_ops = load_ops(expected_files["ops"])
     else:
-        db = {"data_path": [str(input_file_path.parent)], "save_folder": save_folder, "save_path0": str(save_path), "tiff_list": [input_file_path.name]}
-        output_ops = suite2p.run_s2p(ops=ops, db=db)
+        if dryrun:
+            print(f"Dryrun: results will be saved in {plane_path}")
+        else:
+
+            db = {"data_path": [str(input_file_path.parent)], "save_folder": save_folder, "save_path0": str(save_path), "tiff_list": [input_file_path.name]}
+            output_ops = suite2p.run_s2p(ops=ops, db=db)
 
     # remove when we set data.bin path correctly
     # monkey patch to deal with default suite2p/plane0/data.bin save path
