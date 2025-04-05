@@ -5,13 +5,15 @@ import mbo_utilities as mbo
 import numpy as np
 
 import suite2p
+from scipy.ndimage import uniform_filter1d
 
-from lbm_suite2p_python import (
-    load_ops,
+from .utils import load_ops, dff_percentile, plot_projection
+
+from .zplane import (
     plot_traces,
-    plot_projection
+    animate_traces
 )
-from lbm_suite2p_python.volume import (
+from .volume import (
     plot_execution_time,
     plot_volume_signal,
     plot_volume_stats,
@@ -238,7 +240,21 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False):
             for key in ["registration", "segmentation", "traces"]:
                 safe_delete(expected_files[key])
 
-            plot_traces(output_ops, expected_files["traces"])
+            f = np.load(Path(output_ops["ops_path"]).parent.joinpath("F.npy"))
+            dff = dff_percentile(f, percentile=2) * 100
+            dff = uniform_filter1d(dff, size=5, axis=1)
+            # TODO: make sure there are at least 30 traces
+            plot_traces(dff, save_path=expected_files["traces"], start_neurons=30)
+
+            animate_traces(
+                dff,
+                save_path=expected_files["traces"],
+                start_neurons=30,
+                expand_after=5,
+                lw=0.5,
+                speed_factor=8,
+                expansion_factor=10,
+            )
             plot_projection(
                 output_ops,
                 expected_files["segmentation"],
