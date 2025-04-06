@@ -1,4 +1,4 @@
-# API
+:EAPI
 
 ```{eval-rst}
 

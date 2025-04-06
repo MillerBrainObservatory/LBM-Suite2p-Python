@@ -1,5 +1,7 @@
 # Suite2p: beyond 10,000 neurons with standard two-photon microscopy
 
+Some main takeaways from the publication.
+
 ## Steps
 
 1) image registration

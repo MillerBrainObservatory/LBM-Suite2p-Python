@@ -1,21 +1,19 @@
 # LBM-Suite2p-Python Documentation 
 
-This is a template of the documentation with notebooks that will be updated as I go.
-
 ## Documentation Contents
 
 ```{toctree}
 ---
 maxdepth: 2
 ---
-Functions <api>
 Notebooks <examples/index>
+Functions <api>
 Suite2p Publication <publication>
 Manual Curation <manual_curation>
 
 ```
 
-## Issues
+## Helpful Suite2p Issues
 
 | Issue | Topic | Summary |
 |-------|-------|---------|
@@ -28,9 +26,7 @@ Manual Curation <manual_curation>
 | [#627](https://github.com/MouseLand/suite2p/issues/627) | Fluorescence & Neuropil Signals | Explanation of `F` (Fluorescence) and `Fneu` (Neuropil Fluorescence) in Suite2p output. |
 | [#758](https://github.com/MouseLand/suite2p/issues/758#issuecomment-956588935) | Running on a Cluster | More discussion on **looping over databases (`dbs`)** when running Suite2p on a cluster. |
 
-## Snippets
-
-Everything I learn and links will live here (and on github) until the API for this project is further developed.
+## Links / Resources
 
 [suite2p github](https://github.com/MouseLand/suite2p/tree/main)
 [suite2p docs](https://suite2p.readthedocs.io/en/latest/index.html)
