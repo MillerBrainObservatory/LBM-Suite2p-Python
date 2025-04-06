@@ -209,6 +209,7 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False, d
         "meanImg" : plane_path / "mean_image.png",
         "max_proj" : plane_path / "max_projection_image.png",
         "traces": plane_path / "traces.png",
+        "animation": plane_path / "animated_traces.mp4"
     }
 
     if all(expected_files[key].is_file() for key in ["ops", "stat", "iscell"]):
@@ -265,7 +266,7 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False, d
 
             animate_traces(
                 dff,
-                save_path=expected_files["traces"],
+                save_path=expected_files["animation"],
                 start_neurons=30,
                 expand_after=5,
                 lw=0.5,
