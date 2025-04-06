@@ -10,6 +10,7 @@ Notebooks <examples/index>
 Functions <api>
 Suite2p Publication <publication>
 Manual Curation <manual_curation>
+Glossary <glossary>
 
 ```
 

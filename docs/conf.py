@@ -65,7 +65,7 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
     "sphinx_design",
-    "sphinx_tippy",
+    # "sphinx_tippy",
 ]
 
 source_suffix = {
