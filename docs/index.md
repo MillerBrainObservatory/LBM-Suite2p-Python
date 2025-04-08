@@ -11,6 +11,7 @@ Functions <api>
 Suite2p Publication <publication>
 Manual Curation <manual_curation>
 Glossary <glossary>
+Image Gallery <image_gallery>
 
 ```
 
