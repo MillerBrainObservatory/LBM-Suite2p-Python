@@ -38,32 +38,56 @@ except ImportError:
 
 def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
     """
-    Processes a volumetric imaging dataset by running Suite2p on multiple planes
-    and aggregating volumetric statistics.
+    Processes a full volumetric imaging dataset using Suite2p, handling plane-wise registration,
+    segmentation, plotting, and aggregation of volumetric statistics and visualizations.
 
     Parameters
     ----------
-    ops : dict | list
-        Dictionary containing Suite2p parameters.
+    ops : dict or list
+        Dictionary of Suite2p parameters to use for each imaging plane.
     input_file_list : list of str or Path
-        List of file paths corresponding to imaging planes.
+        List of TIFF file paths, each representing a single imaging plane.
     save_path : str or Path
-        Directory to save the results.
+        Base directory to save all outputs.
     save_folder : str, optional
-        Subdirectory for saving results (default: None).
+        Subdirectory name within `save_path` for saving results (default: None).
     replot : bool, optional
-        If True, regenerates plots even if they exist (default: False).
+        If True, regenerate all summary plots even if they already exist (default: False).
 
     Returns
     -------
-    list
-        List of processed ops dictionaries or paths to ops files.
+    list of str
+        List of paths to `ops.npy` files for each plane.
 
     Raises
     ------
     Exception
-        If volumetric statistics or plots fail.
+        If volumetric summary statistics or any visualization fails to generate.
 
+    Example
+    -------
+    >> input_files = mbo.get_files(assembled_path, str_contains='tif', max_depth=3)
+    >> ops = mbo.params_from_metadata(mbo.get_metadata(input_files[0]), suite2p.default_ops())
+
+    Run volume
+    >> output_ops_list = lsp.run_volume(ops, input_files, save_path)
+
+    Notes
+    -----
+    At the root of `save_path` will be a folder for each z-plane with all suite2p results, as well as 
+    volumetric outputs at the base of this folder.
+
+    Each z-plane folder contains:
+    - Registration, Segmentation and Extraction results (ops, spks, iscell)
+    - Summary statistics: execution time, signal strength, acceptance rates
+    - Optional rastermap model for visualization of activity across the volume
+
+    Each save_path root contains:
+    - Accepted/Rejected histogram, neuron-count x z-plane (acc_rej_bar.png)
+    - Execution time for each step in each z-plane (execution_time.png)
+    - Mean/Max images, with and without segmentation masks, in GIF/MP4
+    - Traces animation over time and neurons
+    - Optional rastermap clustering results
     """
     all_ops = []
     for file in tqdm(input_file_list, desc="Processing Planes"):
