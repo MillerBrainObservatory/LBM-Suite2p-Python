@@ -108,12 +108,10 @@ html_file_suffix = ".html"
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3.9", None),
     "numpydoc": ("https://numpydoc.readthedocs.io/en/latest", None),
-    "mbo": (
-        "https://millerbrainobservatory.github.io/",
-        None,
-    ),
+    "mbo": ( "https://millerbrainobservatory.github.io/objects.inv", None,),
+    "utilities": ( "https://millerbrainobservatory.github.io/mbo_utilities/objects.inv", None,),
+    "lsp": ("https://millerbrainobservatory.github.io/LBM-Suite2p-Python/objects.inv", None,),
     "caiman": ("https://caiman.readthedocs.io/en/latest/", None),
-    "mesmerize": ("https://mesmerize-core.readthedocs.io/en/latest", None),
     "suite2p": ("https://suite2p.readthedocs.io/en/latest/", None),
 }
 
