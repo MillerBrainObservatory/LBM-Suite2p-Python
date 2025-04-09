@@ -65,8 +65,12 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
     "sphinx_design",
+    "sphinxcontrib.images",
+    # "sphinx_gallery.gen_gallery",
     # "sphinx_tippy",
 ]
+
+
 
 source_suffix = {
     ".rst": "restructuredtext",

@@ -4,10 +4,10 @@
 
 ```{toctree}
 ---
-maxdepth: 2
+maxdepth: 1
 ---
 Notebooks <examples/index>
-Functions <api>
+API <api>
 Suite2p Publication <publication>
 Manual Curation <manual_curation>
 Glossary <glossary>
