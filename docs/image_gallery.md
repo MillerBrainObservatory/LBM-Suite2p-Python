@@ -116,7 +116,7 @@ align: center
 ---
 ```
 
-```{thumbnail} ./_images/z_pollen_depth.svg
+```{figure} ./_images/z_pollen_depth.svg
 ---
 width: 600
 align: center

@@ -21,8 +21,6 @@ Some main takeaways from the publication.
 - Disadvantage that it relies on low-frequencys: neuropil, small graduents of pixel fluctuation
    - High frequency is essential for registration, i.e. edges, activity
 
-[Whitened Image]("whitened.png")
-
 ## ROI Detection
 
 
@@ -37,8 +35,6 @@ Some main takeaways from the publication.
 - produces contamination from average activity of out-of-focus dentrides/axons
 - 2p scopes have PSF one magnitude wider in Z vs X/Y
 - So, single plane is really a weighted average of a volume extenting 10's of micron
-
-[Neuropil]("_images/neuropil.png")
 
 (a) Example cell (blue) and neuropil areas (red-shaded annuli) superimposed on the variance image (white), for an
 imaging session in superficial V1. The neuropil signal is defined as the signal inside the red-shaded annuli but not in

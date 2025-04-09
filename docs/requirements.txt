@@ -12,7 +12,6 @@ sphinx-copybutton
 sphinx_book_theme
 pydata_sphinx_theme
 sphinx_design
-sphinxcontrib-images
 myst_nb
 seaborn
 scipy
