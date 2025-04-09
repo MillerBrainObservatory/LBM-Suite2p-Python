@@ -64,11 +64,6 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
     Exception
         If volumetric statistics or plots fail.
 
-    Notes
-    -----
-    - Calls `run_plane` for each plane in `input_file_list`.
-    - Computes and saves volumetric statistics.
-    - Generates summary plots of segmentation and execution metrics.
     """
     all_ops = []
     for file in tqdm(input_file_list, desc="Processing Planes"):
@@ -161,12 +156,20 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False, d
         If plotting functions fail.
 
     Example
-    -----
-    input_files = mbo.get_files(assembled_path, str_contains='tif', max_depth=3)
-    metadata = mbo.get_metadata(input_files[0])
-    ops = suite2p.default_ops()
-    mbo_ops = mbo.params_from_metadata(metadata, ops) # handles framerate, Lx/Ly, etc
-    output_ops = lsp.run_plane(mbo_ops, input_files[0], save_path)
+    -------
+    >> import mbo_utilities as mbo
+    >> import lbm_suite2p_python as lsp
+
+    Get a list of z-planes in Txy format
+    >> input_files = mbo.get_files(assembled_path, str_contains='tif', max_depth=3)
+    >> metadata = mbo.get_metadata(input_files[0])
+    >> ops = suite2p.default_ops()
+
+    Automatically fill in metadata needed for processing (frame rate, pixel resolution, etc..)
+    >> mbo_ops = mbo.params_from_metadata(metadata, ops) # handles framerate, Lx/Ly, etc
+
+    Run a single z-plane through suite2p
+    >> output_ops = lsp.run_plane(mbo_ops, input_files[0], save_path)
     """
     input_file_path = Path(input_file_path)
     if not input_file_path.is_file():
