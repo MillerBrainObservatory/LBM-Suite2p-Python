@@ -146,7 +146,7 @@ def load_traces(ops):
 
 def plot_projection(
         ops,
-        savepath,
+        savepath=None,
         fig_label=None,
         vmin=None,
         vmax=None,
@@ -163,7 +163,9 @@ def plot_projection(
     else:
         raise ValueError("Unknown projection type. Options are ['meanImg', 'max_proj', 'meanImgE']")
 
-    savepath = Path(savepath)
+    if savepath:
+        savepath = Path(savepath)
+
     data = ops[proj]
     shape = data.shape
     fig, ax = plt.subplots(figsize=(6, 6), facecolor='black')
@@ -230,9 +232,12 @@ def plot_projection(
         spine.set_visible(False)
 
     plt.tight_layout()
-    savepath.parent.mkdir(parents=True, exist_ok=True)
-    plt.savefig(savepath, dpi=300, facecolor='black')
-    plt.show()
+
+    if savepath:
+        savepath.parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(savepath, dpi=300, facecolor='black')
+    else:
+        plt.show()
 
 
 def gaussian(x, mu, sigma):
