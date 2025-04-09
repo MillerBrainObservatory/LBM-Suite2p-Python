@@ -98,6 +98,7 @@ html_title = "LBM-Suite2p-Python"
 # html_favicon = "_static/icon_suite2p_python.svg"
 html_theme = "sphinx_book_theme"
 
+
 html_short_title = "LBM Suite2p Pipeline"
 html_static_path = ["_static"]
 html_css_files = ["custom.css"]
@@ -131,7 +132,7 @@ html_theme_options = {
         {
             "name": "MBO User Hub",
             "url": "https://millerbrainobservatory.github.io/",
-            "icon": "icon_mbo_home.png",
+            "icon": "_static/icon_mbo_home.png",
             "type": "local",
         },
         {
