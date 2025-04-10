@@ -1,4 +1,9 @@
+---
+bibliography: refs.bib
+---
 # LBM-Suite2p-Python Documentation 
+
+See the {doc}`suite2p documentation <suite2p:index>` for more details.
 
 ## Documentation Contents
 
@@ -6,6 +11,7 @@
 ---
 maxdepth: 1
 ---
+Usage <usage>
 Notebooks <examples/index>
 API <api>
 Suite2p Publication <publication>
@@ -35,8 +41,9 @@ Image Gallery <image_gallery>
 [suite2p paper](https://www.biorxiv.org/content/10.1101/061507v2)
 [marius deconv paper](https://www.jneurosci.org/content/38/37/7976)
 
-----------------
 
-## Pipeline Overview
+## References
 
-WIP
+This pipeline uses several core tools for calcium imaging processing and analysis.
+
+```{bibliography}```

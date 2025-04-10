@@ -65,11 +65,10 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
     "sphinx_design",
-    # "sphinxcontrib.images",
-    # "sphinx_gallery.gen_gallery",
-    # "sphinx_tippy",
+    "sphinxcontrib.bibtex",
+    "sphinx_tippy",
 ]
-
+bibtex_bibfiles = ["refs.bib"]
 
 
 source_suffix = {
@@ -109,9 +108,9 @@ html_file_suffix = ".html"
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3.9", None),
     "numpydoc": ("https://numpydoc.readthedocs.io/en/latest", None),
-    "mbo": ( "https://millerbrainobservatory.github.io/objects.inv", None,),
-    "utilities": ( "https://millerbrainobservatory.github.io/mbo_utilities/objects.inv", None,),
-    "lsp": ("https://millerbrainobservatory.github.io/LBM-Suite2p-Python/objects.inv", None,),
+    "mbo": ( "https://millerbrainobservatory.github.io", None,),
+    "utilities": ( "https://millerbrainobservatory.github.io/mbo_utilities", None,),
+    "lsp": ("https://millerbrainobservatory.github.io/LBM-Suite2p-Python", None,),
     "caiman": ("https://caiman.readthedocs.io/en/latest/", None),
     "suite2p": ("https://suite2p.readthedocs.io/en/latest/", None),
 }
