@@ -11,6 +11,7 @@ sphinx-togglebutton
 sphinx-copybutton
 sphinx_book_theme
 pydata_sphinx_theme
+sphinxcontrib-bibtex
 sphinx_design
 myst_nb
 seaborn
