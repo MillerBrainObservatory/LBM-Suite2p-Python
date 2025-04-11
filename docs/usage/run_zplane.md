@@ -4,7 +4,7 @@ You can process a single imaging plane using the {func}`run_plane` function, whi
 
 ```{eval-rst}
 
-.. autofunction:: lbm_suite2p_python.run_plane
+.. autosummary:: lbm_suite2p_python.run_lsp
 
 ```
 
@@ -17,15 +17,15 @@ import suite2p
 
 ```
 
-# 1. Find input TIFF files
+*Find input TIFF files*
 input_files = mbo.get_files(assembled_path, str_contains='tif', max_depth=3)
 metadata = mbo.get_metadata(input_files[0])
 
-# 2. Get and configure Suite2p ops
+*Get and configure Suite2p ops*
 ops = suite2p.default_ops()
 mbo_ops = mbo.params_from_metadata(metadata, ops)
 
-# 3. Run a single z-plane through Suite2p
+*Run a single z-plane through Suite2p*
 output_ops = lsp.run_plane(
     ops=mbo_ops,
     input_file_path=input_files[0],
