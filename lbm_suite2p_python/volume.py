@@ -486,6 +486,15 @@ def save_images_to_movie(image_input, savepath, duration=None, format=".mp4"):
         Desired total video duration in seconds. If None, defaults to 1 FPS (1 image per second).
     format : str, optional
         Video format: ".mp4" (PowerPoint-compatible), ".avi" (lossless), ".mov" (ProRes). Default is ".mp4".
+
+    Examples
+    --------
+    >>> import mbo_utilities as mbo
+    >>> import lbm_suite2p_python as lsp
+
+    Get all png files autosaved during LBM-Suite2p-Python `run_volume()`
+    >>> segmentation_pngs = mbo.get_files("path/suite3d/results/", "segmentation.png", max_depth=3)
+    >>> lsp.save_images_to_movie(segmentation_pngs, "path/to/save/segmentation.png", format=".mp4")
     """
     savepath = Path(savepath).with_suffix(format)  # Ensure correct file extension
     temp_video = savepath.with_suffix(".avi")  # Temporary AVI file for MOV conversion
