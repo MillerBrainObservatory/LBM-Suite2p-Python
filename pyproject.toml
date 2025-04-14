@@ -28,7 +28,7 @@ dependencies = [
 [project.optional-dependencies]
 gui = [
 	"imgui-bundle",
-	#"PyQt5",
+	# "PyQt5",
 ] 
 notebook = [
 	"jupyter_rfb",
@@ -55,10 +55,10 @@ doc = [
 [tool.uv]
 default-groups = "all"
 
-[tool.uv.sources]
-fastplotlib = { git = "https://github.com/fastplotlib/fastplotlib", branch = "main" }
-mbo_utilities = { git = "https://github.com/MillerBrainObservatory/mbo_utilities", branch = "master" }
-pygfx = { git = "https://github.com/pygfx/pygfx", branch = "main" }
+#[tool.uv.sources]
+#fastplotlib = { git = "https://github.com/fastplotlib/fastplotlib", branch = "main" }
+#mbo_utilities = { git = "https://github.com/MillerBrainObservatory/mbo_utilities", branch = "master" }
+#pygfx = { git = "https://github.com/pygfx/pygfx", branch = "main" }
 
 # https://github.com/charliermarsh/ruff
 [tool.ruff]
