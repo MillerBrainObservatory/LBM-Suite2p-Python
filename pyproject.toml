@@ -92,6 +92,10 @@ ignore = [
 [tool.setuptools.exclude-package-data]
 "*" = ["data/*"]
 
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["lbm_suite2p_python*"]
+
 [tool.coverage.report]
 exclude_lines = [
 	"pragma: no cover",
