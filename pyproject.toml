@@ -24,6 +24,8 @@ dependencies = [
 	"matplotlib>=3.10.1",
 	"mbo_utilities",
 	"imageio[ffmpeg]",
+	"pyqt5==5.15.11",
+	"pyqt5-qt5==5.15.2",
 ]
 
 [project.optional-dependencies]
@@ -36,12 +38,17 @@ notebook = [
 	"jupyterlab",
 	"anywidget",
 ]
+all = [
+	"imgui-bundle",
+	"jupyter_rfb",
+	"jupyterlab",
+	"anywidget",
+]
 
 [dependency-groups]
 dev = [
 	"pytest>=7.4.4",
 	"ruff>=0.6.1",
-	"lazygit",
 ]
 doc = [
 	"docutils>=0.21.2",
