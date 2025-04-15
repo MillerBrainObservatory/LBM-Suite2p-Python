@@ -16,13 +16,14 @@ urls = {homepage = "https://github.com/MillerBrainObservatory/LBM-Suite2p-Python
 scripts = {lsp="lbm_suite2p_python.__main__:main"}
 dependencies = [
 	"dask>=2025.3.0",
-	"mkl-fft>=1.3.13", # why isn't this installed with suite2p?
+	"mkl-fft>=1.3.13",
 	"suite2p[all]>=0.14.4",
 	"tifffile>=2025.3.30",
 	"zarr>=2.18.3",
 	"fastplotlib",
 	"matplotlib>=3.10.1",
 	"mbo_utilities",
+	"imageio[ffmpeg]",
 ]
 
 [project.optional-dependencies]
