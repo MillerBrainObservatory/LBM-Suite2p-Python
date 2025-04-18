@@ -27,20 +27,20 @@ dependencies = [
 
 [project.optional-dependencies]
 gui = [
-	"mbo_utilities[gui]"
+	"mbo_utilities[gui]",
 	"imgui-bundle",
 	"pyqt5==5.15.11",
 	"pyqt5-qt5==5.15.2",
 ] 
 notebook = [
-	"mbo_utilities[notebook]"
+	"mbo_utilities[notebook]",
 	"jupyter_rfb",
 	"jupyterlab",
 	"anywidget",
 	"fastplotlib",
 ]
 all = [
-	"mbo_utilities[all]"
+	"mbo_utilities[all]",
 	"imgui-bundle",
 	"jupyter_rfb",
 	"jupyterlab",
@@ -61,7 +61,7 @@ doc = [
 	"sphinx-autodoc2>=0.5.0",
 	"sphinx-book-theme>=1.1.4",
 	"sphinx-copybutton>=0.5.2",
-	"sphinx-togglebutton",
+	"sphinx_togglebutton",
 	"sphinx-design>=0.6.1",
 	"sphinx",
 	"nbsphinx",
