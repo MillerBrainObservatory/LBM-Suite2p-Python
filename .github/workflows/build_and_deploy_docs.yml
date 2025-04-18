@@ -1,68 +1,59 @@
 name: Build and Deploy Docs
 
-on:
-  pull_request:
-    branches: [dev, master]
+on: 
+  # push:
+  #   branches:
+  #     - master
+  #   tags:
+  #     - "v*" # Push events to matching v*, i.e. v1.0, v20.15.10
+  # pull_request:
+  #   branches:
+  #     - master
+  workflow_dispatch:
 
 jobs:
   docs:
+    if: |
+      github.event_name != 'push' ||
+      contains(github.event.head_commit.message, 'doc:') ||
+      contains(github.event.head_commit.message, 'docs:')
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
-      - uses: actions/checkout@v4
-
-      # - name: Install Miniforge3
-      #   run: |
-      #     wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-$(uname -m).sh"
-      #     bash Miniforge3.sh -b -p "$HOME/conda"
-      #     echo "$HOME/conda/bin" >> $GITHUB_PATH
-      #     echo "CONDA_BASE=$HOME/conda" >> $GITHUB_ENV
-
-      # - name: Install system deps
-      #   run: sudo apt-get install -y git ffmpeg libegl1-mesa-dev libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers xorg-dev
-
-      - name: Setup Python 3.10
-        uses: actions/setup-python@v5
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
-          python-version: "3.10"
-          
+          lfs: true
 
-      - name: Install system dependencies
+      - name: Setup Miniforge3
         run: |
-          sudo apt-get update -y -qq
-          sudo apt-get install --no-install-recommends -y \
-            xorg-dev \
-            libx11-dev \
-            libxcb1-dev \
-            libxcb-glx0-dev
+          wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-$(uname -m).sh"
+          bash Miniforge3.sh -b -p "$HOME/conda"
+          echo "$HOME/conda/bin" >> $GITHUB_PATH
+          echo "CONDA_BASE=$HOME/conda" >> $GITHUB_ENV
 
-      - name: Setup uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          python-version: "3.10"
-          # enable-cache: true
+      - name: Install system deps
+        run: sudo apt-get install -y git ffmpeg libegl1-mesa-dev libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers xorg-dev
 
-      - name: Sync dependencies
-        run: uv sync --all-extras --dev --refresh
-
-      - name: Install package dependencies
+      - name: Install Windows OpenGL
+        if: runner.os == 'Windows'
         run: |
-          uv pip install -r docs/requirements.txt
+          git clone --depth 1 https://www.github.com/pyvista/gl-ci-helpers.git
+          powershell gl-ci-helpers/appveyor/install_opengl.ps1
+
+      - name: Conda Install
+        shell: bash
+
+        run: |
+          source "$CONDA_BASE/etc/profile.d/conda.sh"
+          conda create -y -n lsp python=3.10
+          conda activate lsp
+          pip install -e .
+          pip install -r docs/requirements.txt
           sphinx-build -b html docs/ docs/_build/html --keep-going
 
-        # Keep for a conda build later
-      # - name: Set up Conda env and install Python deps
-      #   shell: bash
-      #
-      #   run: |
-      #     source "$CONDA_BASE/etc/profile.d/conda.sh"
-      #     conda create -y -n lsp python=3.10
-      #     conda activate lsp
-      #     pip install -e .
-      #     pip install -r docs/requirements.txt
-      #     sphinx-build -b html docs/ docs/_build/html --keep-going
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
