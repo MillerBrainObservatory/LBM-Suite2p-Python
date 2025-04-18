@@ -11,15 +11,17 @@ jobs:
       contents: write
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 0
 
-      - name: Install Miniforge3
-        run: |
-          wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-$(uname -m).sh"
-          bash Miniforge3.sh -b -p "$HOME/conda"
-          echo "$HOME/conda/bin" >> $GITHUB_PATH
-          echo "CONDA_BASE=$HOME/conda" >> $GITHUB_ENV
+      # - name: Install Miniforge3
+      #   run: |
+      #     wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-$(uname -m).sh"
+      #     bash Miniforge3.sh -b -p "$HOME/conda"
+      #     echo "$HOME/conda/bin" >> $GITHUB_PATH
+      #     echo "CONDA_BASE=$HOME/conda" >> $GITHUB_ENV
 
       # - name: Install system deps
       #   run: sudo apt-get install -y git ffmpeg libegl1-mesa-dev libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers xorg-dev
@@ -28,6 +30,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
+          
 
       - name: Install system dependencies
         run: |
