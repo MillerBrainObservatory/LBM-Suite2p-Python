@@ -8,6 +8,8 @@ description = "Light Beads Microscopy Pipeline using Suite2p"
 readme = "README.md"
 license = {text = "BSD-3-Clause"}
 dynamic = ["version", "classifiers"]
+
+requires-python = ">=3.11, <3.13"
 requires-python = ">=3.10, <=3.12"
 keywords = ["Pipeline", "Numpy", "Microscopy", "ScanImage", "Suite2p", "tiff"]
 urls = {homepage = "https://github.com/MillerBrainObservatory/LBM-Suite2p-Python"}
