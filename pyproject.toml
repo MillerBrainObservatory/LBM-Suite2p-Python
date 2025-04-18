@@ -49,6 +49,7 @@ default-groups = "all"
 
 [tool.uv.sources]
 mbo_utilities = { git = "https://github.com/MillerBrainObservatory/mbo_utilities", branch = "master" }
+suite2p = { git = "https://github.com/MillerBrainObservatory/suite2p", branch = "main" }
 
 # https://github.com/charliermarsh/ruff
 [tool.ruff]

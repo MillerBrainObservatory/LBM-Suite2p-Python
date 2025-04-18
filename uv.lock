@@ -1568,7 +1568,7 @@ dev = [
     { name = "pytest" },
     { name = "ruff" },
 ]
-doc = [
+docs = [
     { name = "docutils" },
     { name = "myst-nb" },
     { name = "sphinx" },
@@ -1585,7 +1585,7 @@ requires-dist = [
     { name = "mbo-utilities", extras = ["gui"], marker = "extra == 'gui'", git = "https://github.com/MillerBrainObservatory/mbo_utilities?branch=master" },
     { name = "mbo-utilities", extras = ["notebook"], marker = "extra == 'notebook'", git = "https://github.com/MillerBrainObservatory/mbo_utilities?branch=master" },
     { name = "rastermap" },
-    { name = "suite2p", extras = ["all"] },
+    { name = "suite2p", extras = ["all"], git = "https://github.com/MillerBrainObservatory/suite2p?branch=main" },
 ]
 provides-extras = ["gui", "notebook", "all"]
 
@@ -1594,7 +1594,7 @@ dev = [
     { name = "pytest", specifier = ">=7.4.4" },
     { name = "ruff", specifier = ">=0.6.1" },
 ]
-doc = [
+docs = [
     { name = "docutils", specifier = ">=0.21.2" },
     { name = "myst-nb", specifier = ">=1.2.0" },
     { name = "sphinx", specifier = ">=8.1.3" },
@@ -1733,7 +1733,7 @@ wheels = [
 [[package]]
 name = "mbo-utilities"
 version = "0.0.0"
-source = { git = "https://github.com/MillerBrainObservatory/mbo_utilities?branch=master#7910e267d56f4c5996927c9153b802cb29c04253" }
+source = { git = "https://github.com/MillerBrainObservatory/mbo_utilities?branch=master#61d9621cc5dc2178e5445fa73e188ec0e840d4c9" }
 dependencies = [
     { name = "dask" },
     { name = "h5py" },
@@ -3728,8 +3728,8 @@ wheels = [
 
 [[package]]
 name = "suite2p"
-version = "0.14.4"
-source = { registry = "https://pypi.org/simple" }
+version = "0.1.dev2336+g51d90dd"
+source = { git = "https://github.com/MillerBrainObservatory/suite2p?branch=main#51d90dd0a93b8e2aeb5ad88b14f8d1b878bb2845" }
 dependencies = [
     { name = "cellpose" },
     { name = "importlib-metadata" },
@@ -3743,10 +3743,6 @@ dependencies = [
     { name = "scipy" },
     { name = "tifffile" },
     { name = "torch" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/3e/61/c4e22ade167ea8dcb3f3effc8da3ae71826181609a241822666c8dac6866/suite2p-0.14.4.tar.gz", hash = "sha256:7e4a1ba46547243c5a44c408087dc37a225b84fc7054c647ae5e374140dd213f", size = 10498792 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/f9/85/6724246cf54fc151f3cf8f1901523c578c22d1cd8a1c37312fab927a4bac/suite2p-0.14.4-py3-none-any.whl", hash = "sha256:ffe17f8733f077a6c668a00fd24787a77a6852dd835381dd2f3e1acc61267325", size = 661351 },
 ]
 
 [package.optional-dependencies]
