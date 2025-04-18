@@ -16,6 +16,7 @@ dependencies = [
 	"mbo_utilities",
 	"suite2p[all]",
 	"rastermap",
+	"ffmpeg-python",
 ]
 
 [project.optional-dependencies]
