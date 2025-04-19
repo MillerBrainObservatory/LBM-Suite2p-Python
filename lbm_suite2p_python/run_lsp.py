@@ -221,7 +221,6 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False, d
     if ops is None:
         ops = suite2p.default_ops()
 
-
     plane_path = save_path / save_folder / "plane0"
 
     metadata = mbo.get_metadata(input_file_path)
@@ -236,7 +235,7 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False, d
         "meanImg" : plane_path / "mean_image.png",
         "max_proj" : plane_path / "max_projection_image.png",
         "traces": plane_path / "traces.png",
-        "animation": plane_path / "animated_traces.mp4"
+        # "animation": plane_path / "animated_traces.mp4"
     }
 
     if all(expected_files[key].is_file() for key in ["ops", "stat", "iscell"]):
@@ -247,7 +246,7 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False, d
             print(f"Dryrun: results will be saved in {plane_path}")
         else:
 
-            db = {"data_path": [str(input_file_path.parent)], "save_folder": save_folder, "save_path0": str(save_path), "tiff_list": [input_file_path.name]}
+            db = {"data_path": [str(input_file_path.parent)], "save_folder": str(save_folder), "save_path0": str(save_path), "tiff_list": [input_file_path.name]}
             output_ops = suite2p.run_s2p(ops=ops, db=db)
 
     # remove when we set data.bin path correctly
@@ -291,15 +290,16 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False, d
             # TODO: make sure there are at least 30 traces
             plot_traces(dff, save_path=expected_files["traces"], start_neurons=30)
 
-            animate_traces(
-                dff,
-                save_path=expected_files["animation"],
-                start_neurons=30,
-                expand_after=5,
-                lw=0.5,
-                speed_factor=8,
-                expansion_factor=10,
-            )
+            # This function is too volitile right now to run by default
+            # animate_traces(
+            #     dff,
+            #     save_path=expected_files["animation"],
+            #     start_neurons=30,
+            #     expand_after=5,
+            #     lw=0.5,
+            #     speed_factor=8,
+            #     expansion_factor=10,
+            # )
             plot_projection(
                 output_ops,
                 expected_files["segmentation"],
