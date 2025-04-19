@@ -18,12 +18,12 @@ dependencies = [
 	"zarr>=2.18.3",
 	"dask>=2025.3.0",
 	"mkl-fft>=1.3.13",
-	"suite2p>=0.14.4",
 	"imageio[ffmpeg]",
 	"matplotlib>=3.10.1",
 	"h5py",
 	"tqdm",
 	"mbo_utilities",
+	"suite2p",
 ]
 
 [project.optional-dependencies]
@@ -74,6 +74,7 @@ docs = [
 	"scikit-image",
 	"scipy",
 	"numpy",
+	"suite2p"
 ]
 
 [tool.uv]
@@ -81,6 +82,7 @@ default-groups = "all"
 
 [tool.uv.sources]
 mbo_utilities = { git = "https://github.com/MillerBrainObservatory/mbo_utilities", branch = "master" }
+suite2p = { git = "https://github.com/MillerBrainObservatory/suite2p", branch = "main" }
 
 # https://github.com/charliermarsh/ruff
 [tool.ruff]
