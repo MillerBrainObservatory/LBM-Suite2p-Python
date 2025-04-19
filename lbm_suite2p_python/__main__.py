@@ -29,7 +29,8 @@ def add_args(parser: argparse.ArgumentParser):
     parser.add_argument('--version', type=str, help='Print the version of the package.')
     parser.add_argument('--ops', type=str, help='Path to the ops .npy file.')
     parser.add_argument('--data', type=str, help='Path to the data.')
-    parser.add_argument('--save', type=str, help='Path to the save folder.')
+    parser.add_argument('--save', type=str, help='Path to save the results.')
+    parser.add_argument('--subdir', type=str, help='Additional subdirectory add to save-path.')
     parser.add_argument('--max-depth', type=int, help='Number of subdirectories to check for files to process.')
     parser.add_argument('--overwrite', action='store_true', help='Overwrite existing files.')
     parser.add_argument('--skip-existing', action='store_true', help='Skip existing files.')
@@ -41,38 +42,50 @@ def main():
     """
     The main function that orchestrates the CLI operations.
     """
-    print("\n")
-    print("-----------LBM-Suite2p-Pipeline -----------")
-    print("\n")
+    print("\n----------- LBM-Suite2p-Pipeline -----------\n")
+
     parser = argparse.ArgumentParser(description="LBM-Suite2p-pipeline parameters")
     parser = add_args(parser)
     args = parser.parse_args()
 
-    # Handle version
     if args.version:
-        print("lbm_suite2p_python v{}".format(lsp.__version__))
+        print(f"lbm_suite2p_python v{lsp.__version__}")
         return
 
-    if args.ops:
-        ops = np.load(args.ops, allow_pickle=True).item()
-    else:
-        ops = suite2p.default_ops()
-    if args.data:
-        if args.save:
-            save_path = Path(args.save)
-        else:
-            save_path = Path(args.data).parent / 'results'
-        if Path(args.data).is_file():
-            output_ops = lsp.run_plane(ops, input_file_path=args.data, save_path=str(save_path))
-            print("Processing complete -----------")
-        elif Path(args.data).is_dir():
-            files = mbo.get_files(args.data, 'tiff', max_depth=args.max_depth)
-            output_ops = lsp.run_volume(ops, files, save_path=str(save_path), save_folder=str(save_path))
-            print("Processing complete -----------")
-        else:
-            raise FileNotFoundError(f"Input data file {args.data} does not exist. Must be an existing file.")
+    ops = np.load(args.ops, allow_pickle=True).item() if args.ops else suite2p.default_ops()
 
-        return output_ops
+    if not args.data:
+        raise ValueError("No input file or directory specified. Use --data")
+
+    input_path = Path(args.data)
+
+    # default to data-path / 'results'
+    save_path = Path(args.save) if args.save else input_path.parent / "results"
+    save_path.mkdir(parents=True, exist_ok=True)
+
+    # Optional user-defined save folder (e.g., plane_01_runA)
+    subdir = Path(args.subdir) if args.subdir else None
+
+    if input_path.is_file():
+        output_ops = lsp.run_plane(
+            ops=ops,
+            input_file_path=input_path,
+            save_path=save_path,
+            save_folder=subdir
+        )
+    elif input_path.is_dir():
+        files = mbo.get_files(input_path, "tiff", max_depth=args.max_depth)
+        output_ops = lsp.run_volume(
+            ops=ops,
+            input_file_list=files,
+            save_path=save_path,
+            save_folder=subdir
+        )
+    else:
+        raise FileNotFoundError(f"Input path does not exist: {input_path}")
+
+    print("Processing complete -----------")
+    return output_ops
 
 if __name__ == "__main__":
      main()
