@@ -1,4 +1,5 @@
 import os
+import shutil
 import traceback
 from pathlib import Path
 import mbo_utilities as mbo
@@ -260,15 +261,11 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False, d
                 raw_path.rename(where_raw_should_be_path)
             else:
                 print(f"Warning: {where_raw_should_be_path} already exists. Skipping rename.")
-        else:
-            try:
-                print(f"Deleting {raw_path} due to ops['keep_movie_raw=False'].")
-                raw_path.unlink()
-                if not any(raw_path.parent.parent.iterdir()):
-                    raw_path.parent.parent.rmdir()
-            except Exception as e:
-                print(f"Failed to delete {raw_path}: {e}")
-
+        try:
+            raw_path.unlink()
+            shutil.rmtree(save_path / "suite2p")
+        except Exception as e:
+            print(f"Failed to delete {raw_path}: {e}")
     try:
         if replot or not all(expected_files[key].is_file() for key in [
             "registration", "segmentation", "traces"]):
