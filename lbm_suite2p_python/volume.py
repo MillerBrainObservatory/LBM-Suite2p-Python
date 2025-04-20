@@ -337,7 +337,7 @@ def plot_volume_signal(filepath, savepath):
     plt.show()
 
 
-def plot_volume_stats(filepath, savepath):
+def plot_volume_neuron_counts(filepath, savepath):
     """
     Plots the number of accepted and rejected neurons per z-plane.
 
