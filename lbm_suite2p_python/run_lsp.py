@@ -13,7 +13,6 @@ from .utils import load_ops, dff_percentile, plot_projection
 
 from .zplane import (
     plot_traces,
-    animate_traces
 )
 from .volume import (
     plot_execution_time,
@@ -147,7 +146,7 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
     print(f"Processing completed for {len(input_file_list)} files.")
     return all_ops
 
-def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False, dryrun=False):
+def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False, dryrun=False, **kwargs):
     """
     Processes a single imaging plane using suite2p, handling registration, segmentation,
     and plotting of results.
@@ -304,10 +303,11 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False, d
             #     speed_factor=8,
             #     expansion_factor=10,
             # )
+            fig_label = kwargs.get("fig_label", input_file_path.stem)
             plot_projection(
                 output_ops,
                 expected_files["segmentation"],
-                fig_label=input_file_path.stem,
+                fig_label=fig_label,
                 display_masks=True,
                 add_scalebar=True,
                 proj="meanImg"
@@ -322,7 +322,7 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False, d
                     add_scalebar=True,
                     proj=projection
                 )
-    except Exception as e:
+    except Exception:
         traceback.print_exc()
 
     return pd.DataFrame(output_ops["timing"])
