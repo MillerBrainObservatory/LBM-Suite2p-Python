@@ -82,7 +82,8 @@ docs = [
 	"scikit-image",
 	"scipy",
 	"numpy",
-	"suite2p"
+	"suite2p",
+	"pandas",
 ]
 
 [tool.uv]
