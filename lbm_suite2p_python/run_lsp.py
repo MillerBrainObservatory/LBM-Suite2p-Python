@@ -4,6 +4,7 @@ import traceback
 from pathlib import Path
 import mbo_utilities as mbo
 import numpy as np
+import pandas as pd
 
 import suite2p
 from scipy.ndimage import uniform_filter1d
@@ -213,7 +214,11 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False, d
     if save_folder is None:
         save_folder = input_file_path.stem
     elif not isinstance(save_folder, (str, Path)):
-        raise TypeError("save_folder must be a string or path-like object.")
+        if dryrun:
+            print(f"save_folder must be a string or a Path object, not {type(save_folder)}.")
+            return
+        else:
+            raise TypeError("save_folder must be a string or path-like object.")
     else:
         save_folder = Path(save_folder)
 
@@ -245,8 +250,10 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False, d
     else:
         if dryrun:
             print(f"Dryrun: results will be saved in {plane_path}")
+            print(f"Files that will be created: {expected_files}")
+            print(metadata)
+            return ops, metadata
         else:
-
             db = {"data_path": [str(input_file_path.parent)], "save_folder": str(save_folder), "save_path0": str(save_path), "tiff_list": [input_file_path.name]}
             output_ops = suite2p.run_s2p(ops=ops, db=db)
 
@@ -318,4 +325,4 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False, d
     except Exception as e:
         traceback.print_exc()
 
-    return output_ops
+    return pd.DataFrame(output_ops["timing"])
