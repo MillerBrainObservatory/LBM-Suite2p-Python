@@ -155,9 +155,9 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False, d
     ----------
     ops : dict
         Dictionary containing suite2p parameters.
-    input_file_path : str or Path
-        Path to the input TIFF file.
-    save_path : str or Path
+    input_file_path : str or Path, optional
+        Path to the input TIFF file. If not given, uses ops["data_path"] / ops["tiff_list"]
+    save_path : str or Path, optional
         Directory to save the results.
     save_folder : str, optional
         Subdirectory for saving results (default: filename of input file).
@@ -210,6 +210,8 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False, d
     else:
         save_path.mkdir(parents=True, exist_ok=True)
 
+    # if no save folder is provided, use the same name
+    # as the input file i.e. plane_07
     if save_folder is None:
         save_folder = input_file_path.stem
     elif not isinstance(save_folder, (str, Path)):
@@ -223,13 +225,12 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False, d
 
     print(f"saving to {save_folder}")
 
+    metadata = mbo.get_metadata(input_file_path)
     if ops is None:
         ops = suite2p.default_ops()
+        ops = mbo.params_from_metadata(metadata, ops)
 
     plane_path = save_path / save_folder / "plane0"
-
-    metadata = mbo.get_metadata(input_file_path)
-    ops = mbo.params_from_metadata(metadata, ops)
 
     expected_files = {
         "ops": plane_path / "ops.npy",
@@ -287,11 +288,12 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False, d
             for key in ["registration", "segmentation", "traces"]:
                 safe_delete(expected_files[key])
 
-            f = np.load(Path(output_ops["ops_path"]).parent.joinpath("F.npy"))
+            f = np.load(plane_path.joinpath("F.npy"))
             dff = dff_percentile(f, percentile=2) * 100
             dff = uniform_filter1d(dff, size=5, axis=1)
-            # TODO: make sure there are at least 30 traces
-            plot_traces(dff, save_path=expected_files["traces"], start_neurons=30)
+
+            ncells = min(30, dff.shape[0])
+            plot_traces(dff, save_path=expected_files["traces"], num_neurons=ncells)
 
             # This function is too volitile right now to run by default
             # animate_traces(
