@@ -69,7 +69,7 @@ def main():
     if input_path.is_file():
         output_ops = lsp.run_plane(
             ops=ops,
-            input_file_path=input_path,
+            input_tiff=input_path,
             save_path=save_path,
             save_folder=subdir
         )

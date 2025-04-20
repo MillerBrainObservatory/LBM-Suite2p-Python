@@ -9,6 +9,7 @@ from matplotlib import pyplot as plt
 from rastermap.utils import bin1d
 
 from lbm_suite2p_python import load_ops, get_common_path
+from mbo_utilities.file_io import get_files
 
 
 def update_ops_paths(ops_files: str | list):
@@ -284,7 +285,7 @@ def plot_execution_time(filepath, savepath):
     plt.show()
 
 
-def plot_volume_signal(filepath, savepath):
+def plot_volume_signal(zstats, savepath):
     """
     Plots the mean fluorescence signal per z-plane with standard deviation error bars.
 
@@ -293,8 +294,8 @@ def plot_volume_signal(filepath, savepath):
 
     Parameters
     ----------
-    filepath : str or Path
-        Path to the `.npy` file containing the volume stats. The output of `get_volume_stats()`.
+    zstats : str or Path
+        Path to the `.npy` file containing the volume stats. The output of `get_zstats()`.
     savepath : str or Path
         Path to save the generated figure.
 
@@ -304,7 +305,7 @@ def plot_volume_signal(filepath, savepath):
     - Error bars represent the standard deviation of the fluorescence signal.
     """
 
-    plane_stats = np.load(filepath)
+    plane_stats = np.load(zstats)
 
     planes = plane_stats["plane"]
     mean_signal = plane_stats["mean_trace"]
@@ -356,15 +357,17 @@ def plot_volume_neuron_counts(zstats, savepath):
     - The `.npy` file should contain structured data with `plane`, `accepted`, and `rejected` fields.
     """
 
+    zstats = Path(zstats)
+    if not zstats.is_file():
+        raise FileNotFoundError(f"{zstats} is not a valid zstats.npy file.")
+
     plane_stats = np.load(zstats)
     savepath = Path(savepath)
-    if savepath.is_file():
-        print(f"Expected a directory, got a filename. Using the parent of this file: {savepath.parent}")
 
     planes = plane_stats["plane"]
     accepted = plane_stats["accepted"]
     rejected = plane_stats["rejected"]
-    savename = f"all_neurons_{accepted}acc_{rejected}rej.png"
+    savename = savepath.joinpath(f"all_neurons_{accepted}acc_{rejected}rej.png")
 
     plt.figure(figsize=(10, 6), facecolor="black")
     ax = plt.gca()
@@ -444,7 +447,7 @@ def get_volume_stats(ops_files: list[str | Path], overwrite: bool = True):
     # edge case: the common path will be ops.npy if there's only a single file
     common_path = get_common_path(ops_files)
 
-    plane_save = os.path.join(common_path, "volume_stats.npy")
+    plane_save = os.path.join(common_path, "zstats.npy")
     plane_stats_npy = np.array(
         [(plane, accepted, rejected, mean_trace, std_trace,
           timing["registration"], timing["detection"], timing["extraction"],
