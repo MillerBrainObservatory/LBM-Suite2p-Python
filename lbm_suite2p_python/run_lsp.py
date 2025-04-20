@@ -17,7 +17,7 @@ from .zplane import (
 from .volume import (
     plot_execution_time,
     plot_volume_signal,
-    plot_volume_stats,
+    plot_volume_neuron_counts,
     get_volume_stats,
     save_images_to_movie,
     load_results_dict, plot_rastermap,
@@ -119,7 +119,7 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
         save_images_to_movie(all_maxs, os.path.join(save_path, "max_images_volume.mp4"))
         save_images_to_movie(all_traces, os.path.join(save_path, "traces_volume.mp4"))
 
-        plot_volume_stats(zstats_file, os.path.join(save_path, "acc_rej_bar.png"))
+        plot_volume_neuron_counts(zstats_file, save_path)
         plot_volume_signal(zstats_file, os.path.join(save_path, "mean_volume_signal.png"))
         plot_execution_time(zstats_file, os.path.join(save_path, "execution_time.png"))
 
@@ -137,10 +137,11 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
             np.save(os.path.join(save_path, "model.npy"), model)
             title_kwargs = {"fontsize": 8, "y": 0.95}
             plot_rastermap(all_spks,model, neuron_bin_size=20, xmax=min(2000, all_spks.shape[1]), save_path=os.path.join(save_path, "rastermap.png"), title_kwargs=title_kwargs, title="Rastermap Sorted Activity")
+        else:
+            print("No rastermap is available.")
 
     except Exception:
-        print("Volume statistics failed. Showing ops:")
-        print(all_ops)
+        print("Volume statistics failed.")
         print("Traceback: ", traceback.format_exc())
 
     print(f"Processing completed for {len(input_file_list)} files.")
