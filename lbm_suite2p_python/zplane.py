@@ -112,7 +112,7 @@ def plot_traces(
         save_path="",
         fps=17.0,
         num_neurons=20,
-        window=120,
+        window=220,
         title="",
         offset=None,
         lw=0.5,

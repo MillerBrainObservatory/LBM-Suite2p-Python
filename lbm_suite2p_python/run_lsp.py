@@ -95,7 +95,7 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
         print(f"Processing {file} ---------------")
         output_ops = run_plane(
             ops=ops,
-            input_file_path=file,
+            input_tiff=file,
             save_path=str(save_path),
             save_folder=save_folder,
             replot=replot
@@ -146,7 +146,7 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
     print(f"Processing completed for {len(input_file_list)} files.")
     return all_ops
 
-def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False, dryrun=False, **kwargs):
+def run_plane(ops, input_tiff, save_path, save_folder=None, replot=False, dryrun=False, **kwargs):
     """
     Processes a single imaging plane using suite2p, handling registration, segmentation,
     and plotting of results.
@@ -155,7 +155,7 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False, d
     ----------
     ops : dict
         Dictionary containing suite2p parameters.
-    input_file_path : str or Path, optional
+    input_tiff : str or Path, optional
         Path to the input TIFF file. If not given, uses ops["data_path"] / ops["tiff_list"]
     save_path : str or Path, optional
         Directory to save the results.
@@ -174,7 +174,7 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False, d
     Raises
     ------
     FileNotFoundError
-        If `input_file_path` does not exist.
+        If `input_tiff` does not exist.
     TypeError
         If `save_folder` is not a string.
     Exception
@@ -196,36 +196,32 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False, d
     Run a single z-plane through suite2p
     >> output_ops = lsp.run_plane(mbo_ops, input_files[0], save_path)
     """
-    input_file_path = Path(input_file_path)
-    if not input_file_path.is_file():
+    input_tiff = Path(input_tiff)
+    if not input_tiff.is_file():
         if dryrun:
-            print(f"Input file {input_file_path} does not exist.")
+            print(f"Input file {input_tiff} does not exist.")
             return
         else:
-            raise FileNotFoundError(f"Input data file {input_file_path} does not exist.")
+            raise FileNotFoundError(f"Input data file {input_tiff} does not exist.")
 
     save_path = Path(save_path)
     if dryrun:
-        print(f"Input file {input_file_path} will save in {save_path}")
+        print(f"Input file {input_tiff} will save in {save_path}")
     else:
         save_path.mkdir(parents=True, exist_ok=True)
 
     # if no save folder is provided, use the same name
     # as the input file i.e. plane_07
     if save_folder is None:
-        save_folder = input_file_path.stem
+        save_folder = input_tiff.stem
     elif not isinstance(save_folder, (str, Path)):
         if dryrun:
             print(f"save_folder must be a string or a Path object, not {type(save_folder)}.")
             return
         else:
             raise TypeError("save_folder must be a string or path-like object.")
-    else:
-        save_folder = Path(save_folder)
 
-    print(f"saving to {save_folder}")
-
-    metadata = mbo.get_metadata(input_file_path)
+    metadata = mbo.get_metadata(input_tiff)
     if ops is None:
         ops = suite2p.default_ops()
         ops = mbo.params_from_metadata(metadata, ops)
@@ -245,7 +241,7 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False, d
     }
 
     if all(expected_files[key].is_file() for key in ["ops", "stat", "iscell"]):
-        print(f"{input_file_path} already has segmentation results. Skipping execution.")
+        print(f"{input_tiff} already has segmentation results. Skipping execution.")
         output_ops = load_ops(expected_files["ops"])
     else:
         if dryrun:
@@ -254,7 +250,7 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False, d
             print(metadata)
             return ops, metadata
         else:
-            db = {"data_path": [str(input_file_path.parent)], "save_folder": str(save_folder), "save_path0": str(save_path), "tiff_list": [input_file_path.name]}
+            db = {"data_path": [str(input_tiff.parent)], "save_folder": str(save_folder), "save_path0": str(save_path), "tiff_list": [input_tiff.name]}
             output_ops = suite2p.run_s2p(ops=ops, db=db)
 
     # remove when we set data.bin path correctly
@@ -276,7 +272,7 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False, d
     try:
         if replot or not all(expected_files[key].is_file() for key in [
             "registration", "segmentation", "traces"]):
-            print(f"Generating missing plots for {input_file_path.stem}...")
+            print(f"Generating missing plots for {input_tiff.stem}...")
 
             def safe_delete(file_path):
                 if file_path.exists():
@@ -305,7 +301,7 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False, d
             #     speed_factor=8,
             #     expansion_factor=10,
             # )
-            fig_label = kwargs.get("fig_label", input_file_path.stem)
+            fig_label = kwargs.get("fig_label", input_tiff.stem)
             plot_projection(
                 output_ops,
                 expected_files["segmentation"],
@@ -319,12 +315,12 @@ def run_plane(ops, input_file_path, save_path, save_folder=None, replot=False, d
                 plot_projection(
                     output_ops,
                     expected_files[projection],
-                    fig_label=input_file_path.stem,
+                    fig_label=input_tiff.stem,
                     display_masks=False,
                     add_scalebar=True,
                     proj=projection
                 )
     except Exception:
         traceback.print_exc()
-
-    return pd.DataFrame(output_ops["timing"])
+    # return pd.DataFrame(output_ops["timing"])
+    return output_ops["timing"]
