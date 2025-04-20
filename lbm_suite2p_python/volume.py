@@ -337,7 +337,7 @@ def plot_volume_signal(filepath, savepath):
     plt.show()
 
 
-def plot_volume_neuron_counts(filepath, savepath):
+def plot_volume_neuron_counts(zstats, savepath):
     """
     Plots the number of accepted and rejected neurons per z-plane.
 
@@ -346,21 +346,25 @@ def plot_volume_neuron_counts(filepath, savepath):
 
     Parameters
     ----------
-    filepath : str or Path
-        Path to the `.npy` file containing the volume stats. The output of get_volume_stats()
+    zstats : str, Path
+        Full path to the zstats.npy file.
     savepath : str or Path
-        Path to save the generated figure.
+        Path to directory where generated figure will be saved.
 
     Notes
     -----
     - The `.npy` file should contain structured data with `plane`, `accepted`, and `rejected` fields.
     """
 
-    plane_stats = np.load(filepath)
+    plane_stats = np.load(zstats)
+    savepath = Path(savepath)
+    if savepath.is_file():
+        print(f"Expected a directory, got a filename. Using the parent of this file: {savepath.parent}")
 
     planes = plane_stats["plane"]
     accepted = plane_stats["accepted"]
     rejected = plane_stats["rejected"]
+    savename = f"all_neurons_{accepted}acc_{rejected}rej.png"
 
     plt.figure(figsize=(10, 6), facecolor="black")
     ax = plt.gca()
@@ -399,7 +403,7 @@ def plot_volume_neuron_counts(filepath, savepath):
 
     plt.legend(fontsize=12, facecolor="black", edgecolor="white", labelcolor="white")
 
-    plt.savefig(savepath, bbox_inches="tight", facecolor="black")
+    plt.savefig(savename, bbox_inches="tight", facecolor="black")
 
 
 def get_volume_stats(ops_files: list[str | Path], overwrite: bool = True):
