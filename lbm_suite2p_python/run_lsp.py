@@ -252,6 +252,8 @@ def run_plane(ops, input_tiff, save_path, save_folder=None, replot=False, dryrun
             return ops, metadata
         else:
             db = {"data_path": [str(input_tiff.parent)], "save_folder": str(save_folder), "save_path0": str(save_path), "tiff_list": [input_tiff.name]}
+            if "save_folder" in ops.keys() and not hasattr(ops["save_folder"], "len"):
+                raise ValueError(f"ops['save_folder'] is not countable: type is {type(ops['save_folder'])}.")
             output_ops = suite2p.run_s2p(ops=ops, db=db)
 
     # remove when we set data.bin path correctly
