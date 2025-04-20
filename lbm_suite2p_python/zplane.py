@@ -111,7 +111,7 @@ def plot_traces(
         f,
         save_path="",
         fps=17.0,
-        start_neurons=20,
+        num_neurons=20,
         window=120,
         title="",
         offset=None,
@@ -130,14 +130,18 @@ def plot_traces(
         Path to save the output plot (default is "./stacked_traces.png").
     fps : float, optional
         Sampling rate in frames per second (default is 17.0).
-    start_neurons : int, optional
+    num_neurons : int, optional
         Number of neurons to display (default is 20).
     window : float, optional
         Time window (in seconds) to display (default is 120).
+    title : str, optional
+        Title of the figure (default is "").
     offset : float or None, optional
         Vertical offset between traces; if None, computed automatically.
     lw : float, optional
         Line width for data points.
+    cmap : str, optional
+        Matplotlib colormap string (default is 'tab10').
     signal_units : str, optional
         Units of fluorescence signal. Options: "DF/F0 %", "DF/F0", "raw signal" (default: "DF/F0 %").
 
@@ -149,7 +153,7 @@ def plot_traces(
     data_time = np.arange(n_timepoints) / fps  # x-axis in seconds
     x_lower, x_upper = 0, window
     current_frame = min(int(window * fps), n_timepoints - 1)
-    displayed_neurons = start_neurons
+    displayed_neurons = num_neurons
 
     if offset is None:
         perc10 = np.percentile(f[:displayed_neurons, :current_frame+1], 10, axis=1)
