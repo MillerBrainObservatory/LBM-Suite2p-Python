@@ -38,6 +38,7 @@ gui = [
 	"imgui-bundle",
 	"pyqt5==5.15.11",
 	"pyqt5-qt5==5.15.2",
+	"pyqtgraph",
 ] 
 notebook = [
 	"mbo_utilities[notebook]",
@@ -45,6 +46,7 @@ notebook = [
 	"jupyterlab",
 	"anywidget",
 	"fastplotlib",
+	"pyqtgraph",
 ]
 all = [
 	"mbo_utilities[all]",
@@ -54,6 +56,7 @@ all = [
 	"anywidget",
 	"pyqt5==5.15.11",
 	"pyqt5-qt5==5.15.2",
+	"pyqtgraph",
 ]
 
 [dependency-groups]
