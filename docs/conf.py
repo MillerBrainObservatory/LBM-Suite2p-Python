@@ -93,10 +93,9 @@ templates_path = ["_templates"]
 # A shorter title for the navigation bar.  Default is the same as html_title.
 html_title = "LBM-Suite2p-Python"
 
-# html_logo = "_static/lcp_logo.svg"
-# html_favicon = "_static/icon_suite2p_python.svg"
 html_theme = "sphinx_book_theme"
-
+html_logo = "./_static/logo_suit2p.png"
+html_favicon = "./_static/icon_suite2p.svg"
 
 html_short_title = "LBM Suite2p Pipeline"
 html_static_path = ["_static"]
@@ -131,7 +130,7 @@ html_theme_options = {
         {
             "name": "MBO User Hub",
             "url": "https://millerbrainobservatory.github.io/",
-            "icon": "_static/icon_mbo_home.png",
+            "icon": "_static/icon_mbo_home2.png",
             "type": "local",
         },
         {

@@ -152,7 +152,8 @@ def plot_projection(
         vmax=None,
         add_scalebar=False,
         proj="meanImg",
-        display_masks=False, accepted_only=False
+        display_masks=False,
+        accepted_only=False
 ):
     if proj == "meanImg":
         txt = "Mean-Image"
