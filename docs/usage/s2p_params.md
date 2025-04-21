@@ -10,7 +10,7 @@ However, we have found this not always to be the case.
 ``` {admonition} Example dataset
 :name: dataset_overview
 :class: dropdown
-:icon: 🧠
+
 *This dataset was collected at the Miller Brain Observatory by Will Snyder of the Charles Gilbert Lab.*
 
 | Attribute              | Value                      | Description                                                |

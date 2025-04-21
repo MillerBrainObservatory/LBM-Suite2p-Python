@@ -13,7 +13,8 @@ See the {doc}`suite2p documentation <suite2p:index>` for more details.
 ---
 maxdepth: 1
 ---
-Usage <usage>
+install
+Usage <usage/index>
 Notebooks <examples/index>
 API <api>
 Suite2p Publication <publication>
@@ -26,6 +27,7 @@ Image Gallery <image_gallery>
 
 | Issue | Topic | Summary |
 |-------|-------|---------|
+| [#129](https://github.com/MouseLand/suite2p/issues/921) | Critical Detection Parameters | All about tau, threshold_scaling, diameter, and many other parameters. |
 | [#921](https://github.com/MouseLand/suite2p/issues/921) | Registration Artifacts | Try **smaller `block_size`** and **larger `spatial_taper`** to reduce wobbliness caused by black background inclusion in registration. |
 | [#880](https://github.com/MouseLand/suite2p/issues/880) | Running on a Cluster | Discussion on **running Suite2p on a cluster**. |
 | [#851](https://github.com/MouseLand/suite2p/issues/851) | ROI Overlap | ROIs will overlap if signals overlap, but if an ROI overlaps more than `ops['max_overlap']`, it gets discarded. Set `ops['max_overlap'] = 1` to keep all ROIs. `ops['allow_overlap'] = 0` (default) ignores overlapping pixels when computing signals. |
