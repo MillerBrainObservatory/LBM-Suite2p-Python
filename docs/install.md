@@ -8,6 +8,7 @@ This package has been tested on Linux and Windows 10 with support for Python 3.1
 ## Quick Install
 
 ### With pip
+
 ```bash
 pip install lbm_suite2p_python
 ```
