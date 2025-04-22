@@ -5,11 +5,9 @@ import matplotlib.offsetbox
 from matplotlib.animation import FuncAnimation
 from matplotlib.lines import Line2D
 from matplotlib.offsetbox import VPacker, HPacker, DrawingArea
-from pathlib import Path
 import numpy as np
 
-import lbm_suite2p_python
-from .run_lsp import run_plane
+from lbm_suite2p_python import load_traces, dff_percentile
 
 
 def format_time(t):
@@ -150,8 +148,8 @@ def plot_traces(
     """
     if isinstance(f, dict):
         print("Loading dff (%) from ops-dict")
-        f, _, _ = lbm_suite2p_python.load_traces(f)
-        f = lbm_suite2p_python.dff_percentile(f) * 100
+        f, _, _ = load_traces(f)
+        f = dff_percentile(f) * 100
         signal_units = "dff"
 
     _, n_timepoints = f.shape
@@ -236,83 +234,6 @@ def plot_traces(
         plt.savefig(save_path, dpi=200, facecolor=fig.get_facecolor())
     else:
         plt.show()
-
-
-def run_grid_search(base_ops: dict, grid_search_dict: dict, input_file: Path | str, save_root: Path | str):
-    """
-    Run a grid search over all combinations of the input suite2p parameters. 
-
-    Parameters
-    ----------
-    base_ops : dict
-        Dictionary of default Suite2p ops to start from. Each parameter combination will override values in this dictionary.
-
-    grid_search_dict : dict
-        Dictionary mapping parameter names (str) to a list of values to grid search.
-        Each combination of values across parameters will be run once.
-
-    input_file : str or Path
-        Path to the input data file, currently only supports tiff.
-
-    save_root : str or Path
-        Root directory where each parameter combination's output will be saved.
-        A subdirectory will be created for each run using a short parameter tag.
-
-    Notes
-    -----
-    - Subfolder names for each parameter are abbreviated to 3-character keys and truncated/rounded values.
-
-    Examples
-    --------
-    >>> import lbm_suite2p_python as lsp
-    >>> import suite2p
-    >>> base_ops = suite2p.default_ops()
-    >>> # base_ops["sparse_mode"] = True
-    >>> base_ops["anatomical_only"] = 3
-    >>> base_ops["diameter"] = 6
-    >>> lsp.run_grid_search(
-    ...     base_ops,
-    ...     {"threshold_scaling": [1.0, 1.2], "tau": [0.1, 0.15]},
-    ...     input_file="/mnt/data/assembled_plane_03.tiff",
-    ...     save_root="/mnb/grid_search/"
-    ... )
-
-    This will create the following output directory structure::
-
-        /mnt/data/grid_search/
-        ├── thr1.00_tau0.10/
-        │   └── suite2p output for threshold_scaling=1.0, tau=0.1
-        ├── thr1.00_tau0.15/
-        ├── thr1.20_tau0.10/
-        └── thr1.20_tau0.15/
-
-    """
-    from itertools import product
-    from pathlib import Path
-    import copy
-
-    save_root = Path(save_root)
-    save_root.mkdir(exist_ok=True)
-
-    print(f"Saving grid-search in {save_root}")
-
-    param_names = list(grid_search_dict.keys())
-    param_values = list(grid_search_dict.values())
-    param_combos = list(product(*param_values))
-
-    for combo in param_combos:
-        ops = copy.deepcopy(base_ops)
-        combo_dict = dict(zip(param_names, combo))
-        ops.update(combo_dict)
-
-        tag_parts = [
-            f"{k[:3]}{v:.2f}" if isinstance(v, float) else f"{k[:3]}{v}"
-            for k, v in combo_dict.items()
-        ]
-        tag = "_".join(tag_parts)
-
-        print(f"Running grid search in: {save_root.joinpath(tag)}")
-        run_plane(ops, input_file, save_root, save_folder=tag)
 
 
 def animate_traces(

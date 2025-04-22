@@ -20,7 +20,6 @@ __all__ = [
     "plot_rastermap",
     "load_results_dict",
     "get_common_path",
-    "run_grid_search",
     "update_ops_paths",
     "dff_percentile",
     "dff_maxmin",
