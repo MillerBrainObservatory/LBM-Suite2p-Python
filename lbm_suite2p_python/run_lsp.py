@@ -362,5 +362,6 @@ def run_plane(
                 )
     except Exception:
         traceback.print_exc()
-    # return pd.DataFrame(output_ops["timing"])
-    return output_ops["timing"]
+
+    print(output_ops["timing"])
+    return output_ops
