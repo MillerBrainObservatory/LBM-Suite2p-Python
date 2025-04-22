@@ -311,9 +311,6 @@ def combine_tiffs(files):
     """
     Combines multiple TIFF files into a single stacked TIFF.
 
-    This function concatenates multiple 3D TIFF files (`T x Y x X`) along the time axis
-    to create a single output TIFF.
-
     Parameters
     ----------
     files : list of str or Path
@@ -342,28 +339,3 @@ def combine_tiffs(files):
 
     return new_tiff
 
-
-def make_subdir_from_list(files: list):
-    """
-    Moves each file in a list into its own subdirectory.
-
-    This function organizes a list of file paths by moving each file into a
-    subdirectory named after its stem.
-
-    Parameters
-    ----------
-    files : list of Path
-        List of file paths to be moved into subdirectories.
-
-    Notes
-    -----
-    - The function creates a subdirectory named after the file stem and moves the file into it.
-    - If the filename contains plane information (e.g., `plane_01`), the plane name is extracted for directory naming.
-    """
-    for file in files:
-        fpath = file.parent / file.stem
-        plane_name = fpath.stem.rpartition('_')[:-2][0]
-        plane_path = file.parent / plane_name
-        plane_path.mkdir(exist_ok=True)
-        new_fname = plane_path / file.name
-        file.rename(new_fname)

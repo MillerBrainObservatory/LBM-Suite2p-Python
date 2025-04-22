@@ -6,7 +6,6 @@
 
 .. automodule:: lbm_suite2p_python
    :members:
-   :undoc-members:
    :show-inheritance:
 
 ```
