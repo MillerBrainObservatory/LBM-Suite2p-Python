@@ -8,6 +8,7 @@ from matplotlib.offsetbox import VPacker, HPacker, DrawingArea
 from pathlib import Path
 import numpy as np
 
+import lbm_suite2p_python
 from .run_lsp import run_plane
 
 
@@ -148,7 +149,10 @@ def plot_traces(
         Units of fluorescence signal. Options: "DF/F0 %", "DF/F0", "raw signal" (default: "DF/F0 %").
     """
     if isinstance(f, dict):
-        f = np.load(Path(f["ops_path"]).parent.joinpath("F.npy"))
+        print("Loading dff (%) from ops-dict")
+        f, _, _ = lbm_suite2p_python.load_traces(f)
+        f = lbm_suite2p_python.dff_percentile(f) * 100
+        signal_units = "dff"
 
     _, n_timepoints = f.shape
     data_time = np.arange(n_timepoints) / fps
