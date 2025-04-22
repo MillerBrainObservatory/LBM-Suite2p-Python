@@ -9,11 +9,11 @@ from matplotlib import pyplot as plt
 from rastermap.utils import bin1d
 
 from lbm_suite2p_python import load_ops, get_common_path
-from mbo_utilities.file_io import get_files
 
 
 def update_ops_paths(ops_files: str | list):
-    """Update save_path, save_path0, and save_folder in an ops dictionary based on its current location."""
+    """
+    Update save_path, save_path0, and save_folder in an ops dictionary based on its current location. Use after moving an ops_file or batch of ops_files."""
     if isinstance(ops_files, (str,Path)):
         ops_files = [ops_files]
 
