@@ -7,19 +7,28 @@ This package has been tested on Linux and Windows 10 with support for Python 3.1
 
 ## Quick Install
 
+LBM-Suite2p-Python has been developed to be a pure `pip` install.
+
+This makes the choice of virtual-environment less relevant, you can use `venv`, `uv (recommended)`, `conda`, it does not matter.
+
+`````` {tip}
+:class: dropdown
+
+While this pipeline is early in development, we recommend keeping a versioon of the codebase locally using `git`. 
+This will allow you to quickly pull changes and incorperate them into your environment without waiting for a pypi release.
+
+``` {code} bash
+git clone https://github.com/MillerBrainObservatory/LBM-Suite2p-Python.git
+cd LBM-Suite2p-Python
+pip install -e ".[all]"
+```
+``````
+
 ::::{tab-set}
 
 :::{tab-item} With pip
 ```bash
 pip install lbm_suite2p_python
-```
-:::
-
-:::{tab-item} From source (recommended for development)
-```bash
-git clone https://github.com/millerbrainobservatory/lbm_suite2p_python.git
-cd lbm_suite2p_python
-pip install -e .
 ```
 :::
 
@@ -46,7 +55,7 @@ sudo apt install libxcursor-dev libgl1-mesa-dev libglu1-mesa-dev freeglut3-dev
 :::
 
 :::{tab-item} Windows
-Install system-level dependencies using your package manager (e.g. Chocolatey or MSYS2) if needed. GUI-based features (e.g., napari) may require proper OpenGL drivers and a working Python Qt backend.
+You will need [msvcc redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170#visual-studio-2015-2017-2019-and-2022)
 :::
 
 ::::
