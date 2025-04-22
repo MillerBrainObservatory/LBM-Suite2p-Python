@@ -266,26 +266,28 @@ def run_grid_search(base_ops: dict, grid_search_dict: dict, input_file: Path | s
 
     Examples
     --------
-    >>> base_ops = suite2p.defa
+    >>> import lbm_suite2p_python as lsp
+    >>> import suite2p
     >>> base_ops = suite2p.default_ops()
     >>> # base_ops["sparse_mode"] = True
     >>> base_ops["anatomical_only"] = 3
     >>> base_ops["diameter"] = 6
-    >>> run_parameter_grid(
+    >>> lsp.run_grid_search(
     ...     base_ops,
     ...     {"threshold_scaling": [1.0, 1.2], "tau": [0.1, 0.15]},
     ...     input_file="/mnt/data/assembled_plane_03.tiff",
     ...     save_root="/mnb/grid_search/"
     ... )
 
-    This will create the following output directory structure:
+    This will create the following output directory structure::
 
-            /mnt/data/grid_search/
-            ├── thr1.00_tau0.10/
-            │   └── suite2p output for threshold_scaling=1.0, tau=0.1
-            ├── thr1.00_tau0.15/
-            ├── thr1.20_tau0.10/
-            └── thr1.20_tau0.15/
+        /mnt/data/grid_search/
+        ├── thr1.00_tau0.10/
+        │   └── suite2p output for threshold_scaling=1.0, tau=0.1
+        ├── thr1.00_tau0.15/
+        ├── thr1.20_tau0.10/
+        └── thr1.20_tau0.15/
+
     """
     from itertools import product
     from pathlib import Path
