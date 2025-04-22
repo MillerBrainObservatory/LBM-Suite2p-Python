@@ -75,7 +75,7 @@ docs = [
 	"sphinx-design>=0.6.1",
 	"sphinxcontrib-bibtex",
 	"sphinx-tippy",
-	"sphinx",
+	"sphinx-tabs",
 	"nbsphinx",
 	"numpydoc",
 	"ipykernel",
