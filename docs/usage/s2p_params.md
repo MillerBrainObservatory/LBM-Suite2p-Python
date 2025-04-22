@@ -1,3 +1,4 @@
+(s2p_params)=
 # Cell Detection Parameters
 
 It would be very convenient to be able to say "increase parameter `p` to detect more cells".

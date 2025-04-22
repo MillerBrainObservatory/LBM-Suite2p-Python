@@ -1,9 +1,7 @@
 ---
 bibliography: refs.bib
 ---
-# LBM-Suite2p-Python 
-
-
+# LBM-Suite2p-Python
 
 See the {doc}`suite2p documentation <suite2p:index>` for more details.
 

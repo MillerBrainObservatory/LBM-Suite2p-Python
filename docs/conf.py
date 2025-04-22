@@ -20,13 +20,13 @@ copyright = "2024, Elizabeth R. Miller Brain Observatory | The Rockefeller Unive
 release = __version__
 
 # Copy example notebooks for rendering in the docs
-print(f'Copying sphinx source files ...')
+print(f"Copying sphinx source files ...")
 source_dir = Path(__file__).resolve().parent.parent / "demos" / "notebooks"
 dest_dir = Path(__file__).resolve().parent / "examples" / "notebooks"
 
 
 def copy_with_overwrite(src: Path, dst: Path):
-    print(f'source: {src} being copied to destination: {dst}')
+    print(f"source: {src} being copied to destination: {dst}")
     if src.is_dir():
         if dst.exists():
             shutil.rmtree(dst)
@@ -67,7 +67,6 @@ extensions = [
     "sphinx_design",
     "sphinxcontrib.bibtex",
     "sphinx_tippy",
-    "sphinx_tabs.tabs"
 ]
 bibtex_bibfiles = ["refs.bib"]
 
@@ -108,9 +107,18 @@ html_file_suffix = ".html"
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3.9", None),
     "numpydoc": ("https://numpydoc.readthedocs.io/en/latest", None),
-    "mbo": ( "https://millerbrainobservatory.github.io", None,),
-    "utilities": ( "https://millerbrainobservatory.github.io/mbo_utilities", None,),
-    "lsp": ("https://millerbrainobservatory.github.io/LBM-Suite2p-Python", None,),
+    "mbo": (
+        "https://millerbrainobservatory.github.io",
+        None,
+    ),
+    "utilities": (
+        "https://millerbrainobservatory.github.io/mbo_utilities",
+        None,
+    ),
+    "lsp": (
+        "https://millerbrainobservatory.github.io/LBM-Suite2p-Python",
+        None,
+    ),
     "caiman": ("https://caiman.readthedocs.io/en/latest/", None),
     "suite2p": ("https://suite2p.readthedocs.io/en/latest/", None),
 }

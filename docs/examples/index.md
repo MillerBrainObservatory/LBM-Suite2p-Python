@@ -3,11 +3,11 @@
 
 ```{toctree}
 ---
-maxdepth: 2
+maxdepth: 1
 numbered: 3
 ---
-notebooks/quick_start.ipynb
-notebooks/demo_pipeline.ipynb
+notebooks/quickstart_demo.ipynb
 notebooks/examples.ipynb
-notebooks/param_gridsearch.ipynb
+notebooks/grid_search_demo.ipynb
+
 ```
