@@ -4,7 +4,6 @@ import traceback
 from pathlib import Path
 import mbo_utilities as mbo
 import numpy as np
-import pandas as pd
 
 import suite2p
 from scipy.ndimage import uniform_filter1d
@@ -20,7 +19,8 @@ from .volume import (
     plot_volume_neuron_counts,
     get_volume_stats,
     save_images_to_movie,
-    load_results_dict, plot_rastermap,
+    load_results_dict,
+    plot_rastermap,
 )
 
 if mbo.is_running_jupyter():
@@ -30,6 +30,7 @@ else:
 
 try:
     from rastermap import Rastermap, utils
+
     HAS_RASTERMAP = True
 except ImportError:
     Rastermap = None
@@ -75,7 +76,7 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
 
     Notes
     -----
-    At the root of `save_path` will be a folder for each z-plane with all suite2p results, as well as 
+    At the root of `save_path` will be a folder for each z-plane with all suite2p results, as well as
     volumetric outputs at the base of this folder.
 
     Each z-plane folder contains:
@@ -98,13 +99,13 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
             input_tiff=file,
             save_path=str(save_path),
             save_folder=save_folder,
-            replot=replot
+            replot=replot,
         )
         all_ops.append(output_ops)
 
     # batch was ran, lets accumulate data
     if isinstance(all_ops[0], dict):
-        all_ops = [ops['ops_path'] for ops in all_ops]
+        all_ops = [ops["ops_path"] for ops in all_ops]
 
     try:
         zstats_file = get_volume_stats(all_ops, overwrite=True)
@@ -114,17 +115,26 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
         all_maxs = mbo.get_files(save_path, "max_projection_image.png", 4)
         all_traces = mbo.get_files(save_path, "traces.png", 4)
 
-        save_images_to_movie(all_segs, os.path.join(save_path, "segmentation_volume.mp4"))
-        save_images_to_movie(all_means, os.path.join(save_path, "mean_images_volume.mp4"))
+        save_images_to_movie(
+            all_segs, os.path.join(save_path, "segmentation_volume.mp4")
+        )
+        save_images_to_movie(
+            all_means, os.path.join(save_path, "mean_images_volume.mp4")
+        )
         save_images_to_movie(all_maxs, os.path.join(save_path, "max_images_volume.mp4"))
         save_images_to_movie(all_traces, os.path.join(save_path, "traces_volume.mp4"))
 
         plot_volume_neuron_counts(zstats_file, save_path)
-        plot_volume_signal(zstats_file, os.path.join(save_path, "mean_volume_signal.png"))
+        plot_volume_signal(
+            zstats_file, os.path.join(save_path, "mean_volume_signal.png")
+        )
         plot_execution_time(zstats_file, os.path.join(save_path, "execution_time.png"))
 
-        res_z = [load_results_dict(ops_path, apply_zscore=True, z_plane=i) for i, ops_path in enumerate(all_ops)]
-        all_spks = np.concatenate([res['spks'] for res in res_z], axis=0)
+        res_z = [
+            load_results_dict(ops_path, apply_zscore=True, z_plane=i)
+            for i, ops_path in enumerate(all_ops)
+        ]
+        all_spks = np.concatenate([res["spks"] for res in res_z], axis=0)
         print(type(all_spks))
         # all_iscell = np.stack([res['iscell'] for res in res_z], axis=-1)
         if HAS_RASTERMAP:
@@ -136,7 +146,15 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
             ).fit(all_spks)
             np.save(os.path.join(save_path, "model.npy"), model)
             title_kwargs = {"fontsize": 8, "y": 0.95}
-            plot_rastermap(all_spks,model, neuron_bin_size=20, xmax=min(2000, all_spks.shape[1]), save_path=os.path.join(save_path, "rastermap.png"), title_kwargs=title_kwargs, title="Rastermap Sorted Activity")
+            plot_rastermap(
+                all_spks,
+                model,
+                neuron_bin_size=20,
+                xmax=min(2000, all_spks.shape[1]),
+                save_path=os.path.join(save_path, "rastermap.png"),
+                title_kwargs=title_kwargs,
+                title="Rastermap Sorted Activity",
+            )
         else:
             print("No rastermap is available.")
 
@@ -147,7 +165,10 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
     print(f"Processing completed for {len(input_file_list)} files.")
     return all_ops
 
-def run_plane(ops, input_tiff, save_path, save_folder=None, replot=False, dryrun=False, **kwargs):
+
+def run_plane(
+    ops, input_tiff, save_path, save_folder=None, replot=False, dryrun=False, **kwargs
+):
     """
     Processes a single imaging plane using suite2p, handling registration, segmentation,
     and plotting of results.
@@ -217,7 +238,9 @@ def run_plane(ops, input_tiff, save_path, save_folder=None, replot=False, dryrun
         save_folder = input_tiff.stem
     elif not isinstance(save_folder, (str, Path)):
         if dryrun:
-            print(f"save_folder must be a string or a Path object, not {type(save_folder)}.")
+            print(
+                f"save_folder must be a string or a Path object, not {type(save_folder)}."
+            )
             return
         else:
             raise TypeError("save_folder must be a string or path-like object.")
@@ -235,8 +258,8 @@ def run_plane(ops, input_tiff, save_path, save_folder=None, replot=False, dryrun
         "iscell": plane_path / "iscell.npy",
         "registration": plane_path / "registration.png",
         "segmentation": plane_path / "segmentation.png",
-        "meanImg" : plane_path / "mean_image.png",
-        "max_proj" : plane_path / "max_projection_image.png",
+        "meanImg": plane_path / "mean_image.png",
+        "max_proj": plane_path / "max_projection_image.png",
         "traces": plane_path / "traces.png",
         # "animation": plane_path / "animated_traces.mp4"
     }
@@ -251,9 +274,16 @@ def run_plane(ops, input_tiff, save_path, save_folder=None, replot=False, dryrun
             print(metadata)
             return ops, metadata
         else:
-            db = {"data_path": [str(input_tiff.parent)], "save_folder": str(save_folder), "save_path0": str(save_path), "tiff_list": [input_tiff.name]}
+            db = {
+                "data_path": [str(input_tiff.parent)],
+                "save_folder": str(save_folder),
+                "save_path0": str(save_path),
+                "tiff_list": [input_tiff.name],
+            }
             if "save_folder" in ops.keys() and not hasattr(ops["save_folder"], "len"):
-                raise ValueError(f"ops['save_folder'] is not countable: type is {type(ops['save_folder'])}.")
+                raise ValueError(
+                    f"ops['save_folder'] is not countable: type is {type(ops['save_folder'])}."
+                )
             output_ops = suite2p.run_s2p(ops=ops, db=db)
 
     # remove when we set data.bin path correctly
@@ -266,15 +296,19 @@ def run_plane(ops, input_tiff, save_path, save_folder=None, replot=False, dryrun
             if not where_raw_should_be_path.exists():
                 raw_path.rename(where_raw_should_be_path)
             else:
-                print(f"Warning: {where_raw_should_be_path} already exists. Skipping rename.")
+                print(
+                    f"Warning: {where_raw_should_be_path} already exists. Skipping rename."
+                )
         try:
             raw_path.unlink()
             shutil.rmtree(save_path / "suite2p")
         except Exception as e:
             print(f"Failed to delete {raw_path}: {e}")
     try:
-        if replot or not all(expected_files[key].is_file() for key in [
-            "registration", "segmentation", "traces"]):
+        if replot or not all(
+            expected_files[key].is_file()
+            for key in ["registration", "segmentation", "traces"]
+        ):
             print(f"Generating missing plots for {input_tiff.stem}...")
 
             def safe_delete(file_path):
@@ -282,7 +316,9 @@ def run_plane(ops, input_tiff, save_path, save_folder=None, replot=False, dryrun
                     try:
                         file_path.unlink()
                     except PermissionError:
-                        print(f"Error: Cannot delete {file_path}. Ensure it is not open elsewhere.")
+                        print(
+                            f"Error: Cannot delete {file_path}. Ensure it is not open elsewhere."
+                        )
 
             for key in ["registration", "segmentation", "traces"]:
                 safe_delete(expected_files[key])
@@ -311,7 +347,7 @@ def run_plane(ops, input_tiff, save_path, save_folder=None, replot=False, dryrun
                 fig_label=fig_label,
                 display_masks=True,
                 add_scalebar=True,
-                proj="meanImg"
+                proj="meanImg",
             )
             # do one for mean/max image, no masks
             for projection in ["meanImg", "max_proj"]:
@@ -321,7 +357,7 @@ def run_plane(ops, input_tiff, save_path, save_folder=None, replot=False, dryrun
                     fig_label=input_tiff.stem,
                     display_masks=False,
                     add_scalebar=True,
-                    proj=projection
+                    proj=projection,
                 )
     except Exception:
         traceback.print_exc()
