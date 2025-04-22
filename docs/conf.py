@@ -67,6 +67,7 @@ extensions = [
     "sphinx_design",
     "sphinxcontrib.bibtex",
     "sphinx_tippy",
+    "sphinx_tabs.tabs"
 ]
 bibtex_bibfiles = ["refs.bib"]
 
