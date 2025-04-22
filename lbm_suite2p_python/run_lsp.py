@@ -1,6 +1,7 @@
 import os
 import shutil
 import traceback
+from collections.abc import Sized
 from pathlib import Path
 import mbo_utilities as mbo
 import numpy as np
@@ -280,9 +281,9 @@ def run_plane(
                 "save_path0": str(save_path),
                 "tiff_list": [input_tiff.name],
             }
-            if "save_folder" in ops.keys() and not hasattr(ops["save_folder"], "len"):
+            if "save_folder" in ops.keys() and not isinstance(ops["save_folder"], Sized):
                 raise ValueError(
-                    f"ops['save_folder'] is not countable: type is {type(ops['save_folder'])}."
+                    f"Incorrect type for save_flder: {type(ops['save_folder'])}."
                 )
             output_ops = suite2p.run_s2p(ops=ops, db=db)
 
