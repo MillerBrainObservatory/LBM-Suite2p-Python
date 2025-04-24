@@ -77,8 +77,6 @@ source_suffix = {
     ".md": "myst-nb",
 }
 
-autodoc_mock_imports = ["scanreader", "suite2p"]
-
 nb_execution_mode = "off"
 
 myst_admonition_enable = True
@@ -120,7 +118,9 @@ intersphinx_mapping = {
         None,
     ),
     "suite2p": ("https://suite2p.readthedocs.io/en/latest/", None),
+    "sklearn": ("https://scikit-learn.org/stable/", None),
 }
+
 
 intersphinx_disabled_reftypes = ["*"]
 

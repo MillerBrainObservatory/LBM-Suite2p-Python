@@ -6,22 +6,6 @@
 
 [Back to Guide](https://cerodell.github.io/sphinx-quickstart-guide/build/html/addtoindx.html)
 
-
-```{figure} https://github.com/MillerBrainObservatory/static-assets/blob/master/_images/ex_diagram.svg
----
-alt: ex_diagram_remote
-name: ex_diagram_remote
----
-Scan-phase diagram (Remote)
-:scale: 50 %
-
-This is the caption of the figure (a simple paragraph).
-
-The legend consists of all elements after the caption.  In this
-case, the legend consists of this paragraph and the following table
-
-```
-
 ```{figure} ./_images/ex_scanphase.svg
 :scale: 50 %
 :alt: ex_scanphase
@@ -42,11 +26,6 @@ Scan-phase diagram
 :name: ex_offset
 ```
 
-```{figure} ./_images/ex_plane5.png
-:scale: 50 %
-:alt: ex_plane_5
-:name: ex_plane_5
-```
 
 ```{figure} ./_images/ex_retile.svg
 :alt: ex_retile
@@ -122,15 +101,4 @@ width: 600
 align: center
 ---
 
-```
-
-```{figure} ./_images/gh_download.png
-:scale: 50%
-:name: gh_download
-:alt: gh_download
-
-Download project source code.
-
-Navigate to the github repository site and download the source code via "Download ZIP".
-Extract this somewhere on your matlab userpath.
 ```
