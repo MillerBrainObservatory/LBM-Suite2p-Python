@@ -127,3 +127,11 @@ GCaMP expression is slow, often taking between 100 ms to over 1 second for the s
 We need this value because one of the main performance optimizations needed to work with large datasets is [binning](https://en.wikipedia.org/wiki/Data_binning). 
 We can bin our data **because of this slow timescale**, we set the bin-size to our sensors timescale because we expect all frames in this window to be the same (on average), so we can use thos frames as an independant sample for detection.
 
+```{figure} ../_images/default_parameters_tau.png
+```
+
+And so, as you can see, changing values of `tau` has a quite dramatic influence on our segmentation results.
+
+``` {tip}
+When in doubt, round Tau up!
+```
