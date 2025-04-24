@@ -11,6 +11,7 @@ kernelspec:
   name: python3
 ---
 
+(quickstart)=
 # LBM-Suite2p Quickstart
 
 ```{admonition} Example Dataset

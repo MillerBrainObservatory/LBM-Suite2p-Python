@@ -8,4 +8,5 @@ numbered: 3
 quickstart_demo.md
 s2p_params
 plot_traces_examples
+grid_search
 ```
