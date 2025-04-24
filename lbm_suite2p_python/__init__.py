@@ -7,18 +7,18 @@ from . import _version
 __version__ = _version.get_versions()['version']
 
 __all__ = [
-    "load_ops",
-    "load_traces",
-    "plot_traces",
     "animate_traces"
     "run_volume",
     "run_plane",
-    "save_images_to_movie",
+    "load_ops",
+    "load_traces",
+    "load_results_dict",
     "plot_volume_signal",
     "plot_projection",
     "plot_execution_time",
     "plot_rastermap",
-    "load_results_dict",
+    "plot_traces",
+    "save_images_to_movie",
     "get_common_path",
     "update_ops_paths",
     "dff_percentile",
