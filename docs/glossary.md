@@ -22,6 +22,10 @@ seed
   Seeding is based on high-intensity regions in the filtered image, and forms the initial guess
   for the shape and location of a neuron.
 
+Delta F over F0
+    $\Delta F / F_0$ (Delta F over F naught) refers to the fractional change in fluorescence relative to a baseline signal F₀.
+    This is a common normalization used in calcium imaging and neural activity recordings.
+
 segmentation
   The general process of dividing an image based on the contents of that image, in our case, based on neuron location.
 
@@ -31,9 +35,6 @@ source-extraction
 deconvolution
   The process performed after segmentation to the resulting traces to infer spike times from flourescence values.
 
-CNMF
-  The name for a set of algorithms within the flatironinstitute's [CaImAn Pipeline](https://github.com/flatironinstitute/CaImAn) that initialize parameters and run source extraction.
-
 Rigid-registration
   The object retains shape and size.
 
@@ -42,5 +43,7 @@ Non-rigid-registration
 
 pixel-resolution
   The length of each pixel, in micron (px/um).
+
+
 
 ```
