@@ -7,8 +7,6 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 import os
 import sys
-import shutil
-from pathlib import Path
 
 sys.path.insert(0, os.path.abspath(os.path.join("..")))
 sys.path.insert(0, os.path.abspath(os.path.join("..", "lbm_suite2p_python")))
@@ -18,34 +16,6 @@ from lbm_suite2p_python import __version__
 project = "LBM-Suite2p-Python"
 copyright = "2024, Elizabeth R. Miller Brain Observatory | The Rockefeller University. All Rights Reserved"
 release = __version__
-
-# Copy example notebooks for rendering in the docs
-print(f"Copying sphinx source files ...")
-source_dir = Path(__file__).resolve().parent.parent / "demos" / "notebooks"
-dest_dir = Path(__file__).resolve().parent / "examples" / "notebooks"
-
-
-def copy_with_overwrite(src: Path, dst: Path):
-    print(f"source: {src} being copied to destination: {dst}")
-    if src.is_dir():
-        if dst.exists():
-            shutil.rmtree(dst)
-        shutil.copytree(src, dst)
-    else:
-        if dst.exists():
-            dst.unlink()
-        shutil.copy2(src, dst)
-
-
-if source_dir.exists():
-    if dest_dir.exists():
-        shutil.rmtree(dest_dir)
-    dest_dir.mkdir(parents=True, exist_ok=True)
-
-    for item in source_dir.rglob("*"):
-        relative_path = item.relative_to(source_dir)
-        destination_path = dest_dir / relative_path
-        copy_with_overwrite(item, destination_path)
 
 exclude_patterns = ["Thumbs.db", ".DS_Store"]
 
