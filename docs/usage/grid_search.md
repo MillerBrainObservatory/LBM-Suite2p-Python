@@ -12,9 +12,9 @@ kernelspec:
 (grid_search)=
 # Grid-Search
 
-These are examples of how to use {ref}`lbm_suite2p_python.run_grid_search`.
+These are examples of how to use {ref}`run_grid_search`.
 
-The term {ref}`grid search`, also called a parameter sweeps, are often used in machine learning.
+The term {ref}`sklearn.grid_search`, also called a parameter sweeps, are often used in machine learning.
 
 We run a grid search on a single z-plane.
 
@@ -67,7 +67,7 @@ base_ops["cellprob_threshold"] = -6
 base_ops["max_overlap"] = 1.0
 ```
 
-## Run the Grid Search
+### Run the Grid Search
 
 ```{code-cell} ipython3
 search_dict = {
@@ -96,7 +96,7 @@ Each parameter combination will be saved to a subdirectory like:
 ...
 ```
 
-## Visualizing the Outputs
+### Visualizing the Outputs
 
 You can loop through the results using the saved `ops.npy` files, then use:
 
@@ -108,14 +108,42 @@ print("Accepted ROIs:", ops['iscell'].sum())
 Use `fpl.ImageWidget`, Suite2p’s `BinaryFile`, or just `tifffile` to preview motion-corrected frames and masks.
 
 ```{tip}
-Some values (like `spatial_hp_cp`, `tau`, or `cellprob_threshold`) interact in non-obvious ways.
-Grid searching more than 2 parameters is possible, but interpretation becomes harder.
+
+Some values (like `spatial_hp_cp`, `tau`, or `high_pass`) can interact in non-obvious ways.
+Grid searching more than 2 parameters is really the only way to evaluate these interactions, though this can take up a lot of memory and disk space. We encourage making sure ops['keep_data_raw']=False and ops['reg_tif'] = False (they are by default).
 ```
 
-This grid search setup is extensible. Just edit `search_dict` to sweep any combination of Suite2p ops parameters.
+This grid search setup is extensible.
+Just edit `search_dict` to sweep any combination of Suite2p ops parameters.
 
----
+## Registration Grid Search
 
-Let me know if you want a helper to auto-plot results across runs (e.g., #ROIs vs threshold).
+To evaluate what registration parameters you should use, you can try both enabling two-step registration and lowering the block-size for rigid registration.
 
+Here, we recommend `ops["delete_bin]=True` (not default), but `ops['reg_tif]=True` to allow comparisons after registration using a `tiff` rather than a binary file which takes an extra step to load and is not as easily memory mapped.
 
+```{code-cell} ipython3
+search_dict = {
+    "two_step_registration": [False, True],  # default is False
+    "block_size": [[128, 128], [64, 64]]     # default is [128, 128]
+}
+
+save_path = Path("./grid_search")
+save_path.mkdir(exist_ok=True)
+
+lsp.run_grid_search(
+    base_ops,
+    search_dict,
+    input_file=input_tiff,
+    save_root=save_path.joinpath("registration")
+)
+```
+
+Now, we can use [fastplotlib](https://www.fastplotlib.org/user_guide/guide.html#imagewidget) to display the raw and registered movies:
+
+`input_tiff` is the filepath to our data pre-registration. We can simply memmory map it with [tifffile](https://github.com/cgohlke/tifffile/blob/master/tifffile/tifffile.py) so only frames that are being shown will be loaded.
+
+For the binary file, I will use {func}`mbo_utilities.get_files`}.
+``` {code-cell} python3
+movie_paths = mbo.get_files(save_path.joinpath("registration"), '')
+```

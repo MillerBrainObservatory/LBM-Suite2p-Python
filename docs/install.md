@@ -1,9 +1,16 @@
 (installation)=
 # Installation Guide
 
-This package has been tested on Linux and Windows 10 with support for Python 3.10, 3.11 and 3.12.
+```{admonition} TLDR
+:class: dropdown
 
-**Note**: Install times will differ depending on the chosen Python version. For example, a `gui` install on Python 3.10 will build `imgui-bundle` from source, increasing the install time by several minutes. We recommend **Python 3.11** for the greatest compatibility and install speed.
+# make sure you are in a virtual environment
+pip install "lbm_suite2p_python[all]"
+```
+
+**Note**: The gui dependencies often install in under a minute with `python 3.11` and `python 3.12`. On `3.10`, pip will have to build wheels for `imgui-bundle`, which can take ~8 to 10 minutes.
+
+For example, a `gui` install on Python 3.10 will build `imgui-bundle` from source, increasing the install time by several minutes. We recommend **Python 3.11** for the greatest compatibility and install speed.
 
 ## Quick Install
 
@@ -82,3 +89,8 @@ git lfs logs last
 ```
 
 This avoids downloading large binary files (e.g. images, model checkpoints) managed by Git LFS.
+
+## TODO
+
+- Upload mp4 for animate traces
+- animate_traces

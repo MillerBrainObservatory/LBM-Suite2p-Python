@@ -1,15 +1,6 @@
 # API
 
-## Overview
-
-```{eval-rst}
-.. currentmodule:: lbm_suite2p_python
-
-.. autosummary:: lbm_suite2p_python
-
-```
-
----
+Functions, broken down by category.
 
 ## Run Suite2p
 

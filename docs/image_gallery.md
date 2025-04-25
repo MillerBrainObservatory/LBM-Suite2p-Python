@@ -67,38 +67,3 @@ Scan-phase diagram
 :alt: gen_array_page
 :name: gen_array_page
 ```
-
-<!-- Registration -->
-
-```{figure} ./_images/reg_correlation.png
-:scale: 50 %
-:alt: reg_correlation
-:name: reg_correlation
-```
-
-```{figure} ./_images/reg_correlation_zoom.png
-:scale: 50 %
-:alt: reg_correlation_zoom
-:name: reg_correlation_zoom
-```
-
-```{figure} ./_images/reg_correlation_rnr.png
-:scale: 50 %
-:alt: reg_correlation_rnr
-:name: reg_correlation_rnr
-```
-
-```{figure} ./_images/pollen/pollen_frame.png
----
-width: 600
-align: center
----
-```
-
-```{figure} ./_images/z_pollen_depth.svg
----
-width: 600
-align: center
----
-
-```

@@ -10,7 +10,6 @@ kernelspec:
   language: python
   name: python3
 ---
-
 # Function Demo: plot_traces
 
 {func}`lbm_suite2p_python.plot_traces`
@@ -19,14 +18,30 @@ kernelspec:
 
 Data input is in the same format as F.npy: `[n_neurons x n_timepoints]`.
 
+For the most basic usage, simply pass in a loaded ops file or path to an ops file:
+
+```{code-cell} ipython3
+import lbm_suite2p_python as lsp
+ops_file = lsp.load_ops("C://Users//RBO//lbm//Plane_07//plane0//ops.npy")
+lsp.plot_traces(ops_file)
+```
+
+```{figure} ../_images/plot_traces_raw.png
+```
+
+By default, `plot_traces` will plot 2 minutes of the DF/F (%) for the first 20 neurons.
+
+The DF/F is calculated by calling {ref}`lbm_suite2p_python.dff_percentile`.
+
 The main features of this function:
+
 - automatic time and signal scalebars that adjust to the input data
 - automatic offset between traces calculated from the magnitude of the baseline signal
 - lower traces mask into upper traces to highlight the high-magnitude transients
 
 ```{code-cell} ipython3
 from pathlib import Path
-import mbo_utilities as mbo
+import mbo_utilities as mbo # for convenience
 import lbm_suite2p_python as lsp
 ```
 
@@ -43,27 +58,16 @@ ops_files = mbo.get_files(r"D:\W2_DATA", 'ops.npy', max_depth=10)
 ops_files[:3]
 ```
 
-We then use the ops.npy file to retrieve 
+We then use the ops.npy file to retrieve the traces:
 
 ```{code-cell} ipython3
 ops = lsp.load_ops(ops_files[6])
-f, fneu, spks = lsp.load_traces(ops)  # only need f here
+f, fneu, spks = lsp.load_traces(ops) # only need f here
 ```
 
-## Raw trace plot
+This `f` variable contains the loaded `F.npy` pre-filtered to only contain valid cells.
 
-```{code-cell} ipython3
-lsp.plot_traces(f, './plot_traces_raw.png', signal_units='raw', fps=metadata["frame_rate"])
-```
-
-```{figure} ../_images/plot_traces_raw.png
-:alt: Raw signal traces
-:width: 100%
-
-Raw fluorescence traces (no normalization).
-```
-
-## Percentile-normalized DF/F
+It can then be used to calculate $\\Delta F / F_0$ :
 
 ```{code-cell} ipython3
 dff = lsp.dff_percentile(f) * 100
