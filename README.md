@@ -32,6 +32,7 @@ We recommend cloning the repository, until a more established workflow is availa
 
 ```
 git clone https://github.com/MillerBrainObservatory/LBM-Suite2p-Python.git
+git clone https://github.com/Suite3D # TODO
 cd LBM-Suite2p-Python
 
 # make sure your virtual environment is active
