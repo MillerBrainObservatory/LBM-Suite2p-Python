@@ -145,16 +145,43 @@ lsp.run_grid_search(
 
 Now, we can use [fastplotlib](https://www.fastplotlib.org/user_guide/guide.html#imagewidget) to display the raw and registered movies:
 
-`input_tiff` is the filepath to our data pre-registration. We can simply memory map it with [tifffile](https://github.com/cgohlke/tifffile/blob/master/tifffile/tifffile.py) so only frames that are being shown will be loaded.
+`input_tiff` is already set to the filepath to our data pre-registration.
 
-For the binary file, we can use {func}`mbo_utilities.get_files`:
-
-```{code-cell} ipython3
-movie_paths = mbo.get_files(save_path.joinpath("registration"), 'tif')
+We can simply memory map it with [tifffile](https://github.com/cgohlke/tifffile/blob/master/tifffile/tifffile.py) so only frames that are being shown will be loaded.
+```{code}
+data = tifffile.memmap(input_tiff)
 ```
+
+
+Loading the registered data takes a bit more effort.
+
 ### Loading a registered `tif` 
 
 If you set `ops['reg_tiff']=True`, you will have an additional `reg_tif` folder next to your `ops.npy` suite2p outputs.
+
+You can get a list of a all of the `tif` files, it loop through them to collect registerd data.
+
+``` {code}
+# a list, where each item is the name of the group
+groups = list(save_root.iterdir())  
+
+group_dict = {}
+for path in groups:
+    tifs = mbo.get_files(path, 'tif', 3)
+    files = mbo.get_files(path, 'ops.npy', 4)
+    group_dict[path.name] = np.concatenate([tifffile.memmap(tif) for tif in tifs])
+```
+
+Preview the results:
+
+``` {code} python3
+iw = fpl.ImageWidget(
+    data=[group_dict[key] for key, _ in group_dict.items()],
+    names=[key for key, _ in group_dict.items()]
+)
+iw.show()
+
+```
 
 ### Loading a `data.bin` or `raw_data.bin` file
 
@@ -177,5 +204,7 @@ with suite2p.io.BinaryFile(filename=bin_path, Ly=ops["Ly"], Lx=ops["Lx"]) as f:
 ```
 
 You can now use `registered_data` in the widget. 
+
+
 
 
