@@ -171,7 +171,7 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
 
 
 def run_plane(
-    ops, input_tiff, save_path, save_folder=None, replot=False, dryrun=False, **kwargs
+    ops, input_tiff, save_path, save_folder=None, replot=False, dryrun=False, use_suite3d=False, **kwargs
 ):
     """
     Processes a single imaging plane using suite2p, handling registration, segmentation,
@@ -191,6 +191,8 @@ def run_plane(
         If True, regenerates plots even if they exist (default: False).
     dryrun : bool, optional
         If True, print input files that will be processed and filepaths that will be created.
+    use_suite3d : bool, optional
+        If True, use suite3d for processing (default: False).
 
     Returns
     -------
@@ -226,7 +228,7 @@ def run_plane(
     if not input_tiff.is_file():
         if dryrun:
             print(f"Input file {input_tiff} does not exist.")
-            return
+            return None
         else:
             raise FileNotFoundError(f"Input data file {input_tiff} does not exist.")
 
@@ -245,7 +247,7 @@ def run_plane(
             print(
                 f"save_folder must be a string or a Path object, not {type(save_folder)}."
             )
-            return
+            return None
         else:
             raise TypeError("save_folder must be a string or path-like object.")
 
