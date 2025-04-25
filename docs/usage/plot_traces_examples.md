@@ -92,7 +92,7 @@ Single neuron trace (percentile-based DF/F).
 lsp.plot_traces(dff, './plot_traces_single_gap50.png', signal_units='dff', num_neurons=2, offset=250)
 ```
 
-```{figure} ../_images/plot_traces_single_gap50.png
+```{figure} ../_images/plot_traces_double_gap50.png
 :alt: Two neurons with offset
 :width: 100%
 
