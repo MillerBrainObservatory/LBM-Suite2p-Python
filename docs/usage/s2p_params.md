@@ -159,3 +159,6 @@ fpl.ImageWidget(binned_data).show()
 
 ```
 
+## Anatomical Only
+
+skewness - how often do you get an outlier in the pixel activity across time, good for calcium indicators because theyre flat relative to a few events over the course of a recording. 

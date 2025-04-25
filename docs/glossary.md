@@ -2,6 +2,9 @@
 
 ```{glossary}
 
+skewness 
+  How often do you get an outlier in the pixel activity across time, good for calcium indicators because theyre flat relative to a few events over the course of a recording. 
+
 mean_img
   The average of the registered movie over time. Used as a baseline representation of the structural signal.
 
