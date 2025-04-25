@@ -1,6 +1,6 @@
-## Light Beads Microscopy (LBM) Pipeline: Suite2p
+# Light Beads Microscopy (LBM) Pipeline: Suite2p
 
-!Note: LBM-Suite2p-Python is still in a *beta* stage of development.
+This package is still in a *beta* stage of development.
 
 [![Documentation](https://img.shields.io/badge/Documentation-black?style=for-the-badge&logo=readthedocs&logoColor=white)](https://millerbrainobservatory.github.io/LBM-Suite-2p-Python/)
 
@@ -12,28 +12,34 @@ This pipeline uses the following software:
 - [cellpose](https://github.com/MouseLand/cellpose)
 - [rastermap](https://github.com/MouseLand/rastermap)
 - [mbo_utilities](https://github.com/MillerBrainObservatory/mbo_utilities)
+- [scanreader](https://github.com/atlab/scanreader)
 
 The LBM technlology described in the Nature Methods publication:
 
 [![DOI](https://zenodo.org/badge/DOI/10.1007/978-3-319-76207-4_15.svg)](https://doi.org/10.1038/s41592-021-01239-8)
 
-# LBM-Suite2p-Python
-
-Light Beads Microscopy Pipeline based on the suite2p pipeline with Cellpose and Suite3D.
+---
 
 ## Installation
 
-1. `pip`
+See the [installation documentation](https://millerbrainobservatory.github.io/LBM-Suite2p-Python/installation) for more details.
 
-``` bash
-conda create -n lsp python=3.10
-conda activate lsp
-pip install https://github.com/MillerBrainObservatory/LBM_Suite2p_python.git
+This pipeline is fully installable with `pip` packages.
+
+`conda` can still be used for the virual environment, but be mindful to only install packages with `conda install` when absolutely necessary.
+
+We recommend cloning the repository, until a more established workflow is available to upload to PyPi.
+
+```
+git clone https://github.com/MillerBrainObservatory/LBM-Suite2p-Python.git
+cd LBM-Suite2p-Python
+pip install ".[all]"  # optional, contains ".[gui, notebook]"
 ```
 
-## Usage
+---
 
-``` bash
-lsp --path/to/file.tiff # run a single z-plane
-lsp --path/do/dir --max-depth 2 # run all z-planes up to this depth
-```
+## Acknowledgements
+
+Thank you to the developers of [scanreader](https://github.com/atlab/scanreader), which provides a clean interface to ScanImage metadata using only tifffile and numpy.
+
+We vendor this repository because it is not published to an indexable Python package registry like PyPI.
