@@ -132,6 +132,30 @@ We can bin our data **because of this slow timescale**, we set the bin-size to o
 
 And so, as you can see, changing values of `tau` has a quite dramatic influence on our segmentation results.
 
-``` {tip}
-When in doubt, round Tau up!
+With Tau, when in doubt, round up!
+
+`````` {admonition} Preview Binned Movie using Tau and Framerate
+:class: dropdown
+
+You can preview the movie as it will be binned like so:
+
+``` {code} python3
+
+nframes = metadata["num_frames"]
+bin_size = int(max(1, nframes // ops["nbinned"], np.round(ops["tau"] * ops["fs"])))
+
+ops = lsp.load_ops(r"./grid_search/registration/two0/plane0/ops.npy")
+bin_path = r"./grid_search/registration/two0/plane0/data.bin"
+
+with suite2p.io.BinaryFile(filename=bin_path, Ly=ops["Ly"], Lx=ops["Lx"]) as f:
+    binned_data = f.bin_movie(
+        bin_size=bin_size,
+        bad_frames=ops.get("badframes"),
+        y_range=ops["yrange"],
+        x_range=ops["xrange"],
+    )
+
+fpl.ImageWidget(binned_data).show()
+
 ```
+
