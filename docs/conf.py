@@ -77,8 +77,6 @@ source_suffix = {
     ".md": "myst-nb",
 }
 
-autodoc_mock_imports = ["scanreader", "suite2p"]
-
 nb_execution_mode = "off"
 
 myst_admonition_enable = True
@@ -111,17 +109,18 @@ intersphinx_mapping = {
         "https://millerbrainobservatory.github.io",
         None,
     ),
-    "utilities": (
+    "mbo_utilities": (
         "https://millerbrainobservatory.github.io/mbo_utilities",
         None,
     ),
-    "lsp": (
+    "lbm_suite2p_python": (
         "https://millerbrainobservatory.github.io/LBM-Suite2p-Python",
         None,
     ),
-    "caiman": ("https://caiman.readthedocs.io/en/latest/", None),
     "suite2p": ("https://suite2p.readthedocs.io/en/latest/", None),
+    "sklearn": ("https://scikit-learn.org/stable/", None),
 }
+
 
 intersphinx_disabled_reftypes = ["*"]
 
@@ -139,7 +138,7 @@ html_theme_options = {
         {
             "name": "MBO User Hub",
             "url": "https://millerbrainobservatory.github.io/",
-            "icon": "_static/icon_mbo_home2.png",
+            "icon": "_static/icon_mbo_home.png",
             "type": "local",
         },
         {

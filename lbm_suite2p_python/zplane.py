@@ -5,8 +5,9 @@ import matplotlib.offsetbox
 from matplotlib.animation import FuncAnimation
 from matplotlib.lines import Line2D
 from matplotlib.offsetbox import VPacker, HPacker, DrawingArea
-from pathlib import Path
 import numpy as np
+
+from lbm_suite2p_python import load_traces, dff_percentile
 
 
 def format_time(t):
@@ -144,31 +145,32 @@ def plot_traces(
         Matplotlib colormap string (default is 'tab10').
     signal_units : str, optional
         Units of fluorescence signal. Options: "DF/F0 %", "DF/F0", "raw signal" (default: "DF/F0 %").
-
     """
     if isinstance(f, dict):
-        f = np.load(Path(f["ops_path"]).parent.joinpath("F.npy"))
+        print("Loading dff (%) from ops-dict")
+        f, _, _ = load_traces(f)
+        f = dff_percentile(f) * 100
+        signal_units = "dff"
 
     _, n_timepoints = f.shape
-    data_time = np.arange(n_timepoints) / fps  # x-axis in seconds
-    x_lower, x_upper = 0, window
+    data_time = np.arange(n_timepoints) / fps
     current_frame = min(int(window * fps), n_timepoints - 1)
     displayed_neurons = num_neurons
 
     if offset is None:
-        perc10 = np.percentile(f[:displayed_neurons, :current_frame+1], 10, axis=1)
-        perc90 = np.percentile(f[:displayed_neurons, :current_frame+1], 90, axis=1)
-        gap = np.median(perc90 - perc10) * 1.2
-        offset = gap
+        p10 = np.percentile(f[:displayed_neurons, :current_frame + 1], 10, axis=1)
+        p90 = np.percentile(f[:displayed_neurons, :current_frame + 1], 90, axis=1)
+        offset = np.median(p90 - p10) * 1.2
 
-    cmap = plt.get_cmap(cmap)
-    colors = cmap(np.linspace(0, 1, displayed_neurons))
+    cmap_inst = plt.get_cmap(cmap)
+    colors = cmap_inst(np.linspace(0, 1, displayed_neurons))
     perm = get_color_permutation(displayed_neurons)
     colors = colors[perm]
 
     fig, ax = plt.subplots(figsize=(10, 6), facecolor='black')
-    ax.tick_params(axis='x', which='both', labelbottom=False, length=0)
-    ax.tick_params(axis='y', which='both', labelleft=False, length=0)
+    ax.set_facecolor('black')
+    ax.tick_params(axis='x', which='both', labelbottom=False, length=0, colors='white')
+    ax.tick_params(axis='y', which='both', labelleft=False, length=0, colors='white')
     for spine in ax.spines.values():
         spine.set_visible(False)
 
@@ -179,7 +181,6 @@ def plot_traces(
 
         ax.plot(data_time[:current_frame + 1], shifted_trace, color=colors[i], lw=lw, zorder=-i)
 
-        # mask the above trace where the underneath trace extends, highlights the largest signals
         if i < displayed_neurons - 1:
             prev_trace = f[i + 1, :current_frame + 1]
             prev_baseline = np.percentile(prev_trace, 8)
@@ -188,133 +189,51 @@ def plot_traces(
             ax.fill_between(data_time[:current_frame + 1], shifted_trace, prev_shifted,
                             where=mask, color='black', zorder=-i - 1)
 
-    all_shifted = [(f[i, :current_frame+1] - np.percentile(f[i, :current_frame+1], 10)) + i * offset
+    all_shifted = [(f[i, :current_frame + 1] - np.percentile(f[i, :current_frame + 1], 10)) + i * offset
                    for i in range(displayed_neurons)]
     all_y = np.concatenate(all_shifted)
     y_min, y_max = np.min(all_y), np.max(all_y)
-    x_range = x_upper - x_lower
-    extra = 0.05 * x_range
-    new_x_upper = x_upper + extra
+    x_range = window
+    new_x_upper = window + 0.05 * x_range
 
-    # time scalbar
-    time_bar_length = 0.1 * (x_upper - x_lower)
-    time_label = (f"{time_bar_length:.0f} s" if time_bar_length < 60 else
-                  f"{time_bar_length / 60:.0f} min" if time_bar_length < 3600 else
-                  f"{time_bar_length / 3600:.1f} hr")
+    time_bar_length = 0.1 * window
+    if time_bar_length < 60:
+        time_label = f"{time_bar_length:.0f} s"
+    elif time_bar_length < 3600:
+        time_label = f"{time_bar_length / 60:.0f} min"
+    else:
+        time_label = f"{time_bar_length / 3600:.1f} hr"
 
     linekw = dict(color="white", linewidth=3)
     hsb = AnchoredHScaleBar(size=0.1, label=time_label,
-                            loc=4, frameon=False, pad=0.6, sep=4, linekw=linekw, ax=ax)
+                                loc=4, frameon=False, pad=0.6, sep=4, linekw=linekw, ax=ax)
     hsb.set_bbox_to_anchor((0.9, -0.05), transform=ax.transAxes)
-    # hsb.set_bbox_to_anchor((new_x_upper - (x_upper - x_lower)*0.1, y_min - (y_max - y_min)*0.09),
-    #                         transform=ax.transData)
     ax.add_artist(hsb)
 
-    # bounds
     dff_bar_height = 0.1 * (y_max - y_min)
-
-    bottom_baseline = np.percentile(f[0, :current_frame+1], 8)
-    bottom_trace_min = np.min(f[0, :current_frame+1] - bottom_baseline)
-
+    bottom_baseline = np.percentile(f[0, :current_frame + 1], 8)
+    bottom_trace_min = np.min(f[0, :current_frame + 1] - bottom_baseline)
     rounded_dff = round(dff_bar_height / 5) * 5
 
-    if signal_units == "dff":
-        dff_label = f"{rounded_dff:.0f} % ΔF/F₀"
-    else:
-        dff_label = f"{rounded_dff:.0f} raw signal (a.u)"
+    dff_label = f"{rounded_dff:.0f} % ΔF/F₀" if signal_units == "dff" else f"{rounded_dff:.0f} raw signal (a.u)"
 
     vsb = AnchoredVScaleBar(height=0.1, label=dff_label,
-                            loc='lower left', frameon=False, pad=0, sep=4,
-                            linekw=linekw, ax=ax, spacer_width=0)
-
-    vsb.set_bbox_to_anchor((new_x_upper - (x_upper - x_lower)*0.05, bottom_trace_min), transform=ax.transData)
+                                loc='lower left', frameon=False, pad=0, sep=4,
+                                linekw=linekw, ax=ax, spacer_width=0)
+    hsb.txt._text.set_color('white')
+    vsb.set_bbox_to_anchor((new_x_upper - x_range * 0.05, bottom_trace_min), transform=ax.transData)
+    vsb.txt._text.set_color('white')
     ax.add_artist(vsb)
 
     if title:
         fig.suptitle(title, fontsize=16, fontweight="bold", color="white")
 
-    plt.ylabel(f"Neuron Count: {displayed_neurons}", fontsize=8, fontweight="bold", labelpad=2)
+    ax.set_ylabel(f"Neuron Count: {displayed_neurons}", fontsize=8, fontweight="bold", color="white", labelpad=2)
+
     if save_path:
-        plt.savefig(save_path, dpi=200)
+        plt.savefig(save_path, dpi=200, facecolor=fig.get_facecolor())
     else:
         plt.show()
-
-
-def run_grid_search(base_ops: dict, grid_search_dict: dict, input_file: Path | str, save_root: Path | str):
-    """
-    Run a grid search over all combinations of the input suite2p parameters. 
-
-    Parameters
-    ----------
-    base_ops : dict
-        Dictionary of default Suite2p ops to start from. Each parameter combination will override values in this dictionary.
-
-    grid_search_dict : dict
-        Dictionary mapping parameter names (str) to a list of values to grid search.
-        Each combination of values across parameters will be run once.
-
-    input_file : str or Path
-        Path to the input data file, currently only supports tiff.
-
-    save_root : str or Path
-        Root directory where each parameter combination's output will be saved.
-        A subdirectory will be created for each run using a short parameter tag.
-
-    Notes
-    -----
-    - Subfolder names for each parameter are abbreviated to 3-character keys and truncated/rounded values.
-
-    Examples
-    --------
-    >>> import lbm_suite2p_python as lsp
-    >>> import suite2p
-    >>> base_ops = suite2p.default_ops()
-    >>> # base_ops["sparse_mode"] = True
-    >>> base_ops["anatomical_only"] = 3
-    >>> base_ops["diameter"] = 6
-    >>> lsp.run_grid_search(
-    ...     base_ops,
-    ...     {"threshold_scaling": [1.0, 1.2], "tau": [0.1, 0.15]},
-    ...     input_file="/mnt/data/assembled_plane_03.tiff",
-    ...     save_root="/mnb/grid_search/"
-    ... )
-
-    This will create the following output directory structure::
-
-        /mnt/data/grid_search/
-        ├── thr1.00_tau0.10/
-        │   └── suite2p output for threshold_scaling=1.0, tau=0.1
-        ├── thr1.00_tau0.15/
-        ├── thr1.20_tau0.10/
-        └── thr1.20_tau0.15/
-
-    """
-    from itertools import product
-    from pathlib import Path
-    import copy
-
-    save_root = Path(save_root)
-    save_root.mkdir(exist_ok=True)
-
-    print(f"Saving grid-search in {save_root}")
-
-    param_names = list(grid_search_dict.keys())
-    param_values = list(grid_search_dict.values())
-    param_combos = list(product(*param_values))
-
-    for combo in param_combos:
-        ops = copy.deepcopy(base_ops)
-        combo_dict = dict(zip(param_names, combo))
-        ops.update(combo_dict)
-
-        tag_parts = [
-            f"{k[:3]}{v:.2f}" if isinstance(v, float) else f"{k[:3]}{v}"
-            for k, v in combo_dict.items()
-        ]
-        tag = "_".join(tag_parts)
-
-        print(f"Running grid search in: {save_root.joinpath(tag)}")
-        lsp.run_plane(ops, input_file, save_root, save_folder=tag)
 
 
 def animate_traces(

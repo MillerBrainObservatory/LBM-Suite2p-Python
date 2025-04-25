@@ -13,10 +13,10 @@ maxdepth: 1
 ---
 install
 Usage <usage/index>
-Notebooks <examples/index>
+Discussions <discussions/index>
+Notebooks (deprecated) <examples/index>
 API <api>
-Suite2p Publication <publication>
-Manual Curation <manual_curation>
+Manual Curation (WIP) <manual_curation>
 Glossary <glossary>
 Image Gallery <image_gallery>
 ```

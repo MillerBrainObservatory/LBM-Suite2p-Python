@@ -483,6 +483,8 @@ def save_images_to_movie(image_input, savepath, duration=None, format=".mp4"):
     """
     Convert a sequence of saved images into a movie.
 
+    TODO: move to mbo_utilities.
+
     Parameters
     ----------
     image_input : str, Path, or list
