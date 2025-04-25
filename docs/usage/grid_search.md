@@ -9,12 +9,13 @@ kernelspec:
   language: python
   name: python3
 ---
+
 (grid_search)=
 # Grid-Search
 
-These are examples of how to use {ref}`run_grid_search`.
+These are examples of how to use {func}`lbm_suite2p_python.run_grid_search`.
 
-The term {ref}`sklearn.grid_search`, also called a parameter sweeps, are often used in machine learning.
+The term grid search (also called a parameter sweep) is common in machine learning, and refers to evaluating a set of parameters over a structured search space.
 
 We run a grid search on a single z-plane.
 
@@ -55,7 +56,6 @@ But their effects aren’t linear or always intuitive, so it’s often best to *
 | Frame rate         | 17 Hz            |                                |
 | ROIs (default)     | 324 accepted     |                                |
 ```
-
 
 Override a few ops to use Cellpose (anatomical) detection:
 
@@ -108,9 +108,9 @@ print("Accepted ROIs:", ops['iscell'].sum())
 Use `fpl.ImageWidget`, Suite2p’s `BinaryFile`, or just `tifffile` to preview motion-corrected frames and masks.
 
 ```{tip}
-
 Some values (like `spatial_hp_cp`, `tau`, or `high_pass`) can interact in non-obvious ways.
-Grid searching more than 2 parameters is really the only way to evaluate these interactions, though this can take up a lot of memory and disk space. We encourage making sure ops['keep_data_raw']=False and ops['reg_tif'] = False (they are by default).
+
+Grid searching more than 2 parameters is really the only way to evaluate these interactions, though this can take up a lot of memory and disk space. We encourage making sure `ops['keep_data_raw']=False` and `ops['reg_tif'] = False` (they are by default).
 ```
 
 This grid search setup is extensible.
@@ -120,12 +120,15 @@ Just edit `search_dict` to sweep any combination of Suite2p ops parameters.
 
 To evaluate what registration parameters you should use, you can try both enabling two-step registration and lowering the block-size for rigid registration.
 
-Here, we recommend `ops["delete_bin]=True` (not default), but `ops['reg_tif]=True` to allow comparisons after registration using a `tiff` rather than a binary file which takes an extra step to load and is not as easily memory mapped.
+Here, we recommend `ops["delete_bin"] = True` (not default), but `ops['reg_tif'] = True` to allow comparisons after registration using a `tiff` rather than a binary file which takes an extra step to load and is not as easily memory mapped.
+
 
 ```{code-cell} ipython3
+base_ops["roidetect"] = False
+
 search_dict = {
-    "two_step_registration": [False, True],  # default is False
-    "block_size": [[128, 128], [64, 64]]     # default is [128, 128]
+    "two_step_registration": [False, True],
+    "block_size": [[128, 128], [64, 64]]
 }
 
 save_path = Path("./grid_search")
@@ -137,13 +140,71 @@ lsp.run_grid_search(
     input_file=input_tiff,
     save_root=save_path.joinpath("registration")
 )
+
 ```
 
 Now, we can use [fastplotlib](https://www.fastplotlib.org/user_guide/guide.html#imagewidget) to display the raw and registered movies:
 
-`input_tiff` is the filepath to our data pre-registration. We can simply memmory map it with [tifffile](https://github.com/cgohlke/tifffile/blob/master/tifffile/tifffile.py) so only frames that are being shown will be loaded.
+`input_tiff` is already set to the filepath to our data pre-registration.
 
-For the binary file, I will use {func}`mbo_utilities.get_files`}.
-``` {code-cell} python3
-movie_paths = mbo.get_files(save_path.joinpath("registration"), '')
+We can simply memory map it with [tifffile](https://github.com/cgohlke/tifffile/blob/master/tifffile/tifffile.py) so only frames that are being shown will be loaded.
+```{code}
+data = tifffile.memmap(input_tiff)
 ```
+
+
+Loading the registered data takes a bit more effort.
+
+### Loading a registered `tif` 
+
+If you set `ops['reg_tiff']=True`, you will have an additional `reg_tif` folder next to your `ops.npy` suite2p outputs.
+
+You can get a list of a all of the `tif` files, it loop through them to collect registerd data.
+
+``` {code}
+# a list, where each item is the name of the group
+groups = list(save_root.iterdir())  
+
+group_dict = {}
+for path in groups:
+    tifs = mbo.get_files(path, 'tif', 3)
+    files = mbo.get_files(path, 'ops.npy', 4)
+    group_dict[path.name] = np.concatenate([tifffile.memmap(tif) for tif in tifs])
+```
+
+Preview the results:
+
+``` {code} python3
+iw = fpl.ImageWidget(
+    data=[group_dict[key] for key, _ in group_dict.items()],
+    names=[key for key, _ in group_dict.items()]
+)
+iw.show()
+
+```
+
+### Loading a `data.bin` or `raw_data.bin` file
+
+``` {code} python3
+
+nframes = metadata["num_frames"]
+bin_size = int(max(1, nframes // ops["nbinned"], np.round(ops["tau"] * ops["fs"])))
+
+ops = lsp.load_ops(r"./grid_search/registration/two0/plane0/ops.npy")
+bin_path = r"./grid_search/registration/two0/plane0/data.bin"
+
+with suite2p.io.BinaryFile(filename=bin_path, Ly=ops["Ly"], Lx=ops["Lx"]) as f:
+    registered_data = f.bin_movie(
+        bin_size=bin_size,
+        bad_frames=ops.get("badframes"),
+        y_range=ops["yrange"],
+        x_range=ops["xrange"],
+    )
+
+```
+
+You can now use `registered_data` in the widget. 
+
+
+
+
