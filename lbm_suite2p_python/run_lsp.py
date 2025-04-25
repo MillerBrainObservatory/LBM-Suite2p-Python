@@ -327,12 +327,13 @@ def run_plane(
             for key in ["registration", "segmentation", "traces"]:
                 safe_delete(expected_files[key])
 
-            f = np.load(plane_path.joinpath("F.npy"))
-            dff = dff_percentile(f, percentile=2) * 100
-            dff = uniform_filter1d(dff, size=5, axis=1)
+            if ops.get("roidetect", True):
+                f = np.load(plane_path.joinpath("F.npy"))
+                dff = dff_percentile(f, percentile=2) * 100
+                dff = uniform_filter1d(dff, size=5, axis=1)
 
-            ncells = min(30, dff.shape[0])
-            plot_traces(dff, save_path=expected_files["traces"], num_neurons=ncells)
+                ncells = min(30, dff.shape[0])
+                plot_traces(dff, save_path=expected_files["traces"], num_neurons=ncells)
 
             # This function is too volitile right now to run by default
             # animate_traces(
