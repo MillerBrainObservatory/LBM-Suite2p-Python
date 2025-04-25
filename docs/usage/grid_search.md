@@ -140,6 +140,7 @@ lsp.run_grid_search(
     input_file=input_tiff,
     save_root=save_path.joinpath("registration")
 )
+
 ```
 
 Now, we can use [fastplotlib](https://www.fastplotlib.org/user_guide/guide.html#imagewidget) to display the raw and registered movies:
@@ -176,3 +177,5 @@ with suite2p.io.BinaryFile(filename=bin_path, Ly=ops["Ly"], Lx=ops["Lx"]) as f:
 ```
 
 You can now use `registered_data` in the widget. 
+
+
