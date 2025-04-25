@@ -2,7 +2,7 @@
 
 This package is still in a *beta* stage of development.
 
-[![Documentation](https://img.shields.io/badge/Documentation-black?style=for-the-badge&logo=readthedocs&logoColor=white)](https://millerbrainobservatory.github.io/LBM-Suite-2p-Python/)
+[![Documentation](https://img.shields.io/badge/Documentation-black?style=for-the-badge&logo=readthedocs&logoColor=white)](https://millerbrainobservatory.github.io/LBM-Suite2p-Python/index.html)
 
 A pipeline for processing 2-photon Light Beads Microscopy (LBM) datasets. 
 
@@ -22,9 +22,9 @@ The LBM technlology described in the Nature Methods publication:
 
 ## Installation
 
-See the [installation documentation](https://millerbrainobservatory.github.io/LBM-Suite2p-Python/installation) for more details.
+See the [installation documentation](https://millerbrainobservatory.github.io/LBM-Suite2p-Python/install.html) for more details.
 
-This pipeline is fully installable with `pip` packages.
+This pipeline is fully installable with `pip`.
 
 `conda` can still be used for the virual environment, but be mindful to only install packages with `conda install` when absolutely necessary.
 
@@ -33,6 +33,8 @@ We recommend cloning the repository, until a more established workflow is availa
 ```
 git clone https://github.com/MillerBrainObservatory/LBM-Suite2p-Python.git
 cd LBM-Suite2p-Python
+
+# make sure your virtual environment is active
 pip install ".[all]"  # optional, contains ".[gui, notebook]"
 ```
 
