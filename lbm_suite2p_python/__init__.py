@@ -3,6 +3,12 @@ from .volume import *
 from .run_lsp import *
 from .zplane import *
 from . import _version
+try:
+    import suite3d
+except ImportError:
+    HAS_S3D = False
+else:
+    HAS_S3D = True
 
 __version__ = _version.get_versions()['version']
 

@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61", "wheel", "versioneer[toml]==0.29"]
+requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -48,6 +48,9 @@ notebook = [
 	"fastplotlib",
 	"pyqtgraph",
 ]
+suite3d = [
+	"suite3d",
+]
 all = [
 	"mbo_utilities[all]",
 	"imgui-bundle",
@@ -57,6 +60,7 @@ all = [
 	"pyqt5==5.15.11",
 	"pyqt5-qt5==5.15.2",
 	"pyqtgraph",
+	"suite3d[all]"
 ]
 
 [dependency-groups]
@@ -92,6 +96,7 @@ default-groups = "all"
 
 [tool.uv.sources]
 mbo_utilities = { git = "https://github.com/MillerBrainObservatory/mbo_utilities", branch = "master" }
+suite3d = { git = "https://github.com/alihaydaroglu/suite3d.git", branch = "py310" }
 suite2p = { git = "https://github.com/MillerBrainObservatory/suite2p", branch = "main" }
 
 # https://github.com/charliermarsh/ruff
