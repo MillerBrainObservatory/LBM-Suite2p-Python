@@ -137,44 +137,63 @@ def run_job(job, do_init, do_register, do_correlate, do_segment):
 
     return results
 
-def save_dask_movie_to_suite2p(movie: da.Array, save_folder: str | Path, framerate: float = 10.0):
+def save_job_to_suite2p(job, save_folder: str | Path, framerate: float = 10.0,
+                        edge_crop=False, edge_crop_npix=None):
     """
-    Save a (z, t, y, x) Dask movie into Suite2p-style folders with BinaryFile writers.
-
-    Parameters
-    ----------
-    movie : dask array
-        (z, t, y, x) array
-    save_folder : str or Path
-        Where to create 'plane0', 'plane1', etc
-    framerate : float
-        Sampling rate for ops.npy
+    Save a Job's registered movie into Suite2p-style folders with BinaryFile writers,
+    automatically center-padding all planes to the largest (Ly, Lx).
     """
     save_folder = Path(save_folder)
     save_folder.mkdir(parents=True, exist_ok=True)
 
-    n_planes, n_frames, Ly, Lx = movie.shape
-    print(f"Saving {n_planes} planes with shape ({n_frames}, {Ly}, {Lx})")
+    # --- Load registered movie ---
+    movie = job.get_registered_movie(edge_crop=edge_crop, edge_crop_npix=edge_crop_npix)
+    n_planes, n_frames, *_ = movie.shape
+    print(f"Saving {n_planes} planes")
+
+    # find largest (Ly, Lx)
+    shapes = [movie[z].shape[1:] for z in range(n_planes)]
+    max_y = max(s[0] for s in shapes)
+    max_x = max(s[1] for s in shapes)
+    print(f"Center-padding all planes to ({max_y}, {max_x})")
 
     for z in range(n_planes):
-        plane_folder = save_folder / f"plane{z}"
-        plane_folder.mkdir(parents=True, exist_ok=True)
-
         plane_data = movie[z]  # (t, y, x)
+
         plane_data = plane_data.astype(np.float32).compute()
         plane_data = np.clip(plane_data, -32768, 32767).astype(np.int16)
 
+        _, y, x = plane_data.shape
+
+        # --- Center pad ---
+        pad_y = (max_y - y)
+        pad_x = (max_x - x)
+
+        pad_top = pad_y // 2
+        pad_bottom = pad_y - pad_top
+        pad_left = pad_x // 2
+        pad_right = pad_x - pad_left
+
+        plane_data = np.pad(
+            plane_data,
+            pad_width=((0, 0), (pad_top, pad_bottom), (pad_left, pad_right)),
+            mode="constant",
+            constant_values=0
+        )
+
+        assert plane_data.shape == (n_frames, max_y, max_x), f"Padding failed for plane {z}"
+
+        plane_folder = save_folder / f"plane{z}"
+        plane_folder.mkdir(parents=True, exist_ok=True)
         bin_path = plane_folder / "data.bin"
 
-        # Write using BinaryFile class
-        with BinaryFile(Ly=Ly, Lx=Lx, filename=str(bin_path), n_frames=n_frames) as bf:
+        with BinaryFile(Ly=max_y, Lx=max_x, filename=str(bin_path), n_frames=n_frames) as bf:
             bf.file[:] = plane_data
 
-        # Create minimal ops.npy
         ops = {
             "nframes": n_frames,
-            "Lx": Lx,
-            "Ly": Ly,
+            "Lx": max_x,
+            "Ly": max_y,
             "nchannels": 1,
             "functional_chan": 1,
             "fs": framerate,
@@ -186,21 +205,105 @@ def save_dask_movie_to_suite2p(movie: da.Array, save_folder: str | Path, framera
 
     print("All planes saved and ops.npy created.")
 
+# def save_dask_movie_to_suite2p(movie: da.Array, save_folder: str | Path, framerate: float = 17.0):
+#     """
+#     Save a (z, t, y, x) Dask movie into Suite2p-style folders with BinaryFile writers,
+#     center-cropping all planes to the smallest (Ly, Lx) found across z-planes.
+#     """
+#     save_folder = Path(save_folder)
+#     save_folder.mkdir(parents=True, exist_ok=True)
+#
+#     n_planes = movie.shape[0]
+#     print(f"Saving {n_planes} planes")
+#
+#     shapes = [movie[z].shape for z in range(n_planes)]
+#     mins = np.min(np.array([s[1:] for s in shapes]), axis=0)  # ignore t
+#     min_Ly, min_Lx = mins
+#     print(f"Center-cropping all planes to ({min_Ly}, {min_Lx})")
+#
+#     for z in range(n_planes):
+#         plane_data = movie[z]  # (t, y, x)
+#         n_frames, Ly, Lx = plane_data.shape
+#
+#         # center-crop to (min_Ly, min_Lx)
+#         crop_y_start = (Ly - min_Ly) // 2
+#         crop_x_start = (Lx - min_Lx) // 2
+#         plane_data = plane_data[:, crop_y_start:crop_y_start+min_Ly, crop_x_start:crop_x_start+min_Lx]
+#
+#         plane_data = plane_data.astype(np.float32).compute()
+#         plane_data = np.clip(plane_data, -32768, 32767).astype(np.int16)
+#
+#         plane_folder = save_folder / f"plane{z}"
+#         plane_folder.mkdir(parents=True, exist_ok=True)
+#         bin_path = plane_folder / "data.bin"
+#
+#         with BinaryFile(Ly=min_Ly, Lx=min_Lx, filename=str(bin_path), n_frames=n_frames) as bf:
+#             bf.file[:] = plane_data
+#
+#         ops = {
+#             "nframes": n_frames,
+#             "Lx": min_Lx,
+#             "Ly": min_Ly,
+#             "nchannels": 1,
+#             "functional_chan": 1,
+#             "fs": framerate,
+#             "save_path0": str(save_folder),
+#             "save_folder": save_folder.name,
+#             "plane": z,
+#         }
+#         np.save(plane_folder / "ops.npy", ops)
+#
+#     print("All planes saved and ops.npy created.")
+#
 
 fpath = Path(r"D:\W2_DATA\wsnyder\2025_03_06\results")
-metadata = mbo.get_metadata(fpath.parent.joinpath("assembled/plane_07.tiff"))
+metadata = mbo.get_metadata(fpath.parent.joinpath("assembled/plane_07.tif"))
 job_id = "v1"
 job = get_job(fpath, job_id, tif_list=None)
 
-files = job.get_registered_files()
-
-file_1 = np.load(files[0],  mmap_mode="r")
-print(file_1.shape)
-
-movie = job.get_registered_movie()
-print(movie)
+# files = job.get_registered_files()
+# movie = job.get_registered_movie(edge_crop=True, edge_crop_npix=128)
 
 save_folder = Path("../data/")
 save_folder.mkdir(exist_ok=True)
 
-save_dask_movie_to_suite2p(movie, save_folder, framerate=10)
+save_folder = Path(save_folder)
+save_folder.mkdir(parents=True, exist_ok=True)
+
+# --- Load registered movie ---
+movie_cropped = job.get_registered_movie(edge_crop=True, edge_crop_npix=10)
+movie_not_cropped = job.get_registered_movie()
+n_planes, n_frames, *_ = movie.shape
+print(f"Saving {n_planes} planes")
+
+# find largest (Ly, Lx)
+shapes = [movie[z].shape[1:] for z in range(n_planes)]
+max_y = max(s[0] for s in shapes)
+max_x = max(s[1] for s in shapes)
+print(f"Center-padding all planes to ({max_y}, {max_x})")
+
+for z in range(n_planes):
+    plane_data = movie[z]  # (t, y, x)
+
+    plane_data = plane_data.astype(np.float32).compute()
+    plane_data = np.clip(plane_data, -32768, 32767).astype(np.int16)
+
+    _, y, x = plane_data.shape
+
+    # --- Center pad ---
+    pad_y = (max_y - y)
+    pad_x = (max_x - x)
+
+    pad_top = pad_y // 2
+    pad_bottom = pad_y - pad_top
+    pad_left = pad_x // 2
+    pad_right = pad_x - pad_left
+
+    plane_data = np.pad(
+        plane_data,
+        pad_width=((0, 0), (pad_top, pad_bottom), (pad_left, pad_right)),
+        mode="constant",
+        constant_values=0
+    )
+
+# save_job_to_suite2p(job, save_folder, framerate=17, edge_crop=True, edge_crop_npix=10)
