@@ -4,7 +4,7 @@ This package is still in a *beta* stage of development.
 
 [![Documentation](https://img.shields.io/badge/Documentation-black?style=for-the-badge&logo=readthedocs&logoColor=white)](https://millerbrainobservatory.github.io/LBM-Suite2p-Python/index.html)
 
-A pipeline for processing 2-photon Light Beads Microscopy (LBM) datasets. 
+A pipeline for processing 2-photon Light Beads Microscopy (LBM) datasets.
 
 This pipeline uses the following software:
 

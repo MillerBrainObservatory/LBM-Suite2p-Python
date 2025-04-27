@@ -2,7 +2,7 @@ from .utils import *
 from .volume import *
 from .run_lsp import *
 from .zplane import *
-from . import _version
+
 try:
     import suite3d
 except ImportError:
@@ -10,10 +10,10 @@ except ImportError:
 else:
     HAS_S3D = True
 
-__version__ = _version.get_versions()['version']
+__version__ = (Path(__file__).parent / "VERSION").read_text().strip()
 
 __all__ = [
-    "animate_traces"
+    "animate_traces",
     "run_volume",
     "run_plane",
     "load_ops",
