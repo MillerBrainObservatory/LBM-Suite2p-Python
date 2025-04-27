@@ -275,7 +275,6 @@ plane_path = save_folder.joinpath(f"plane{8}.bin")
 # move the plane_path to sub_folder
 plane_path.rename(sub_folder.joinpath(plane_path.name))
 ops = suite2p.default_ops()
-import mbo_utilities as mbo
 ops_base = mbo.params_from_metadata(metadata, ops=ops)
 db = {
     "data_path": str(sub_folder),
