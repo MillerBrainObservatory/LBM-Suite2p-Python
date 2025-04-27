@@ -37,10 +37,11 @@ Image Gallery <image_gallery>
 
 ## Links / Resources
 
-[suite2p github](https://github.com/MouseLand/suite2p/tree/main)
-[suite2p docs](https://suite2p.readthedocs.io/en/latest/index.html)
-[suite2p paper](https://www.biorxiv.org/content/10.1101/061507v2)
-[marius deconv paper](https://www.jneurosci.org/content/38/37/7976)
+- [suite2p github](https://github.com/MouseLand/suite2p/tree/main)
+- [suite2p docs](https://suite2p.readthedocs.io/en/latest/index.html)
+- [suite2p paper](https://www.biorxiv.org/content/10.1101/061507v2)
+- [marius deconv paper](https://www.jneurosci.org/content/38/37/7976)
+- [How to compute ΔF/F from calcium imaging data](https://www.scientifica.uk.com/learning-zone/how-to-compute-%CE%B4f-f-from-calcium-imaging-data)
 
 
 ## References
