@@ -78,6 +78,7 @@ docs = [
 	"sphinx-design>=0.6.1",
 	"sphinxcontrib-bibtex",
 	"sphinx-tippy",
+	"sphinx_book_theme",
 	"numpydoc",
 	"ipykernel",
 	"sphinxcontrib-images",
