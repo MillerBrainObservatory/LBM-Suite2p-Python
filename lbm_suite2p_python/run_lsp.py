@@ -9,13 +9,14 @@ import numpy as np
 import suite2p
 from scipy.ndimage import uniform_filter1d
 
-import lbm_suite2p_python
-import lbm_suite2p_python as lsp
+from lbm_suite2p_python.utils import dff_percentile
 
-from .utils import dff_percentile, plot_projection
-
-from .zplane import (
+from lbm_suite2p_python.zplane import (
     plot_traces,
+    plot_projection,
+    plot_noise_distribution,
+    load_planar_results,
+    load_ops,
 )
 from .volume import (
     plot_execution_time,
@@ -24,8 +25,6 @@ from .volume import (
     get_volume_stats,
     save_images_to_movie,
 )
-from . import load_planar_results, load_ops, plot_rastermap
-
 if mbo.is_running_jupyter():
     from tqdm.notebook import tqdm
 else:
@@ -39,6 +38,8 @@ except ImportError:
     Rastermap = None
     utils = None
     HAS_RASTERMAP = False
+if HAS_RASTERMAP:
+    from lbm_suite2p_python.zplane import plot_rastermap
 
 
 def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
