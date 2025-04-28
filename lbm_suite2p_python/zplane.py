@@ -1,20 +1,18 @@
-import math
 from pathlib import Path
+import numpy as np
+import math
 
-import matplotlib.pyplot as plt
 import matplotlib.offsetbox
 from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 from matplotlib.offsetbox import VPacker, HPacker, DrawingArea
-import numpy as np
 from rastermap.utils import bin1d
 
 from lbm_suite2p_python.utils import dff_percentile
 from lbm_suite2p_python.utils import _resize_masks_fit_crop
 from suite2p.detection.stats import ROI
-
 
 def format_time(t):
     if t < 60:
@@ -153,8 +151,10 @@ def plot_traces(
         Units of fluorescence signal. Options: "DF/F0 %", "DF/F0", "raw signal" (default: "DF/F0 %").
     """
     if isinstance(f, dict):
+        ops = f
         print("Loading dff (%) from ops-dict")
-        f, _, _ = load_traces(f)
+        res = load_planar_results(ops)
+        f = res["F"]
         f = dff_percentile(f) * 100
         signal_units = "dff"
 
@@ -214,6 +214,8 @@ def plot_traces(
     hsb = AnchoredHScaleBar(size=0.1, label=time_label,
                                 loc=4, frameon=False, pad=0.6, sep=4, linekw=linekw, ax=ax)
     hsb.set_bbox_to_anchor((0.9, -0.05), transform=ax.transAxes)
+    hsb.txt._text.set_color('white')
+
     ax.add_artist(hsb)
 
     dff_bar_height = 0.1 * (y_max - y_min)
@@ -223,11 +225,19 @@ def plot_traces(
 
     dff_label = f"{rounded_dff:.0f} % ΔF/F₀" if signal_units == "dff" else f"{rounded_dff:.0f} raw signal (a.u)"
 
-    vsb = AnchoredVScaleBar(height=0.1, label=dff_label,
-                                loc='lower left', frameon=False, pad=0, sep=4,
-                                linekw=linekw, ax=ax, spacer_width=0)
-    hsb.txt._text.set_color('white')
-    vsb.set_bbox_to_anchor((new_x_upper - x_range * 0.05, bottom_trace_min), transform=ax.transData)
+    vsb = AnchoredVScaleBar(
+        height=.1,
+        label=dff_label,
+        loc='lower right',
+        frameon=False,
+        pad=-.1,
+        sep=4,
+        linekw=linekw,
+        ax=ax,
+        spacer_width=0
+    )
+    vsb.set_bbox_to_anchor((1.00, 0.05), transform=ax.transAxes)
+    # vsb.set_bbox_to_anchor(, transform=ax.transAxes)
     vsb.txt._text.set_color('white')
     ax.add_artist(vsb)
 
@@ -238,6 +248,7 @@ def plot_traces(
 
     if save_path:
         plt.savefig(save_path, dpi=200, facecolor=fig.get_facecolor())
+        plt.close(fig)
     else:
         plt.show()
 
