@@ -28,42 +28,21 @@ dependencies = [
 	"matplotlib>=3.10.1",
 	"h5py",
 	"tqdm",
-	"mbo_utilities",
-	"suite2p",
-]
-
-[project.optional-dependencies]
-gui = [
-	"mbo_utilities[gui]",
-	"imgui-bundle",
-	"pyqt5==5.15.11",
-	"pyqt5-qt5==5.15.2",
-	"pyqtgraph",
-] 
-notebook = [
-	"mbo_utilities[notebook]",
-	"jupyter_rfb",
-	"jupyterlab",
-	"anywidget",
-	"fastplotlib",
-	"pyqtgraph",
-]
-suite3d = [
-	"suite3d",
-]
-all = [
 	"mbo_utilities[all]",
-	"imgui-bundle",
-	"jupyter_rfb",
-	"jupyterlab",
-	"anywidget",
-	"pyqt5==5.15.11",
-	"pyqt5-qt5==5.15.2",
-	"pyqtgraph",
 	"suite2p[all]"
 ]
 
+[project.optional-dependencies]
+suite3d = ["suite3d"]
+napari = ["napari"]
+all = ["suite3d", "napari"]
+
 [dependency-groups]
+all = [
+	"lbm_suite2p_python[all]",
+	"pytest>=7.4.4",
+	"ruff>=0.6.1",
+]
 dev = [
 	"pytest>=7.4.4",
 	"ruff>=0.6.1",
