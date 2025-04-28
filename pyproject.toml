@@ -114,3 +114,6 @@ exclude_lines = [
 	"\\.\\.\\.",
 	"raise NotImplementedError()"
 ]
+
+[tool.setuptools.dynamic]
+version = {file = ["lbm_suite2p_python/VERSION"]}
