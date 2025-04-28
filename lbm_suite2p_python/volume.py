@@ -367,7 +367,7 @@ def plot_volume_neuron_counts(zstats, savepath):
     planes = plane_stats["plane"]
     accepted = plane_stats["accepted"]
     rejected = plane_stats["rejected"]
-    savename = savepath.joinpath(f"all_neurons_{accepted}acc_{rejected}rej.png")
+    savename = savepath.joinpath(f"all_neurons_{accepted.sum()}acc_{rejected.sum()}rej.png")
 
     plt.figure(figsize=(10, 6), facecolor="black")
     ax = plt.gca()
