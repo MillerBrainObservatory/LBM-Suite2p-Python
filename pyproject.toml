@@ -35,7 +35,7 @@ dependencies = [
 [project.optional-dependencies]
 suite3d = ["suite3d"]
 napari = ["napari"]
-all = ["suite3d", "napari"]
+all = ["napari"]
 
 [dependency-groups]
 all = [
