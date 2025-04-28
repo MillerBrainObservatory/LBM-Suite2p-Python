@@ -684,9 +684,8 @@ def plot_rastermap(
 ):
     n_neurons, n_timepoints = spks.shape
 
-
     if neuron_bin_size is None:
-        neuron_bin_size = max(1, np.ceil(n_neurons // 100))
+        neuron_bin_size = max(1, np.ceil(n_neurons // 500))
     else:
         neuron_bin_size = max(1, min(neuron_bin_size, n_neurons))
 

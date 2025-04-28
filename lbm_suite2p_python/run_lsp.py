@@ -349,14 +349,26 @@ def run_plane(
                 plot_noise_distribution(dff_noise, save_path=expected_files["noise"])
 
                 if HAS_RASTERMAP:
-                    print("Computing rastermap model...")
                     spks = res["spks"][iscell]
-                    model = Rastermap(
-                        n_clusters=100,
-                        n_PCs=100,
-                        locality=0.75,
-                        time_lag_window=15,
-                    ).fit(spks)
+                    n_neurons = spks.shape[0]
+                    if n_neurons < 200:
+                        params = {
+                            "n_clusters": None,
+                            "n_PCs": min(64, n_neurons - 1),
+                            "locality": 0.1,
+                            "time_lag_window": 15,
+                            "grid_upsample": 0
+                        }
+                    else:
+                        params = {
+                            "n_clusters": 100,
+                            "n_PCs": 128,
+                            "locality": 0.0,
+                            "grid_upsample": 10
+                        }
+
+                    print("Computing rastermap model...")
+                    model = Rastermap(**params).fit(spks)
                     np.save(expected_files["model"], model)
                     print("Plotting rastermap...")
                     plot_rastermap(
