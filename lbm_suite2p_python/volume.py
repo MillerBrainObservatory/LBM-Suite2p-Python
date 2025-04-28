@@ -32,7 +32,7 @@ def update_ops_paths(ops_files: str | list):
         np.save(ops_file, ops)
 
 
-def load_results_dict(ops_filepath, apply_zscore=True, z_plane=None) -> dict:
+def load_results_dict(ops_filepath, apply_zscore=False, z_plane=None) -> dict:
     """
     Load stat, iscell, spks files and return as a dict
 
@@ -49,20 +49,15 @@ def load_results_dict(ops_filepath, apply_zscore=True, z_plane=None) -> dict:
     -------
     dict
         dictionary with keys:
-         - 'output_ops': dict loaded from ops file,
-         - 'spks': spks (2d array: neurons x time),
          - 'stats': stats loaded from stat.npy,
          - 'iscell': boolean array from iscell.npy,
-         - 'xy': x-y positions from stats,
          - 'z_plane': an array (of shape [n_neurons,]) with the provided z_plane index.
     """
     from pathlib import Path
-    from scipy.stats import zscore
 
     ops_filepath = Path(ops_filepath)
     output_ops = load_ops(ops_filepath)
     save_path = Path(output_ops['save_path'])
-    mean_img = output_ops["meanImg"]
 
     stats_file = save_path.joinpath('stat.npy')
     spks_file = save_path.joinpath('spks.npy')
@@ -72,10 +67,8 @@ def load_results_dict(ops_filepath, apply_zscore=True, z_plane=None) -> dict:
     stats = np.load(stats_file, allow_pickle=True)[iscell]
     spks = np.load(spks_file, allow_pickle=True)[iscell]
 
-    if apply_zscore:
-        spks = zscore(spks, axis=1)
-
-    xy = np.array([s["med"] for s in stats])
+    # xy = np.array([s["med"] for s in stats])
+    # aspect = np.array[s["aspect"] for s in stats]
     n_neurons = spks.shape[0]
     if z_plane is None:
         # If not provided, assign a default of 0
@@ -84,12 +77,8 @@ def load_results_dict(ops_filepath, apply_zscore=True, z_plane=None) -> dict:
         z_plane_arr = np.full(n_neurons, z_plane, dtype=int)
 
     return {
-        'output_ops': output_ops,
-        'spks': spks,
         'stats': stats,
         'iscell': iscell,
-        'xy': xy,
-        'mean_image': mean_img,
         'z_plane': z_plane_arr
     }
 
