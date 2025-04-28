@@ -267,11 +267,11 @@ def run_plane(
         "iscell": plane_path / "iscell.npy",
         "registration": plane_path / "registration.png",
         "segmentation": plane_path / "segmentation.png",
-        "meanImg": plane_path / "mean_image.png",
         "max_proj": plane_path / "max_projection_image.png",
         "traces": plane_path / "traces.png",
         "noise": plane_path / "shot_noise_distrubution.png",
-        # "animation": plane_path / "animated_traces.mp4"
+        "model": plane_path / "model.npy",
+        "rastermap": plane_path / "rastermap.png",
     }
 
     if not overwrite and all(expected_files[key].is_file() for key in ["ops", "stat", "iscell"]):
@@ -334,25 +334,43 @@ def run_plane(
                 safe_delete(expected_files[key])
 
             if ops.get("roidetect", True):
-                f = np.load(plane_path.joinpath("F.npy"))
+                res = load_planar_results(output_ops)
+                iscell = res["iscell"]
+                f = res["F"][iscell]
+
                 dff = dff_percentile(f, percentile=2) * 100
                 dff = uniform_filter1d(dff, size=5, axis=1)
                 dff_noise = dff_shot_noise(dff, ops["fs"])
 
                 ncells = min(30, dff.shape[0])
+                print("Plotting traces...")
                 plot_traces(dff, save_path=expected_files["traces"], num_neurons=ncells)
+                print("Plotting noise distribution...")
                 plot_noise_distribution(dff_noise, save_path=expected_files["noise"])
 
-            # This function is too volitile right now to run by default
-            # animate_traces(
-            #     dff,
-            #     save_path=expected_files["animation"],
-            #     start_neurons=30,
-            #     expand_after=5,
-            #     lw=0.5,
-            #     speed_factor=8,
-            #     expansion_factor=10,
-            # )
+                if HAS_RASTERMAP:
+                    print("Computing rastermap model...")
+                    spks = res["spks"][iscell]
+                    model = Rastermap(
+                        n_clusters=100,
+                        n_PCs=100,
+                        locality=0.75,
+                        time_lag_window=15,
+                    ).fit(spks)
+                    np.save(expected_files["model"], model)
+                    print("Plotting rastermap...")
+                    plot_rastermap(
+                        spks,
+                        model,
+                        neuron_bin_size=20,
+                        xmax=min(2000, spks.shape[1]),
+                        save_path=expected_files["rastermap"],
+                        title_kwargs={"fontsize": 8, "y": 0.95},
+                        title="Rastermap Sorted Activity",
+                    )
+                else:
+                    print("No rastermap is available.")
+
             fig_label = kwargs.get("fig_label", input_tiff.stem)
             plot_projection(
                 output_ops,
@@ -362,16 +380,14 @@ def run_plane(
                 add_scalebar=True,
                 proj="meanImg",
             )
-            # do one for mean/max image, no masks
-            for projection in ["max_proj"]:
-                plot_projection(
-                    output_ops,
-                    expected_files[projection],
-                    fig_label=input_tiff.stem,
-                    display_masks=False,
-                    add_scalebar=True,
-                    proj=projection,
-                )
+            plot_projection(
+                output_ops,
+                expected_files["max_proj"],
+                fig_label=input_tiff.stem,
+                display_masks=False,
+                add_scalebar=True,
+                proj="max_proj",
+            )
             print("Plots generated successfully.")
     except Exception:
         traceback.print_exc()

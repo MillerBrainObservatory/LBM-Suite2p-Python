@@ -556,8 +556,8 @@ def plot_noise_distribution(noise_levels: np.ndarray, save_path=None, title="Noi
     """
     if save_path:
         save_path = Path(save_path)
-    if save_path.is_dir():
-        raise AttributeError(f"save_path should be a fully qualified file path, not a directory: {save_path}")
+        if save_path.is_dir():
+            raise AttributeError(f"save_path should be a fully qualified file path, not a directory: {save_path}")
 
     fig = plt.figure(figsize=(8, 5))
     plt.hist(noise_levels, bins=50, color="gray", alpha=0.7, edgecolor="black")
@@ -582,22 +582,32 @@ def plot_noise_distribution(noise_levels: np.ndarray, save_path=None, title="Noi
 
 def load_planar_results(ops, z_plane=None) -> dict:
     """
-    Load stat, iscell, spks files and return as a dict
+    Load stat, iscell, spks files and return as a dict. Does NOT filter by valid cells, array contain both
+    accepted and rejected neurons. Filter for accepted-only via f[iscell] or fneue[iscell] if needed.
 
-    parameters
+    Parameters
     ----------
     ops : dict, str or Path
         Dict of or path to the ops.npy file.
     z_plane : int or None, optional
         the z-plane index for this file. If provided, it is stored in the output.
 
-    returns
+    Returns
     -------
     dict
         dictionary with keys:
-         - 'stats': stats loaded from stat.npy,
-         - 'iscell': boolean array from iscell.npy,
-         - 'z_plane': an array (of shape [n_neurons,]) with the provided z_plane index.
+        - 'F': fluorescence traces loaded from F.npy,
+        - 'Fneu': neuropil fluorescence traces loaded from Fneu.npy,
+        - 'spks': spike traces loaded from spks.npy,
+        - 'stat': stats loaded from stat.npy,
+        - 'iscell': boolean array from iscell.npy,
+        - 'cellprob': cell probability from classifier.
+        - 'z_plane': an array (of shape [n_neurons,]) with the provided z_plane index.
+
+    See Also
+    --------
+    lbm_suite2p_python.load_ops
+    lbm_suite2p_python.load_traces
     """
     output_ops = load_ops(ops)
     save_path = Path(output_ops['save_path'])
@@ -616,6 +626,37 @@ def load_planar_results(ops, z_plane=None) -> dict:
     else:
         z_plane_arr = np.full(n_neurons, z_plane, dtype=int)
     return {"F": F, "Fneu": Fneu, "spks": spks, "stat": stat, "iscell": iscell, "cellprob": cellprob, 'z_plane': z_plane_arr}
+
+def load_traces(ops):
+    """
+    Return (accepted-only) fluorescence traces, neuropil traces and spike traces from ops file.
+
+    Parameters
+    ----------
+    ops : str, Path or dict
+        Path to the ops.npy file or a dict containing the ops data.
+
+    Returns
+    -------
+    tuple
+        A tuple containing three arrays **filtered to contain only accepted neurons**:
+        - F: Fluorescence traces (2D array, shape [n_neurons, n_timepoints])
+        - Fneu: Neuropil fluorescence traces (2D array, shape [n_neurons, n_timepoints])
+        - spks: Spike traces (2D array, shape [n_neurons, n_timepoints])
+
+    See Also
+    --------
+    lbm_suite2p_python.load_ops
+    lbm_suite2p_python.load_planar_results
+    """
+    output_ops = load_ops(ops)
+    save_path = Path(output_ops['save_path'])
+
+    F = np.load(save_path.joinpath('F.npy'))
+    Fneu = np.load(save_path.joinpath('Fneu.npy'))
+    spks = np.load(save_path.joinpath('spks.npy'))
+    iscell = np.load(save_path.joinpath('iscell.npy'), allow_pickle=True)[:, 0].astype(bool)
+    return F[iscell], Fneu[iscell], spks[iscell]
 
 
 def load_ops(ops_input: str | Path | list[str | Path]):
@@ -643,21 +684,16 @@ def plot_rastermap(
 ):
     n_neurons, n_timepoints = spks.shape
 
-    if neuron_bin_size is None:
-        neuron_bin_size = max(1, n_neurons // 500)  # default internal rastermap binning
-        print(f"Neuron binning factor (default): {neuron_bin_size}")
-    if neuron_bin_size > 1:
-        sn = bin1d(spks[model.isort], neuron_bin_size, axis=0)
-        ntype = "superneurons"
-    else:
-        sn = spks[model.isort]
-        ntype = "neurons"
 
-    print(xmax)
+    if neuron_bin_size is None:
+        neuron_bin_size = max(1, np.ceil(n_neurons // 100))
+    else:
+        neuron_bin_size = max(1, min(neuron_bin_size, n_neurons))
+
+    print(f"Neuron binning factor (default): {neuron_bin_size}")
+    sn = bin1d(spks[model.isort], neuron_bin_size, axis=0)
     if xmax is None or xmax < xmin or xmax > sn.shape[1]:
         xmax = sn.shape[1]
-    print(xmax)
-
     sn = sn[:, xmin:xmax]
 
     current_time = np.round((xmax - xmin) / fps, 1)
@@ -665,7 +701,7 @@ def plot_rastermap(
 
     fig, ax = plt.subplots(figsize=(6, 3), dpi=200)
     print(f"Plotting from {xmin} : {xmax}")
-    img = ax.imshow(sn[:, xmin:xmax], cmap="gray_r", vmin=vmin, vmax=vmax, aspect="auto")
+    img = ax.imshow(sn, cmap="gray_r", vmin=vmin, vmax=vmax, aspect="auto")
 
     fig.patch.set_facecolor("black")
     ax.set_facecolor("black")
@@ -725,6 +761,7 @@ def plot_rastermap(
     line.set_figure(fig)
     fig.lines.append(line)
 
+    ntype = "neurons" if scalebar_neurons == 1 else "neurons"
     fig.text(
         x=x_position + 0.008,
         y=y_start,
@@ -751,5 +788,8 @@ def plot_rastermap(
         save_path = Path(save_path)
         save_path.parent.mkdir(parents=True, exist_ok=True)
         plt.savefig(save_path, dpi=200, facecolor="black", bbox_inches="tight")
+        plt.close(fig)
+    else:
+        plt.show()
 
     return fig, ax
