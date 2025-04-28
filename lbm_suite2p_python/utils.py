@@ -127,6 +127,53 @@ def dff_maxmin(f_trace, fps, smooth_window=5):
     return dff_smooth
 
 
+def dff_shot_noise(dff, fr):
+    """
+    Estimate the shot noise level of calcium imaging traces.
+
+    This metric quantifies the noise level based on frame-to-frame differences,
+    assuming slow calcium dynamics compared to the imaging frame rate. It was
+    introduced by Rupprecht et al. (2021) [1] as a standardized method for comparing
+    noise levels across datasets with different acquisition parameters.
+
+    The noise level :math:`\\nu` is computed as:
+
+    .. math::
+
+        \\nu = \\frac{\\mathrm{median}_t\\left( \\left| \\Delta F/F_{t+1} - \\Delta F/F_t \\right| \\right)}{\\sqrt{f_r}}
+
+    where
+      - :math:`\\Delta F/F_t` is the fluorescence trace at time :math:`t`
+      - :math:`f_r` is the imaging frame rate (in Hz).
+
+    Parameters
+    ----------
+    dff : np.ndarray
+        Array of shape (n_neurons, n_frames), containing raw :math:`\\Delta F/F` traces
+        (percent units, **without neuropil subtraction**).
+    fr : float
+        Frame rate of the recording in Hz.
+
+    Returns
+    -------
+    np.ndarray
+        Noise level :math:`\\nu` for each neuron, expressed in %/√Hz units.
+
+    Notes
+    -----
+    - The metric relies on the slow dynamics of calcium signals compared to frame rate.
+    - Higher values of :math:`\\nu` indicate higher shot noise.
+    - Units are % divided by √Hz, and while unconventional, they enable comparison across frame rates.
+
+    References
+    ----------
+    [1] Rupprecht et al., "Large-scale calcium imaging & noise levels",
+        A Neuroscientific Blog (2021).
+        https://gcamp6f.com/2021/10/04/large-scale-calcium-imaging-noise-levels/
+    """
+    return np.median(np.abs(np.diff(dff, axis=1)), axis=1) / np.sqrt(fr)
+
+
 def get_common_path(ops_files: list | tuple):
     """
     Find the common path of all files in `ops_files`.
