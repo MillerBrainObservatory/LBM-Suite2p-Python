@@ -171,7 +171,7 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
 
 
 def run_plane(
-    ops, input_tiff, save_path, save_folder=None, replot=False, dryrun=False, use_suite3d=False, **kwargs
+    ops, input_tiff, save_path, save_folder=None, overwrite=False, replot=False, dryrun=False, use_suite3d=False, **kwargs
 ):
     """
     Processes a single imaging plane using suite2p, handling registration, segmentation,
@@ -187,6 +187,8 @@ def run_plane(
         Directory to save the results.
     save_folder : str, optional
         Subdirectory for saving results (default: filename of input file).
+    overwrite : bool, optional
+        If True, overwrites existing ops file (default: False).
     replot : bool, optional
         If True, regenerates plots even if they exist (default: False).
     dryrun : bool, optional
@@ -270,7 +272,7 @@ def run_plane(
         # "animation": plane_path / "animated_traces.mp4"
     }
 
-    if all(expected_files[key].is_file() for key in ["ops", "stat", "iscell"]):
+    if not overwrite and all(expected_files[key].is_file() for key in ["ops", "stat", "iscell"]):
         print(f"{input_tiff} already has segmentation results. Skipping execution.")
         output_ops = load_ops(expected_files["ops"])
     else:
@@ -368,8 +370,6 @@ def run_plane(
                 )
     except Exception:
         traceback.print_exc()
-
-    print(output_ops["timing"])
     return output_ops
 
 
