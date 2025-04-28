@@ -18,6 +18,7 @@ from lbm_suite2p_python.zplane import (
     load_planar_results,
     load_ops,
 )
+from . import dff_shot_noise
 from .volume import (
     plot_execution_time,
     plot_volume_signal,
@@ -269,6 +270,7 @@ def run_plane(
         "meanImg": plane_path / "mean_image.png",
         "max_proj": plane_path / "max_projection_image.png",
         "traces": plane_path / "traces.png",
+        "noise": plane_path / "shot_noise_distrubution.png",
         # "animation": plane_path / "animated_traces.mp4"
     }
 
@@ -335,9 +337,11 @@ def run_plane(
                 f = np.load(plane_path.joinpath("F.npy"))
                 dff = dff_percentile(f, percentile=2) * 100
                 dff = uniform_filter1d(dff, size=5, axis=1)
+                dff_noise = dff_shot_noise(dff, ops["fs"])
 
                 ncells = min(30, dff.shape[0])
                 plot_traces(dff, save_path=expected_files["traces"], num_neurons=ncells)
+                plot_noise_distribution(dff_noise, save_path=expected_files["noise"])
 
             # This function is too volitile right now to run by default
             # animate_traces(
@@ -359,7 +363,7 @@ def run_plane(
                 proj="meanImg",
             )
             # do one for mean/max image, no masks
-            for projection in ["meanImg", "max_proj"]:
+            for projection in ["max_proj"]:
                 plot_projection(
                     output_ops,
                     expected_files[projection],
@@ -368,6 +372,7 @@ def run_plane(
                     add_scalebar=True,
                     proj=projection,
                 )
+            print("Plots generated successfully.")
     except Exception:
         traceback.print_exc()
     return output_ops

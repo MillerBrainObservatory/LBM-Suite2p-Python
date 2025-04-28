@@ -537,17 +537,25 @@ def plot_projection(
         plt.show()
 
 
-def plot_noise_distribution(noise_levels, save_path="", title="Noise Level Distribution"):
+def plot_noise_distribution(noise_levels: np.ndarray, save_path=None, title="Noise Level Distribution"):
     """
     Plots and saves the distribution of noise levels across neurons as a standardized image.
 
-    Parameters:
-    - noise_levels (numpy.ndarray): Noise levels for each neuron.
-    - save_path (Path): Directory where images will be saved.
-    - plane_idx (int): Index of the imaging plane.
-    - title (str): Title of the plot.
+    Parameters
+    ----------
+    noise_levels : np.ndarray
+        1D array of noise levels for each neuron.
+    save_path : str or Path, optional
+        Path to save the plot. If empty, the plot will be displayed instead of saved.
+    title : str, optional
+        Suptitle for plot, default is "Noise Level Distribution".
+
+    See Also
+    --------
+    lbm_suite2p_python.dff_shot_noise
     """
-    save_path = Path(save_path)
+    if save_path:
+        save_path = Path(save_path)
     if save_path.is_dir():
         raise AttributeError(f"save_path should be a fully qualified file path, not a directory: {save_path}")
 
