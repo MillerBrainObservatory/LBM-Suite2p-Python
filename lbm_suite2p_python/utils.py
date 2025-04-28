@@ -135,6 +135,7 @@ def load_traces(ops):
     F = np.load(save_path.joinpath('F.npy'))
     Fneu = np.load(save_path.joinpath('Fneu.npy'))
     spks = np.load(save_path.joinpath('spks.npy'))
+    stats = np.load(save_path.joinpath('stats.npy'), allow_pickle=True)
     iscell = np.load(save_path.joinpath('iscell.npy'), allow_pickle=True)[:, 0].astype(bool)
 
     F_valid = F[iscell]
