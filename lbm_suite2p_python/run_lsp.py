@@ -12,7 +12,7 @@ from scipy.ndimage import uniform_filter1d
 import lbm_suite2p_python
 import lbm_suite2p_python as lsp
 
-from .utils import load_ops, dff_percentile, plot_projection
+from .utils import dff_percentile, plot_projection
 
 from .zplane import (
     plot_traces,
@@ -23,9 +23,8 @@ from .volume import (
     plot_volume_neuron_counts,
     get_volume_stats,
     save_images_to_movie,
-    load_results_dict,
-    plot_rastermap,
 )
+from . import load_planar_results, load_ops, plot_rastermap
 
 if mbo.is_running_jupyter():
     from tqdm.notebook import tqdm
@@ -135,7 +134,7 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
         plot_execution_time(zstats_file, os.path.join(save_path, "execution_time.png"))
 
         res_z = [
-            load_results_dict(ops_path, apply_zscore=True, z_plane=i)
+            load_planar_results(ops_path, z_plane=i)
             for i, ops_path in enumerate(all_ops)
         ]
         all_spks = np.concatenate([res["spks"] for res in res_z], axis=0)
