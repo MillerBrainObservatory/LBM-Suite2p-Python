@@ -11,7 +11,7 @@ from matplotlib.offsetbox import VPacker, HPacker, DrawingArea
 import numpy as np
 from rastermap.utils import bin1d
 
-from lbm_suite2p_python import dff_percentile
+from lbm_suite2p_python.utils import dff_percentile
 from lbm_suite2p_python.utils import _resize_masks_fit_crop
 from suite2p.detection.stats import ROI
 
@@ -526,7 +526,7 @@ def plot_projection(
         plt.show()
 
 
-def plot_noise_distribution(noise_levels, save_path, plane_idx, title="Noise Level Distribution"):
+def plot_noise_distribution(noise_levels, save_path="", title="Noise Level Distribution"):
     """
     Plots and saves the distribution of noise levels across neurons as a standardized image.
 
@@ -536,9 +536,11 @@ def plot_noise_distribution(noise_levels, save_path, plane_idx, title="Noise Lev
     - plane_idx (int): Index of the imaging plane.
     - title (str): Title of the plot.
     """
-    save_path.mkdir(parents=True, exist_ok=True)
+    save_path = Path(save_path)
+    if save_path.is_dir():
+        raise AttributeError(f"save_path should be a fully qualified file path, not a directory: {save_path}")
 
-    plt.figure(figsize=(8, 5))
+    fig = plt.figure(figsize=(8, 5))
     plt.hist(noise_levels, bins=50, color="gray", alpha=0.7, edgecolor="black")
 
     mean_noise = np.mean(noise_levels)
@@ -552,8 +554,11 @@ def plot_noise_distribution(noise_levels, save_path, plane_idx, title="Noise Lev
     plt.xticks(fontsize=12)
     plt.yticks(fontsize=12)
 
-    plt.savefig(save_path / f"plane_{plane_idx}.png", dpi=200, bbox_inches="tight")
-    plt.close()
+    if save_path:
+        plt.savefig(save_path, dpi=200, bbox_inches="tight")
+        plt.close(fig)
+    else:
+        plt.show()
 
 
 def load_planar_results(ops, z_plane=None) -> dict:
