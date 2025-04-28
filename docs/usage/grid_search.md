@@ -15,8 +15,6 @@ kernelspec:
 
 These are examples of how to use {func}`lbm_suite2p_python.run_grid_search`.
 
-The term grid search (also called a parameter sweep) is common in machine learning, and refers to evaluating a set of parameters over a structured search space.
-
 We run a grid search on a single z-plane.
 
 ## Setup

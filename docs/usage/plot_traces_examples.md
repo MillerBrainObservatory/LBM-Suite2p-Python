@@ -10,7 +10,9 @@ kernelspec:
   language: python
   name: python3
 ---
-# Function Demo: plot_traces
+# Function Demos
+
+## `plot_traces`
 
 {func}`lbm_suite2p_python.plot_traces`
 
@@ -29,9 +31,9 @@ lsp.plot_traces(ops_file)
 ```{figure} ../_images/plot_traces_raw.png
 ```
 
-By default, `plot_traces` will plot 2 minutes of the DF/F (%) for the first 20 neurons.
+By default, `plot_traces` will plot 2 minutes of the $\Delta F / F_0$ (%) for the first 20 neurons.
 
-The DF/F is calculated by calling {ref}`lbm_suite2p_python.dff_percentile`.
+The $\Delta F / F_0$ is calculated by calling {ref}`lbm_suite2p_python.dff_percentile`.
 
 The main features of this function:
 
@@ -45,7 +47,7 @@ import mbo_utilities as mbo # for convenience
 import lbm_suite2p_python as lsp
 ```
 
-## Preparation
+### Preparation
 
 {func}`mbo_utilities.get_files`
 {func}`lbm_suite2p_python.load_ops`
@@ -67,13 +69,13 @@ f, fneu, spks = lsp.load_traces(ops) # only need f here
 
 This `f` variable contains the loaded `F.npy` pre-filtered to only contain valid cells.
 
-It can then be used to calculate $\\Delta F / F_0$ :
+It can then be used to calculate $\Delta F / F_0$
 
 ```{code-cell} ipython3
 dff = lsp.dff_percentile(f) * 100
 ```
 
-## Single neuron
+### Single neuron
 
 ```{code-cell} ipython3
 lsp.plot_traces(dff, './plot_traces_single.png', signal_units='dff', num_neurons=1)
@@ -86,20 +88,33 @@ lsp.plot_traces(dff, './plot_traces_single.png', signal_units='dff', num_neurons
 Single neuron trace (percentile-based DF/F).
 ```
 
-## Two neurons with manual offset
+### Two neurons
+
+```{code-cell} ipython3
+lsp.plot_traces(dff, './plot_traces_double.png', signal_units='dff', num_neurons=2)
+```
+
+```{figure} ../_images/plot_traces_double.png
+:alt: Two neurons, baseline offset
+:width: 100%
+
+Two traces with offset autocalculated from baseline signal.
+```
+
+### Two neurons with manual offset
 
 ```{code-cell} ipython3
 lsp.plot_traces(dff, './plot_traces_single_gap50.png', signal_units='dff', num_neurons=2, offset=250)
 ```
 
-```{figure} ../_images/plot_traces_single_gap50.png
+```{figure} ../_images/plot_traces_double_gap50.png
 :alt: Two neurons with offset
 :width: 100%
 
 Two traces with manually specified offset.
 ```
 
-## Default dff
+### $\Delta F / F_0$
 
 ```{code-cell} ipython3
 lsp.plot_traces(dff, './plot_traces_dff.png', signal_units='dff')
@@ -109,13 +124,13 @@ lsp.plot_traces(dff, './plot_traces_dff.png', signal_units='dff')
 :alt: Default DF/F traces
 :width: 100%
 
-Default appearance with vertical stack and scalebars.
+DFF is always shown in percentages.
 ```
 
-## More neurons
+### More neurons
 
 ```{code-cell} ipython3
-lsp.plot_traces(dff[:50], './plot_traces_dff_50n.png', signal_units='dff', num_neurons=50)
+lsp.plot_traces(dff, './plot_traces_dff_50n.png', signal_units='dff', num_neurons=50)
 ```
 
 ```{figure} ../_images/plot_traces_dff_50n.png
@@ -125,7 +140,7 @@ lsp.plot_traces(dff[:50], './plot_traces_dff_50n.png', signal_units='dff', num_n
 First 50 neurons, default colormap.
 ```
 
-### 100 neurons, custom colormap
+#### 100 neurons, custom colormap
 
 ```{code-cell} ipython3
 lsp.plot_traces(dff[::2], './plot_traces_dff_100n_nipy.png', signal_units='dff', num_neurons=100, cmap="nipy_spectral")
@@ -138,9 +153,9 @@ lsp.plot_traces(dff[::2], './plot_traces_dff_100n_nipy.png', signal_units='dff',
 100 traces using the `nipy_spectral` colormap.
 ```
 
-## Temporal binning
+### Temporal binning
 
-### 2× binning
+#### 2× binning
 
 ```{code-cell} ipython3
 bin_factor = 2
@@ -156,7 +171,7 @@ lsp.plot_traces(dff_binned, './plot_traces_dff_binned_2x.png', signal_units='dff
 Traces downsampled by factor 2. Scale bar adjusts accordingly.
 ```
 
-### 4× binning
+#### 4× binning
 
 ```{code-cell} ipython3
 bin_factor = 4

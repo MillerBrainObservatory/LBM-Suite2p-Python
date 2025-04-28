@@ -171,7 +171,7 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
 
 
 def run_plane(
-    ops, input_tiff, save_path, save_folder=None, replot=False, dryrun=False, **kwargs
+    ops, input_tiff, save_path, save_folder=None, replot=False, dryrun=False, use_suite3d=False, **kwargs
 ):
     """
     Processes a single imaging plane using suite2p, handling registration, segmentation,
@@ -191,6 +191,8 @@ def run_plane(
         If True, regenerates plots even if they exist (default: False).
     dryrun : bool, optional
         If True, print input files that will be processed and filepaths that will be created.
+    use_suite3d : bool, optional
+        If True, use suite3d for processing (default: False).
 
     Returns
     -------
@@ -226,7 +228,7 @@ def run_plane(
     if not input_tiff.is_file():
         if dryrun:
             print(f"Input file {input_tiff} does not exist.")
-            return
+            return None
         else:
             raise FileNotFoundError(f"Input data file {input_tiff} does not exist.")
 
@@ -245,7 +247,7 @@ def run_plane(
             print(
                 f"save_folder must be a string or a Path object, not {type(save_folder)}."
             )
-            return
+            return None
         else:
             raise TypeError("save_folder must be a string or path-like object.")
 
@@ -400,14 +402,13 @@ def run_grid_search(base_ops: dict, grid_search_dict: dict, input_file: Path | s
     >>> import lbm_suite2p_python as lsp
     >>> import suite2p
     >>> base_ops = suite2p.default_ops()
-    >>> # base_ops["sparse_mode"] = True
     >>> base_ops["anatomical_only"] = 3
     >>> base_ops["diameter"] = 6
     >>> lsp.run_grid_search(
     ...     base_ops,
     ...     {"threshold_scaling": [1.0, 1.2], "tau": [0.1, 0.15]},
     ...     input_file="/mnt/data/assembled_plane_03.tiff",
-    ...     save_root="/mnb/grid_search/"
+    ...     save_root="/mnt/grid_search/"
     ... )
 
     This will create the following output directory structure::
@@ -418,6 +419,10 @@ def run_grid_search(base_ops: dict, grid_search_dict: dict, input_file: Path | s
         ├── thr1.00_tau0.15/
         ├── thr1.20_tau0.10/
         └── thr1.20_tau0.15/
+
+    See Also
+    --------
+    [](http://suite2p.readthedocs.io/en/latest/parameters.html)
 
     """
     from itertools import product
