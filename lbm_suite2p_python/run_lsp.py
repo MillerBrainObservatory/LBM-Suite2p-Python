@@ -192,7 +192,7 @@ def run_plane(
         If True, overwrites existing ops file (default: False).
     replot : bool, optional
         If True, regenerates plots even if they exist (default: False).
-    dryrun : bool, optional
+    dryrun (experimental): bool, optional
         If True, print input files that will be processed and filepaths that will be created.
     use_suite3d : bool, optional
         If True, use suite3d for processing (default: False).
