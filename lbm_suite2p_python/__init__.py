@@ -2,6 +2,7 @@ from lbm_suite2p_python.utils import *
 from lbm_suite2p_python.volume import *
 from lbm_suite2p_python.run_lsp import *
 from lbm_suite2p_python.zplane import *
+from lbm_suite2p_python.default_ops import default_ops
 
 try:
     import suite3d
@@ -29,5 +30,6 @@ __all__ = [
     "dff_shot_noise",
     "combine_tiffs",
     "load_ops",
-    "load_planar_results"
+    "load_planar_results",
+    "default_ops",
 ]
