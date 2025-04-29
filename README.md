@@ -1,8 +1,10 @@
 # Light Beads Microscopy (LBM) Pipeline: Suite2p
 
-This package is still in a *beta* stage of development.
+[![PyPI - Version](https://img.shields.io/pypi/v/lbm-suite2p-python)](https://pypi.org/project/lbm-suite2p-python/)
 
-[![Documentation](https://img.shields.io/badge/Documentation-black?style=for-the-badge&logo=readthedocs&logoColor=white)](https://millerbrainobservatory.github.io/LBM-Suite2p-Python/index.html)
+[![Documentation](https://img.shields.io/badge/Documentation-blue?style=for-the-badge&logo=readthedocs&logoColor=white)](https://millerbrainobservatory.github.io/LBM-Suite2p-Python/index.html)
+
+This package is still in a *beta* stage of development.
 
 A pipeline for processing 2-photon Light Beads Microscopy (LBM) datasets.
 
@@ -14,9 +16,8 @@ This pipeline uses the following software:
 - [mbo_utilities](https://github.com/MillerBrainObservatory/mbo_utilities)
 - [scanreader](https://github.com/atlab/scanreader)
 
-The LBM technlology described in the Nature Methods publication:
 
-[![DOI](https://zenodo.org/badge/DOI/10.1007/978-3-319-76207-4_15.svg)](https://doi.org/10.1038/s41592-021-01239-8)
+[![LBM](https://zenodo.org/badge/DOI/10.1007/978-3-319-76207-4_15.svg)](https://doi.org/10.1038/s41592-021-01239-8)
 
 ---
 

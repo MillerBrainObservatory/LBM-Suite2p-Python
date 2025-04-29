@@ -29,7 +29,7 @@ dependencies = [
 	"h5py",
 	"tqdm",
 	"mbo_utilities[all]",
-	"suite2p[all]"
+	"suite2p_mbo>=1.0.0,<2.0.0",
 ]
 
 [project.optional-dependencies]
@@ -65,8 +65,8 @@ docs = [
 	"scikit-image",
 	"scipy",
 	"numpy",
-	"suite2p",
 	"pandas",
+	"suite2p_mbo>=1.0.0,<2.0.0",
 ]
 
 [tool.uv]
@@ -75,7 +75,6 @@ default-groups = "all"
 [tool.uv.sources]
 mbo_utilities = { git = "https://github.com/MillerBrainObservatory/mbo_utilities", branch = "master" }
 suite3d = { git = "https://github.com/alihaydaroglu/suite3d.git", branch = "py310" }
-suite2p = { git = "https://github.com/MillerBrainObservatory/suite2p", branch = "main" }
 
 # https://github.com/charliermarsh/ruff
 [tool.ruff]

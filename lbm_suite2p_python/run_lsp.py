@@ -9,24 +9,23 @@ import numpy as np
 import suite2p
 from scipy.ndimage import uniform_filter1d
 
-import lbm_suite2p_python
-import lbm_suite2p_python as lsp
+from lbm_suite2p_python.utils import dff_percentile
 
-from .utils import load_ops, dff_percentile, plot_projection
-
-from .zplane import (
+from lbm_suite2p_python.zplane import (
     plot_traces,
+    plot_projection,
+    plot_noise_distribution,
+    load_planar_results,
+    load_ops,
 )
+from . import dff_shot_noise
 from .volume import (
     plot_execution_time,
     plot_volume_signal,
     plot_volume_neuron_counts,
     get_volume_stats,
     save_images_to_movie,
-    load_results_dict,
-    plot_rastermap,
 )
-
 if mbo.is_running_jupyter():
     from tqdm.notebook import tqdm
 else:
@@ -40,6 +39,8 @@ except ImportError:
     Rastermap = None
     utils = None
     HAS_RASTERMAP = False
+if HAS_RASTERMAP:
+    from lbm_suite2p_python.zplane import plot_rastermap
 
 
 def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
@@ -135,7 +136,7 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
         plot_execution_time(zstats_file, os.path.join(save_path, "execution_time.png"))
 
         res_z = [
-            load_results_dict(ops_path, apply_zscore=True, z_plane=i)
+            load_planar_results(ops_path, z_plane=i)
             for i, ops_path in enumerate(all_ops)
         ]
         all_spks = np.concatenate([res["spks"] for res in res_z], axis=0)
@@ -171,7 +172,7 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
 
 
 def run_plane(
-    ops, input_tiff, save_path, save_folder=None, replot=False, dryrun=False, use_suite3d=False, **kwargs
+    ops, input_tiff, save_path, save_folder=None, overwrite=False, replot=False, dryrun=False, use_suite3d=False, **kwargs
 ):
     """
     Processes a single imaging plane using suite2p, handling registration, segmentation,
@@ -187,9 +188,11 @@ def run_plane(
         Directory to save the results.
     save_folder : str, optional
         Subdirectory for saving results (default: filename of input file).
+    overwrite : bool, optional
+        If True, overwrites existing ops file (default: False).
     replot : bool, optional
         If True, regenerates plots even if they exist (default: False).
-    dryrun : bool, optional
+    dryrun (experimental): bool, optional
         If True, print input files that will be processed and filepaths that will be created.
     use_suite3d : bool, optional
         If True, use suite3d for processing (default: False).
@@ -256,26 +259,26 @@ def run_plane(
         ops = suite2p.default_ops()
         ops = mbo.params_from_metadata(metadata, ops)
 
-    plane_path = save_path / save_folder / "plane0"
-
+    plane0 = save_path / save_folder / "plane0"
     expected_files = {
-        "ops": plane_path / "ops.npy",
-        "stat": plane_path / "stat.npy",
-        "iscell": plane_path / "iscell.npy",
-        "registration": plane_path / "registration.png",
-        "segmentation": plane_path / "segmentation.png",
-        "meanImg": plane_path / "mean_image.png",
-        "max_proj": plane_path / "max_projection_image.png",
-        "traces": plane_path / "traces.png",
-        # "animation": plane_path / "animated_traces.mp4"
+        "ops": plane0 / "ops.npy",
+        "stat": plane0 / "stat.npy",
+        "iscell": plane0 / "iscell.npy",
+        "registration": plane0 / "registration.png",
+        "segmentation": plane0 / "segmentation.png",
+        "max_proj": plane0 / "max_projection_image.png",
+        "traces": plane0 / "traces.png",
+        "noise": plane0 / "shot_noise_distrubution.png",
+        "model": plane0 / "model.npy",
+        "rastermap": plane0 / "rastermap.png",
     }
 
-    if all(expected_files[key].is_file() for key in ["ops", "stat", "iscell"]):
+    if not overwrite and all(expected_files[key].is_file() for key in ["ops", "stat", "iscell"]):
         print(f"{input_tiff} already has segmentation results. Skipping execution.")
         output_ops = load_ops(expected_files["ops"])
     else:
         if dryrun:
-            print(f"Dryrun: results will be saved in {plane_path}")
+            print(f"Dryrun: results will be saved in {plane0}")
             print(f"Files that will be created: {expected_files}")
             print(metadata)
             return ops, metadata
@@ -292,24 +295,23 @@ def run_plane(
                 )
             output_ops = suite2p.run_s2p(ops=ops, db=db)
 
-    # remove when we set data.bin path correctly
-    # monkey patch to deal with default suite2p/plane0/data.bin save path
-    raw_path = save_path / "suite2p" / "plane0" / "data.bin"
-    where_raw_should_be_path = plane_path / "data.bin"
-    if raw_path.is_file():
-        if ops["keep_movie_raw"]:
-            print(f"Moving {raw_path} -> {where_raw_should_be_path}")
-            if not where_raw_should_be_path.exists():
-                raw_path.rename(where_raw_should_be_path)
-            else:
-                print(
-                    f"Warning: {where_raw_should_be_path} already exists. Skipping rename."
-                )
-        try:
-            raw_path.unlink()
-            shutil.rmtree(save_path / "suite2p")
-        except Exception as e:
-            print(f"Failed to delete {raw_path}: {e}")
+            # monkey patch data.bin path
+            fname = Path(output_ops["reg_file"]).name
+            output_ops["reg_file"] = str(plane0 / fname)
+            np.save(expected_files["ops"], output_ops)
+            suite2p_root = save_path / "suite2p"
+            suite2p_plane0 = suite2p_root / "plane0"
+
+            # move everything from suite2p/plane0 save_folder/plane0
+            for item in suite2p_plane0.iterdir():
+                target = plane0 / item.name
+                if target.exists():
+                    if target.is_dir():
+                        shutil.rmtree(target)
+                    else:
+                        target.unlink()
+                shutil.move(str(item), str(plane0))
+            shutil.rmtree(suite2p_root)
     try:
         if replot or not all(
             expected_files[key].is_file()
@@ -330,23 +332,57 @@ def run_plane(
                 safe_delete(expected_files[key])
 
             if ops.get("roidetect", True):
-                f = np.load(plane_path.joinpath("F.npy"))
+                res = load_planar_results(output_ops)
+                iscell = res["iscell"]
+                f = res["F"][iscell]
+
                 dff = dff_percentile(f, percentile=2) * 100
                 dff = uniform_filter1d(dff, size=5, axis=1)
+                dff_noise = dff_shot_noise(dff, ops["fs"])
 
                 ncells = min(30, dff.shape[0])
+                print("Plotting traces...")
                 plot_traces(dff, save_path=expected_files["traces"], num_neurons=ncells)
+                print("Plotting noise distribution...")
+                plot_noise_distribution(dff_noise, save_path=expected_files["noise"])
 
-            # This function is too volitile right now to run by default
-            # animate_traces(
-            #     dff,
-            #     save_path=expected_files["animation"],
-            #     start_neurons=30,
-            #     expand_after=5,
-            #     lw=0.5,
-            #     speed_factor=8,
-            #     expansion_factor=10,
-            # )
+                if HAS_RASTERMAP:
+                    spks = res["spks"][iscell]
+                    n_neurons = spks.shape[0]
+                    if n_neurons < 200:
+                        params = {
+                            "n_clusters": None,
+                            "n_PCs": min(64, n_neurons - 1),
+                            "locality": 0.1,
+                            "time_lag_window": 15,
+                            "grid_upsample": 0
+                        }
+                    else:
+                        params = {
+                            "n_clusters": 100,
+                            "n_PCs": 128,
+                            "locality": 0.0,
+                            "grid_upsample": 10
+                        }
+
+                    print("Computing rastermap model...")
+                    model = Rastermap(**params).fit(spks)
+                    np.save(expected_files["model"], model)
+
+                    neuron_bin_size = 1 if n_neurons < 200 else 5 if n_neurons < 500 else 10
+                    xmax = min(spks.shape[1], int(2000 * (200/n_neurons)**0.5))
+                    plot_rastermap(
+                        spks,
+                        model,
+                        neuron_bin_size=neuron_bin_size,
+                        xmax=xmax,
+                        save_path=expected_files["rastermap"],
+                        title_kwargs={"fontsize": 8, "y": 0.95},
+                        title="Rastermap Sorted Activity",
+                    )
+                else:
+                    print("No rastermap is available.")
+
             fig_label = kwargs.get("fig_label", input_tiff.stem)
             plot_projection(
                 output_ops,
@@ -356,20 +392,17 @@ def run_plane(
                 add_scalebar=True,
                 proj="meanImg",
             )
-            # do one for mean/max image, no masks
-            for projection in ["meanImg", "max_proj"]:
-                plot_projection(
-                    output_ops,
-                    expected_files[projection],
-                    fig_label=input_tiff.stem,
-                    display_masks=False,
-                    add_scalebar=True,
-                    proj=projection,
-                )
+            plot_projection(
+                output_ops,
+                expected_files["max_proj"],
+                fig_label=input_tiff.stem,
+                display_masks=False,
+                add_scalebar=True,
+                proj="max_proj",
+            )
+            print("Plots generated successfully.")
     except Exception:
         traceback.print_exc()
-
-    print(output_ops["timing"])
     return output_ops
 
 

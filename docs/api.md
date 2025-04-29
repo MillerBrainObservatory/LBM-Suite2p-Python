@@ -23,7 +23,7 @@ Functions, broken down by category.
 
 .. autofunction:: load_ops
 .. autofunction:: load_traces
-.. autofunction:: load_results_dict
+.. autofunction:: load_planar_results
 .. autofunction:: update_ops_paths
 
 ```
