@@ -21,8 +21,8 @@ def default_ops(metadata=None, ops=None, nplanes=1):
     Examples
     --------
     >>> import lbm_suite2p_python as lsp
-    >>> metadata = mbo.get_metadata("D://demo//raw_data//raw_file_00001.tif")
-    >>> ops = lsp.default_ops(metadata=metadata)
+    >>> metadata = mbo.get_metadata("D://demo//raw_data//raw_file_00001.tif")  # noqa
+    >>> ops = lsp.default_ops(metadata=metadata)  # noqa
     >>> # No ops are passed, so the default ops are used.
     >>> lsp.run_plane(
     >>>    ops=ops,
