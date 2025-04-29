@@ -66,6 +66,7 @@ docs = [
 	"scipy",
 	"numpy",
 	"pandas",
+	"suite2p_mbo>=1.0.0,<2.0.0",
 ]
 
 [tool.uv]
