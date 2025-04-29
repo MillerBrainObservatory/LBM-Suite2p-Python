@@ -665,6 +665,7 @@ def load_ops(ops_input: str | Path | list[str | Path]):
         return np.load(ops_input, allow_pickle=True).item()
     elif isinstance(ops_input, dict):
         return ops_input
+    print("Warning: No valid ops file provided, returning None.")
     return None
 
 
