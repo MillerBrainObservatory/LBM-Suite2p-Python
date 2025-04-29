@@ -13,6 +13,21 @@ kernelspec:
 (grid_search)=
 # Grid-Search
 
+```{admonition} Example Dataset
+:class: dropdown
+
+Example dataset collected by Kevin Barber with Dr. Alipasha Vaziri @ Rockefeller University.
+
+| Field        | Value                   |
+|--------------|-------------------------|
+| Animal       | mk301                   |
+| Date         | 2025-03-01              |
+| Virus        | jGCaMP8s                |
+| Framerate    | 17 Hz                   |
+| FOV          | 900 µm × 900 µm         |
+| Resolution   | 2 µm × 2 µm × 16 µm     |
+```
+
 These are examples of how to use {func}`lbm_suite2p_python.run_grid_search`.
 
 We run a grid search on a single z-plane.
@@ -40,20 +55,6 @@ Lower `threshold_scaling` → more candidate ROIs.
 Higher `max_overlap` → more overlapping ROIs are kept.
 
 But their effects aren’t linear or always intuitive, so it’s often best to **grid search** them.
-
-```{admonition} Example dataset
-:name: example_dataset
-:class: dropdown
-
-| Attribute           | Value           | Description                    |
-|--------------------|------------------|--------------------------------|
-| Animal             | mk301            | Sample ID                      |
-| Date               | 2025-03-01       | Imaging date                   |
-| Plane              | plane_07         | Z-plane used in this demo      |
-| FOV                | 448 × 448 px     | Field of view per plane        |
-| Frame rate         | 17 Hz            |                                |
-| ROIs (default)     | 324 accepted     |                                |
-```
 
 Override a few ops to use Cellpose (anatomical) detection:
 

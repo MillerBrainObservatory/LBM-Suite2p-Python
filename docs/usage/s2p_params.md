@@ -8,27 +8,21 @@ stating that decreasing this parameter will yield more cells.
 
 However, we have found this not always to be the case.
 
-``` {admonition} Example dataset
-:name: dataset_overview
+
+```{admonition} Example Dataset
 :class: dropdown
 
-*This dataset was collected at the Miller Brain Observatory by Will Snyder of the Charles Gilbert Lab.*
+Example dataset collected by Will Snyder with Dr. Charles Gilbert @ Rockefeller University.
 
-| Attribute              | Value                      | Description                                                |
-|------------------------|----------------------------|------------------------------------------------------------|
-| `fov`                 | [448, 896] μm              | Total field of view in microns (X × Y).                    |
-| `fov_px`              | [448, 896] px              | Field of view in pixels (X × Y).                           |
-| `pixel_resolution`    | [2.0, 2.0] μm/px           | Microns per pixel in each spatial dimension.              |
-| `frame_rate`          | 17.07 Hz                   | Imaging frame rate.                                        |
-| `num_frames`          | 9                          | Number of timepoints.                                      |
-| `num_planes`          | 14                         | Number of Z-planes.                                        |
-| `num_rois`            | 2                          | Number of simultaneously acquired ROIs.                    |
-| `roi_width_px`        | 224 px                     | Width of individual ROI.                                   |
-| `roi_height_px`       | 448 px                     | Height of individual ROI.                                  |
-| `tiff_pages`          | 126                        | Total number of frames stored in TIFF file.                |
-| `objective_resolution`| 61 μm/deg                  | Optical resolution of the objective.                       |
-| `size`                | 17.16 GB                   | Approximate total dataset size in bytes.                   |
-
+| Field        | Value                   |
+|--------------|-------------------------|
+| Date         | 2025-03-06              |
+| Virus        | jGCaMP8s                |
+| Framerate    | 17 Hz                   |
+| FOV (Per ROI)| 448 µm × 896 µm         |
+| Resolution   | 2 µm × 2 µm × 16 µm     |
+| Num-Planes   | 14                      |
+| Duration     | ~ 2 min                 |
 ```
 
 ## Parameters
