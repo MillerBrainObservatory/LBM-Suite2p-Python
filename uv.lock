@@ -1587,7 +1587,7 @@ docs = [
     { name = "sphinxcontrib-bibtex" },
     { name = "sphinxcontrib-images" },
     { name = "sphinxcontrib-video" },
-    { name = "suite2p" },
+    { name = "suite2p-mbo" },
 ]
 
 [package.metadata]
@@ -1637,7 +1637,7 @@ docs = [
     { name = "sphinxcontrib-bibtex" },
     { name = "sphinxcontrib-images" },
     { name = "sphinxcontrib-video" },
-    { name = "suite2p" },
+    { name = "suite2p-mbo", specifier = ">=1.0.0,<2.0.0" },
 ]
 
 [[package]]
@@ -3708,29 +3708,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/28/e3/55dcc2cfbc3ca9c29519eb6884dd1415ecb53b0e934862d3559ddcb7e20b/stack_data-0.6.3.tar.gz", hash = "sha256:836a778de4fec4dcd1dcd89ed8abff8a221f58308462e1c4aa2a3cf30148f0b9", size = 44707 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f1/7b/ce1eafaf1a76852e2ec9b22edecf1daa58175c090266e9f6c64afcd81d91/stack_data-0.6.3-py3-none-any.whl", hash = "sha256:d5558e0c25a4cb0853cddad3d77da9891a08cb85dd9f9f91b9f8cd66e511e695", size = 24521 },
-]
-
-[[package]]
-name = "suite2p"
-version = "0.14.4"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "cellpose" },
-    { name = "importlib-metadata" },
-    { name = "matplotlib" },
-    { name = "natsort" },
-    { name = "numba" },
-    { name = "numpy" },
-    { name = "rastermap" },
-    { name = "scanimage-tiff-reader" },
-    { name = "scikit-learn" },
-    { name = "scipy" },
-    { name = "tifffile" },
-    { name = "torch" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/3e/61/c4e22ade167ea8dcb3f3effc8da3ae71826181609a241822666c8dac6866/suite2p-0.14.4.tar.gz", hash = "sha256:7e4a1ba46547243c5a44c408087dc37a225b84fc7054c647ae5e374140dd213f", size = 10498792 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/f9/85/6724246cf54fc151f3cf8f1901523c578c22d1cd8a1c37312fab927a4bac/suite2p-0.14.4-py3-none-any.whl", hash = "sha256:ffe17f8733f077a6c668a00fd24787a77a6852dd835381dd2f3e1acc61267325", size = 661351 },
 ]
 
 [[package]]
