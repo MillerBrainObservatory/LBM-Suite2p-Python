@@ -35,14 +35,12 @@ def default_ops(metadata=None, ops=None, nplanes=1):
         ops = s2p_default_ops()
 
     # typical neuron ~16 microns
-    ops["fs"] = metadata["frame_rate"]
+    if metadata is not None:
+        ops["fs"] = metadata["frame_rate"]
+        ops["dx"] = [metadata["pixel_resolution"][0]]
+        ops["dy"] = [metadata["pixel_resolution"][1]]
     ops["nplanes"] = 1
     ops["nchannels"] = 1
     ops["do_bidiphase"] = 0
     ops["do_regmetrics"] = True
-
-    # suite2p iterates each plane and takes ops['dxy'][i] where i is the plane index
-    ops["dx"] = [metadata["pixel_resolution"][0]]
-    ops["dy"] = [metadata["pixel_resolution"][1]]
-
     return ops
