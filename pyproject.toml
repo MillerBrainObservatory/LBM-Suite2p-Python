@@ -29,7 +29,7 @@ dependencies = [
 	"h5py",
 	"tqdm",
 	"mbo_utilities[all]",
-	"suite2p_mbo>=1.0.0,<2.0.0",
+	"suite2p_mbo>=1.0.3,<2.0.0",
 ]
 
 [project.optional-dependencies]
@@ -38,7 +38,7 @@ all = ["napari"]
 
 [dependency-groups]
 all = [
-	"lbm_suite2p_python[all]",
+	"lbm_suite2p_python",
 	"pytest>=7.4.4",
 	"ruff>=0.6.1",
 ]
@@ -72,9 +72,9 @@ docs = [
 [tool.uv]
 default-groups = "all"
 
-[tool.uv.sources]
-mbo_utilities = { git = "https://github.com/MillerBrainObservatory/mbo_utilities", branch = "master" }
-suite3d = { git = "https://github.com/alihaydaroglu/suite3d.git", branch = "py310" }
+# [tool.uv.sources]
+# mbo_utilities = { git = "https://github.com/MillerBrainObservatory/mbo_utilities", branch = "master" }
+# suite3d = { git = "https://github.com/alihaydaroglu/suite3d.git", branch = "py310" }
 
 # https://github.com/charliermarsh/ruff
 [tool.ruff]
