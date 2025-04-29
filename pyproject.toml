@@ -65,7 +65,6 @@ docs = [
 	"scikit-image",
 	"scipy",
 	"numpy",
-	"suite2p",
 	"pandas",
 ]
 
