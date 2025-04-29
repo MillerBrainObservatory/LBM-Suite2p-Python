@@ -29,7 +29,7 @@ dependencies = [
 	"h5py",
 	"tqdm",
 	"mbo_utilities[all]",
-	"suite2p[all]"
+	"suite2p_mbo @ git+https://github.com/MillerbrainObservatory/suite2p_mbo.git@main#egg=suite2p_mbo",
 ]
 
 [project.optional-dependencies]
