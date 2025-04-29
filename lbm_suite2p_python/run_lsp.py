@@ -370,12 +370,14 @@ def run_plane(
                     print("Computing rastermap model...")
                     model = Rastermap(**params).fit(spks)
                     np.save(expected_files["model"], model)
-                    print("Plotting rastermap...")
+
+                    neuron_bin_size = 1 if n_neurons < 200 else 5 if n_neurons < 500 else 10
+                    xmax = min(spks.shape[1], int(2000 * (200/n_neurons)**0.5))
                     plot_rastermap(
                         spks,
                         model,
-                        neuron_bin_size=20,
-                        xmax=min(2000, spks.shape[1]),
+                        neuron_bin_size=neuron_bin_size,
+                        xmax=xmax,
                         save_path=expected_files["rastermap"],
                         title_kwargs={"fontsize": 8, "y": 0.95},
                         title="Rastermap Sorted Activity",
