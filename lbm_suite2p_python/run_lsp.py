@@ -259,19 +259,18 @@ def run_plane(
         ops = suite2p.default_ops()
         ops = mbo.params_from_metadata(metadata, ops)
 
-    plane_path = save_path / save_folder / "plane0"
-
+    plane0 = save_path / save_folder / "plane0"
     expected_files = {
-        "ops": plane_path / "ops.npy",
-        "stat": plane_path / "stat.npy",
-        "iscell": plane_path / "iscell.npy",
-        "registration": plane_path / "registration.png",
-        "segmentation": plane_path / "segmentation.png",
-        "max_proj": plane_path / "max_projection_image.png",
-        "traces": plane_path / "traces.png",
-        "noise": plane_path / "shot_noise_distrubution.png",
-        "model": plane_path / "model.npy",
-        "rastermap": plane_path / "rastermap.png",
+        "ops": plane0 / "ops.npy",
+        "stat": plane0 / "stat.npy",
+        "iscell": plane0 / "iscell.npy",
+        "registration": plane0 / "registration.png",
+        "segmentation": plane0 / "segmentation.png",
+        "max_proj": plane0 / "max_projection_image.png",
+        "traces": plane0 / "traces.png",
+        "noise": plane0 / "shot_noise_distrubution.png",
+        "model": plane0 / "model.npy",
+        "rastermap": plane0 / "rastermap.png",
     }
 
     if not overwrite and all(expected_files[key].is_file() for key in ["ops", "stat", "iscell"]):
@@ -279,7 +278,7 @@ def run_plane(
         output_ops = load_ops(expected_files["ops"])
     else:
         if dryrun:
-            print(f"Dryrun: results will be saved in {plane_path}")
+            print(f"Dryrun: results will be saved in {plane0}")
             print(f"Files that will be created: {expected_files}")
             print(metadata)
             return ops, metadata
@@ -296,24 +295,23 @@ def run_plane(
                 )
             output_ops = suite2p.run_s2p(ops=ops, db=db)
 
-    # remove when we set data.bin path correctly
-    # monkey patch to deal with default suite2p/plane0/data.bin save path
-    raw_path = save_path / "suite2p" / "plane0" / "data.bin"
-    where_raw_should_be_path = plane_path / "data.bin"
-    if raw_path.is_file():
-        if ops["keep_movie_raw"]:
-            print(f"Moving {raw_path} -> {where_raw_should_be_path}")
-            if not where_raw_should_be_path.exists():
-                raw_path.rename(where_raw_should_be_path)
-            else:
-                print(
-                    f"Warning: {where_raw_should_be_path} already exists. Skipping rename."
-                )
-        try:
-            raw_path.unlink()
-            shutil.rmtree(save_path / "suite2p")
-        except Exception as e:
-            print(f"Failed to delete {raw_path}: {e}")
+            # monkey patch data.bin path
+            fname = Path(output_ops["reg_file"]).name
+            output_ops["reg_file"] = str(plane0 / fname)
+            np.save(expected_files["ops"], output_ops)
+            suite2p_root = save_path / "suite2p"
+            suite2p_plane0 = suite2p_root / "plane0"
+
+            # move everything from suite2p/plane0 save_folder/plane0
+            for item in suite2p_plane0.iterdir():
+                target = plane0 / item.name
+                if target.exists():
+                    if target.is_dir():
+                        shutil.rmtree(target)
+                    else:
+                        target.unlink()
+                shutil.move(str(item), str(plane0))
+            shutil.rmtree(suite2p_root)
     try:
         if replot or not all(
             expected_files[key].is_file()
