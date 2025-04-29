@@ -699,7 +699,6 @@ def plot_rastermap(
     current_neurons = sn.shape[0]
 
     fig, ax = plt.subplots(figsize=(6, 3), dpi=200)
-    print(f"Plotting from {xmin} : {xmax}")
     img = ax.imshow(sn, cmap="gray_r", vmin=vmin, vmax=vmax, aspect="auto")
 
     fig.patch.set_facecolor("black")
@@ -770,7 +769,7 @@ def plot_rastermap(
     )
 
     if fig_text is None:
-        fig_text = f"Neurons: {spks.shape[1]}, Superneurons: {sn.shape[0]}, n_clusters: {model.n_PCs}, n_PCs: {model.n_clusters}, locality: {model.locality}"
+        fig_text = f"Neurons: {spks.shape[0]}, Superneurons: {sn.shape[0]}, n_clusters: {model.n_PCs}, n_PCs: {model.n_clusters}, locality: {model.locality}"
 
     fig.text(
         x=(heatmap_pos.x0 + heatmap_pos.x1) / 2,
