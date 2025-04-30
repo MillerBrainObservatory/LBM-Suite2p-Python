@@ -1600,7 +1600,7 @@ requires-dist = [
     { name = "mkl-fft", specifier = ">=1.3.13" },
     { name = "napari", marker = "extra == 'all'" },
     { name = "napari", marker = "extra == 'napari'" },
-    { name = "suite2p-mbo", specifier = ">=1.0.0,<2.0.0" },
+    { name = "suite2p-mbo", specifier = ">=1.0.3,<2.0.0" },
     { name = "tifffile", specifier = ">=2025.3.30" },
     { name = "tqdm" },
     { name = "zarr", specifier = ">=2.18.3" },
@@ -3716,7 +3716,7 @@ wheels = [
 
 [[package]]
 name = "suite2p-mbo"
-version = "1.0.0"
+version = "1.0.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cellpose" },
@@ -3741,9 +3741,9 @@ dependencies = [
     { name = "torch" },
     { name = "xmltodict" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ff/c1/04dcf517054976464b22f5467aaeb802c83387c5025b41f54625a929ea36/suite2p_mbo-1.0.0.tar.gz", hash = "sha256:0e3417445e84c78448f376e66b9cd59d483622324178096bba9a2d8e14fd3cf2", size = 655434 }
+sdist = { url = "https://files.pythonhosted.org/packages/ca/46/cdcce82f5ee33b9bba2c28c3563432fd392087d28fa38bc40c13b5700711/suite2p_mbo-1.0.3.tar.gz", hash = "sha256:73c4e26de7d0ea0d8110aef35b7992f658ae8e38c1f705e7e9e91e2f85034c0f", size = 655433 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d1/c3/746dad5ef79c75b5d59529525b73871821c4943ff11e908e565c631f86e4/suite2p_mbo-1.0.0-py3-none-any.whl", hash = "sha256:d16db6cae4682bf66180d553460fc4a0c20a41846ab5069e10ab2e4b58a0ef6d", size = 676673 },
+    { url = "https://files.pythonhosted.org/packages/41/bc/ba49ff7f3d3f417d0af78115a8ba4d683cb5c89b3ac44eb99340f624f3a5/suite2p_mbo-1.0.3-py3-none-any.whl", hash = "sha256:e03bab5eea3db06f82ea1c608ad7c794d44274d057c631259bbe8a94cdd7d649", size = 676642 },
 ]
 
 [[package]]

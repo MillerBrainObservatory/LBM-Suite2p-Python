@@ -1,13 +1,12 @@
 import os
 import re
-import shutil
 import traceback
 from collections.abc import Sized
 from pathlib import Path
 import mbo_utilities as mbo
 import numpy as np
 
-import suite2p
+from suite2p.io import tiff_to_binary, run_plane as s2p_run_plane
 from scipy.ndimage import uniform_filter1d
 
 from lbm_suite2p_python.utils import dff_percentile
@@ -33,7 +32,7 @@ else:
     from tqdm import tqdm
 
 try:
-    from rastermap import Rastermap, utils
+    from rastermap import Rastermap
 
     HAS_RASTERMAP = True
 except ImportError:
@@ -228,6 +227,7 @@ def run_plane(
     Run a single z-plane through suite2p
     >> output_ops = lsp.run_plane(mbo_ops, input_files[0], save_path)
     """
+    # All just to convert the filename to "planeN"
     input_tiff = Path(input_tiff)
     if not input_tiff.is_file():
         if dryrun:
@@ -242,25 +242,31 @@ def run_plane(
         # “01” → 1, subtract 1 → 0; “07” → 7, subtract 1 → 6, etc.
         plane_idx = int(m.group(1)) - 1
     else:
+        print("Could not match group. Setting to -> plane0")
         plane_idx = 0
     plane_folder = f"plane{plane_idx}"
+    print(plane_folder)
 
-    print(save_path)
     save_path = Path(save_path).expanduser().resolve()  #  expand ~ to /home/user
     if not save_path.is_dir():
         raise NotADirectoryError(f"{save_path} is not a valid directory.")
     if dryrun:
         print(f"Input file {input_tiff} will save in {save_path}")
     else:
-        print(f"Creating {save_path}")
         save_path.mkdir(exist_ok=True)
 
+    # TODO: I think the only valid `num_frames` we have access to are:
+    #       - the whole recording (from metadata)
+    #       - a single tiff page (page count)
+    #       Need to clarify this in the metadata.
     metadata = mbo.get_metadata(input_tiff)
     if ops is None:
         ops = suite2p.default_ops()
         ops = mbo.params_from_metadata(metadata, ops)
 
-    plane0 = save_path / save_folder / plane_folder
+    plane0 = save_path / plane_folder
+    plane0.mkdir(exist_ok=True)
+
     expected_files = {
         "ops": plane0 / "ops.npy",
         "stat": plane0 / "stat.npy",
@@ -284,17 +290,22 @@ def run_plane(
             print(metadata)
             return ops, metadata
         else:
-            db = {
-                "data_path": [str(input_tiff.parent)],
-                "save_folder": str(save_folder),
-                "save_path0": str(save_path),
-                "tiff_list": [input_tiff.name],
-            }
-            if "save_folder" in ops.keys() and not isinstance(ops["save_folder"], Sized):
-                raise ValueError(
-                    f"Incorrect type for save_flder: {type(ops['save_folder'])}."
-                )
-            output_ops = suite2p.run_s2p(ops=ops, db=db)
+            # db = {
+            #     "data_path": [str(input_tiff.parent)],
+            #     "save_path0": str(save_path),
+            #     "tiff_list": [input_tiff.name],
+            # }
+            # if "save_folder" in ops.keys() and not isinstance(ops["save_folder"], Sized):
+            #     raise ValueError(
+            #         f"Incorrect type for save_flder: {type(ops['save_folder'])}."
+            #     )
+            ops = tiff_to_binary(ops)
+
+            ops_path = plane0 / "ops.npy"
+            print(ops_path)
+            print("STARTING")
+            output_ops = s2p_run_plane(ops, ops_path=str(ops_path))
+            # output_ops = suite2p.run_s2p(ops=ops, db=db)
             print("Suite2p run complete...")
     try:
         if replot or not all(
