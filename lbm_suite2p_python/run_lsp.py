@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 import traceback
 from collections.abc import Sized
@@ -235,31 +236,31 @@ def run_plane(
         else:
             raise FileNotFoundError(f"Input data file {input_tiff} does not exist.")
 
-    save_path = Path(save_path)
+    stem = input_tiff.stem
+    m = re.search(r"plane_(\d+)", stem)
+    if m:
+        # “01” → 1, subtract 1 → 0; “07” → 7, subtract 1 → 6, etc.
+        plane_idx = int(m.group(1)) - 1
+    else:
+        plane_idx = 0
+    plane_folder = f"plane{plane_idx}"
+
+    print(save_path)
+    save_path = Path(save_path).expanduser().resolve()  #  expand ~ to /home/user
+    if not save_path.is_dir():
+        raise NotADirectoryError(f"{save_path} is not a valid directory.")
     if dryrun:
         print(f"Input file {input_tiff} will save in {save_path}")
     else:
-        save_path.mkdir(parents=True, exist_ok=True)
-
-    # if no save folder is provided, use the same name
-    # as the input file i.e. plane_07
-    if save_folder is None:
-        save_folder = input_tiff.stem
-    elif not isinstance(save_folder, (str, Path)):
-        if dryrun:
-            print(
-                f"save_folder must be a string or a Path object, not {type(save_folder)}."
-            )
-            return None
-        else:
-            raise TypeError("save_folder must be a string or path-like object.")
+        print(f"Creating {save_path}")
+        save_path.mkdir(exist_ok=True)
 
     metadata = mbo.get_metadata(input_tiff)
     if ops is None:
         ops = suite2p.default_ops()
         ops = mbo.params_from_metadata(metadata, ops)
 
-    plane0 = save_path / save_folder / "plane0"
+    plane0 = save_path / save_folder / plane_folder
     expected_files = {
         "ops": plane0 / "ops.npy",
         "stat": plane0 / "stat.npy",
@@ -294,24 +295,7 @@ def run_plane(
                     f"Incorrect type for save_flder: {type(ops['save_folder'])}."
                 )
             output_ops = suite2p.run_s2p(ops=ops, db=db)
-
-            # monkey patch data.bin path
-            fname = Path(output_ops["reg_file"]).name
-            output_ops["reg_file"] = str(plane0 / fname)
-            np.save(expected_files["ops"], output_ops)
-            suite2p_root = save_path / "suite2p"
-            suite2p_plane0 = suite2p_root / "plane0"
-
-            # move everything from suite2p/plane0 save_folder/plane0
-            for item in suite2p_plane0.iterdir():
-                target = plane0 / item.name
-                if target.exists():
-                    if target.is_dir():
-                        shutil.rmtree(target)
-                    else:
-                        target.unlink()
-                shutil.move(str(item), str(plane0))
-            shutil.rmtree(suite2p_root)
+            print("Suite2p run complete...")
     try:
         if replot or not all(
             expected_files[key].is_file()
