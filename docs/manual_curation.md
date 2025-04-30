@@ -1,5 +1,5 @@
 (manual_curation_gui)=
-# Dataset Curation
+# Dataset Curation (WIP)
 
 Users are always encouraged to evaluate ROI's after any processing run.
 There are a few differing approaches depending on the experimental question.
