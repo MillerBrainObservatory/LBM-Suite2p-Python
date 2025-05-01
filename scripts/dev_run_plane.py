@@ -5,6 +5,8 @@ input_path = "/home/flynn/lbm_data/demo/assembled/plane_08.tif"
 lsp.run_plane_any(
     input_path=input_path,
     save_path=save_path,
-    keep_raw=False,
-    keep_reg=False
+    keep_raw=True,
+    keep_reg=True,
+    force_reg=False,
+    force_detect=True,
 )
