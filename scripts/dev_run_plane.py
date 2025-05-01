@@ -1,0 +1,10 @@
+import lbm_suite2p_python as lsp
+
+save_path = "/home/flynn/lbm_data/demo/output"
+input_path = "/home/flynn/lbm_data/demo/assembled/plane_08.tif"
+lsp.run_plane_any(
+    input_path=input_path,
+    save_path=save_path,
+    keep_raw=False,
+    keep_reg=False
+)

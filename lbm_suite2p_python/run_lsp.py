@@ -1,12 +1,16 @@
 import os
 import re
+import shutil
 import traceback
-from collections.abc import Sized
 from pathlib import Path
 import mbo_utilities as mbo
 import numpy as np
+from tifffile import memmap
 
-from suite2p.io import tiff_to_binary, run_plane as s2p_run_plane
+from suite2p.io import tiff_to_binary
+from suite2p.run_s2p import run_plane as s2p_run_plane
+import suite2p
+
 from scipy.ndimage import uniform_filter1d
 
 from lbm_suite2p_python.utils import dff_percentile
@@ -42,6 +46,12 @@ except ImportError:
 if HAS_RASTERMAP:
     from lbm_suite2p_python.zplane import plot_rastermap
 
+def normalize_plane_name(path):
+    name = Path(path).stem
+    m = re.search(r'plane[_-](\d+)', name, re.IGNORECASE)
+    if not m:
+        raise ValueError(f"invalid plane name: {name}")
+    return f"plane{int(m.group(1)) - 1}"
 
 def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
     """
@@ -170,6 +180,82 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
     print(f"Processing completed for {len(input_file_list)} files.")
     return all_ops
 
+def run_plane_any(input_path, save_path=None, keep_raw=False, keep_reg=False):
+    p = Path(input_path)
+    if save_path is None:
+        save_path = p.parent
+    else:
+        save_path = Path(save_path)
+        save_path.mkdir(exist_ok=True)
+
+    if p.suffix in [".tiff", ".tif"]:
+        metadata = mbo.get_metadata(p)
+        plane_folder = normalize_plane_name(p)
+        plane_dir = save_path/plane_folder
+        plane_dir.mkdir(exist_ok=True)
+        raw_bin = plane_dir.joinpath("data_raw.bin")
+
+        if not raw_bin.is_file():
+
+            arr = memmap(str(p))  # shape (T, Y, X), correct dtype (e.g. uint16)
+            arr.astype(np.int16).tofile(raw_bin)
+
+        ops_path = plane_dir.joinpath("ops.npy")
+
+        shape = metadata["shape"]
+        dx, dy = metadata.get("pixel_resolution", [2, 2])
+        ops = {
+            "Ly": shape[-2],
+            "Lx": shape[-1],
+            "fs": np.round(metadata.get("frame_rate"), 17),
+            "nframes": shape[0],
+            "raw_file": str(raw_bin.resolve()),
+            "reg_file": str(raw_bin.resolve()),
+            "dx": dx,
+            "dy": dy,
+            "metadata": metadata,
+        }
+        np.save(ops_path, ops)
+
+    elif p.suffix in [".bin", ".raw", ".binary"]:
+        plane_dir = p
+    else:
+        raise FileNotFoundError(f"input path {p} does not have a valid suffix.")
+
+    data_raw = plane_dir.joinpath("data_raw.bin")
+    ops_path = plane_dir.joinpath("ops.npy")
+    if data_raw.is_file() and ops_path.is_file():
+        ops = run_plane_bin(plane_dir)
+    else:
+        raise FileNotFoundError(f"input path {p} does not have a valid suffix.")
+
+    if not keep_raw:
+        print(f"Deleting raw binary: {data_raw}")
+        if data_raw.is_file():
+            os.remove(str(data_raw))
+        else:
+            print(f"keep_raw set to True, yet no file to delete: {data_raw}")
+    if not keep_reg:
+        data_reg = plane_dir.joinpath("data.bin")
+        if data_reg.is_file():
+            print(f"Deleting reg binary: {data_reg}")
+            os.remove(str(data_reg))
+        else:
+            print(f"keep_reg set to True, yet no file to delete: {data_reg}")
+    return ops
+
+def run_plane_bin(input_path=None):
+    plane_dir = Path(input_path)
+    ops_path = plane_dir.joinpath("ops.npy")
+    if not ops_path.is_file():
+        print("Using default ops...")
+        ops = suite2p.default_ops()
+    else:
+        ops = load_ops(ops_path)
+
+    ops["input_format"] = "binary"
+    final_ops = s2p_run_plane(ops, ops_path=str(ops_path))
+    return final_ops
 
 def run_plane(
     ops, input_tiff, save_path, save_folder=None, overwrite=False, replot=False, dryrun=False, use_suite3d=False, **kwargs
@@ -227,178 +313,187 @@ def run_plane(
     Run a single z-plane through suite2p
     >> output_ops = lsp.run_plane(mbo_ops, input_files[0], save_path)
     """
-    # All just to convert the filename to "planeN"
     input_tiff = Path(input_tiff)
     if not input_tiff.is_file():
-        if dryrun:
-            print(f"Input file {input_tiff} does not exist.")
-            return None
-        else:
-            raise FileNotFoundError(f"Input data file {input_tiff} does not exist.")
+        raise FileNotFoundError(f"Input TIFF not found: {input_tiff}")
 
+    # Derive plane index from filename: “plane_01” → plane0, “plane_07” → plane6, etc.
     stem = input_tiff.stem
     m = re.search(r"plane_(\d+)", stem)
-    if m:
-        # “01” → 1, subtract 1 → 0; “07” → 7, subtract 1 → 6, etc.
-        plane_idx = int(m.group(1)) - 1
-    else:
-        print("Could not match group. Setting to -> plane0")
-        plane_idx = 0
+    plane_idx = int(m.group(1)) - 1 if m else 0
     plane_folder = f"plane{plane_idx}"
-    print(plane_folder)
 
-    save_path = Path(save_path).expanduser().resolve()  #  expand ~ to /home/user
-    if not save_path.is_dir():
-        raise NotADirectoryError(f"{save_path} is not a valid directory.")
-    if dryrun:
-        print(f"Input file {input_tiff} will save in {save_path}")
-    else:
-        save_path.mkdir(exist_ok=True)
+    # Prepare save directory for this plane
+    base = Path(save_path).expanduser().resolve()
+    plane_dir = base / plane_folder
+    plane_dir.mkdir(parents=True, exist_ok=True)
 
-    # TODO: I think the only valid `num_frames` we have access to are:
-    #       - the whole recording (from metadata)
-    #       - a single tiff page (page count)
-    #       Need to clarify this in the metadata.
+    # Build the Suite2p “db” dict
+    db = {
+        "data_path":   [ str(input_tiff.parent) ],
+        "tiff_list":   [ input_tiff.name ],
+        "save_path0":  str(base),
+        "save_folder": plane_folder,
+    }
+
     metadata = mbo.get_metadata(input_tiff)
     if ops is None:
         ops = suite2p.default_ops()
         ops = mbo.params_from_metadata(metadata, ops)
 
-    plane0 = save_path / plane_folder
-    plane0.mkdir(exist_ok=True)
+    ops["dx"] = [metadata["pixel_resolution"][0]]
+    ops["dy"] = [metadata["pixel_resolution"][0]]
 
-    expected_files = {
-        "ops": plane0 / "ops.npy",
-        "stat": plane0 / "stat.npy",
-        "iscell": plane0 / "iscell.npy",
-        "registration": plane0 / "registration.png",
-        "segmentation": plane0 / "segmentation.png",
-        "max_proj": plane0 / "max_projection_image.png",
-        "traces": plane0 / "traces.png",
-        "noise": plane0 / "shot_noise_distrubution.png",
-        "model": plane0 / "model.npy",
-        "rastermap": plane0 / "rastermap.png",
-    }
-
-    if not overwrite and all(expected_files[key].is_file() for key in ["ops", "stat", "iscell"]):
-        print(f"{input_tiff} already has segmentation results. Skipping execution.")
-        output_ops = load_ops(expected_files["ops"])
-    else:
-        if dryrun:
-            print(f"Dryrun: results will be saved in {plane0}")
-            print(f"Files that will be created: {expected_files}")
-            print(metadata)
-            return ops, metadata
-        else:
-            # db = {
-            #     "data_path": [str(input_tiff.parent)],
-            #     "save_path0": str(save_path),
-            #     "tiff_list": [input_tiff.name],
-            # }
-            # if "save_folder" in ops.keys() and not isinstance(ops["save_folder"], Sized):
-            #     raise ValueError(
-            #         f"Incorrect type for save_flder: {type(ops['save_folder'])}."
-            #     )
-            ops = tiff_to_binary(ops)
-
-            ops_path = plane0 / "ops.npy"
-            print(ops_path)
-            print("STARTING")
-            output_ops = s2p_run_plane(ops, ops_path=str(ops_path))
-            # output_ops = suite2p.run_s2p(ops=ops, db=db)
-            print("Suite2p run complete...")
-    try:
-        if replot or not all(
-            expected_files[key].is_file()
-            for key in ["registration", "segmentation", "traces"]
-        ):
-            print(f"Generating missing plots for {input_tiff.stem}...")
-
-            def safe_delete(file_path):
-                if file_path.exists():
-                    try:
-                        file_path.unlink()
-                    except PermissionError:
-                        print(
-                            f"Error: Cannot delete {file_path}. Ensure it is not open elsewhere."
-                        )
-
-            for key in ["registration", "segmentation", "traces"]:
-                safe_delete(expected_files[key])
-
-            if ops.get("roidetect", True):
-                res = load_planar_results(output_ops)
-                iscell = res["iscell"]
-                f = res["F"][iscell]
-
-                dff = dff_percentile(f, percentile=2) * 100
-                dff = uniform_filter1d(dff, size=5, axis=1)
-                dff_noise = dff_shot_noise(dff, ops["fs"])
-
-                ncells = min(30, dff.shape[0])
-                print("Plotting traces...")
-                plot_traces(dff, save_path=expected_files["traces"], num_neurons=ncells)
-                print("Plotting noise distribution...")
-                plot_noise_distribution(dff_noise, save_path=expected_files["noise"])
-
-                if HAS_RASTERMAP:
-                    spks = res["spks"][iscell]
-                    n_neurons = spks.shape[0]
-                    if n_neurons < 200:
-                        params = {
-                            "n_clusters": None,
-                            "n_PCs": min(64, n_neurons - 1),
-                            "locality": 0.1,
-                            "time_lag_window": 15,
-                            "grid_upsample": 0
-                        }
-                    else:
-                        params = {
-                            "n_clusters": 100,
-                            "n_PCs": 128,
-                            "locality": 0.0,
-                            "grid_upsample": 10
-                        }
-
-                    print("Computing rastermap model...")
-                    model = Rastermap(**params).fit(spks)
-                    np.save(expected_files["model"], model)
-
-                    neuron_bin_size = 1 if n_neurons < 200 else 5 if n_neurons < 500 else 10
-                    xmax = min(spks.shape[1], int(2000 * (200/n_neurons)**0.5))
-                    plot_rastermap(
-                        spks,
-                        model,
-                        neuron_bin_size=neuron_bin_size,
-                        xmax=xmax,
-                        save_path=expected_files["rastermap"],
-                        title_kwargs={"fontsize": 8, "y": 0.95},
-                        title="Rastermap Sorted Activity",
-                    )
-                else:
-                    print("No rastermap is available.")
-
-            fig_label = kwargs.get("fig_label", input_tiff.stem)
-            plot_projection(
-                output_ops,
-                expected_files["segmentation"],
-                fig_label=fig_label,
-                display_masks=True,
-                add_scalebar=True,
-                proj="meanImg",
-            )
-            plot_projection(
-                output_ops,
-                expected_files["max_proj"],
-                fig_label=input_tiff.stem,
-                display_masks=False,
-                add_scalebar=True,
-                proj="max_proj",
-            )
-            print("Plots generated successfully.")
-    except Exception:
-        traceback.print_exc()
+    output_ops = suite2p.run_s2p(ops=ops, db=db)
     return output_ops
+    # input_tiff = Path(input_tiff)
+    # stem = input_tiff.stem
+    # m = re.search(r"plane_(\d+)", stem)
+    # plane_idx    = int(m.group(1)) - 1 if m else 0
+    # plane_folder = f"plane{plane_idx}"
+    # plane_dir    = Path(save_path).expanduser().resolve() / plane_folder
+    # plane_dir.mkdir(exist_ok=True)
+    #
+    # # TODO: I think the only valid `num_frames` we have access to are:
+    # #       - the whole recording (from metadata)
+    # #       - a single tiff page (page count)
+    # #       Need to clarify this in the metadata.
+    #
+    # expected_files = {
+    #     "ops": plane_dir / "ops.npy",
+    #     "stat": plane_dir / "stat.npy",
+    #     "iscell": plane_dir / "iscell.npy",
+    #     "registration": plane_dir / "registration.png",
+    #     "segmentation": plane_dir / "segmentation.png",
+    #     "max_proj": plane_dir / "max_projection_image.png",
+    #     "traces": plane_dir / "traces.png",
+    #     "noise": plane_dir / "shot_noise_distrubution.png",
+    #     "model": plane_dir / "model.npy",
+    #     "rastermap": plane_dir / "rastermap.png",
+    # }
+    #
+    # if not overwrite and all(expected_files[key].is_file() for key in ["ops", "stat", "iscell"]):
+    #     print(f"{input_tiff} already has segmentation results. Skipping execution.")
+    #     output_ops = load_ops(expected_files["ops"])
+    # else:
+    #     if dryrun:
+    #         print(f"Dryrun: results will be saved in {plane_dir}")
+    #         print(f"Files that will be created: {expected_files}")
+    #         print(metadata)
+    #         return ops, metadata
+    #     else:
+    #
+    #         ops["save_folder"] = plane_folder # used by run_plane and run_s2p
+    #         ops["save_path"] = str(plane_dir) # used by s2p_run_plane
+    #
+    #         # .tiff → .bin
+    #         ops["data_path"]  = [ str(input_tiff.parent) ]
+    #         ops["tiff_list"]  = [ input_tiff.name      ]
+    #         ops["fast_disk"]  = str(plane_dir)              # just so it puts data.bin in plane_dir
+    #         ops["dx"] = [metadata["pixel_resolution"][0]]
+    #         ops["dy"] = [metadata["pixel_resolution"][0]]
+    #
+    #         ops_bin_list      = tiff_to_binary(ops)         # this returns one ops dict per plane
+    #         ops_plane         = ops_bin_list[plane_idx]
+    #
+    #         # save the ops.npy for this plane
+    #         ops_path = plane_dir / "ops.npy"
+    #         np.save(ops_path, ops_plane)
+    #
+    #         # now call the low-level run_plane and it will write _everything_ into plane_dir
+    #         output_ops = s2p_run_plane(ops_plane, ops_path=str(ops_path))
+    #         print("Suite2p run complete...")
+    # try:
+    #     if replot or not all(
+    #         expected_files[key].is_file()
+    #         for key in ["registration", "segmentation", "traces"]
+    #     ):
+    #         print(f"Generating missing plots for {input_tiff.stem}...")
+    #
+    #         def safe_delete(file_path):
+    #             if file_path.exists():
+    #                 try:
+    #                     file_path.unlink()
+    #                 except PermissionError:
+    #                     print(
+    #                         f"Error: Cannot delete {file_path}. Ensure it is not open elsewhere."
+    #                     )
+    #
+    #         for key in ["registration", "segmentation", "traces"]:
+    #             safe_delete(expected_files[key])
+    #
+    #         if ops.get("roidetect", True):
+    #             res = load_planar_results(output_ops)
+    #             iscell = res["iscell"]
+    #             f = res["F"][iscell]
+    #
+    #             dff = dff_percentile(f, percentile=2) * 100
+    #             dff = uniform_filter1d(dff, size=5, axis=1)
+    #             dff_noise = dff_shot_noise(dff, ops["fs"])
+    #
+    #             ncells = min(30, dff.shape[0])
+    #             print("Plotting traces...")
+    #             plot_traces(dff, save_path=expected_files["traces"], num_neurons=ncells)
+    #             print("Plotting noise distribution...")
+    #             plot_noise_distribution(dff_noise, save_path=expected_files["noise"])
+    #
+    #             if HAS_RASTERMAP:
+    #                 spks = res["spks"][iscell]
+    #                 n_neurons = spks.shape[0]
+    #                 if n_neurons < 200:
+    #                     params = {
+    #                         "n_clusters": None,
+    #                         "n_PCs": min(64, n_neurons - 1),
+    #                         "locality": 0.1,
+    #                         "time_lag_window": 15,
+    #                         "grid_upsample": 0
+    #                     }
+    #                 else:
+    #                     params = {
+    #                         "n_clusters": 100,
+    #                         "n_PCs": 128,
+    #                         "locality": 0.0,
+    #                         "grid_upsample": 10
+    #                     }
+    #
+    #                 print("Computing rastermap model...")
+    #                 model = Rastermap(**params).fit(spks)
+    #                 np.save(expected_files["model"], model)
+    #
+    #                 neuron_bin_size = 1 if n_neurons < 200 else 5 if n_neurons < 500 else 10
+    #                 xmax = min(spks.shape[1], int(2000 * (200/n_neurons)**0.5))
+    #                 plot_rastermap(
+    #                     spks,
+    #                     model,
+    #                     neuron_bin_size=neuron_bin_size,
+    #                     xmax=xmax,
+    #                     save_path=expected_files["rastermap"],
+    #                     title_kwargs={"fontsize": 8, "y": 0.95},
+    #                     title="Rastermap Sorted Activity",
+    #                 )
+    #             else:
+    #                 print("No rastermap is available.")
+    #
+    #         fig_label = kwargs.get("fig_label", input_tiff.stem)
+    #         plot_projection(
+    #             output_ops,
+    #             expected_files["segmentation"],
+    #             fig_label=fig_label,
+    #             display_masks=True,
+    #             add_scalebar=True,
+    #             proj="meanImg",
+    #         )
+    #         plot_projection(
+    #             output_ops,
+    #             expected_files["max_proj"],
+    #             fig_label=input_tiff.stem,
+    #             display_masks=False,
+    #             add_scalebar=True,
+    #             proj="max_proj",
+    #         )
+    #         print("Plots generated successfully.")
+    # except Exception:
+    #     traceback.print_exc()
 
 
 def run_grid_search(base_ops: dict, grid_search_dict: dict, input_file: Path | str, save_root: Path | str):
