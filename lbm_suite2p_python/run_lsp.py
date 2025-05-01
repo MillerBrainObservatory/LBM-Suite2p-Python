@@ -53,6 +53,11 @@ def normalize_plane_name(path):
         raise ValueError(f"invalid plane name: {name}")
     return f"plane{int(m.group(1)) - 1}"
 
+def _write_raw_binary(tiff_path: Path, raw_bin: Path):
+    raw_bin.parent.mkdir(parents=True, exist_ok=True)
+    arr = memmap(str(tiff_path))
+    arr.astype(np.int16).tofile(str(raw_bin))
+
 def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
     """
     Processes a full volumetric imaging dataset using Suite2p, handling plane-wise registration,
