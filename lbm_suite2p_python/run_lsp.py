@@ -57,6 +57,24 @@ def _write_raw_binary(tiff_path: Path, raw_bin: Path):
     raw_bin.parent.mkdir(parents=True, exist_ok=True)
     arr = memmap(str(tiff_path))
     arr.astype(np.int16).tofile(str(raw_bin))
+    
+def _build_ops(metadata: dict, raw_bin: Path) -> dict:
+    nt, Ly, Lx = metadata["shape"]
+    dx, dy = metadata.get("pixel_resolution", [2, 2])
+    return {
+        "Ly": Ly,
+        "Lx": Lx,
+        "fs": round(metadata["frame_rate"], 2),
+        "nframes": nt,
+        "raw_file": str(raw_bin),
+        "reg_file": str(raw_bin),
+        "dx": dx,
+        "dy": dy,
+        "metadata": metadata,
+        "input_format": "binary",
+        "delete_bin": False,
+        "move_bin": False,
+    }
 
 def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
     """
