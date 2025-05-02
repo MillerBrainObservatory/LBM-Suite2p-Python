@@ -297,14 +297,16 @@ def run_plane(
             print(f"Writing raw binary to {raw_bin}")
             _write_raw_binary(p, raw_bin)
             ops0 = _build_ops(metadata, raw_bin)
+        ops_path = plane_dir / "ops.npy"
     elif p.suffix.lower() in (".bin", "bin"):
         raw_bin = p
+        plane_dir = p.parent
+        ops_path = plane_dir / "ops.npy"
         if not p.exists():
             raise ValueError(f"Input file {p} is not a valid TIFF file, and no raw binary found at {raw_bin}")
     else:
         raise ValueError(f"Unsupported file type: {p.suffix}. Only .tif/.tiff or .bin files are supported.")
 
-    ops_path = plane_dir / "ops.npy"
     saved = load_ops(ops_path) if ops_path.is_file() else {}
     user = load_ops(ops_file) if ops_file else {}
     ops = {**ops0, **saved, **user}
