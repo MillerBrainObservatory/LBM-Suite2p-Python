@@ -8,7 +8,7 @@ import numpy as np
 from tifffile import memmap
 
 from suite2p.io import tiff_to_binary
-from suite2p.run_s2p import run_plane as s2p_run_plane
+from suite2p.run_s2p import run_plane as _run_plane
 import suite2p
 
 from scipy.ndimage import uniform_filter1d
@@ -46,7 +46,7 @@ except ImportError:
 if HAS_RASTERMAP:
     from lbm_suite2p_python.zplane import plot_rastermap
 
-def _normalize_plane_name(path):
+def _normalize_plane_folder(path):
     name = Path(path).stem
     m = re.search(r'plane[_-](\d+)', name, re.IGNORECASE)
     if not m:
@@ -205,10 +205,10 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
     print(f"Processing completed for {len(input_file_list)} files.")
     return all_ops
 
-
 def run_plane_any(
     input_path,
     save_path=None,
+    ops_file=None,
     keep_raw=False,
     keep_reg=False,
     force_reg=False,
@@ -217,51 +217,44 @@ def run_plane_any(
     p = Path(input_path)
     save_root = Path(save_path) if save_path else p.parent
     save_root.mkdir(parents=True, exist_ok=True)
+    folder = _normalize_plane_folder(p)
+    plane_dir = save_root / folder
+    plane_dir.mkdir(parents=True, exist_ok=True)
 
     if p.suffix.lower() in (".tif", ".tiff"):
         metadata = mbo.get_metadata(p)
-        folder = _normalize_plane_name(p)
-        plane_dir = save_root / folder
-        reg_bin = plane_dir / "data.bin"
-
         raw_bin = plane_dir / "data_raw.bin"
-        # if input is tiff, create a binary
         if not raw_bin.exists():
             _write_raw_binary(p, raw_bin)
-
-        # create ops if they dont already exist
         ops_path = plane_dir / "ops.npy"
-        if ops_path.exists():
+        if ops_file:
+            ops = load_ops(str(ops_file))
+        elif ops_path.exists():
             ops = load_ops(str(ops_path))
         else:
             ops = _build_ops(metadata, raw_bin)
 
-        # if keep_reg is true, we need to recreate the file
-        if not reg_bin.is_file() and keep_reg:
+        reg_bin = plane_dir / "data.bin"
+        if keep_reg and not reg_bin.exists():
             ops["do_registration"] = 1
 
-        # if registration results exist, only register if force_reg=True
-        if "yoff" in ops and "xoff" in ops:
-            if force_reg:
-                ops["do_registration"] = 1
-            else:
-                ops["do_registration"] = 0
+        if "yoff" in ops and "xoff" in ops and not force_reg:
+            ops["do_registration"] = 0
         else:
             ops["do_registration"] = 1
-        if ops_path.parent.joinpath("stat.npy").is_file():
-            if force_detect:
-                ops["roidetect"] = 1
-            else:
-                ops["roidetect"] = 0
+
+        stat_file = plane_dir / "stat.npy"
+        if stat_file.exists() and not force_detect:
+            ops["roidetect"] = 0
         else:
             ops["roidetect"] = 1
+
         np.save(str(ops_path), ops)
     else:
         plane_dir = p
 
     final_ops = run_plane_bin(plane_dir)
 
-    # cleanup ourselves
     if not keep_raw:
         (plane_dir / "data_raw.bin").unlink(missing_ok=True)
     if not keep_reg:
@@ -272,9 +265,75 @@ def run_plane_any(
 def run_plane_bin(plane_dir):
     plane_dir = Path(plane_dir)
     ops_path = plane_dir / "ops.npy"
-    ops = load_ops(str(ops_path)) if ops_path.exists() else suite2p.default_ops()
+    if ops_path.exists():
+        ops = load_ops(str(ops_path))
+    else:
+        ops = suite2p.default_ops()
     ops.update(input_format="binary", delete_bin=False, move_bin=False)
-    return s2p_run_plane(ops, ops_path=str(ops_path))
+    return _run_plane(ops, ops_path=str(ops_path))
+
+# def run_plane_any(
+#     input_path,
+#     save_path=None,
+#     keep_raw=False,
+#     keep_reg=False,
+#     force_reg=False,
+#     force_detect=False,
+# ):
+#     p = Path(input_path)
+#     save_root = Path(save_path) if save_path else p.parent
+#     save_root.mkdir(parents=True, exist_ok=True)
+#
+#     if p.suffix.lower() in (".tif", ".tiff"):
+#         metadata = mbo.get_metadata(p)
+#         folder = _normalize_plane_name(p)
+#         plane_dir = save_root / folder
+#         reg_bin = plane_dir / "data.bin"
+#
+#         raw_bin = plane_dir / "data_raw.bin"
+#         # if input is tiff, create a binary
+#         if not raw_bin.exists():
+#             _write_raw_binary(p, raw_bin)
+#
+#         # create ops if they dont already exist
+#         ops_path = plane_dir / "ops.npy"
+#         if ops_path.exists():
+#             ops = load_ops(str(ops_path))
+#         else:
+#             ops = _build_ops(metadata, raw_bin)
+#
+#         # if keep_reg is true, we need to recreate the file
+#         if not reg_bin.is_file() and keep_reg:
+#             ops["do_registration"] = 1
+#
+#         # if registration results exist, only register if force_reg=True
+#         if "yoff" in ops and "xoff" in ops:
+#             if force_reg:
+#                 ops["do_registration"] = 1
+#             else:
+#                 ops["do_registration"] = 0
+#         else:
+#             ops["do_registration"] = 1
+#         if ops_path.parent.joinpath("stat.npy").is_file():
+#             if force_detect:
+#                 ops["roidetect"] = 1
+#             else:
+#                 ops["roidetect"] = 0
+#         else:
+#             ops["roidetect"] = 1
+#         np.save(str(ops_path), ops)
+#     else:
+#         plane_dir = p
+#
+#     final_ops = run_plane_bin(plane_dir)
+#
+#     # cleanup ourselves
+#     if not keep_raw:
+#         (plane_dir / "data_raw.bin").unlink(missing_ok=True)
+#     if not keep_reg:
+#         (plane_dir / "data.bin").unlink(missing_ok=True)
+#
+#     return final_ops
 
 def run_plane(
     ops, input_tiff, save_path, save_folder=None, overwrite=False, replot=False, dryrun=False, use_suite3d=False, **kwargs
