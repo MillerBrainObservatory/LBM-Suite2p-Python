@@ -1,11 +1,16 @@
 import lbm_suite2p_python as lsp
+import mbo_utilities as mbo
 
-save_path = "/home/flynn/lbm_data/demo/output"
-input_path = "/home/flynn/lbm_data/demo/assembled/plane_07.tif"
+save_path = "/home/flynn/lbm_data/demo/amol"
+scan = mbo.read_scan("/home/flynn/lbm_data/demo/raw")
+mbo.save_as(scan, "/home/flynn/lbm_data/demo/amol", ext=".bin", planes=[7, 8])
+input_path = "/home/flynn/lbm_data/demo/amol/plane7/data_raw.bin"
 
-ops1 = lsp.run_plane_any(
+ops1 = lsp.run_plane(
     input_path=input_path,
     save_path=save_path,
+    force_reg=True,
+    keep_raw=True,
 )
 
 res1 = lsp.load_planar_results(ops1)
