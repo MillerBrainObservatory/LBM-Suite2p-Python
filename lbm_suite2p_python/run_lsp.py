@@ -1,18 +1,12 @@
 import os
 import re
-import shutil
 import traceback
 from pathlib import Path
 import mbo_utilities as mbo
 import numpy as np
 from tifffile import memmap
-
-from suite2p.io import tiff_to_binary
-from suite2p.run_s2p import run_plane as _run_plane
 import suite2p
-
 from scipy.ndimage import uniform_filter1d
-
 from lbm_suite2p_python.utils import dff_percentile
 
 from lbm_suite2p_python.zplane import (
@@ -211,9 +205,9 @@ def run_plane_bin(plane_dir):
     if ops_path.exists():
         ops = load_ops(str(ops_path))
     else:
-        ops = suite2p.default_ops()
+        raise ValueError(f"Invalid ops path: {ops_path}")
     ops.update(input_format="binary", delete_bin=False, move_bin=False)
-    return _run_plane(ops, ops_path=str(ops_path))
+    return suite2p.run_plane(ops, ops_path=str(ops_path))
 
 def run_plane(
     input_path,
@@ -232,7 +226,7 @@ def run_plane(
     Parameters
     ----------
     input_path : str or Path
-        Full path to the file to process.
+        Full path to the file to process, with the file extension.
     save_path : str or Path, optional
         Directory to save the results.
     ops_file : str or Path, optional
@@ -283,15 +277,21 @@ def run_plane(
     >> output_ops = lsp.run_plane(mbo_ops, input_files[0], save_path)
     """
     p = Path(input_path)
+    if p.is_dir():
+        raise ValueError(f"Input path must be a fully qualified filename, like D://data/file.tif. Not {input_path}")
+
     save_root = Path(save_path) if save_path else p.parent
     save_root.mkdir(parents=True, exist_ok=True)
-    folder = _normalize_plane_folder(p)
-    plane_dir = save_root / folder
-    plane_dir.mkdir(parents=True, exist_ok=True)
 
     if p.suffix.lower() in (".tif", ".tiff"):
+
+        folder = _normalize_plane_folder(p)
+        plane_dir = save_root / folder
+        plane_dir.mkdir(parents=True, exist_ok=True)
+
         metadata = mbo.get_metadata(p)
         raw_bin = plane_dir / "data_raw.bin"
+
         if not raw_bin.exists():
             _write_raw_binary(p, raw_bin)
         ops_path = plane_dir / "ops.npy"
@@ -319,7 +319,7 @@ def run_plane(
 
         np.save(str(ops_path), ops)
     else:
-        plane_dir = p
+        plane_dir = p.parent
 
     output_ops = run_plane_bin(plane_dir)
 
