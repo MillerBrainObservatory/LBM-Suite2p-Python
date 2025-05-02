@@ -47,7 +47,7 @@ import mbo_utilities as mbo # for convenience
 import lbm_suite2p_python as lsp
 ```
 
-### Preparation
+### Gathering Data
 
 {func}`mbo_utilities.get_files`
 {func}`lbm_suite2p_python.load_ops`

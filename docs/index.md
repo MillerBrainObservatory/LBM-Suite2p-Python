@@ -14,9 +14,10 @@ maxdepth: 1
 install
 Usage <usage/index>
 Discussions <discussions/index>
-Notebooks (deprecated) <examples/index>
+function_demos
 API <api>
 Manual Curation (WIP) <manual_curation>
+Notebooks (deprecated) <examples/index>
 Glossary <glossary>
 Image Gallery <image_gallery>
 ```
