@@ -1,25 +1,21 @@
 import lbm_suite2p_python as lsp
 
 save_path = "/home/flynn/lbm_data/demo/output"
-input_path = "/home/flynn/lbm_data/demo/assembled/plane_08.tif"
+input_path = "/home/flynn/lbm_data/demo/assembled/plane_07.tif"
 
 ops1 = lsp.run_plane_any(
     input_path=input_path,
     save_path=save_path,
-    keep_raw=False,
-    keep_reg=False,
-    force_reg=False,
-    force_detect=False,
 )
 
 res1 = lsp.load_planar_results(ops1)
 print(sum(res1["iscell"]))
 
-ops2 = lsp.run_plane_any(
+ops2 = lsp.run_plane(
     input_path=input_path,
     save_path=save_path,
+    keep_reg=True,
     keep_raw=False,
-    keep_reg=False,
     force_reg=False,
     force_detect=True,
 )
