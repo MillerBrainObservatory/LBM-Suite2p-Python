@@ -7,7 +7,11 @@ import mbo_utilities as mbo
 import fastplotlib as fpl
 import lbm_suite2p_python as lsp
 
-scan = mbo.read_scan(r"D://demo/raw_data/*")
+# scan = mbo.read_scan(r"D:\W2_DATA\kbarber\2025_03_01\mk301\green")
+# mbo.save_as(scan, r"D:/masknmf/assembled", ext=".tif", planes=[8], target_chunk_mb=100)
+out_file = Path(r"D:/masknmf/assembled/plane_08.tif")
+print(out_file.is_file())
+lsp.run_plane(out_file, save_path=r"D:/masknmf/output", keep_raw=True, keep_reg=True)
 iw = fpl.ImageWidget(scan)
 
 if __name__ == "__main__":

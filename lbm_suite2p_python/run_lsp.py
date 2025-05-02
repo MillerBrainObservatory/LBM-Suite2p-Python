@@ -67,6 +67,7 @@ def _build_ops(metadata: dict, raw_bin: Path) -> dict:
         "dy": dy,
         "metadata": metadata,
         "input_format": "binary",
+        "do_regmetrics": True,
         "delete_bin": False,
         "move_bin": False,
         **ops
@@ -276,58 +277,54 @@ def run_plane(
     Run a single z-plane through suite2p
     >> output_ops = lsp.run_plane(mbo_ops, input_files[0], save_path)
     """
+
     p = Path(input_path)
     if p.is_dir():
-        raise ValueError(f"Input path must be a fully qualified filename, like D://data/file.tif. Not {input_path}")
+        raise ValueError(f"Input path must be a file, not a directory: {p}")
 
     save_root = Path(save_path) if save_path else p.parent
-    save_root.mkdir(parents=True, exist_ok=True)
+    save_root.mkdir(exist_ok=True)
 
+    ops0 = {}
     if p.suffix.lower() in (".tif", ".tiff"):
-
+        metadata = mbo.get_metadata(p)
         folder = _normalize_plane_folder(p)
         plane_dir = save_root / folder
-        plane_dir.mkdir(parents=True, exist_ok=True)
-
-        metadata = mbo.get_metadata(p)
+        plane_dir.mkdir(exist_ok=True)
         raw_bin = plane_dir / "data_raw.bin"
-
-        if not raw_bin.exists():
+        if not raw_bin.exists() or force_reg:
+            # if the raw binary does not exist, or we are forcing registration, write it
+            print(f"Writing raw binary to {raw_bin}")
             _write_raw_binary(p, raw_bin)
-        ops_path = plane_dir / "ops.npy"
-        if ops_file:
-            ops = load_ops(str(ops_file))
-        elif ops_path.exists():
-            ops = load_ops(str(ops_path))
-        else:
-            ops = _build_ops(metadata, raw_bin)
-
-        reg_bin = plane_dir / "data.bin"
-        if keep_reg and not reg_bin.exists():
-            ops["do_registration"] = 1
-
-        if "yoff" in ops and "xoff" in ops and not force_reg:
-            ops["do_registration"] = 0
-        else:
-            ops["do_registration"] = 1
-
-        stat_file = plane_dir / "stat.npy"
-        if stat_file.exists() and not force_detect:
-            ops["roidetect"] = 0
-        else:
-            ops["roidetect"] = 1
-
-        np.save(str(ops_path), ops)
+            ops0 = _build_ops(metadata, raw_bin)
+    elif p.suffix.lower() in (".bin", "bin"):
+        raw_bin = p
+        if not p.exists():
+            raise ValueError(f"Input file {p} is not a valid TIFF file, and no raw binary found at {raw_bin}")
     else:
-        plane_dir = p.parent
+        raise ValueError(f"Unsupported file type: {p.suffix}. Only .tif/.tiff or .bin files are supported.")
 
-    output_ops = run_plane_bin(plane_dir)
+    ops_path = plane_dir / "ops.npy"
+    saved = load_ops(ops_path) if ops_path.is_file() else {}
+    user = load_ops(ops_file) if ops_file else {}
+    ops = {**ops0, **saved, **user}
+
+    needs_reg = force_reg or (keep_reg and not (plane_dir / "data.bin").exists()) or "yoff" not in ops
+    needs_detect = force_detect or not (plane_dir / "stat.npy").exists()
+    ops["do_registration"] = int(needs_reg)
+    ops["roidetect"] = int(needs_detect)
+    ops["move_bin"] = True
+    ops["reg_tif"] = True
+
+    np.save(ops_path, ops)
 
     if not keep_raw:
         (plane_dir / "data_raw.bin").unlink(missing_ok=True)
     if not keep_reg:
         (plane_dir / "data.bin").unlink(missing_ok=True)
 
+    output_ops = run_plane_bin(plane_dir)
+#
     expected_files = {
         "ops": plane_dir / "ops.npy",
         "stat": plane_dir / "stat.npy",
