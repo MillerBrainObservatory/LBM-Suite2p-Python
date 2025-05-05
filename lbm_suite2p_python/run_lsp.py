@@ -73,7 +73,7 @@ def _build_ops(metadata: dict, raw_bin: Path) -> dict:
         **ops
     }
 
-def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
+def run_volume(input_files, save_path, user_ops=None, replot=False):
     """
     Processes a full volumetric imaging dataset using Suite2p, handling plane-wise registration,
     segmentation, plotting, and aggregation of volumetric statistics and visualizations.
@@ -82,7 +82,7 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
     ----------
     ops : dict or list
         Dictionary of Suite2p parameters to use for each imaging plane.
-    input_file_list : list of str or Path
+    input_files : list of str or Path
         List of TIFF file paths, each representing a single imaging plane.
     save_path : str or Path
         Base directory to save all outputs.
@@ -127,13 +127,12 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
     - Optional rastermap clustering results
     """
     all_ops = []
-    for file in tqdm(input_file_list, desc="Processing Planes"):
+    for file in tqdm(input_files, desc="Processing Planes"):
         print(f"Processing {file} ---------------")
         output_ops = run_plane(
-            ops=ops,
-            input_tiff=file,
+            input_path=file,
             save_path=str(save_path),
-            save_folder=save_folder,
+            user_ops=user_ops,
             replot=replot,
         )
         all_ops.append(output_ops)
@@ -197,7 +196,7 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
         print("Volume statistics failed.")
         print("Traceback: ", traceback.format_exc())
 
-    print(f"Processing completed for {len(input_file_list)} files.")
+    print(f"Processing completed for {len(input_files)} files.")
     return all_ops
 
 def run_plane_bin(plane_dir):
@@ -213,7 +212,7 @@ def run_plane_bin(plane_dir):
 def run_plane(
     input_path,
     save_path=None,
-    ops_file=None,
+    user_ops=None,
     keep_raw=False,
     keep_reg=True,
     force_reg=False,
@@ -230,8 +229,8 @@ def run_plane(
         Full path to the file to process, with the file extension.
     save_path : str or Path, optional
         Directory to save the results.
-    ops_file : str or Path, optional
-        Path to a user‐supplied ops.npy. If given, it overrides any existing or generated ops.
+    user_ops : dict, str or Path, optional
+        Path to or dict of user‐supplied ops.npy. If given, it overrides any existing or generated ops.
     keep_raw : bool, default False
         If True, do not delete the raw binary (`data_raw.bin`) after processing.
     keep_reg : bool, default False
@@ -284,6 +283,7 @@ def run_plane(
 
     save_root = Path(save_path) if save_path else p.parent
     save_root.mkdir(exist_ok=True)
+    print(f"Saving to {save_path}...")
 
     ops0 = {}
     if p.suffix.lower() in (".tif", ".tiff"):
@@ -298,6 +298,7 @@ def run_plane(
             _write_raw_binary(p, raw_bin)
             ops0 = _build_ops(metadata, raw_bin)
         ops_path = plane_dir / "ops.npy"
+        np.save(ops_path, ops0)
     elif p.suffix.lower() in (".bin", "bin"):
         raw_bin = p
         plane_dir = p.parent
@@ -308,11 +309,13 @@ def run_plane(
         raise ValueError(f"Unsupported file type: {p.suffix}. Only .tif/.tiff or .bin files are supported.")
 
     saved = load_ops(ops_path) if ops_path.is_file() else {}
-    user = load_ops(ops_file) if ops_file else {}
+    user = load_ops(user_ops) if user_ops else {}
+    print(f"Applying user ops: {user}")
     ops = {**ops0, **saved, **user}
 
     needs_reg = force_reg or (keep_reg and not (plane_dir / "data.bin").exists()) or "yoff" not in ops
     needs_detect = force_detect or not (plane_dir / "stat.npy").exists()
+
     ops["do_registration"] = int(needs_reg)
     ops["roidetect"] = int(needs_detect)
     ops["move_bin"] = True
