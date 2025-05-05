@@ -3,7 +3,7 @@ import lbm_suite2p_python as lsp
 save_path = "/home/flynn/lbm_data/demo/output"
 input_path = "/home/flynn/lbm_data/demo/assembled/plane_07.tif"
 
-ops1 = lsp.run_plane_any(
+ops1 = lsp.run_plane(
     input_path=input_path,
     save_path=save_path,
 )

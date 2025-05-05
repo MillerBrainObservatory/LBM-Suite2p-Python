@@ -48,7 +48,7 @@ def _normalize_plane_folder(path):
     return f"plane{int(m.group(1)) - 1}"
 
 def _write_raw_binary(tiff_path: Path, raw_bin: Path):
-    raw_bin.parent.mkdir(parents=True, exist_ok=True)
+    raw_bin.parent.mkdir(exist_ok=True)
     arr = memmap(str(tiff_path))
     arr.astype(np.int16).tofile(str(raw_bin))
     

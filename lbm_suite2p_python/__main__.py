@@ -77,7 +77,7 @@ def main():
         files = mbo.get_files(input_path, "tiff", max_depth=args.max_depth)
         output_ops = lsp.run_volume(
             ops=ops,
-            input_file_list=files,
+            input_files=files,
             save_path=save_path,
             save_folder=subdir
         )
