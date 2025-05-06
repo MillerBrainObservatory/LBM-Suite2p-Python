@@ -4,10 +4,14 @@ import traceback
 from pathlib import Path
 import mbo_utilities as mbo
 import numpy as np
-from tifffile import memmap
+import tifffile
 import suite2p
 from scipy.ndimage import uniform_filter1d
 from lbm_suite2p_python.utils import dff_percentile
+try:
+    from suite2p.io.binary import BinaryFile
+except ImportError:
+    BinaryFile = None
 
 from lbm_suite2p_python.zplane import (
     plot_traces,
@@ -47,11 +51,21 @@ def _normalize_plane_folder(path):
         raise ValueError(f"invalid plane name: {name}")
     return f"plane{int(m.group(1)) - 1}"
 
-def _write_raw_binary(tiff_path: Path, raw_bin: Path):
-    raw_bin.parent.mkdir(exist_ok=True)
-    arr = memmap(str(tiff_path))
-    arr.astype(np.int16).tofile(str(raw_bin))
-    
+
+def _write_raw_binary(tiff_path, out_path):
+    data = tifffile.memmap(tiff_path)
+    out_path = Path(out_path).with_suffix(".bin")
+
+    if data.ndim != 3:
+        raise ValueError("Must be assembled, 3D (T, Y, X)")
+
+    nframes, x, y = data.shape
+    bf = BinaryFile(Ly=y, Lx=x, filename=str(Path(out_path)), n_frames=nframes, dtype=np.int16)
+
+    bf[:] = data
+    bf.close()
+
+
 def _build_ops(metadata: dict, raw_bin: Path) -> dict:
     ops = suite2p.default_ops()
     nt, Ly, Lx = metadata["shape"]
