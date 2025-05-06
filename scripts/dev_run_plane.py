@@ -1,19 +1,29 @@
+from pathlib import Path
 import lbm_suite2p_python as lsp
+import mbo_utilities as mbo
 
-save_path = "/home/flynn/lbm_data/demo/output"
-input_path = "/home/flynn/lbm_data/demo/assembled/plane_07.tif"
+raw_path = Path("/home/flynn/lbm_data/demo/raw")
 
+bin_out = raw_path.parent.joinpath("bin")
+tiff_out = raw_path.parent.joinpath("tiff")
+
+scan = mbo.read_scan(raw_path)
+mbo.save_as(scan, bin_out, planes=[7], ext="bin")
+
+bin_file = bin_out.joinpath("plane7", "data_raw.bin")
 ops1 = lsp.run_plane(
-    input_path=input_path,
-    save_path=save_path,
+    input_path=bin_file,
+    keep_raw=True
 )
 
 res1 = lsp.load_planar_results(ops1)
 print(sum(res1["iscell"]))
 
+mbo.save_as(scan, tiff_out, planes=[7], ext="tif")
+bin_file = tiff_out.joinpath("plane7", "data_raw.bin")
 ops2 = lsp.run_plane(
-    input_path=input_path,
-    save_path=save_path,
+    input_path=bin_file,
+    save_path=tiff_out.joinpath("res"),
     keep_reg=True,
     keep_raw=False,
     force_reg=False,
@@ -21,9 +31,4 @@ ops2 = lsp.run_plane(
 )
 
 res2 = lsp.load_planar_results(ops1)
-
-ops1path = "/home/flynn/lbm_data/demo/ops1.npy"
-ops2path = "/home/flynn/lbm_data/demo/ops2.npy"
-import numpy as np
-np.save(ops1path, ops1)
-np.save(ops2path, ops2)
+x = 5
