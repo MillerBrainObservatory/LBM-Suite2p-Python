@@ -399,8 +399,11 @@ def run_plane(
                 dff_noise = dff_shot_noise(dff, output_ops["fs"])
 
                 ncells = min(30, dff.shape[0])
-                print("Plotting traces...")
-                plot_traces(dff, save_path=expected_files["traces"], num_neurons=ncells)
+                if ncells < 10:
+                    print(f"Too few cells to plot traces for {plane_dir.stem}.")
+                else:
+                    print("Plotting traces...")
+                    plot_traces(dff, save_path=expected_files["traces"], num_neurons=ncells)
                 print("Plotting noise distribution...")
                 plot_noise_distribution(dff_noise, save_path=expected_files["noise"])
 
