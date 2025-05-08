@@ -121,8 +121,7 @@ def plot_volume_signal(zstats, savepath):
     mean_signal = plane_stats["mean_trace"]
     std_signal = plane_stats["std_trace"]
 
-    plt.figure(figsize=(10, 6), facecolor="black")
-    ax = plt.gca()
+    fig, ax = plt.figure(figsize=(10, 6), facecolor="black")
     ax.set_facecolor("black")
 
     plt.xlabel("Z-Plane", fontsize=14, fontweight="bold", color="white")
@@ -145,7 +144,7 @@ def plot_volume_signal(zstats, savepath):
     plt.legend(fontsize=12, facecolor="black", edgecolor="white", labelcolor="white")
 
     plt.savefig(savepath, bbox_inches="tight", facecolor="black")
-    plt.show()
+    plt.close(fig)
 
 
 def plot_volume_neuron_counts(zstats, savepath):
@@ -215,7 +214,6 @@ def plot_volume_neuron_counts(zstats, savepath):
     ax.spines["right"].set_color("white")
 
     plt.legend(fontsize=12, facecolor="black", edgecolor="white", labelcolor="white")
-
     plt.savefig(savename, bbox_inches="tight", facecolor="black")
 
 
@@ -235,62 +233,67 @@ def get_volume_stats(ops_files: list[str | Path], overwrite: bool = True):
     -----
     - The `.npy` file should contain structured data with `plane`, `accepted`, and `rejected` fields.
     """
-    if ops_files is None:
+    if not ops_files:
         print('No ops files found.')
         return None
 
     plane_stats = {}
     for i, file in enumerate(ops_files):
         output_ops = load_ops(file)
-
-        zplane = output_ops.get("zplane", None)
-        if zplane is None:
-            print("No zplane found in ops. Figures will display proper zplane number!")
+        raw_z = output_ops.get("zplane")
+        if raw_z is None:
+            zplane_num = i + 1
         else:
-            zplane = -1
-        iscell = np.load(Path(output_ops['save_path']).joinpath('iscell.npy'), allow_pickle=True)[:, 0].astype(bool)
-        traces = np.load(Path(output_ops['save_path']).joinpath('F.npy'), allow_pickle=True)
-        mean_trace = np.mean(traces)
-        std_trace = np.std(traces)
-        num_accepted = np.sum(iscell)
-        num_rejected = np.sum(~iscell)
-        timing = output_ops['timing']
-        plane_stats[i + 1] = (num_accepted, num_rejected, mean_trace, std_trace, timing, file, zplane)
+            zplane_num = int(str(raw_z).removeprefix("plane"))
+        save_path = Path(output_ops['save_path'])
+        iscell = np.load(save_path / 'iscell.npy', allow_pickle=True)[:, 0].astype(bool)
+        traces = np.load(save_path / 'F.npy', allow_pickle=True)
+        timing = output_ops.get('timing', {})
+        plane_stats[zplane_num] = {
+            'accepted': iscell.sum(),
+            'rejected': (~iscell).sum(),
+            'mean': traces.mean(),
+            'std': traces.std(),
+            'registration': timing.get('registration', np.nan),
+            'detection': timing.get('detection', timing.get('detect', np.nan)),
+            'extraction': timing.get('extraction', np.nan),
+            'classification': timing.get('classification', np.nan),
+            'deconvolution': timing.get('deconvolution', np.nan),
+            'total_runtime': timing.get('total_plane_runtime', np.nan),
+            'filepath': str(file),
+            'zplane': zplane_num
+        }
 
-    # edge case: the common path will be ops.npy if there's only a single file
-    common_path = get_common_path(ops_files)
-
-    plane_save = os.path.join(common_path, "zstats.npy")
-    plane_stats_npy = np.array(
-        [(plane, accepted, rejected, mean_trace, std_trace,
-          timing["registration"], timing["detection"], timing["extraction"],
-          timing["classification"], timing["deconvolution"], timing["total_plane_runtime"], filepath, zplane)
-         for plane, (accepted, rejected, mean_trace, std_trace, timing, filepath, zplane) in plane_stats.items()],
-        dtype=[
-            ("plane", "i4"),
-            ("accepted", "i4"),
-            ("rejected", "i4"),
-            ("mean_trace", "f8"),
-            ("std_trace", "f8"),
-            ("registration", "f8"),
-            ("detection", "f8"),
-            ("extraction", "f8"),
-            ("classification", "f8"),
-            ("deconvolution", "f8"),
-            ("total_plane_runtime", "f8"),
-            ("filepath", "U255"),
-            ("zplane", "i4")
-        ]
-    )
-    # if the file doesn't exist, save it
-    if not Path(plane_save).is_file():
-        np.save(plane_save, plane_stats_npy)
-    # if the file does exist, only save if overwrite is true
-    elif Path(plane_save).is_file() and overwrite:
-        np.save(plane_save, plane_stats_npy)
-    else:
-        print(f"File {plane_save} already exists. Skipping.")
-    return plane_save
+    common = get_common_path(ops_files)
+    out = []
+    for p, stats in sorted(plane_stats.items()):
+        out.append((
+            p,
+            stats['accepted'],
+            stats['rejected'],
+            stats['mean'],
+            stats['std'],
+            stats['registration'],
+            stats['detection'],
+            stats['extraction'],
+            stats['classification'],
+            stats['deconvolution'],
+            stats['total_runtime'],
+            stats['filepath'],
+            stats['zplane']
+        ))
+    dtype = [
+        ("plane", "i4"), ("accepted", "i4"), ("rejected", "i4"),
+        ("mean_trace", "f8"), ("std_trace", "f8"),
+        ("registration", "f8"), ("detection", "f8"), ("extraction", "f8"),
+        ("classification", "f8"), ("deconvolution", "f8"),
+        ("total_plane_runtime", "f8"), ("filepath", "U255"), ("zplane", "i4")
+    ]
+    arr = np.array(out, dtype=dtype)
+    save_path = Path(common) / "zstats.npy"
+    if overwrite or not save_path.exists():
+        np.save(save_path, arr)
+    return str(save_path)
 
 
 def save_images_to_movie(image_input, savepath, duration=None, format=".mp4"):
