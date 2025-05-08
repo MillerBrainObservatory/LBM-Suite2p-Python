@@ -17,18 +17,17 @@ ops1 = lsp.run_plane(
 )
 
 res1 = lsp.load_planar_results(ops1)
-print(sum(res1["iscell"]))
+# print(sum(res1["iscell"]))
 
 mbo.save_as(scan, tiff_out, planes=[7], ext="tif")
-bin_file = tiff_out.joinpath("plane7", "data_raw.bin")
+file = tiff_out.joinpath("plane_08.tif")
 ops2 = lsp.run_plane(
-    input_path=bin_file,
-    save_path=tiff_out.joinpath("res"),
+    input_path=file,
     keep_reg=True,
     keep_raw=False,
     force_reg=False,
     force_detect=True,
 )
 
-res2 = lsp.load_planar_results(ops1)
+res2 = lsp.load_planar_results(ops2)
 x = 5
