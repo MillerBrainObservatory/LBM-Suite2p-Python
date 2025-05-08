@@ -221,7 +221,13 @@ def run_plane_bin(plane_dir):
     else:
         raise ValueError(f"Invalid ops path: {ops_path}")
     ops.update(input_format="binary", delete_bin=False, move_bin=False)
-    return suite2p.run_plane(ops, ops_path=str(ops_path))
+
+    n_frames, Ly, Lx = ops["nframes"], ops["Ly"], ops["Lx"]
+    reg_file = ops["reg_file"]
+    with suite2p.io.BinaryFile(Ly=Ly, Lx=Lx, filename=reg_file, n_frames=n_frames) as f_reg:
+        ops = suite2p.pipeline(f_reg, None, None, None, True, ops, stat=None)
+
+    return ops
 
 def run_plane(
     input_path,
@@ -295,11 +301,10 @@ def run_plane(
     if p.is_dir():
         raise ValueError(f"Input path must be a file, not a directory: {p}")
 
-    save_root = Path(save_path) if save_path else p.parent
+    save_root = Path(save_path) if save_path is not None else p.parent
     save_root.mkdir(exist_ok=True)
-    print(f"Saving to {save_path}...")
 
-    ops0 = {}
+    ops0 = suite2p.default_ops()
     if p.suffix.lower() in (".tif", ".tiff"):
         metadata = mbo.get_metadata(p)
         folder = _normalize_plane_folder(p)
@@ -314,6 +319,7 @@ def run_plane(
         ops_path = plane_dir / "ops.npy"
         np.save(ops_path, ops0)
     elif p.suffix.lower() in (".bin", "bin"):
+        print(p.is_file())
         raw_bin = p
         plane_dir = p.parent
         ops_path = plane_dir / "ops.npy"
@@ -335,14 +341,18 @@ def run_plane(
     ops["move_bin"] = True
     ops["reg_tif"] = True
 
+    if "save_path" not in ops.keys():
+        ops["save_path"] = plane_dir
+
     np.save(ops_path, ops)
 
+    output_ops = run_plane_bin(plane_dir)
+
+    # cleanup
     if not keep_raw:
         (plane_dir / "data_raw.bin").unlink(missing_ok=True)
     if not keep_reg:
         (plane_dir / "data.bin").unlink(missing_ok=True)
-
-    output_ops = run_plane_bin(plane_dir)
 #
     expected_files = {
         "ops": plane_dir / "ops.npy",
