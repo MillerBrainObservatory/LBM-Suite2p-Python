@@ -306,6 +306,7 @@ def run_plane(
 
     save_root = Path(save_path) if save_path is not None else p.parent
     save_root.mkdir(exist_ok=True)
+    zplane = None
 
     ops0 = suite2p.default_ops()
     if p.suffix.lower() in (".tif", ".tiff"):
@@ -339,6 +340,7 @@ def run_plane(
     needs_reg = force_reg or (keep_reg and not (plane_dir / "data.bin").exists()) or "yoff" not in ops
     needs_detect = force_detect or not (plane_dir / "stat.npy").exists()
 
+    ops["zplane"] = int(plane_dir.stem.removeprefix("plane"))
     ops["do_registration"] = int(needs_reg)
     ops["roidetect"] = int(needs_detect)
     ops["move_bin"] = True

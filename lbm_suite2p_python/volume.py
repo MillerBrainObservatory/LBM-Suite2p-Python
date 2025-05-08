@@ -221,10 +221,7 @@ def plot_volume_neuron_counts(zstats, savepath):
 
 def get_volume_stats(ops_files: list[str | Path], overwrite: bool = True):
     """
-    Plots the number of accepted and rejected neurons per z-plane.
-
-    This function loads neuron count data from a `.npy` file and visualizes the
-    accepted vs. rejected neurons as a stacked bar plot with a black background.
+    Given a list of ops.npy files, accumulate common statistics for assessing zplane quality.
 
     Parameters
     ----------
@@ -245,6 +242,12 @@ def get_volume_stats(ops_files: list[str | Path], overwrite: bool = True):
     plane_stats = {}
     for i, file in enumerate(ops_files):
         output_ops = load_ops(file)
+
+        zplane = output_ops.get("zplane", None)
+        if zplane is None:
+            print("No zplane found in ops. Figures will display proper zplane number!")
+        else:
+            zplane = -1
         iscell = np.load(Path(output_ops['save_path']).joinpath('iscell.npy'), allow_pickle=True)[:, 0].astype(bool)
         traces = np.load(Path(output_ops['save_path']).joinpath('F.npy'), allow_pickle=True)
         mean_trace = np.mean(traces)
@@ -252,7 +255,7 @@ def get_volume_stats(ops_files: list[str | Path], overwrite: bool = True):
         num_accepted = np.sum(iscell)
         num_rejected = np.sum(~iscell)
         timing = output_ops['timing']
-        plane_stats[i + 1] = (num_accepted, num_rejected, mean_trace, std_trace, timing, file)
+        plane_stats[i + 1] = (num_accepted, num_rejected, mean_trace, std_trace, timing, file, zplane)
 
     # edge case: the common path will be ops.npy if there's only a single file
     common_path = get_common_path(ops_files)
@@ -261,8 +264,8 @@ def get_volume_stats(ops_files: list[str | Path], overwrite: bool = True):
     plane_stats_npy = np.array(
         [(plane, accepted, rejected, mean_trace, std_trace,
           timing["registration"], timing["detection"], timing["extraction"],
-          timing["classification"], timing["deconvolution"], timing["total_plane_runtime"], filepath)
-         for plane, (accepted, rejected, mean_trace, std_trace, timing, filepath) in plane_stats.items()],
+          timing["classification"], timing["deconvolution"], timing["total_plane_runtime"], filepath, zplane)
+         for plane, (accepted, rejected, mean_trace, std_trace, timing, filepath, zplane) in plane_stats.items()],
         dtype=[
             ("plane", "i4"),
             ("accepted", "i4"),
@@ -275,7 +278,8 @@ def get_volume_stats(ops_files: list[str | Path], overwrite: bool = True):
             ("classification", "f8"),
             ("deconvolution", "f8"),
             ("total_plane_runtime", "f8"),
-            ("filepath", "U255")
+            ("filepath", "U255"),
+            ("zplane", "i4")
         ]
     )
     # if the file doesn't exist, save it
