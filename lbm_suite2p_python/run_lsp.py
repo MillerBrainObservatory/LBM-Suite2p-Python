@@ -86,7 +86,7 @@ def _build_ops(metadata: dict, raw_bin: Path) -> dict:
         **ops
     }
 
-def run_volume(input_files, save_path, user_ops=None, replot=False):
+def run_volume(input_files, save_path=None, user_ops=None, replot=False):
     """
     Processes a full volumetric imaging dataset using Suite2p, handling plane-wise registration,
     segmentation, plotting, and aggregation of volumetric statistics and visualizations.
@@ -95,9 +95,10 @@ def run_volume(input_files, save_path, user_ops=None, replot=False):
     ----------
     input_files : list of str or Path
         List of TIFF file paths, each representing a single imaging plane.
-    save_path : str or Path
+    save_path : str or Path, optional
         Base directory to save all outputs.
-    user_ops : dict or list
+        If none, will create a "volume" directory in the parent of the first input file.
+    user_ops : dict or list, optional
         Dictionary of Suite2p parameters to use for each imaging plane.
     save_path : str, optional
         Subdirectory name within `save_path` for saving results (default: None).
@@ -139,6 +140,9 @@ def run_volume(input_files, save_path, user_ops=None, replot=False):
     - Traces animation over time and neurons
     - Optional rastermap clustering results
     """
+    if save_path is None:
+        save_path = Path(input_files[0]).parent
+
     all_ops = []
     for file in tqdm(input_files, desc="Processing Planes"):
         print(f"Processing {file} ---------------")
@@ -343,6 +347,7 @@ def run_plane(
     if "save_path" not in ops.keys():
         ops["save_path"] = plane_dir
 
+    ops["ops_path"] = ops_path
     np.save(ops_path, ops)
 
     output_ops = run_plane_bin(plane_dir)
@@ -352,7 +357,7 @@ def run_plane(
         (plane_dir / "data_raw.bin").unlink(missing_ok=True)
     if not keep_reg:
         (plane_dir / "data.bin").unlink(missing_ok=True)
-#
+
     expected_files = {
         "ops": plane_dir / "ops.npy",
         "stat": plane_dir / "stat.npy",
