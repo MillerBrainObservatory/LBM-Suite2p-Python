@@ -35,7 +35,6 @@ else:
 
 try:
     from rastermap import Rastermap
-
     HAS_RASTERMAP = True
 except ImportError:
     Rastermap = None
@@ -94,13 +93,13 @@ def run_volume(input_files, save_path, user_ops=None, replot=False):
 
     Parameters
     ----------
-    ops : dict or list
-        Dictionary of Suite2p parameters to use for each imaging plane.
     input_files : list of str or Path
         List of TIFF file paths, each representing a single imaging plane.
     save_path : str or Path
         Base directory to save all outputs.
-    save_folder : str, optional
+    user_ops : dict or list
+        Dictionary of Suite2p parameters to use for each imaging plane.
+    save_path : str, optional
         Subdirectory name within `save_path` for saving results (default: None).
     replot : bool, optional
         If True, regenerate all summary plots even if they already exist (default: False).
