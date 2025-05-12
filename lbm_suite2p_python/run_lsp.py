@@ -2,6 +2,7 @@ import os
 import re
 import traceback
 from pathlib import Path
+from icecream import ic
 import mbo_utilities as mbo
 import numpy as np
 import tifffile
@@ -48,7 +49,7 @@ def _normalize_plane_folder(path):
     m = re.search(r'plane[_-](\d+)', name, re.IGNORECASE)
     if not m:
         raise ValueError(f"invalid plane name: {name}")
-    return f"plane{int(m.group(1)) - 1}"
+    return f"plane{int(m.group(1))}"
 
 
 def _write_raw_binary(tiff_path, out_path):
@@ -66,7 +67,6 @@ def _write_raw_binary(tiff_path, out_path):
 
 
 def _build_ops(metadata: dict, raw_bin: Path) -> dict:
-    ops = suite2p.default_ops()
     nt, Ly, Lx = metadata["shape"]
     dx, dy = metadata.get("pixel_resolution", [2, 2])
     return {
@@ -75,7 +75,7 @@ def _build_ops(metadata: dict, raw_bin: Path) -> dict:
         "fs": round(metadata["frame_rate"], 2),
         "nframes": nt,
         "raw_file": str(raw_bin),
-        "reg_file": str(raw_bin),
+        # "reg_file": str(raw_bin),
         "dx": dx,
         "dy": dy,
         "metadata": metadata,
@@ -83,7 +83,6 @@ def _build_ops(metadata: dict, raw_bin: Path) -> dict:
         "do_regmetrics": True,
         "delete_bin": False,
         "move_bin": False,
-        **ops
     }
 
 def run_volume(input_files, save_path=None, user_ops=None, replot=False):
@@ -220,18 +219,22 @@ def run_plane_bin(plane_dir):
     plane_dir = Path(plane_dir)
     ops_path = plane_dir / "ops.npy"
     if ops_path.exists():
+        _=ic(f'Loading ops from existing file: {ops_path}')
         ops = load_ops(str(ops_path))
     else:
         raise ValueError(f"Invalid ops path: {ops_path}")
     ops.update(input_format="binary", delete_bin=False, move_bin=False)
 
-    n_frames = ops["nframes"] if "nframes" in ops.keys() else ops["n_frames"]
+    if 'nframes' in ops and 'n_frames' not in ops:
+            ops['n_frames'] = ops['nframes']
+    if 'n_frames' not in ops:
+        raise KeyError("run_plane_bin: missing frame count (nframes or n_frames)")
+    n_frames = ops['n_frames']
 
     Ly, Lx = ops["Ly"], ops["Lx"]
-    reg_file = ops["reg_file"]
+    reg_file = ops["raw_file"]
     with suite2p.io.BinaryFile(Ly=Ly, Lx=Lx, filename=reg_file, n_frames=n_frames) as f_reg:
         ops = suite2p.pipeline(f_reg, None, None, None, True, ops, stat=None)
-
     return ops
 
 def run_plane(
@@ -283,7 +286,7 @@ def run_plane(
 
     Notes
     -----
-    The traces output figure uses the 2%
+    - ops supplied to the function via `ops_file` will take precendence over previously saved ops.npy files.
 
     Example
     -------
@@ -298,9 +301,11 @@ def run_plane(
     Automatically fill in metadata needed for processing (frame rate, pixel resolution, etc..)
     >> mbo_ops = mbo.params_from_metadata(metadata, ops) # handles framerate, Lx/Ly, etc
 
-    Run a single z-plane through suite2p
-    >> output_ops = lsp.run_plane(mbo_ops, input_files[0], save_path)
+    Run a single z-plane through suite2p, keeping raw and registered files.
+    >> output_ops = lsp.run_plane(input_files[0], save_path="D://data//outputs", keep_raw=True, keep_registered=True)
     """
+    if isinstance(input_path, list):
+        raise ValueError(f"input_path should be a pathlib.Path or string, not: {type(input_path)}")
 
     p = Path(input_path)
     if p.is_dir():
@@ -308,9 +313,8 @@ def run_plane(
 
     save_root = Path(save_path) if save_path is not None else p.parent
     save_root.mkdir(exist_ok=True)
-    zplane = None
 
-    ops0 = suite2p.default_ops()
+    s2p_defaults = suite2p.default_ops()
     if p.suffix.lower() in (".tif", ".tiff"):
         metadata = mbo.get_metadata(p)
         folder = _normalize_plane_folder(p)
@@ -322,22 +326,20 @@ def run_plane(
             print(f"Writing raw binary to {raw_bin}")
             _write_raw_binary(p, raw_bin)
             ops0 = _build_ops(metadata, raw_bin)
-        ops_path = plane_dir / "ops.npy"
-        np.save(ops_path, ops0)
     elif p.suffix.lower() in (".bin", "bin"):
-        print(p.is_file())
+        ops0 = {}
         raw_bin = p
         plane_dir = p.parent
-        ops_path = plane_dir / "ops.npy"
         if not p.exists():
             raise ValueError(f"Input file {p} is not a valid TIFF file, and no raw binary found at {raw_bin}")
     else:
         raise ValueError(f"Unsupported file type: {p.suffix}. Only .tif/.tiff or .bin files are supported.")
 
+    ops_path = plane_dir / "ops.npy"
     saved = load_ops(ops_path) if ops_path.is_file() else {}
     user = load_ops(user_ops) if user_ops else {}
     print(f"Applying user ops: {user}")
-    ops = {**ops0, **saved, **user}
+    ops = {**s2p_defaults, **ops0, **saved, **user}
 
     needs_reg = force_reg or (keep_reg and not (plane_dir / "data.bin").exists()) or "yoff" not in ops
     needs_detect = force_detect or not (plane_dir / "stat.npy").exists()
