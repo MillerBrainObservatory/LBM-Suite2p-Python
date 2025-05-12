@@ -148,7 +148,7 @@ def run_volume(input_files, save_path=None, user_ops=None, replot=False):
         output_ops = run_plane(
             input_path=file,
             save_path=str(save_path),
-            user_ops=user_ops,
+            ops=user_ops,
             replot=replot,
         )
         all_ops.append(output_ops)
@@ -238,13 +238,13 @@ def run_plane_bin(plane_dir):
     return ops
 
 def run_plane(
-    input_path,
-    save_path=None,
-    user_ops=None,
-    keep_raw=False,
-    keep_reg=True,
-    force_reg=False,
-    force_detect=False,
+    input_path: str | Path,
+    save_path: str| Path | None=None,
+    ops: dict | str | Path=None,
+    keep_raw: bool=False,
+    keep_reg: bool=True,
+    force_reg: bool=False,
+    force_detect: bool=False,
     **kwargs,
 ):
     """
@@ -257,7 +257,7 @@ def run_plane(
         Full path to the file to process, with the file extension.
     save_path : str or Path, optional
         Directory to save the results.
-    user_ops : dict, str or Path, optional
+    ops : dict, str or Path, optional
         Path to or dict of user‐supplied ops.npy. If given, it overrides any existing or generated ops.
     keep_raw : bool, default False
         If True, do not delete the raw binary (`data_raw.bin`) after processing.
@@ -267,8 +267,6 @@ def run_plane(
         If True, force a new registration even if existing shifts are found in ops.npy.
     force_detect : bool, default False
         If True, force ROI detection even if an existing stat.npy is present.
-    fig_label : str, default None
-        A label to tie to each generated figure. Will show in different places depending on the figure.
 
     Returns
     -------
@@ -337,7 +335,7 @@ def run_plane(
 
     ops_path = plane_dir / "ops.npy"
     saved = load_ops(ops_path) if ops_path.is_file() else {}
-    user = load_ops(user_ops) if user_ops else {}
+    user = load_ops(ops) if ops else {}
     print(f"Applying user ops: {user}")
     ops = {**s2p_defaults, **ops0, **saved, **user}
 
