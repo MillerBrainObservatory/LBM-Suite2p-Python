@@ -48,7 +48,7 @@ def _normalize_plane_folder(path):
     m = re.search(r'plane[_-](\d+)', name, re.IGNORECASE)
     if not m:
         raise ValueError(f"invalid plane name: {name}")
-    return f"plane{int(m.group(1)) - 1}"
+    return f"plane{int(m.group(1))}"
 
 
 def _write_raw_binary(tiff_path, out_path):
@@ -298,9 +298,11 @@ def run_plane(
     Automatically fill in metadata needed for processing (frame rate, pixel resolution, etc..)
     >> mbo_ops = mbo.params_from_metadata(metadata, ops) # handles framerate, Lx/Ly, etc
 
-    Run a single z-plane through suite2p
-    >> output_ops = lsp.run_plane(mbo_ops, input_files[0], save_path)
+    Run a single z-plane through suite2p, keeping raw and registered files.
+    >> output_ops = lsp.run_plane(input_files[0], save_path="D://data//outputs", keep_raw=True, keep_registered=True)
     """
+    if isinstance(input_path, list):
+        raise ValueError(f"input_path should be a pathlib.Path or string, not: {type(input_path)}")
 
     p = Path(input_path)
     if p.is_dir():
@@ -308,7 +310,6 @@ def run_plane(
 
     save_root = Path(save_path) if save_path is not None else p.parent
     save_root.mkdir(exist_ok=True)
-    zplane = None
 
     ops0 = suite2p.default_ops()
     if p.suffix.lower() in (".tif", ".tiff"):
