@@ -1,5 +1,6 @@
 from suite2p import default_ops as s2p_default_ops
 
+
 def default_ops(metadata=None, ops=None, nplanes=1):
     """
     Returns default ops for Suite2P processing on Light Beads Microscopy datasets.
