@@ -1,4 +1,6 @@
 from pathlib import Path
+from signal import signal
+
 import numpy as np
 import math
 
@@ -8,11 +10,58 @@ from matplotlib.animation import FuncAnimation
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 from matplotlib.offsetbox import VPacker, HPacker, DrawingArea
-from rastermap.utils import bin1d
 
 from lbm_suite2p_python.utils import dff_percentile
 from lbm_suite2p_python.utils import _resize_masks_fit_crop
 from suite2p.detection.stats import ROI
+
+
+def bin1d(X, bin_size, axis=0):
+    """
+    Mean bin over `axis` of `X` with bin `bin_size`
+
+    Taken from rastermap: https://github.com/MouseLand/rastermap/blob/main/rastermap/utils.py
+
+    Parameters
+    ----------
+    X : np.ndarray
+
+
+    """
+    if bin_size > 0:
+        size = list(X.shape)
+        Xb = X.swapaxes(0, axis)
+        size_new = Xb.shape
+        Xb = Xb[:size[axis]//bin_size*bin_size].reshape((size[axis]//bin_size, bin_size, *size_new[1:])).mean(axis=1)
+        Xb = Xb.swapaxes(axis, 0)
+        return Xb
+    else:
+        return X
+
+
+def infer_units(f: np.ndarray) -> str:
+    """
+    Infer calcium imaging signal type from array values:
+    - 'raw': values in hundreds or thousands
+    - 'dff': unitless ΔF/F₀, typically ~0–1
+    - 'dff-percentile': ΔF/F₀ in percent, typically ~10–100
+
+    Returns one of: 'raw', 'dff', 'dff-percentile'
+    """
+    f = np.asarray(f)
+    if np.issubdtype(f.dtype, np.integer):
+        return "raw"
+
+    p1, p50, p99 = np.nanpercentile(f, [1, 50, 99])
+
+    if p99 > 500 or p50 > 100:
+        return "raw"
+    elif 5 < p1 < 30 and 20 < p50 < 60 and 40 < p99 < 100:
+        return "dff-percentile"
+    elif 0.1 < p1 < 0.2 and 0.2 < p50 < 0.5 and 0.5 < p99 < 1.0:
+        return "dff"
+    else:
+        return "unknown"
 
 
 def format_time(t):
@@ -168,7 +217,7 @@ def plot_traces(
     offset=None,
     lw=0.5,
     cmap="tab10",
-    signal_units="dff",
+    signal_units=None,
 ):
     """
     Plot stacked fluorescence traces with automatic offset and scale bars.
@@ -194,7 +243,8 @@ def plot_traces(
     cmap : str, optional
         Matplotlib colormap string (default is 'tab10').
     signal_units : str, optional
-        Units of fluorescence signal. Options: "DF/F0 %", "DF/F0", "raw signal" (default: "DF/F0 %").
+        Units of fluorescence signal. Options: "raw", "dff", "dffp", if None will infer from percentile,
+        recommended to keep None unless units are misinterpreted.
     """
     if isinstance(f, dict):
         ops = f
@@ -202,7 +252,10 @@ def plot_traces(
         res = load_planar_results(ops)
         f = res["F"]
         f = dff_percentile(f) * 100
-        signal_units = "dff"
+        signal_units = "dffp"
+
+    if signal_units is None:
+        signal_units = infer_units(f)
 
     _, n_timepoints = f.shape
     data_time = np.arange(n_timepoints) / fps
@@ -260,8 +313,6 @@ def plot_traces(
     ]
     all_y = np.concatenate(all_shifted)
     y_min, y_max = np.min(all_y), np.max(all_y)
-    x_range = window
-    new_x_upper = window + 0.05 * x_range
 
     time_bar_length = 0.1 * window
     if time_bar_length < 60:
@@ -288,15 +339,16 @@ def plot_traces(
     ax.add_artist(hsb)
 
     dff_bar_height = 0.1 * (y_max - y_min)
-    bottom_baseline = np.percentile(f[0, : current_frame + 1], 8)
-    bottom_trace_min = np.min(f[0, : current_frame + 1] - bottom_baseline)
     rounded_dff = round(dff_bar_height / 5) * 5
 
-    dff_label = (
-        f"{rounded_dff:.0f} % ΔF/F₀"
-        if signal_units == "dff"
-        else f"{rounded_dff:.0f} raw signal (a.u)"
-    )
+    if signal_units == "raw":
+        dff_label = f"{rounded_dff:.0f} raw signal (a.u)"
+    elif signal_units == "dff":
+        dff_label = f"{rounded_dff:.0f} ΔF/F₀"
+    elif signal_units == "dffp":
+        dff_label = f"{rounded_dff:.0f} % ΔF/F₀"
+    else:
+        print(f"unknown label: {signal_units}")
 
     vsb = AnchoredVScaleBar(
         height=0.1,
@@ -348,6 +400,7 @@ def animate_traces(
     expansion_factor=2.0,
     smooth_factor=1,
 ):
+    """WIP"""
     n_neurons, n_timepoints = f.shape
     data_time = np.arange(n_timepoints) / fps
     T_data = data_time[-1]
@@ -799,7 +852,7 @@ def load_planar_results(ops: dict | str | Path, z_plane: list | int=None) -> dic
     }
 
 
-def load_traces(ops):
+def load_traces(ops: dict | str | Path):
     """
     Return (accepted-only) fluorescence traces, neuropil traces and spike traces from ops file.
 
