@@ -225,7 +225,9 @@ def run_plane_bin(plane_dir):
         raise ValueError(f"Invalid ops path: {ops_path}")
     ops.update(input_format="binary", delete_bin=False, move_bin=False)
 
-    n_frames, Ly, Lx = ops["nframes"], ops["Ly"], ops["Lx"]
+    n_frames = ops["nframes"] if "nframes" in ops.keys() else ops["n_frames"]
+
+    Ly, Lx = ops["Ly"], ops["Lx"]
     reg_file = ops["reg_file"]
     with suite2p.io.BinaryFile(Ly=Ly, Lx=Lx, filename=reg_file, n_frames=n_frames) as f_reg:
         ops = suite2p.pipeline(f_reg, None, None, None, True, ops, stat=None)
