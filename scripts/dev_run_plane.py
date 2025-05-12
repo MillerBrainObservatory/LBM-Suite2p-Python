@@ -2,6 +2,8 @@ from pathlib import Path
 import lbm_suite2p_python as lsp
 import mbo_utilities as mbo
 
+from lbm_suite2p_python import run_volume
+
 raw_path = Path("/home/flynn/lbm_data/raw")
 bin_out = raw_path.parent.joinpath("bin")
 
@@ -16,8 +18,10 @@ scan = mbo.read_scan(raw_path)
 
 tiff_out = raw_path.parent.joinpath("tiff")
 res_out = raw_path.parent.joinpath("results")
-# mbo.save_as(scan, tiff_out, planes=[0, 7, 13], ext="tif")
+mbo.save_as(scan, tiff_out, planes=[7, 13], ext="tif")
 files = mbo.get_files(tiff_out, "tif", 2)
+ops = run_volume(files,)
+
 for file in files:
     ops2 = lsp.run_plane(
         input_path=file,
