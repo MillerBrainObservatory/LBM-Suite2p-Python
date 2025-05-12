@@ -92,7 +92,12 @@ def _build_ops(metadata: dict, raw_bin: Path) -> dict:
     }
 
 
-def run_volume(input_files, save_path=None, user_ops=None, replot=False):
+def run_volume(
+        input_files: list,
+        save_path: str | Path=None,
+        ops: dict | str | Path=None,
+        replot: bool=False
+):
     """
     Processes a full volumetric imaging dataset using Suite2p, handling plane-wise registration,
     segmentation, plotting, and aggregation of volumetric statistics and visualizations.
@@ -104,7 +109,7 @@ def run_volume(input_files, save_path=None, user_ops=None, replot=False):
     save_path : str or Path, optional
         Base directory to save all outputs.
         If none, will create a "volume" directory in the parent of the first input file.
-    user_ops : dict or list, optional
+    ops : dict or list, optional
         Dictionary of Suite2p parameters to use for each imaging plane.
     save_path : str, optional
         Subdirectory name within `save_path` for saving results (default: None).
@@ -155,7 +160,7 @@ def run_volume(input_files, save_path=None, user_ops=None, replot=False):
         output_ops = run_plane(
             input_path=file,
             save_path=str(save_path),
-            ops=user_ops,
+            ops=ops,
             replot=replot,
         )
         all_ops.append(output_ops)
