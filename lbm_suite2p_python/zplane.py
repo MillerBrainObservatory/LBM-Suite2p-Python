@@ -257,10 +257,10 @@ def plot_traces(
     if signal_units is None:
         signal_units = infer_units(f)
 
-    _, n_timepoints = f.shape
+    displayed_neurons = min(num_neurons, f.shape[0])
+    n_timepoints = f.shape[-1]
     data_time = np.arange(n_timepoints) / fps
     current_frame = min(int(window * fps), n_timepoints - 1)
-    displayed_neurons = num_neurons
 
     if offset is None:
         p10 = np.percentile(f[:displayed_neurons, : current_frame + 1], 10, axis=1)
@@ -349,6 +349,7 @@ def plot_traces(
         dff_label = f"{rounded_dff:.0f} % ΔF/F₀"
     else:
         print(f"unknown label: {signal_units}")
+        dff_label = "Unknown"
 
     vsb = AnchoredVScaleBar(
         height=0.1,
