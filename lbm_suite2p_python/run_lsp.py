@@ -316,7 +316,7 @@ def run_plane(
     >> mbo_ops = mbo.params_from_metadata(metadata, ops) # handles framerate, Lx/Ly, etc
 
     Run a single z-plane through suite2p, keeping raw and registered files.
-    >> output_ops = lsp.run_plane(input_files[0], save_path="D://data//outputs", keep_raw=True, keep_registered=True)
+    >> output_ops = lsp.run_plane(input_files[0], save_path="D://data//outputs", keep_raw=True, keep_registered=True, force_reg=True, force_detect=True)
     """
     if isinstance(input_path, list):
         raise ValueError(
