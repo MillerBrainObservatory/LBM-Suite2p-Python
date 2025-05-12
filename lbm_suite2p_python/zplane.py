@@ -738,7 +738,7 @@ def plot_noise_distribution(
         plt.show()
 
 
-def load_planar_results(ops, z_plane=None) -> dict:
+def load_planar_results(ops: dict | str | Path, z_plane: list | int=None) -> dict:
     """
     Load stat, iscell, spks files and return as a dict. Does NOT filter by valid cells, array contain both
     accepted and rejected neurons. Filter for accepted-only via f[iscell] or fneue[iscell] if needed.
@@ -767,7 +767,10 @@ def load_planar_results(ops, z_plane=None) -> dict:
     lbm_suite2p_python.load_ops
     lbm_suite2p_python.load_traces
     """
+    if isinstance(ops, list):
+        raise ValueError(f"Input should not be a list!")
     output_ops = load_ops(ops)
+
     save_path = Path(output_ops["save_path"])
 
     F = np.load(save_path.joinpath("F.npy"))
