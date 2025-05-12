@@ -658,7 +658,6 @@ def load_traces(ops):
     iscell = np.load(save_path.joinpath('iscell.npy'), allow_pickle=True)[:, 0].astype(bool)
     return F[iscell], Fneu[iscell], spks[iscell]
 
-
 def load_ops(ops_input: str | Path | list[str | Path]):
     """ Simple utility load a suite2p npy file"""
     if isinstance(ops_input, (str, Path)):
@@ -667,7 +666,6 @@ def load_ops(ops_input: str | Path | list[str | Path]):
         return ops_input
     print("Warning: No valid ops file provided, returning None.")
     return None
-
 
 def plot_rastermap(
         spks,

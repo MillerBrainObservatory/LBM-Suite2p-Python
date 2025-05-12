@@ -34,7 +34,6 @@ def default_ops(metadata=None, ops=None, nplanes=1):
     if ops is None:
         ops = s2p_default_ops()
 
-    # typical neuron ~16 microns
     if metadata is not None:
         ops["fs"] = metadata["frame_rate"]
         ops["dx"] = [metadata["pixel_resolution"][0]]

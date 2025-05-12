@@ -4,10 +4,14 @@ import traceback
 from pathlib import Path
 import mbo_utilities as mbo
 import numpy as np
-from tifffile import memmap
+import tifffile
 import suite2p
 from scipy.ndimage import uniform_filter1d
 from lbm_suite2p_python.utils import dff_percentile
+try:
+    from suite2p.io.binary import BinaryFile
+except ImportError:
+    BinaryFile = None
 
 from lbm_suite2p_python.zplane import (
     plot_traces,
@@ -31,7 +35,6 @@ else:
 
 try:
     from rastermap import Rastermap
-
     HAS_RASTERMAP = True
 except ImportError:
     Rastermap = None
@@ -47,11 +50,21 @@ def _normalize_plane_folder(path):
         raise ValueError(f"invalid plane name: {name}")
     return f"plane{int(m.group(1)) - 1}"
 
-def _write_raw_binary(tiff_path: Path, raw_bin: Path):
-    raw_bin.parent.mkdir(parents=True, exist_ok=True)
-    arr = memmap(str(tiff_path))
-    arr.astype(np.int16).tofile(str(raw_bin))
-    
+
+def _write_raw_binary(tiff_path, out_path):
+    data = tifffile.memmap(tiff_path)
+    out_path = Path(out_path).with_suffix(".bin")
+
+    if data.ndim != 3:
+        raise ValueError("Must be assembled, 3D (T, Y, X)")
+
+    nframes, x, y = data.shape
+    bf = BinaryFile(Ly=y, Lx=x, filename=str(Path(out_path)), n_frames=nframes, dtype=np.int16)
+
+    bf[:] = data
+    bf.close()
+
+
 def _build_ops(metadata: dict, raw_bin: Path) -> dict:
     ops = suite2p.default_ops()
     nt, Ly, Lx = metadata["shape"]
@@ -67,25 +80,27 @@ def _build_ops(metadata: dict, raw_bin: Path) -> dict:
         "dy": dy,
         "metadata": metadata,
         "input_format": "binary",
+        "do_regmetrics": True,
         "delete_bin": False,
         "move_bin": False,
         **ops
     }
 
-def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
+def run_volume(input_files, save_path=None, user_ops=None, replot=False):
     """
     Processes a full volumetric imaging dataset using Suite2p, handling plane-wise registration,
     segmentation, plotting, and aggregation of volumetric statistics and visualizations.
 
     Parameters
     ----------
-    ops : dict or list
-        Dictionary of Suite2p parameters to use for each imaging plane.
-    input_file_list : list of str or Path
+    input_files : list of str or Path
         List of TIFF file paths, each representing a single imaging plane.
-    save_path : str or Path
+    save_path : str or Path, optional
         Base directory to save all outputs.
-    save_folder : str, optional
+        If none, will create a "volume" directory in the parent of the first input file.
+    user_ops : dict or list, optional
+        Dictionary of Suite2p parameters to use for each imaging plane.
+    save_path : str, optional
         Subdirectory name within `save_path` for saving results (default: None).
     replot : bool, optional
         If True, regenerate all summary plots even if they already exist (default: False).
@@ -125,14 +140,16 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
     - Traces animation over time and neurons
     - Optional rastermap clustering results
     """
+    if save_path is None:
+        save_path = Path(input_files[0]).parent
+
     all_ops = []
-    for file in tqdm(input_file_list, desc="Processing Planes"):
+    for file in tqdm(input_files, desc="Processing Planes"):
         print(f"Processing {file} ---------------")
         output_ops = run_plane(
-            ops=ops,
-            input_tiff=file,
+            input_path=file,
             save_path=str(save_path),
-            save_folder=save_folder,
+            user_ops=user_ops,
             replot=replot,
         )
         all_ops.append(output_ops)
@@ -196,7 +213,7 @@ def run_volume(ops, input_file_list, save_path, save_folder=None, replot=False):
         print("Volume statistics failed.")
         print("Traceback: ", traceback.format_exc())
 
-    print(f"Processing completed for {len(input_file_list)} files.")
+    print(f"Processing completed for {len(input_files)} files.")
     return all_ops
 
 def run_plane_bin(plane_dir):
@@ -207,12 +224,20 @@ def run_plane_bin(plane_dir):
     else:
         raise ValueError(f"Invalid ops path: {ops_path}")
     ops.update(input_format="binary", delete_bin=False, move_bin=False)
-    return suite2p.run_plane(ops, ops_path=str(ops_path))
+
+    n_frames = ops["nframes"] if "nframes" in ops.keys() else ops["n_frames"]
+
+    Ly, Lx = ops["Ly"], ops["Lx"]
+    reg_file = ops["reg_file"]
+    with suite2p.io.BinaryFile(Ly=Ly, Lx=Lx, filename=reg_file, n_frames=n_frames) as f_reg:
+        ops = suite2p.pipeline(f_reg, None, None, None, True, ops, stat=None)
+
+    return ops
 
 def run_plane(
     input_path,
     save_path=None,
-    ops_file=None,
+    user_ops=None,
     keep_raw=False,
     keep_reg=True,
     force_reg=False,
@@ -229,8 +254,8 @@ def run_plane(
         Full path to the file to process, with the file extension.
     save_path : str or Path, optional
         Directory to save the results.
-    ops_file : str or Path, optional
-        Path to a user‐supplied ops.npy. If given, it overrides any existing or generated ops.
+    user_ops : dict, str or Path, optional
+        Path to or dict of user‐supplied ops.npy. If given, it overrides any existing or generated ops.
     keep_raw : bool, default False
         If True, do not delete the raw binary (`data_raw.bin`) after processing.
     keep_reg : bool, default False
@@ -276,53 +301,62 @@ def run_plane(
     Run a single z-plane through suite2p
     >> output_ops = lsp.run_plane(mbo_ops, input_files[0], save_path)
     """
+
     p = Path(input_path)
     if p.is_dir():
-        raise ValueError(f"Input path must be a fully qualified filename, like D://data/file.tif. Not {input_path}")
+        raise ValueError(f"Input path must be a file, not a directory: {p}")
 
-    save_root = Path(save_path) if save_path else p.parent
-    save_root.mkdir(parents=True, exist_ok=True)
+    save_root = Path(save_path) if save_path is not None else p.parent
+    save_root.mkdir(exist_ok=True)
+    zplane = None
 
+    ops0 = suite2p.default_ops()
     if p.suffix.lower() in (".tif", ".tiff"):
-
+        metadata = mbo.get_metadata(p)
         folder = _normalize_plane_folder(p)
         plane_dir = save_root / folder
-        plane_dir.mkdir(parents=True, exist_ok=True)
-
-        metadata = mbo.get_metadata(p)
+        plane_dir.mkdir(exist_ok=True)
         raw_bin = plane_dir / "data_raw.bin"
-
-        if not raw_bin.exists():
+        if not raw_bin.exists() or force_reg:
+            # if the raw binary does not exist, or we are forcing registration, write it
+            print(f"Writing raw binary to {raw_bin}")
             _write_raw_binary(p, raw_bin)
+            ops0 = _build_ops(metadata, raw_bin)
         ops_path = plane_dir / "ops.npy"
-        if ops_file:
-            ops = load_ops(str(ops_file))
-        elif ops_path.exists():
-            ops = load_ops(str(ops_path))
-        else:
-            ops = _build_ops(metadata, raw_bin)
-
-        reg_bin = plane_dir / "data.bin"
-        if keep_reg and not reg_bin.exists():
-            ops["do_registration"] = 1
-
-        if "yoff" in ops and "xoff" in ops and not force_reg:
-            ops["do_registration"] = 0
-        else:
-            ops["do_registration"] = 1
-
-        stat_file = plane_dir / "stat.npy"
-        if stat_file.exists() and not force_detect:
-            ops["roidetect"] = 0
-        else:
-            ops["roidetect"] = 1
-
-        np.save(str(ops_path), ops)
-    else:
+        np.save(ops_path, ops0)
+    elif p.suffix.lower() in (".bin", "bin"):
+        print(p.is_file())
+        raw_bin = p
         plane_dir = p.parent
+        ops_path = plane_dir / "ops.npy"
+        if not p.exists():
+            raise ValueError(f"Input file {p} is not a valid TIFF file, and no raw binary found at {raw_bin}")
+    else:
+        raise ValueError(f"Unsupported file type: {p.suffix}. Only .tif/.tiff or .bin files are supported.")
+
+    saved = load_ops(ops_path) if ops_path.is_file() else {}
+    user = load_ops(user_ops) if user_ops else {}
+    print(f"Applying user ops: {user}")
+    ops = {**ops0, **saved, **user}
+
+    needs_reg = force_reg or (keep_reg and not (plane_dir / "data.bin").exists()) or "yoff" not in ops
+    needs_detect = force_detect or not (plane_dir / "stat.npy").exists()
+
+    ops["zplane"] = int(plane_dir.stem.removeprefix("plane"))
+    ops["do_registration"] = int(needs_reg)
+    ops["roidetect"] = int(needs_detect)
+    ops["move_bin"] = True
+    ops["reg_tif"] = True
+
+    if "save_path" not in ops.keys():
+        ops["save_path"] = plane_dir
+
+    ops["ops_path"] = ops_path
+    np.save(ops_path, ops)
 
     output_ops = run_plane_bin(plane_dir)
 
+    # cleanup
     if not keep_raw:
         (plane_dir / "data_raw.bin").unlink(missing_ok=True)
     if not keep_reg:
@@ -369,8 +403,11 @@ def run_plane(
                 dff_noise = dff_shot_noise(dff, output_ops["fs"])
 
                 ncells = min(30, dff.shape[0])
-                print("Plotting traces...")
-                plot_traces(dff, save_path=expected_files["traces"], num_neurons=ncells)
+                if ncells < 10:
+                    print(f"Too few cells to plot traces for {plane_dir.stem}.")
+                else:
+                    print("Plotting traces...")
+                    plot_traces(dff, save_path=expected_files["traces"], num_neurons=ncells)
                 print("Plotting noise distribution...")
                 plot_noise_distribution(dff_noise, save_path=expected_files["noise"])
 
