@@ -10,24 +10,37 @@ from scipy.ndimage import percentile_filter, gaussian_filter1d, uniform_filter1d
 
 
 def smooth_video(input_path, output_path, target_fps=60):
-    filter_str = f"minterpolate=fps={target_fps}:mi_mode=mci:mc_mode=aobmc:me=umh:vsbmc=1"
+    filter_str = (
+        f"minterpolate=fps={target_fps}:mi_mode=mci:mc_mode=aobmc:me=umh:vsbmc=1"
+    )
     cmd = [
         "ffmpeg",
         "-y",
-        "-i", input_path,
-        "-vf", filter_str,
-        "-fps_mode", "cfr",
-        "-r", str(target_fps),
-        "-c:v", "libx264",
-        "-crf", "18",
-        "-preset", "slow",
-        output_path
+        "-i",
+        input_path,
+        "-vf",
+        filter_str,
+        "-fps_mode",
+        "cfr",
+        "-r",
+        str(target_fps),
+        "-c:v",
+        "libx264",
+        "-crf",
+        "18",
+        "-preset",
+        "slow",
+        output_path,
     ]
 
-    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    result = subprocess.run(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+    )
     if result.returncode != 0:
         print("FFmpeg error:", result.stderr)
-        raise subprocess.CalledProcessError(result.returncode, cmd, output=result.stdout, stderr=result.stderr)
+        raise subprocess.CalledProcessError(
+            result.returncode, cmd, output=result.stdout, stderr=result.stderr
+        )
 
 
 def _resize_masks_fit_crop(mask, target_shape):
@@ -39,13 +52,13 @@ def _resize_masks_fit_crop(mask, target_shape):
     if sy > ty or sx > tx:
         start_y = (sy - ty) // 2
         start_x = (sx - tx) // 2
-        return mask[start_y:start_y + ty, start_x:start_x + tx]
+        return mask[start_y : start_y + ty, start_x : start_x + tx]
 
     # If mask is smaller, pad it
     resized_mask = np.zeros(target_shape, dtype=mask.dtype)
     start_y = (ty - sy) // 2
     start_x = (tx - sx) // 2
-    resized_mask[start_y:start_y + sy, start_x:start_x + sx] = mask
+    resized_mask[start_y : start_y + sy, start_x : start_x + sx] = mask
     return resized_mask
 
 
@@ -98,10 +111,12 @@ def dff_percentile(f_trace, window_size=300, percentile=8):
     dff : np.ndarray
         (N_neurons, N_frames) ΔF/F₀ traces.
     """
-    f0 = np.array([
-        percentile_filter(f, percentile, size=window_size, mode='nearest')
-        for f in f_trace
-    ])
+    f0 = np.array(
+        [
+            percentile_filter(f, percentile, size=window_size, mode="nearest")
+            for f in f_trace
+        ]
+    )
     return (f_trace - f0) / (f0 + 1e-6)  # 1e-6 to avoid division by zero
 
 
@@ -121,7 +136,9 @@ def dff_maxmin(f_trace, fps, smooth_window=5):
     dff = (f_trace - f_baseline) / (f_baseline + 1e-8)
 
     # Step 4: Normalize 0 to 1 for visualization
-    dff_n = (dff - np.min(dff, axis=1, keepdims=True)) / (np.max(dff, axis=1, keepdims=True) - np.min(dff, axis=1, keepdims=True) + 1e-8)
+    dff_n = (dff - np.min(dff, axis=1, keepdims=True)) / (
+        np.max(dff, axis=1, keepdims=True) - np.min(dff, axis=1, keepdims=True) + 1e-8
+    )
     dff_smooth = uniform_filter1d(dff_n, size=smooth_window, axis=1)
 
     return dff_smooth
@@ -183,7 +200,9 @@ def get_common_path(ops_files: list | tuple):
         ops_files = [ops_files]
     if len(ops_files) == 1:
         path = Path(ops_files[0]).parent
-        while path.exists() and len(list(path.iterdir())) <= 1:  # Traverse up if only one item exists
+        while (
+            path.exists() and len(list(path.iterdir())) <= 1
+        ):  # Traverse up if only one item exists
             path = path.parent
         return path
     else:
@@ -218,6 +237,6 @@ def combine_tiffs(files):
 
     for i, f in enumerate(files):
         tiff = tifffile.imread(f)
-        new_tiff[i * num_frames:(i + 1) * num_frames] = tiff
+        new_tiff[i * num_frames : (i + 1) * num_frames] = tiff
 
     return new_tiff

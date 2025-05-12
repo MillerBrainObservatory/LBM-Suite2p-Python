@@ -9,6 +9,7 @@ import tifffile
 import suite2p
 from scipy.ndimage import uniform_filter1d
 from lbm_suite2p_python.utils import dff_percentile
+
 try:
     from suite2p.io.binary import BinaryFile
 except ImportError:
@@ -29,6 +30,7 @@ from .volume import (
     get_volume_stats,
     save_images_to_movie,
 )
+
 if mbo.is_running_jupyter():
     from tqdm.notebook import tqdm
 else:
@@ -36,6 +38,7 @@ else:
 
 try:
     from rastermap import Rastermap
+
     HAS_RASTERMAP = True
 except ImportError:
     Rastermap = None
@@ -44,9 +47,10 @@ except ImportError:
 if HAS_RASTERMAP:
     from lbm_suite2p_python.zplane import plot_rastermap
 
+
 def _normalize_plane_folder(path):
     name = Path(path).stem
-    m = re.search(r'plane[_-](\d+)', name, re.IGNORECASE)
+    m = re.search(r"plane[_-](\d+)", name, re.IGNORECASE)
     if not m:
         raise ValueError(f"invalid plane name: {name}")
     return f"plane{int(m.group(1))}"
@@ -60,7 +64,9 @@ def _write_raw_binary(tiff_path, out_path):
         raise ValueError("Must be assembled, 3D (T, Y, X)")
 
     nframes, x, y = data.shape
-    bf = BinaryFile(Ly=y, Lx=x, filename=str(Path(out_path)), n_frames=nframes, dtype=np.int16)
+    bf = BinaryFile(
+        Ly=y, Lx=x, filename=str(Path(out_path)), n_frames=nframes, dtype=np.int16
+    )
 
     bf[:] = data
     bf.close()
@@ -84,6 +90,7 @@ def _build_ops(metadata: dict, raw_bin: Path) -> dict:
         "delete_bin": False,
         "move_bin": False,
     }
+
 
 def run_volume(input_files, save_path=None, user_ops=None, replot=False):
     """
@@ -215,36 +222,40 @@ def run_volume(input_files, save_path=None, user_ops=None, replot=False):
     print(f"Processing completed for {len(input_files)} files.")
     return all_ops
 
+
 def run_plane_bin(plane_dir):
     plane_dir = Path(plane_dir)
     ops_path = plane_dir / "ops.npy"
     if ops_path.exists():
-        _=ic(f'Loading ops from existing file: {ops_path}')
+        _ = ic(f"Loading ops from existing file: {ops_path}")
         ops = load_ops(str(ops_path))
     else:
         raise ValueError(f"Invalid ops path: {ops_path}")
     ops.update(input_format="binary", delete_bin=False, move_bin=False)
 
-    if 'nframes' in ops and 'n_frames' not in ops:
-            ops['n_frames'] = ops['nframes']
-    if 'n_frames' not in ops:
+    if "nframes" in ops and "n_frames" not in ops:
+        ops["n_frames"] = ops["nframes"]
+    if "n_frames" not in ops:
         raise KeyError("run_plane_bin: missing frame count (nframes or n_frames)")
-    n_frames = ops['n_frames']
+    n_frames = ops["n_frames"]
 
     Ly, Lx = ops["Ly"], ops["Lx"]
     reg_file = ops["raw_file"]
-    with suite2p.io.BinaryFile(Ly=Ly, Lx=Lx, filename=reg_file, n_frames=n_frames) as f_reg:
+    with suite2p.io.BinaryFile(
+        Ly=Ly, Lx=Lx, filename=reg_file, n_frames=n_frames
+    ) as f_reg:
         ops = suite2p.pipeline(f_reg, None, None, None, True, ops, stat=None)
     return ops
 
+
 def run_plane(
     input_path: str | Path,
-    save_path: str| Path | None=None,
-    ops: dict | str | Path=None,
-    keep_raw: bool=False,
-    keep_reg: bool=True,
-    force_reg: bool=False,
-    force_detect: bool=False,
+    save_path: str | Path | None = None,
+    ops: dict | str | Path = None,
+    keep_raw: bool = False,
+    keep_reg: bool = True,
+    force_reg: bool = False,
+    force_detect: bool = False,
     **kwargs,
 ):
     """
@@ -303,7 +314,9 @@ def run_plane(
     >> output_ops = lsp.run_plane(input_files[0], save_path="D://data//outputs", keep_raw=True, keep_registered=True)
     """
     if isinstance(input_path, list):
-        raise ValueError(f"input_path should be a pathlib.Path or string, not: {type(input_path)}")
+        raise ValueError(
+            f"input_path should be a pathlib.Path or string, not: {type(input_path)}"
+        )
 
     p = Path(input_path)
     if p.is_dir():
@@ -329,9 +342,13 @@ def run_plane(
         raw_bin = p
         plane_dir = p.parent
         if not p.exists():
-            raise ValueError(f"Input file {p} is not a valid TIFF file, and no raw binary found at {raw_bin}")
+            raise ValueError(
+                f"Input file {p} is not a valid TIFF file, and no raw binary found at {raw_bin}"
+            )
     else:
-        raise ValueError(f"Unsupported file type: {p.suffix}. Only .tif/.tiff or .bin files are supported.")
+        raise ValueError(
+            f"Unsupported file type: {p.suffix}. Only .tif/.tiff or .bin files are supported."
+        )
 
     ops_path = plane_dir / "ops.npy"
     saved = load_ops(ops_path) if ops_path.is_file() else {}
@@ -339,7 +356,11 @@ def run_plane(
     print(f"Applying user ops: {user}")
     ops = {**s2p_defaults, **ops0, **saved, **user}
 
-    needs_reg = force_reg or (keep_reg and not (plane_dir / "data.bin").exists()) or "yoff" not in ops
+    needs_reg = (
+        force_reg
+        or (keep_reg and not (plane_dir / "data.bin").exists())
+        or "yoff" not in ops
+    )
     needs_detect = force_detect or not (plane_dir / "stat.npy").exists()
 
     ops["zplane"] = int(plane_dir.stem.removeprefix("plane"))
@@ -407,7 +428,9 @@ def run_plane(
                     print(f"Too few cells to plot traces for {plane_dir.stem}.")
                 else:
                     print("Plotting traces...")
-                    plot_traces(dff, save_path=expected_files["traces"], num_neurons=ncells)
+                    plot_traces(
+                        dff, save_path=expected_files["traces"], num_neurons=ncells
+                    )
                 print("Plotting noise distribution...")
                 plot_noise_distribution(dff_noise, save_path=expected_files["noise"])
 
@@ -420,22 +443,24 @@ def run_plane(
                             "n_PCs": min(64, n_neurons - 1),
                             "locality": 0.1,
                             "time_lag_window": 15,
-                            "grid_upsample": 0
+                            "grid_upsample": 0,
                         }
                     else:
                         params = {
                             "n_clusters": 100,
                             "n_PCs": 128,
                             "locality": 0.0,
-                            "grid_upsample": 10
+                            "grid_upsample": 10,
                         }
 
                     print("Computing rastermap model...")
                     model = Rastermap(**params).fit(spks)
                     np.save(expected_files["model"], model)
 
-                    neuron_bin_size = 1 if n_neurons < 200 else 5 if n_neurons < 500 else 10
-                    xmax = min(spks.shape[1], int(2000 * (200/n_neurons)**0.5))
+                    neuron_bin_size = (
+                        1 if n_neurons < 200 else 5 if n_neurons < 500 else 10
+                    )
+                    xmax = min(spks.shape[1], int(2000 * (200 / n_neurons) ** 0.5))
                     plot_rastermap(
                         spks,
                         model,
@@ -472,8 +497,12 @@ def run_plane(
     return output_ops
 
 
-
-def run_grid_search(base_ops: dict, grid_search_dict: dict, input_file: Path | str, save_root: Path | str):
+def run_grid_search(
+    base_ops: dict,
+    grid_search_dict: dict,
+    input_file: Path | str,
+    save_root: Path | str,
+):
     """
     Run a grid search over all combinations of the input suite2p parameters.
 

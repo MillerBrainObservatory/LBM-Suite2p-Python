@@ -14,7 +14,7 @@ from lbm_suite2p_python.utils import get_common_path
 def update_ops_paths(ops_files: str | list):
     """
     Update save_path, save_path0, and save_folder in an ops dictionary based on its current location. Use after moving an ops_file or batch of ops_files."""
-    if isinstance(ops_files, (str,Path)):
+    if isinstance(ops_files, (str, Path)):
         ops_files = [ops_files]
 
     for ops_file in ops_files:
@@ -66,17 +66,44 @@ def plot_execution_time(filepath, savepath):
 
     plt.xlabel("Z-Plane", fontsize=14, fontweight="bold", color="white")
     plt.ylabel("Execution Time (s)", fontsize=14, fontweight="bold", color="white")
-    plt.title("Execution Time per Processing Step", fontsize=16, fontweight="bold", color="white")
+    plt.title(
+        "Execution Time per Processing Step",
+        fontsize=16,
+        fontweight="bold",
+        color="white",
+    )
 
     plt.bar(planes, reg_time, label="Registration", alpha=0.8, color="#FF5733")
-    plt.bar(planes, detect_time, label="Detection", alpha=0.8, bottom=reg_time, color="#33FF57")
-    bars3 = plt.bar(planes, extract_time, label="Extraction", alpha=0.8, bottom=reg_time + detect_time, color="#3357FF")
+    plt.bar(
+        planes,
+        detect_time,
+        label="Detection",
+        alpha=0.8,
+        bottom=reg_time,
+        color="#33FF57",
+    )
+    bars3 = plt.bar(
+        planes,
+        extract_time,
+        label="Extraction",
+        alpha=0.8,
+        bottom=reg_time + detect_time,
+        color="#3357FF",
+    )
 
     for bar, total in zip(bars3, total_time):
         height = bar.get_y() + bar.get_height()
         if total > 1:  # Only label if execution time is large enough to be visible
-            plt.text(bar.get_x() + bar.get_width() / 2, height + 2, f"{int(total)}",
-                     ha="center", va="bottom", fontsize=12, color="white", fontweight="bold")
+            plt.text(
+                bar.get_x() + bar.get_width() / 2,
+                height + 2,
+                f"{int(total)}",
+                ha="center",
+                va="bottom",
+                fontsize=12,
+                color="white",
+                fontweight="bold",
+            )
 
     plt.xticks(planes, fontsize=12, fontweight="bold", color="white")
     plt.yticks(fontsize=12, fontweight="bold", color="white")
@@ -88,8 +115,14 @@ def plot_execution_time(filepath, savepath):
     ax.spines["top"].set_color("white")
     ax.spines["right"].set_color("white")
 
-    plt.legend(fontsize=12, facecolor="black", edgecolor="white", labelcolor="white", loc="upper left",
-               bbox_to_anchor=(1, 1))
+    plt.legend(
+        fontsize=12,
+        facecolor="black",
+        edgecolor="white",
+        labelcolor="white",
+        loc="upper left",
+        bbox_to_anchor=(1, 1),
+    )
 
     plt.savefig(savepath, bbox_inches="tight", facecolor="black")
     plt.show()
@@ -126,10 +159,26 @@ def plot_volume_signal(zstats, savepath):
 
     plt.xlabel("Z-Plane", fontsize=14, fontweight="bold", color="white")
     plt.ylabel("Mean Raw Signal", fontsize=14, fontweight="bold", color="white")
-    plt.title("Mean Fluorescence Signal per Z-Plane", fontsize=16, fontweight="bold", color="white")
+    plt.title(
+        "Mean Fluorescence Signal per Z-Plane",
+        fontsize=16,
+        fontweight="bold",
+        color="white",
+    )
 
-    plt.errorbar(planes, mean_signal, yerr=std_signal, fmt='o-', color="cyan",
-                 ecolor="lightblue", elinewidth=2, capsize=4, markersize=6, alpha=0.8, label="Mean ± STD")
+    plt.errorbar(
+        planes,
+        mean_signal,
+        yerr=std_signal,
+        fmt="o-",
+        color="cyan",
+        ecolor="lightblue",
+        elinewidth=2,
+        capsize=4,
+        markersize=6,
+        alpha=0.8,
+        label="Mean ± STD",
+    )
 
     plt.xticks(planes, fontsize=12, fontweight="bold", color="white")
     plt.yticks(fontsize=12, fontweight="bold", color="white")
@@ -176,7 +225,9 @@ def plot_volume_neuron_counts(zstats, savepath):
     planes = plane_stats["plane"]
     accepted = plane_stats["accepted"]
     rejected = plane_stats["rejected"]
-    savename = savepath.joinpath(f"all_neurons_{accepted.sum()}acc_{rejected.sum()}rej.png")
+    savename = savepath.joinpath(
+        f"all_neurons_{accepted.sum()}acc_{rejected.sum()}rej.png"
+    )
 
     plt.figure(figsize=(10, 6), facecolor="black")
     ax = plt.gca()
@@ -184,24 +235,53 @@ def plot_volume_neuron_counts(zstats, savepath):
 
     plt.xlabel("Z-Plane", fontsize=14, fontweight="bold", color="white")
     plt.ylabel("Number of Neurons", fontsize=14, fontweight="bold", color="white")
-    plt.title("Accepted vs. Rejected Neurons per Z-Plane", fontsize=16, fontweight="bold", color="white")
+    plt.title(
+        "Accepted vs. Rejected Neurons per Z-Plane",
+        fontsize=16,
+        fontweight="bold",
+        color="white",
+    )
 
-    bars1 = plt.bar(planes, accepted, label="Accepted Neurons", alpha=0.8, color="#4CAF50")  # Light green
-    bars2 = plt.bar(planes, rejected, label="Rejected Neurons", alpha=0.8, bottom=accepted,
-                    color="#F57C00")  # Light orange
+    bars1 = plt.bar(
+        planes, accepted, label="Accepted Neurons", alpha=0.8, color="#4CAF50"
+    )  # Light green
+    bars2 = plt.bar(
+        planes,
+        rejected,
+        label="Rejected Neurons",
+        alpha=0.8,
+        bottom=accepted,
+        color="#F57C00",
+    )  # Light orange
 
     for bar in bars1:
         height = bar.get_height()
         if height > 0:
-            plt.text(bar.get_x() + bar.get_width() / 2, height / 2, f"{int(height)}",
-                     ha="center", va="center", fontsize=12, color="white", fontweight="bold")
+            plt.text(
+                bar.get_x() + bar.get_width() / 2,
+                height / 2,
+                f"{int(height)}",
+                ha="center",
+                va="center",
+                fontsize=12,
+                color="white",
+                fontweight="bold",
+            )
 
     for bar1, bar2 in zip(bars1, bars2):
         height1 = bar1.get_height()
         height2 = bar2.get_height()
         if height2 > 0:
-            plt.text(bar2.get_x() + bar2.get_width() / 2, height1 + height2 / 2, f"{int(height2)}",
-                     ha="center", va="center", fontsize=12, color="white", fontweight="bold")
+            plt.text(
+                bar2.get_x() + bar2.get_width() / 2,
+                height1 + height2 / 2,
+                f"{int(height2)}",
+                ha="center",
+                va="center",
+                fontsize=12,
+                color="white",
+                fontweight="bold",
+            )
 
     plt.xticks(planes, fontsize=12, fontweight="bold", color="white")
     plt.yticks(fontsize=12, fontweight="bold", color="white")
@@ -234,7 +314,7 @@ def get_volume_stats(ops_files: list[str | Path], overwrite: bool = True):
     - The `.npy` file should contain structured data with `plane`, `accepted`, and `rejected` fields.
     """
     if not ops_files:
-        print('No ops files found.')
+        print("No ops files found.")
         return None
 
     plane_stats = {}
@@ -245,49 +325,59 @@ def get_volume_stats(ops_files: list[str | Path], overwrite: bool = True):
             zplane_num = i + 1
         else:
             zplane_num = int(str(raw_z).removeprefix("plane"))
-        save_path = Path(output_ops['save_path'])
-        iscell = np.load(save_path / 'iscell.npy', allow_pickle=True)[:, 0].astype(bool)
-        traces = np.load(save_path / 'F.npy', allow_pickle=True)
-        timing = output_ops.get('timing', {})
+        save_path = Path(output_ops["save_path"])
+        iscell = np.load(save_path / "iscell.npy", allow_pickle=True)[:, 0].astype(bool)
+        traces = np.load(save_path / "F.npy", allow_pickle=True)
+        timing = output_ops.get("timing", {})
         plane_stats[zplane_num] = {
-            'accepted': iscell.sum(),
-            'rejected': (~iscell).sum(),
-            'mean': traces.mean(),
-            'std': traces.std(),
-            'registration': timing.get('registration', np.nan),
-            'detection': timing.get('detection', timing.get('detect', np.nan)),
-            'extraction': timing.get('extraction', np.nan),
-            'classification': timing.get('classification', np.nan),
-            'deconvolution': timing.get('deconvolution', np.nan),
-            'total_runtime': timing.get('total_plane_runtime', np.nan),
-            'filepath': str(file),
-            'zplane': zplane_num
+            "accepted": iscell.sum(),
+            "rejected": (~iscell).sum(),
+            "mean": traces.mean(),
+            "std": traces.std(),
+            "registration": timing.get("registration", np.nan),
+            "detection": timing.get("detection", timing.get("detect", np.nan)),
+            "extraction": timing.get("extraction", np.nan),
+            "classification": timing.get("classification", np.nan),
+            "deconvolution": timing.get("deconvolution", np.nan),
+            "total_runtime": timing.get("total_plane_runtime", np.nan),
+            "filepath": str(file),
+            "zplane": zplane_num,
         }
 
     common = get_common_path(ops_files)
     out = []
     for p, stats in sorted(plane_stats.items()):
-        out.append((
-            p,
-            stats['accepted'],
-            stats['rejected'],
-            stats['mean'],
-            stats['std'],
-            stats['registration'],
-            stats['detection'],
-            stats['extraction'],
-            stats['classification'],
-            stats['deconvolution'],
-            stats['total_runtime'],
-            stats['filepath'],
-            stats['zplane']
-        ))
+        out.append(
+            (
+                p,
+                stats["accepted"],
+                stats["rejected"],
+                stats["mean"],
+                stats["std"],
+                stats["registration"],
+                stats["detection"],
+                stats["extraction"],
+                stats["classification"],
+                stats["deconvolution"],
+                stats["total_runtime"],
+                stats["filepath"],
+                stats["zplane"],
+            )
+        )
     dtype = [
-        ("plane", "i4"), ("accepted", "i4"), ("rejected", "i4"),
-        ("mean_trace", "f8"), ("std_trace", "f8"),
-        ("registration", "f8"), ("detection", "f8"), ("extraction", "f8"),
-        ("classification", "f8"), ("deconvolution", "f8"),
-        ("total_plane_runtime", "f8"), ("filepath", "U255"), ("zplane", "i4")
+        ("plane", "i4"),
+        ("accepted", "i4"),
+        ("rejected", "i4"),
+        ("mean_trace", "f8"),
+        ("std_trace", "f8"),
+        ("registration", "f8"),
+        ("detection", "f8"),
+        ("extraction", "f8"),
+        ("classification", "f8"),
+        ("deconvolution", "f8"),
+        ("total_plane_runtime", "f8"),
+        ("filepath", "U255"),
+        ("zplane", "i4"),
     ]
     arr = np.array(out, dtype=dtype)
     save_path = Path(common) / "zstats.npy"
@@ -328,13 +418,17 @@ def save_images_to_movie(image_input, savepath, duration=None, format=".mp4"):
 
     if isinstance(image_input, (str, Path)):
         image_dir = Path(image_input)
-        image_files = sorted(glob.glob(str(image_dir / "*.png")) +
-                             glob.glob(str(image_dir / "*.jpg")) +
-                             glob.glob(str(image_dir / "*.tif")))
+        image_files = sorted(
+            glob.glob(str(image_dir / "*.png"))
+            + glob.glob(str(image_dir / "*.jpg"))
+            + glob.glob(str(image_dir / "*.tif"))
+        )
     elif isinstance(image_input, list):
         image_files = sorted(map(str, image_input))
     else:
-        raise ValueError("image_input must be a directory path or a list of file paths.")
+        raise ValueError(
+            "image_input must be a directory path or a list of file paths."
+        )
 
     if not image_files:
         return
@@ -344,18 +438,20 @@ def save_images_to_movie(image_input, savepath, duration=None, format=".mp4"):
     fps = len(image_files) / duration if duration else 1
 
     if format == ".mp4":
-        fourcc = cv2.VideoWriter_fourcc(*'XVID')
+        fourcc = cv2.VideoWriter_fourcc(*"XVID")
         video_path = savepath
     elif format == ".avi":
-        fourcc = cv2.VideoWriter_fourcc(*'HFYU')
+        fourcc = cv2.VideoWriter_fourcc(*"HFYU")
         video_path = savepath
     elif format == ".mov":
-        fourcc = cv2.VideoWriter_fourcc(*'HFYU')
+        fourcc = cv2.VideoWriter_fourcc(*"HFYU")
         video_path = temp_video
     else:
         raise ValueError("Invalid format. Use '.mp4', '.avi', or '.mov'.")
 
-    video_writer = cv2.VideoWriter(str(video_path), fourcc, max(fps, 1), (width, height))
+    video_writer = cv2.VideoWriter(
+        str(video_path), fourcc, max(fps, 1), (width, height)
+    )
 
     for image_file in image_files:
         frame = cv2.imread(image_file)
@@ -365,23 +461,36 @@ def save_images_to_movie(image_input, savepath, duration=None, format=".mp4"):
 
     if format == ".mp4":
         ffmpeg_cmd = [
-            "ffmpeg", "-y", "-i", str(video_path),
-            "-vcodec", "libx264",
-            "-acodec", "aac",
-            "-preset", "slow",
-            "-crf", "18",
-            str(savepath)  # Save directly to `savepath`
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(video_path),
+            "-vcodec",
+            "libx264",
+            "-acodec",
+            "aac",
+            "-preset",
+            "slow",
+            "-crf",
+            "18",
+            str(savepath),  # Save directly to `savepath`
         ]
         subprocess.run(ffmpeg_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         print(f"MP4 saved at {savepath}")
 
     elif format == ".mov":
         ffmpeg_cmd = [
-            "ffmpeg", "-y", "-i", str(temp_video),
-            "-c:v", "prores_ks",  # Use Apple ProRes codec
-            "-profile:v", "3",  # ProRes 422 LT
-            "-pix_fmt", "yuv422p10le",
-            str(savepath)
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(temp_video),
+            "-c:v",
+            "prores_ks",  # Use Apple ProRes codec
+            "-profile:v",
+            "3",  # ProRes 422 LT
+            "-pix_fmt",
+            "yuv422p10le",
+            str(savepath),
         ]
         subprocess.run(ffmpeg_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         temp_video.unlink()
@@ -393,7 +502,7 @@ def get_fcells_list(ops_list: list):
     f_cells_list = []
     for ops in ops_list:
         ops = load_ops(ops)
-        f_cells = np.load(Path(ops['save_path']).joinpath('F.npy'))
+        f_cells = np.load(Path(ops["save_path"]).joinpath("F.npy"))
         f_cells_list.append(f_cells)
     return f_cells_list
 
@@ -404,6 +513,6 @@ def collect_result_png(ops_list):
     png_list = []
     for ops in ops_list:
         ops = load_ops(ops)
-        f_cells = np.load(Path(ops['save_path']).joinpath('segmentation.png'))
+        f_cells = np.load(Path(ops["save_path"]).joinpath("segmentation.png"))
         png_list.append(f_cells)
     return png_list

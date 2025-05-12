@@ -26,14 +26,24 @@ def add_args(parser: argparse.ArgumentParser):
         The parser with added arguments.
     """
 
-    parser.add_argument('--version', type=str, help='Print the version of the package.')
-    parser.add_argument('--ops', type=str, help='Path to the ops .npy file.')
-    parser.add_argument('--data', type=str, help='Path to the data.')
-    parser.add_argument('--save', type=str, help='Path to save the results.')
-    parser.add_argument('--subdir', type=str, help='Additional subdirectory add to save-path.')
-    parser.add_argument('--max-depth', type=int, help='Number of subdirectories to check for files to process.')
-    parser.add_argument('--overwrite', action='store_true', help='Overwrite existing files.')
-    parser.add_argument('--skip-existing', action='store_true', help='Skip existing files.')
+    parser.add_argument("--version", type=str, help="Print the version of the package.")
+    parser.add_argument("--ops", type=str, help="Path to the ops .npy file.")
+    parser.add_argument("--data", type=str, help="Path to the data.")
+    parser.add_argument("--save", type=str, help="Path to save the results.")
+    parser.add_argument(
+        "--subdir", type=str, help="Additional subdirectory add to save-path."
+    )
+    parser.add_argument(
+        "--max-depth",
+        type=int,
+        help="Number of subdirectories to check for files to process.",
+    )
+    parser.add_argument(
+        "--overwrite", action="store_true", help="Overwrite existing files."
+    )
+    parser.add_argument(
+        "--skip-existing", action="store_true", help="Skip existing files."
+    )
 
     return parser
 
@@ -52,7 +62,11 @@ def main():
         print(f"lbm_suite2p_python v{lsp.__version__}")
         return
 
-    ops = np.load(args.ops, allow_pickle=True).item() if args.ops else suite2p.default_ops()
+    ops = (
+        np.load(args.ops, allow_pickle=True).item()
+        if args.ops
+        else suite2p.default_ops()
+    )
 
     if not args.data:
         raise ValueError("No input file or directory specified. Use --data")
@@ -68,18 +82,12 @@ def main():
 
     if input_path.is_file():
         output_ops = lsp.run_plane(
-            ops=ops,
-            input_tiff=input_path,
-            save_path=save_path,
-            save_folder=subdir
+            ops=ops, input_tiff=input_path, save_path=save_path, save_folder=subdir
         )
     elif input_path.is_dir():
         files = mbo.get_files(input_path, "tiff", max_depth=args.max_depth)
         output_ops = lsp.run_volume(
-            ops=ops,
-            input_files=files,
-            save_path=save_path,
-            save_folder=subdir
+            ops=ops, input_files=files, save_path=save_path, save_folder=subdir
         )
     else:
         raise FileNotFoundError(f"Input path does not exist: {input_path}")
@@ -87,5 +95,6 @@ def main():
     print("Processing complete -----------")
     return output_ops
 
+
 if __name__ == "__main__":
-     main()
+    main()
