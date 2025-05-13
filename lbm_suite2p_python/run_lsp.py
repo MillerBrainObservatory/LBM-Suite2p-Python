@@ -96,6 +96,10 @@ def run_volume(
         input_files: list,
         save_path: str | Path=None,
         ops: dict | str | Path=None,
+        keep_reg: bool = True,
+        keep_raw: bool = True,
+        force_reg: bool = False,
+        force_detect: bool = False,
         replot: bool=False
 ):
     """
@@ -113,6 +117,14 @@ def run_volume(
         Dictionary of Suite2p parameters to use for each imaging plane.
     save_path : str, optional
         Subdirectory name within `save_path` for saving results (default: None).
+    keep_raw : bool, default false
+        if true, do not delete the raw binary (`data_raw.bin`) after processing.
+    keep_reg : bool, default false
+        if true, do not delete the registered binary (`data.bin`) after processing.
+    force_reg : bool, default false
+        if true, force a new registration even if existing shifts are found in ops.npy.
+    force_detect : bool, default false
+        if true, force roi detection even if an existing stat.npy is present.
     replot : bool, optional
         If True, regenerate all summary plots even if they already exist (default: False).
 
@@ -161,6 +173,10 @@ def run_volume(
             input_path=file,
             save_path=str(save_path),
             ops=ops,
+            keep_reg=keep_reg,
+            keep_raw=keep_raw,
+            force_reg=force_reg,
+            force_detect=force_detect,
             replot=replot,
         )
         all_ops.append(output_ops)
@@ -275,14 +291,14 @@ def run_plane(
         Directory to save the results.
     ops : dict, str or Path, optional
         Path to or dict of user‐supplied ops.npy. If given, it overrides any existing or generated ops.
-    keep_raw : bool, default False
-        If True, do not delete the raw binary (`data_raw.bin`) after processing.
-    keep_reg : bool, default False
-        If True, do not delete the registered binary (`data.bin`) after processing.
-    force_reg : bool, default False
-        If True, force a new registration even if existing shifts are found in ops.npy.
-    force_detect : bool, default False
-        If True, force ROI detection even if an existing stat.npy is present.
+    keep_raw : bool, default false
+        if true, do not delete the raw binary (`data_raw.bin`) after processing.
+    keep_reg : bool, default false
+        if true, do not delete the registered binary (`data.bin`) after processing.
+    force_reg : bool, default false
+        if true, force a new registration even if existing shifts are found in ops.npy.
+    force_detect : bool, default false
+        if true, force roi detection even if an existing stat.npy is present.
 
     Returns
     -------
