@@ -46,7 +46,6 @@ all = [
 dev = [
 	"pytest>=7.4.4",
 	"ruff>=0.6.1",
-	"mbo_utilities_dev",
 ]
 docs = [
 	"docutils>=0.21.2",
