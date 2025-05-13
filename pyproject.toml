@@ -23,12 +23,11 @@ dependencies = [
 	"tifffile>=2025.3.30",
 	"zarr>=2.18.3",
 	"dask>=2025.3.0",
-	# "mkl-fft>=1.3.13",
 	"imageio[ffmpeg]",
 	"matplotlib>=3.10.1",
 	"h5py",
 	"tqdm",
-	"mbo_utilities[all]",
+	"mbo_utilities[all]==1.0.0",
 	"suite2p_mbo==1.0.4",
 	"pynwb>=3.0.0",
 	"icecream>=2.1.4",
@@ -47,6 +46,7 @@ all = [
 dev = [
 	"pytest>=7.4.4",
 	"ruff>=0.6.1",
+	"mbo_utilities_dev",
 ]
 docs = [
 	"docutils>=0.21.2",
@@ -74,9 +74,10 @@ docs = [
 [tool.uv]
 default-groups = "all"
 
-# [tool.uv.sources]
-# mbo_utilities = { git = "https://github.com/MillerBrainObservatory/mbo_utilities", branch = "master" }
-# suite3d = { git = "https://github.com/alihaydaroglu/suite3d.git", branch = "py310" }
+[tool.uv.sources]
+mbo_utilities = { git = "https://github.com/MillerBrainObservatory/mbo_utilities", branch = "master" }
+mbo_utilities_dev = { git = "https://github.com/MillerBrainObservatory/mbo_utilities", branch = "dev" }
+suite3d = { git = "https://github.com/alihaydaroglu/suite3d.git", branch = "py310" }
 
 # https://github.com/charliermarsh/ruff
 [tool.ruff]
