@@ -29,7 +29,7 @@ dependencies = [
 	"h5py",
 	"tqdm",
 	"mbo_utilities[all]",
-	"suite2p_mbo>=1.0.3,<2.0.0",
+	"suite2p_mbo==1.0.4",
 	"pynwb>=3.0.0",
 	"icecream>=2.1.4",
 ]
