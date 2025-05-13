@@ -28,7 +28,7 @@ dependencies = [
 	"matplotlib>=3.10.1",
 	"h5py",
 	"tqdm",
-	"mbo_utilities[all]",
+	"mbo_utilities[all]==1.0.0",
 	"suite2p_mbo==1.0.4",
 	"pynwb>=3.0.0",
 	"icecream>=2.1.4",
