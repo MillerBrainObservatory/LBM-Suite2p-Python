@@ -2,13 +2,16 @@ import os
 import re
 import traceback
 from pathlib import Path
+from contextlib import nullcontext
+
 from icecream import ic
-import mbo_utilities as mbo
 import numpy as np
+from scipy.ndimage import uniform_filter1d
+
 import tifffile
 import suite2p
-from scipy.ndimage import uniform_filter1d
 from lbm_suite2p_python.utils import dff_percentile
+import mbo_utilities as mbo  # noqa
 
 try:
     from suite2p.io.binary import BinaryFile
@@ -252,8 +255,8 @@ def run_plane_bin(plane_dir):
         ops = load_ops(str(ops_path))
     else:
         raise ValueError(f"Invalid ops path: {ops_path}")
-    ops.update(input_format="binary", delete_bin=False, move_bin=False)
 
+    # ops.update(input_format="binary", delete_bin=False, move_bin=False)
     if "nframes" in ops and "n_frames" not in ops:
         ops["n_frames"] = ops["nframes"]
     if "n_frames" not in ops:
@@ -261,11 +264,14 @@ def run_plane_bin(plane_dir):
     n_frames = ops["n_frames"]
 
     Ly, Lx = ops["Ly"], ops["Lx"]
-    reg_file = ops["raw_file"]
-    with suite2p.io.BinaryFile(
-        Ly=Ly, Lx=Lx, filename=reg_file, n_frames=n_frames
-    ) as f_reg:
-        ops = suite2p.pipeline(f_reg, None, None, None, True, ops, stat=None)
+
+    ops["raw_file"] = str((plane_dir / "data_raw.bin").resolve())
+    ops["reg_file"] = str((plane_dir / "data.bin").resolve())
+
+    with suite2p.io.BinaryFile(Ly=Ly, Lx=Lx, filename=ops["reg_file"], n_frames=n_frames) as f_reg, \
+            suite2p.io.BinaryFile(Ly=Ly, Lx=Lx, filename=ops["raw_file"], n_frames=n_frames) \
+                    if "raw_file" in ops and ops["raw_file"] is not None else nullcontext() as f_raw:
+        ops = suite2p.pipeline(f_reg, f_raw, None, None, True, ops, stat=None)
     return ops
 
 
@@ -339,6 +345,11 @@ def run_plane(
             f"input_path should be a pathlib.Path or string, not: {type(input_path)}"
         )
 
+    if "debug" in kwargs:
+        ic.enable()
+    else:
+        ic.disable()
+
     p = Path(input_path)
     if p.is_dir():
         raise ValueError(f"Input path must be a file, not a directory: {p}")
@@ -346,7 +357,7 @@ def run_plane(
     save_root = Path(save_path) if save_path is not None else p.parent
     save_root.mkdir(exist_ok=True)
 
-    s2p_defaults = suite2p.default_ops()
+    ops0 = suite2p.default_ops()
     if p.suffix.lower() in (".tif", ".tiff"):
         metadata = mbo.get_metadata(p)
         folder = _normalize_plane_folder(p)
@@ -357,25 +368,21 @@ def run_plane(
             # if the raw binary does not exist, or we are forcing registration, write it
             print(f"Writing raw binary to {raw_bin}")
             _write_raw_binary(p, raw_bin)
-            ops0 = _build_ops(metadata, raw_bin)
+            ops1 = _build_ops(metadata, raw_bin)
+            ops0 = {**ops0, **ops1}
     elif p.suffix.lower() in (".bin", "bin"):
-        ops0 = {}
-        raw_bin = p
         plane_dir = p.parent
-        if not p.exists():
-            raise ValueError(
-                f"Input file {p} is not a valid TIFF file, and no raw binary found at {raw_bin}"
-            )
     else:
         raise ValueError(
             f"Unsupported file type: {p.suffix}. Only .tif/.tiff or .bin files are supported."
         )
 
     ops_path = plane_dir / "ops.npy"
-    saved = load_ops(ops_path) if ops_path.is_file() else {}
-    user = load_ops(ops) if ops else {}
-    print(f"Applying user ops: {user}")
-    ops = {**s2p_defaults, **ops0, **saved, **user}
+    saved_ops = load_ops(ops_path) if ops_path.exists() else {}
+    user_ops = load_ops(ops) if ops else {}
+    print(f"Applying user ops: {user_ops}")
+
+    ops = {**ops0, **saved_ops, **user_ops}
 
     needs_reg = (
         force_reg
@@ -387,18 +394,20 @@ def run_plane(
     ops["zplane"] = int(plane_dir.stem.removeprefix("plane"))
     ops["do_registration"] = int(needs_reg)
     ops["roidetect"] = int(needs_detect)
-    ops["move_bin"] = True
-    ops["reg_tif"] = True
 
     if "save_path" not in ops.keys():
-        ops["save_path"] = plane_dir
+        ops["save_path"] = str(plane_dir)
 
-    ops["ops_path"] = ops_path
+    if "nframes" not in ops and "shape" in ops.get("metadata", {}):
+        ic(ops["metadata"]["shape"])
+        ops["nframes"] = ops["metadata"]["shape"][0]
+
+    ops["ops_path"] = str(ops_path)
     np.save(ops_path, ops)
 
     output_ops = run_plane_bin(plane_dir)
 
-    # cleanup
+    # cleanup ourselves
     if not keep_raw:
         (plane_dir / "data_raw.bin").unlink(missing_ok=True)
     if not keep_reg:
@@ -514,7 +523,6 @@ def run_plane(
             print("Plots generated successfully.")
     except Exception:
         traceback.print_exc()
-
     return output_ops
 
 
@@ -572,7 +580,7 @@ def run_grid_search(
 
     See Also
     --------
-    [](http://suite2p.readthedocs.io/en/latest/parameters.html)
+    [suite2p parameters](http://suite2p.readthedocs.io/en/latest/parameters.html)
 
     """
     from itertools import product
