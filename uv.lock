@@ -547,7 +547,7 @@ wheels = [
 
 [[package]]
 name = "dask"
-version = "2025.4.1"
+version = "2025.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -559,9 +559,9 @@ dependencies = [
     { name = "pyyaml" },
     { name = "toolz" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b8/62/07d1dadcfa41c9f5584aa1ab10f4042d2cdb2c6655b123800d9f30185b71/dask-2025.4.1.tar.gz", hash = "sha256:3b4b5d6e29d858c48339a5b9a99c39f11cb44111d3836d77ff32da51e0f51243", size = 10963890 }
+sdist = { url = "https://files.pythonhosted.org/packages/df/44/ac66964138b026bc31d82c38c97ff260b1be7e13d8446c5c21e81b4c0991/dask-2025.5.0.tar.gz", hash = "sha256:3ec9175e53effe1c2b0086668352e0d5261c5ef6f71a410264eda83659d686ef", size = 10971343 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b4/12/f9effea5fe2bebfdd8b0d9c857f798382afacd57dc1cd0e9ce21e66c1bc2/dask-2025.4.1-py3-none-any.whl", hash = "sha256:aacbb0a9667856fe58385015efd64aca22f0c0b2c5e1b5e633531060303bb4be", size = 1471761 },
+    { url = "https://files.pythonhosted.org/packages/20/cb/a68c59dd229bae7c439631dba66b0286d551efae67e09e0bbf813635b0d3/dask-2025.5.0-py3-none-any.whl", hash = "sha256:77e9a64bb09098515bc579477b7051b0909474cd7b3e0005e3d0968a70c84015", size = 1473896 },
 ]
 
 [package.optional-dependencies]
@@ -1454,7 +1454,7 @@ wheels = [
 
 [[package]]
 name = "jupyterlab"
-version = "4.4.2"
+version = "4.4.0a0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "async-lru" },
@@ -1471,9 +1471,9 @@ dependencies = [
     { name = "tornado" },
     { name = "traitlets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f4/3c/12a8b27ff2c3b4005bbb5e11c7747246965776d2b821193e53ffd61f1332/jupyterlab-4.4.2.tar.gz", hash = "sha256:afa9caf28c0cb966488be18e5e8daba9f018a1c4273a406b7d5006344cbc6d16", size = 23030818 }
+sdist = { url = "https://files.pythonhosted.org/packages/21/ee/591a8b44a9e3728949b693dfbb56b0ac632c8c610d22c219740bf0481711/jupyterlab-4.4.0a0.tar.gz", hash = "sha256:ddff121f90054b1088b080ae1d2901c5d3bb39563b9089697247a643aba38aa9", size = 21892807 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f6/ae/fbb93f4990b7648849b19112d8b3e7427bbfc9c5cc8fdc6bf14c0e86d104/jupyterlab-4.4.2-py3-none-any.whl", hash = "sha256:857111a50bed68542bf55dca784522fe728f9f88b4fe69e8c585db5c50900419", size = 12294799 },
+    { url = "https://files.pythonhosted.org/packages/fc/30/ffb14b08e4ef1246efdcf4549679a6bc1e6afde06f421f0a0c72a87d090f/jupyterlab-4.4.0a0-py3-none-any.whl", hash = "sha256:f6272a9a09800fc400929bb391052684a48b74a52ae204102db48afc39d82cad", size = 11858436 },
 ]
 
 [[package]]
@@ -1652,7 +1652,7 @@ requires-dist = [
     { name = "icecream", specifier = ">=2.1.4" },
     { name = "imageio", extras = ["ffmpeg"] },
     { name = "matplotlib", specifier = ">=3.10.1" },
-    { name = "mbo-utilities", extras = ["all"] },
+    { name = "mbo-utilities", extras = ["all"], git = "https://github.com/MillerBrainObservatory/mbo_utilities?branch=master" },
     { name = "napari", marker = "extra == 'all'" },
     { name = "napari", marker = "extra == 'napari'" },
     { name = "pynwb", specifier = ">=3.0.0" },
@@ -1824,13 +1824,14 @@ wheels = [
 
 [[package]]
 name = "mbo-utilities"
-version = "0.1.1"
-source = { registry = "https://pypi.org/simple" }
+version = "1.0.0"
+source = { git = "https://github.com/MillerBrainObservatory/mbo_utilities?branch=master#af8958f45ada2e4560c4de318753c9b3afd5b970" }
 dependencies = [
     { name = "dask" },
     { name = "fastplotlib" },
     { name = "ffmpeg-python" },
     { name = "h5py" },
+    { name = "icecream" },
     { name = "imageio", extra = ["ffmpeg"] },
     { name = "imgui-bundle" },
     { name = "ipykernel" },
@@ -1846,10 +1847,6 @@ dependencies = [
     { name = "tifffile" },
     { name = "tqdm" },
     { name = "zarr" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/83/03/14f14ac630766e5fd643aa5581d4e7db1aa2088cf0d4da74410b9ca3630c/mbo_utilities-0.1.1.tar.gz", hash = "sha256:10582a099f34e186c36fcefcd56f42944e0ee78bcffc21feea2654ee9cb5e624", size = 50449 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/e6/15/cb17be29ce9d196d6a2b86f8d69d1bbc6b914cbcf2e103dc4485bc974bb7/mbo_utilities-0.1.1-py3-none-any.whl", hash = "sha256:c85e6fb8fa272cca0609b1294eb7577fa75d6ab16fbebcbcf6376980d8e942e9", size = 55213 },
 ]
 
 [package.optional-dependencies]
