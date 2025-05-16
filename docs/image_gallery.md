@@ -7,7 +7,6 @@
 [Back to Guide](https://cerodell.github.io/sphinx-quickstart-guide/build/html/addtoindx.html)
 
 ```{figure} ./_images/ex_scanphase.svg
-:scale: 50 %
 :alt: ex_scanphase
 :name: ex_scanphase
 
@@ -15,13 +14,11 @@ Scan-phase diagram
 ```
 
 ```{figure} ./_images/ex_phase.png
-:scale: 50 %
 :alt: ex_phase
 :name: ex_phase
 ```
 
 ```{figure} ./_images/ex_offset.svg
-:scale: 50 %
 :alt: ex_offset
 :name: ex_offset
 ```
