@@ -28,7 +28,7 @@ ops_file = lsp.load_ops("C://Users//RBO//lbm//Plane_07//plane0//ops.npy")
 lsp.plot_traces(ops_file)
 ```
 
-```{figure} ../_images/plot_traces_raw.png
+```{figure} ./_images/plot_traces_raw.png
 ```
 
 By default, `plot_traces` will plot 2 minutes of the $\Delta F / F_0$ (%) for the first 20 neurons.
@@ -81,7 +81,7 @@ dff = lsp.dff_percentile(f) * 100
 lsp.plot_traces(dff, './plot_traces_single.png', signal_units='dff', num_neurons=1)
 ```
 
-```{figure} ../_images/plot_traces_single.png
+```{figure} ./_images/plot_traces_single.png
 :alt: Single neuron DF/F
 :width: 100%
 
@@ -94,7 +94,7 @@ Single neuron trace (percentile-based DF/F).
 lsp.plot_traces(dff, './plot_traces_double.png', signal_units='dff', num_neurons=2)
 ```
 
-```{figure} ../_images/plot_traces_double.png
+```{figure} ./_images/plot_traces_double.png
 :alt: Two neurons, baseline offset
 :width: 100%
 
@@ -107,7 +107,7 @@ Two traces with offset autocalculated from baseline signal.
 lsp.plot_traces(dff, './plot_traces_single_gap50.png', signal_units='dff', num_neurons=2, offset=250)
 ```
 
-```{figure} ../_images/plot_traces_double_gap50.png
+```{figure} ./_images/plot_traces_double_gap50.png
 :alt: Two neurons with offset
 :width: 100%
 
@@ -120,7 +120,7 @@ Two traces with manually specified offset.
 lsp.plot_traces(dff, './plot_traces_dff.png', signal_units='dff')
 ```
 
-```{figure} ../_images/plot_traces_dff.png
+```{figure} ./_images/plot_traces_dff.png
 :alt: Default DF/F traces
 :width: 100%
 
@@ -133,7 +133,7 @@ DFF is always shown in percentages.
 lsp.plot_traces(dff, './plot_traces_dff_50n.png', signal_units='dff', num_neurons=50)
 ```
 
-```{figure} ../_images/plot_traces_dff_50n.png
+```{figure} ./_images/plot_traces_dff_50n.png
 :alt: 50 neuron traces
 :width: 100%
 
@@ -146,7 +146,7 @@ First 50 neurons, default colormap.
 lsp.plot_traces(dff[::2], './plot_traces_dff_100n_nipy.png', signal_units='dff', num_neurons=100, cmap="nipy_spectral")
 ```
 
-```{figure} ../_images/plot_traces_dff_100n_nipy.png
+```{figure} ./_images/plot_traces_dff_100n_nipy.png
 :alt: 100 neurons, nipy spectral colormap
 :width: 100%
 
@@ -164,7 +164,7 @@ fps_binned = metadata["frame_rate"] / bin_factor
 lsp.plot_traces(dff_binned, './plot_traces_dff_binned_2x.png', signal_units='dff', fps=fps_binned)
 ```
 
-```{figure} ../_images/plot_traces_dff_binned_2x.png
+```{figure} ./_images/plot_traces_dff_binned_2x.png
 :alt: Binned 2x
 :width: 100%
 
@@ -180,7 +180,7 @@ fps_binned_4x = metadata["frame_rate"] / bin_factor
 lsp.plot_traces(dff_binned_4x, './plot_traces_dff_binned_4x.png', signal_units='dff', fps=fps_binned_4x)
 ```
 
-```{figure} ../_images/plot_traces_dff_binned_4x.png
+```{figure} ./_images/plot_traces_dff_binned_4x.png
 :alt: Binned 4x
 :width: 100%
 
