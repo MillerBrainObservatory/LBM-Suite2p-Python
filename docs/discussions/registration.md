@@ -9,7 +9,7 @@ Here, piecewise-rigid registration is the **method** used to correct for non-rig
 
 ## Overview
 
-We use {ref}`suite2p:registration` to ensure spatial alignment across all frames in a movie. This means a neuron that appears in one location in frame 0 remains in the same spot in frame N.
+We use {ref}`suite2p:Registration` to ensure spatial alignment across all frames in a movie. This means a neuron that appears in one location in frame 0 remains in the same spot in frame N.
 
 Registration uses either a single-channel movie (default: channel 1), or an alternate channel if `ops['align_by_chan'] = 2`.
 

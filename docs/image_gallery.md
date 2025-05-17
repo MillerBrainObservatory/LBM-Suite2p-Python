@@ -23,7 +23,6 @@ Scan-phase diagram
 :name: ex_offset
 ```
 
-
 ```{figure} ./_images/ex_retile.svg
 :alt: ex_retile
 :name: ex_retile
@@ -35,13 +34,11 @@ Scan-phase diagram
 ```
 
 ```{figure} ./_images/ex_meanimage.svg
-:scale: 50 %
 :alt: ex_meanimage
 :name: ex_meanimage
 ```
 
 ```{figure} ./_images/ex_cropped_raw.gif
-:scale: 50 %
 :alt: ex_cropped_gif
 :name: ex_cropped_gif
 ```
@@ -54,13 +51,11 @@ Scan-phase diagram
 <!-- General -->
 
 ```{figure} ./_images/gen_param_v_arg.png
-:scale: 50 %
 :alt: gen_param_v_arg
 :name: gen_param_v_arg
 ```
 
 ```{figure} ./_images/gen_array_page.gif
-:scale: 50 %
 :alt: gen_array_page
 :name: gen_array_page
 ```
