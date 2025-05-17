@@ -27,13 +27,10 @@ dependencies = [
 	"matplotlib>=3.10.1",
 	"h5py",
 	"tqdm",
-	"mbo_utilities[all]==1.0.0",
-	"suite2p_mbo==1.0.4",
+	"mbo_utilities[all]>=1.0.0",
+	"suite2p_mbo>=1.0.4",
 	"pynwb>=3.0.0",
 	"icecream>=2.1.4",
-	"pyqt5==5.15.11",
-    # "pyqt5-qt5==5.15.16",
-    # "pyqt5-sip==12.17.0",
 ]
 
 [project.optional-dependencies]
