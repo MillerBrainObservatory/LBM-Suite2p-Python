@@ -13,8 +13,8 @@ sphinx_book_theme
 pydata_sphinx_theme
 sphinxcontrib-bibtex
 sphinx_design
+lbm_suite2p_python
 myst_nb
 seaborn
 scipy
 scikit-image
-suite2p

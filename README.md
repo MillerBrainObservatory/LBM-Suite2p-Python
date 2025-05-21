@@ -40,6 +40,9 @@ cd LBM-Suite2p-Python
 pip install ".[all]"  # optional, contains ".[gui, notebook]"
 ```
 
+## Issues
+Widgets may throw "Invalid Rect" errors. This can be safely ignored until it is [resolved](https://github.com/pygfx/wgpu-py/issues/716#issuecomment-2880853089).
+
 ---
 
 ## Acknowledgements

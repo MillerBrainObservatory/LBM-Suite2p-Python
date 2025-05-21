@@ -1,10 +1,9 @@
 (installation)=
 # Installation Guide
 
-```{admonition} TLDR
+```{admonition} 
 :class: dropdown
 
-# make sure you are in a virtual environment
 pip install "lbm_suite2p_python[all]"
 ```
 
@@ -35,13 +34,13 @@ pip install -e ".[all]"
 
 :::{tab-item} With pip
 ```bash
-pip install lbm_suite2p_python
+pip install lbm_suite2p_python[all]
 ```
 :::
 
 :::{tab-item} With Conda (Miniforge3)
 ```bash
-conda create -n lbm python=3.11 -c conda-forge
+conda create -n lsp -c conda-forge python=3.11
 conda activate lbm
 git clone https://github.com/millerbrainobservatory/lbm_suite2p_python.git
 cd lbm_suite2p_python
