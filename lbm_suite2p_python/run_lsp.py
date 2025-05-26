@@ -360,6 +360,7 @@ def run_plane(
 
     save_root = Path(save_path) if save_path is not None else p.parent
     save_root.mkdir(exist_ok=True)
+    ops_path = save_root / "ops.npy"
 
     ops0 = suite2p.default_ops()
     if p.suffix.lower() in (".tif", ".tiff"):
@@ -370,7 +371,7 @@ def run_plane(
         raw_bin = plane_dir / "data_raw.bin"
         if raw_bin.exists():
             # make sure ops.npy file is properly set up
-            data: np.ndarray = tifffile.memmap(p)
+            data: np.memmap = tifffile.memmap(p)
             ops0: dict = load_ops(ops_path)
             missing: list = get_missing_ops_keys(ops0)
             for m in missing:
