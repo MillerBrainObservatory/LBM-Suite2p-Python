@@ -66,7 +66,7 @@ def _write_raw_binary(tiff_path, out_path):
     if data.ndim != 3:
         raise ValueError("Must be assembled, 3D (T, Y, X)")
 
-    nframes, x, y = data.shape
+    nframes, y, x = data.shape
     bf = BinaryFile(
         Ly=y, Lx=x, filename=str(Path(out_path)), n_frames=nframes, dtype=np.int16
     )
@@ -75,7 +75,27 @@ def _write_raw_binary(tiff_path, out_path):
     bf.close()
 
 
-def _build_ops(metadata: dict, raw_bin: Path) -> dict:
+def _build_ops(metadata: dict, raw_bin: Path, actual_shape=None) -> dict:
+    nt, y, x = actual_shape if actual_shape else metadata["shape"]
+    dx, dy = metadata.get("pixel_resolution", [2, 2])
+
+    return {
+        "Ly": y,
+        "Lx": x,
+        "fs": round(metadata["frame_rate"], 2),
+        "nframes": nt,
+        "raw_file": str(raw_bin),
+        "dx": dx,
+        "dy": dy,
+        "metadata": metadata,
+        "input_format": "binary",
+        "do_regmetrics": True,
+        "delete_bin": False,
+        "move_bin": False,
+    }
+
+
+def _build_ops_v104(metadata: dict, raw_bin: Path) -> dict:
     nt, Ly, Lx = metadata["shape"]
     dx, dy = metadata.get("pixel_resolution", [2, 2])
     return {
@@ -274,6 +294,10 @@ def run_plane_bin(plane_dir):
         ops = suite2p.pipeline(f_reg, f_raw, None, None, True, ops, stat=None)
     return ops
 
+def get_missing_ops_keys(ops: dict) -> list[str]:
+    required = ["Ly", "Lx", "fs", "nframes", "raw_file", "input_format"]
+    return [k for k in required if k not in ops or ops[k] is None]
+
 
 def run_plane(
     input_path: str | Path,
@@ -359,16 +383,34 @@ def run_plane(
 
     ops0 = suite2p.default_ops()
     if p.suffix.lower() in (".tif", ".tiff"):
-        metadata = mbo.get_metadata(p)
         folder = _normalize_plane_folder(p)
         plane_dir = save_root / folder
         plane_dir.mkdir(exist_ok=True)
+        ops_path = plane_dir / "ops.npy"
         raw_bin = plane_dir / "data_raw.bin"
-        if not raw_bin.exists() or force_reg:
-            # if the raw binary does not exist, or we are forcing registration, write it
+        if raw_bin.exists():
+            # make sure ops.npy file is properly set up
+            data: np.ndarray = tifffile.memmap(p)
+            ops0: dict = load_ops(ops_path)
+            missing: list = get_missing_ops_keys(ops0)
+            for m in missing:
+                if m == "nframes":
+                    ops0[m] = data.shape[0]
+                elif m == "raw_file":
+                    ops0[m] = str(raw_bin)
+                elif m == "Lx":
+                    ops0[m] = data.shape[-1]
+                elif m == "Ly":
+                    ops0[m] = data.shape[-2]
+
+            if "nframes" not in ops0:
+                ops0["nframes"] = data.shape[0]
+        else:
             print(f"Writing raw binary to {raw_bin}")
+            data = tifffile.memmap(p)
             _write_raw_binary(p, raw_bin)
-            ops1 = _build_ops(metadata, raw_bin)
+            metadata = mbo.get_metadata(p)
+            ops1 = _build_ops(metadata, raw_bin, actual_shape=data.shape)
             ops0 = {**ops0, **ops1}
     elif p.suffix.lower() in (".bin", "bin"):
         plane_dir = p.parent
@@ -377,7 +419,6 @@ def run_plane(
             f"Unsupported file type: {p.suffix}. Only .tif/.tiff or .bin files are supported."
         )
 
-    ops_path = plane_dir / "ops.npy"
     saved_ops = load_ops(ops_path) if ops_path.exists() else {}
     user_ops = load_ops(ops) if ops else {}
     print(f"Applying user ops: {user_ops}")
