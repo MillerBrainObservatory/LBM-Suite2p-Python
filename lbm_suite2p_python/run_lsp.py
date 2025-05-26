@@ -95,26 +95,6 @@ def _build_ops(metadata: dict, raw_bin: Path, actual_shape=None) -> dict:
     }
 
 
-def _build_ops_v104(metadata: dict, raw_bin: Path) -> dict:
-    nt, Ly, Lx = metadata["shape"]
-    dx, dy = metadata.get("pixel_resolution", [2, 2])
-    return {
-        "Ly": Ly,
-        "Lx": Lx,
-        "fs": round(metadata["frame_rate"], 2),
-        "nframes": nt,
-        "raw_file": str(raw_bin),
-        # "reg_file": str(raw_bin),
-        "dx": dx,
-        "dy": dy,
-        "metadata": metadata,
-        "input_format": "binary",
-        "do_regmetrics": True,
-        "delete_bin": False,
-        "move_bin": False,
-    }
-
-
 def run_volume(
         input_files: list,
         save_path: str | Path=None,
@@ -291,7 +271,7 @@ def run_plane_bin(plane_dir):
     with suite2p.io.BinaryFile(Ly=Ly, Lx=Lx, filename=ops["reg_file"], n_frames=n_frames) as f_reg, \
             suite2p.io.BinaryFile(Ly=Ly, Lx=Lx, filename=ops["raw_file"], n_frames=n_frames) \
                     if "raw_file" in ops and ops["raw_file"] is not None else nullcontext() as f_raw:
-        ops = suite2p.pipeline(f_reg, f_raw, None, None, True, ops, stat=None)
+        ops = suite2p.pipeline(f_reg, f_raw, None, None, ops['do_registration'], ops, stat=None)
     return ops
 
 def get_missing_ops_keys(ops: dict) -> list[str]:
