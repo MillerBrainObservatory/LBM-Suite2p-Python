@@ -800,7 +800,7 @@ def load_planar_results(ops: dict | str | Path, z_plane: list | int=None) -> dic
     Parameters
     ----------
     ops : dict, str or Path
-        Dict of or path to the ops.npy file.
+        Dict of or path to the ops.npy file. Can be a fully qualified path or a directory containing ops.npy.
     z_plane : int or None, optional
         the z-plane index for this file. If provided, it is stored in the output.
 
@@ -823,6 +823,14 @@ def load_planar_results(ops: dict | str | Path, z_plane: list | int=None) -> dic
     """
     if isinstance(ops, list):
         raise ValueError(f"Input should not be a list!")
+    if isinstance(ops, (str, Path)):
+        if Path(ops).is_dir():
+            try:
+                ops = Path(ops).joinpath("ops.npy")
+            except FileNotFoundError:
+                raise FileNotFoundError(
+                    f"ops.npy not found in given directory: {ops}"
+                )
     output_ops = load_ops(ops)
 
     save_path = Path(output_ops["save_path"])
