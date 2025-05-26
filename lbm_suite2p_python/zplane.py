@@ -825,9 +825,8 @@ def load_planar_results(ops: dict | str | Path, z_plane: list | int=None) -> dic
         raise ValueError(f"Input should not be a list!")
     if isinstance(ops, (str, Path)):
         if Path(ops).is_dir():
-            try:
-                ops = Path(ops).joinpath("ops.npy")
-            except FileNotFoundError:
+            ops = Path(ops).joinpath("ops.npy")
+            if not ops.exists():
                 raise FileNotFoundError(
                     f"ops.npy not found in given directory: {ops}"
                 )
