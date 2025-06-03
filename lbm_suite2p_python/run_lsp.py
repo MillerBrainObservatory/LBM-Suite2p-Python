@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 import traceback
@@ -12,7 +13,9 @@ import tifffile
 import suite2p
 from lbm_suite2p_python.utils import dff_percentile
 import mbo_utilities as mbo  # noqa
-from mbo_utilities import log
+import mbo_utilities.log as log
+
+logger = log.get("mbo.lsp")
 
 try:
     from suite2p.io.binary import BinaryFile
@@ -51,13 +54,53 @@ except ImportError:
 if HAS_RASTERMAP:
     from lbm_suite2p_python.zplane import plot_rastermap
 
+from pathlib import Path
 
-def _normalize_plane_folder(path):
+PIPELINE_TAGS = ("plane", "roi", "z", "plane_", "roi_", "z_")
+
+def normalize_folder(path):
+    """
+    Derive a folder tag from a filename based on “planeN”, “roiN”, or “resN” patterns.
+
+    Parameters
+    ----------
+    path : str or pathlib.Path
+        File path or name whose stem will be parsed.
+
+    Returns
+    -------
+    str
+        If the stem starts with “plane”, “roi”, or “res” followed by an integer,
+        returns that tag plus the integer (e.g. “plane3”, “roi7”, “res2”).
+        Otherwise returns the original stem unchanged.
+
+    Examples
+    --------
+    >>> normalize_folder("plane_01.tif")
+    'plane1'
+    >>> normalize_folder("plane2.bin")
+    'plane2'
+    >>> normalize_folder("roi5.raw")
+    'roi5'
+    >>> normalize_folder("ROI_10.dat")
+    'roi10'
+    >>> normalize_folder("res-3.h5")
+    'res3'
+    >>> normalize_folder("assembled_data_1.tiff")
+    'assembled_data_1'
+    >>> normalize_folder("file_12.tif")
+    'file_12'
+    """
     name = Path(path).stem
-    m = re.search(r"plane[_-](\d+)", name, re.IGNORECASE)
-    if not m:
-        raise ValueError(f"invalid plane name: {name}")
-    return f"plane{int(m.group(1))}"
+    for tag in PIPELINE_TAGS:
+        low = name.lower()
+        if low.startswith(tag):
+            suffix = name[len(tag):]
+            if suffix and (suffix[0] in ("_", "-")):
+                suffix = suffix[1:]
+            if suffix.isdigit():
+                return f"{tag}{int(suffix)}"
+    return name
 
 
 def _write_raw_binary(tiff_path, out_path):
@@ -75,6 +118,9 @@ def _write_raw_binary(tiff_path, out_path):
     bf[:] = data
     bf.close()
 
+def get_missing_ops_keys(ops: dict) -> list[str]:
+    required = ["Ly", "Lx", "fs", "nframes", "raw_file", "input_format"]
+    return [k for k in required if k not in ops or ops[k] is None]
 
 def _build_ops(metadata: dict, raw_bin: Path, actual_shape=None) -> dict:
     nt, y, x = actual_shape if actual_shape else metadata["shape"]
@@ -94,7 +140,6 @@ def _build_ops(metadata: dict, raw_bin: Path, actual_shape=None) -> dict:
         "delete_bin": False,
         "move_bin": False,
     }
-
 
 def run_volume(
         input_files: list,
@@ -247,7 +292,6 @@ def run_volume(
     print(f"Processing completed for {len(input_files)} files.")
     return all_ops
 
-
 def run_plane_bin(plane_dir):
     plane_dir = Path(plane_dir)
     ops_path = plane_dir / "ops.npy"
@@ -273,11 +317,6 @@ def run_plane_bin(plane_dir):
                     if "raw_file" in ops and ops["raw_file"] is not None else nullcontext() as f_raw:
         ops = suite2p.pipeline(f_reg, f_raw, None, None, ops['do_registration'], ops, stat=None)
     return ops
-
-def get_missing_ops_keys(ops: dict) -> list[str]:
-    required = ["Ly", "Lx", "fs", "nframes", "raw_file", "input_format"]
-    return [k for k in required if k not in ops or ops[k] is None]
-
 
 def run_plane(
     input_path: str | Path,
@@ -344,34 +383,47 @@ def run_plane(
     Run a single z-plane through suite2p, keeping raw and registered files.
     >> output_ops = lsp.run_plane(input_files[0], save_path="D://data//outputs", keep_raw=True, keep_registered=True, force_reg=True, force_detect=True)
     """
-    if not isinstance(input_path, (Path, str)):
-        raise ValueError(
-            f"input_path should be a pathlib.Path or string, not: {type(input_path)}"
-        )
-
     if "debug" in kwargs:
-        ic.enable()
+        logger.setLevel(logging.DEBUG)
+        logger.info("Debug mode enabled.")
+
+    assert isinstance(input_path, (Path, str)), (
+        f"input_path should be a pathlib.Path or string, not: {type(input_path)}"
+    )
+    assert isinstance(save_path, (Path, str, type(None))), (
+        f"save_path should be a pathlib.Path or string, not: {type(save_path)}"
+    )
+
+    input_path = Path(input_path)
+    if input_path.is_dir():
+        raise ValueError(f"Input path must be a file, not a directory: {input_path}")
+
+    if save_path is None:
+        logger.debug(f"save_path is None, using parent of input file: {input_path.parent}")
+        save_path = input_path.parent
     else:
-        ic.disable()
-
-    p = Path(input_path)
-    if p.is_dir():
-        raise ValueError(f"Input path must be a file, not a directory: {p}")
-
-    save_root = Path(save_path) if save_path is not None else p.parent
-    save_root.mkdir(exist_ok=True)
+        save_path = Path(save_path)
+        if not save_path.parent.is_dir():
+            raise ValueError(
+                f"save_path does not have a valid parent directory: {save_path}"
+            )
+    save_root = save_path / normalize_folder(input_path)
+    # check for ops in the save path
     ops_path = save_root / "ops.npy"
 
-    ops0 = suite2p.default_ops()
-    if p.suffix.lower() in (".tif", ".tiff"):
-        folder = _normalize_plane_folder(p)
+    ops0 = {}
+    if ops_path.exists():
+        ops0 = load_ops(ops_path)
+    ops0 = {**suite2p.default_ops, **ops0}
+    if input_path.suffix.lower() in (".tif", ".tiff"):
+        folder = _normalize_plane_folder(input_path)
         plane_dir = save_root / folder
         plane_dir.mkdir(exist_ok=True)
         ops_path = plane_dir / "ops.npy"
         raw_bin = plane_dir / "data_raw.bin"
         if raw_bin.exists():
             # make sure ops.npy file is properly set up
-            data: np.memmap = tifffile.memmap(p)
+            data: np.memmap = tifffile.memmap(input_path)
             ops0: dict = load_ops(ops_path)
             missing: list = get_missing_ops_keys(ops0)
             for m in missing:
@@ -388,16 +440,16 @@ def run_plane(
                 ops0["nframes"] = data.shape[0]
         else:
             print(f"Writing raw binary to {raw_bin}")
-            data = tifffile.memmap(p)
-            _write_raw_binary(p, raw_bin)
-            metadata = mbo.get_metadata(p)
+            data = tifffile.memmap(input_path)
+            _write_raw_binary(input_path, raw_bin)
+            metadata = mbo.get_metadata(input_path)
             ops1 = _build_ops(metadata, raw_bin, actual_shape=data.shape)
             ops0 = {**ops0, **ops1}
-    elif p.suffix.lower() in (".bin", "bin"):
-        plane_dir = p.parent
+    elif input_path.suffix.lower() in (".bin", "bin"):
+        plane_dir = input_path.parent
     else:
         raise ValueError(
-            f"Unsupported file type: {p.suffix}. Only .tif/.tiff or .bin files are supported."
+            f"Unsupported file type: {input_path.suffix}. Only .tif/.tiff or .bin files are supported."
         )
 
     saved_ops = load_ops(ops_path) if ops_path.exists() else {}
