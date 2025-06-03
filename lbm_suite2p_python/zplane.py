@@ -859,7 +859,6 @@ def load_planar_results(ops: dict | str | Path, z_plane: list | int=None) -> dic
         "z_plane": z_plane_arr,
     }
 
-
 def load_traces(ops: dict | str | Path):
     """
     Return (accepted-only) fluorescence traces, neuropil traces and spike traces from ops file.
@@ -893,15 +892,20 @@ def load_traces(ops: dict | str | Path):
     )
     return F[iscell], Fneu[iscell], spks[iscell]
 
+def save_ops(ops: dict, path: Path | str) -> None:
+    """Save ops dict to a npy file. Ensure parent directory exists."""
+    path = Path(path)
+    path.parent.mkdir(exist_ok=True, parents=True)
+    np.save(str(path), ops, allow_pickle=True)
 
-def load_ops(ops_input: str | Path | list[str | Path]):
+def load_ops(ops_input: str | Path | list[str | Path]) -> dict:
     """Simple utility load a suite2p npy file"""
     if isinstance(ops_input, (str, Path)):
         return np.load(ops_input, allow_pickle=True).item()
     elif isinstance(ops_input, dict):
         return ops_input
-    print("Warning: No valid ops file provided, returning None.")
-    return None
+    print("Warning: No valid ops file provided, returning empty dict.")
+    return {}
 
 
 def plot_rastermap(
