@@ -12,6 +12,7 @@ import tifffile
 import suite2p
 from lbm_suite2p_python.utils import dff_percentile
 import mbo_utilities as mbo  # noqa
+from mbo_utilities import log
 
 try:
     from suite2p.io.binary import BinaryFile
@@ -251,7 +252,6 @@ def run_plane_bin(plane_dir):
     plane_dir = Path(plane_dir)
     ops_path = plane_dir / "ops.npy"
     if ops_path.exists():
-        _ = ic(f"Loading ops from existing file: {ops_path}")
         ops = load_ops(str(ops_path))
     else:
         raise ValueError(f"Invalid ops path: {ops_path}")
@@ -344,7 +344,7 @@ def run_plane(
     Run a single z-plane through suite2p, keeping raw and registered files.
     >> output_ops = lsp.run_plane(input_files[0], save_path="D://data//outputs", keep_raw=True, keep_registered=True, force_reg=True, force_detect=True)
     """
-    if isinstance(input_path, list):
+    if not isinstance(input_path, (Path, str)):
         raise ValueError(
             f"input_path should be a pathlib.Path or string, not: {type(input_path)}"
         )
