@@ -5,6 +5,8 @@
 import pytest
 import os
 from pathlib import Path
+import logging
+import mbo_utilities.log
 import mbo_utilities as mbo
 import lbm_suite2p_python as lsp
 
