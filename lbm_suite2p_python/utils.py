@@ -111,6 +111,13 @@ def dff_percentile(f_trace, window_size=300, percentile=8):
     dff : np.ndarray
         (N_neurons, N_frames) ΔF/F₀ traces.
     """
+    if not isinstance(f_trace, np.ndarray):
+        raise TypeError("f_trace must be a numpy array")
+    if f_trace.ndim != 2:
+        raise ValueError("f_trace must be a 2D array with shape (N_neurons, N_frames)")
+    if f_trace.shape[0] == 0 or f_trace.shape[1] == 0:
+        raise ValueError("f_trace must not be empty")
+
     f0 = np.array(
         [
             percentile_filter(f, percentile, size=window_size, mode="nearest")
