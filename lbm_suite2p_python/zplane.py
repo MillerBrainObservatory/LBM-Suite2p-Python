@@ -1,5 +1,4 @@
 from pathlib import Path
-from signal import signal
 
 import numpy as np
 import math
