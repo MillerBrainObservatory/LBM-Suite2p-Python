@@ -845,8 +845,10 @@ def load_planar_results(ops: dict | str | Path, z_plane: list | int=None) -> dic
 
     n_neurons = spks.shape[0]
     if z_plane is None:
-        # If not provided, assign a default of 0
-        z_plane_arr = np.zeros(n_neurons, dtype=int)
+        z_plane_arr = output_ops.get(
+            "plane",
+            np.zeros(n_neurons, dtype=int)
+        )
     else:
         z_plane_arr = np.full(n_neurons, z_plane, dtype=int)
     return {
