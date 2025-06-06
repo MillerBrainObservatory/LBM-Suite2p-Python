@@ -13,7 +13,8 @@ from lbm_suite2p_python.utils import get_common_path
 
 def update_ops_paths(ops_files: str | list):
     """
-    Update save_path, save_path0, and save_folder in an ops dictionary based on its current location. Use after moving an ops_file or batch of ops_files."""
+    Update save_path, save_path0, and save_folder in an ops dictionary based on its current location. Use after moving an ops_file or batch of ops_files.
+    """
     if isinstance(ops_files, (str, Path)):
         ops_files = [ops_files]
 
