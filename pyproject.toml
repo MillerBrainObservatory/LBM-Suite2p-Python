@@ -28,6 +28,7 @@ dependencies = [
 	"h5py",
 	"tqdm",
 	"mbo_utilities[all]>=1.0.0",
+	"cellpose",
 	"suite2p_mbo==1.0.4",
 	"pynwb>=3.0.0",
 	"icecream>=2.1.4",
