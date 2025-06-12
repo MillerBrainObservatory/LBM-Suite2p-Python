@@ -402,10 +402,7 @@ def run_plane(
         metadata = mbo.get_metadata(input_path)
         plane_dir = metadata.get("plane", None)
         if plane_dir is None:
-            plane_dir = ops.get(
-                "plane",
-                mbo.normalize_file_url(input_path)
-            )
+            plane_dir = ops.get("plane", mbo.normalize_file_url(input_path))
         plane_dir = save_path / f"plane{plane_dir}"
         mbo.save_nonscan(
             input_path,
@@ -423,7 +420,11 @@ def run_plane(
             f"Unsupported file type: {input_path.suffix}. Only .tif/.tiff or .bin files are supported."
         )
 
-    ops_outpath = np.load(plane_dir / "ops.npy", allow_pickle=True).item() if (plane_dir / "ops.npy").exists() else {}
+    ops_outpath = (
+        np.load(plane_dir / "ops.npy", allow_pickle=True).item()
+        if (plane_dir / "ops.npy").exists()
+        else {}
+    )
     ops = {**ops, **ops_outpath}
     # set up the algorithm flags
     reg_data_file = plane_dir / "data.bin"

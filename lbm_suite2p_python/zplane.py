@@ -31,7 +31,11 @@ def bin1d(X, bin_size, axis=0):
         size = list(X.shape)
         Xb = X.swapaxes(0, axis)
         size_new = Xb.shape
-        Xb = Xb[:size[axis]//bin_size*bin_size].reshape((size[axis]//bin_size, bin_size, *size_new[1:])).mean(axis=1)
+        Xb = (
+            Xb[: size[axis] // bin_size * bin_size]
+            .reshape((size[axis] // bin_size, bin_size, *size_new[1:]))
+            .mean(axis=1)
+        )
         Xb = Xb.swapaxes(axis, 0)
         return Xb
     else:
@@ -666,9 +670,11 @@ def plot_projection(
         ax.imshow(green_overlay)
         if not accepted_only:
             non_cell_rois = _resize_masks_fit_crop(
-                np.nanmax(im[~iscell], axis=0)
-                if np.any(~iscell)
-                else np.zeros_like(im[0]),
+                (
+                    np.nanmax(im[~iscell], axis=0)
+                    if np.any(~iscell)
+                    else np.zeros_like(im[0])
+                ),
                 shape,
             )
             magenta_overlay = np.zeros((*shape, 4), dtype=np.float32)
@@ -791,7 +797,7 @@ def plot_noise_distribution(
         plt.show()
 
 
-def load_planar_results(ops: dict | str | Path, z_plane: list | int=None) -> dict:
+def load_planar_results(ops: dict | str | Path, z_plane: list | int = None) -> dict:
     """
     Load stat, iscell, spks files and return as a dict. Does NOT filter by valid cells, array contain both
     accepted and rejected neurons. Filter for accepted-only via f[iscell] or fneue[iscell] if needed.
@@ -826,9 +832,7 @@ def load_planar_results(ops: dict | str | Path, z_plane: list | int=None) -> dic
         if Path(ops).is_dir():
             ops = Path(ops).joinpath("ops.npy")
             if not ops.exists():
-                raise FileNotFoundError(
-                    f"ops.npy not found in given directory: {ops}"
-                )
+                raise FileNotFoundError(f"ops.npy not found in given directory: {ops}")
     output_ops = load_ops(ops)
 
     save_path = Path(output_ops["save_path"])
@@ -844,10 +848,7 @@ def load_planar_results(ops: dict | str | Path, z_plane: list | int=None) -> dic
 
     n_neurons = spks.shape[0]
     if z_plane is None:
-        z_plane_arr = output_ops.get(
-            "plane",
-            np.zeros(n_neurons, dtype=int)
-        )
+        z_plane_arr = output_ops.get("plane", np.zeros(n_neurons, dtype=int))
     else:
         z_plane_arr = np.full(n_neurons, z_plane, dtype=int)
     return {
@@ -859,6 +860,7 @@ def load_planar_results(ops: dict | str | Path, z_plane: list | int=None) -> dic
         "cellprob": cellprob,
         "z_plane": z_plane_arr,
     }
+
 
 def load_traces(ops: dict | str | Path):
     """
@@ -893,11 +895,13 @@ def load_traces(ops: dict | str | Path):
     )
     return F[iscell], Fneu[iscell], spks[iscell]
 
+
 def save_ops(ops: dict, path: Path | str) -> None:
     """Save ops dict to a npy file. Ensure parent directory exists."""
     path = Path(path)
     path.parent.mkdir(exist_ok=True, parents=True)
     np.save(str(path), ops, allow_pickle=True)
+
 
 def load_ops(ops_input: str | Path | list[str | Path]) -> dict:
     """Simple utility load a suite2p npy file"""

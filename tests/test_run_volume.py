@@ -11,15 +11,17 @@ import mbo_utilities as mbo
 import lbm_suite2p_python as lsp
 
 HERE = os.path.dirname(__file__)
-TEMP_DIR = os.path.join(HERE, '_tmp')
-PRIVATE_DIR = os.path.join(HERE, 'data', 'private')
-PUBLIC_DIR = os.path.join(HERE, 'data', 'public')
+TEMP_DIR = os.path.join(HERE, "_tmp")
+PRIVATE_DIR = os.path.join(HERE, "data", "private")
+PUBLIC_DIR = os.path.join(HERE, "data", "public")
 
-URL = 'http://localhost:8386/'  # TEMP_DIR
+URL = "http://localhost:8386/"  # TEMP_DIR
+
 
 def skip(key: str, default: bool) -> bool:
     """Return if environment variable is set and true."""
-    return os.getenv(key, default) in {True, 1, '1'}
+    return os.getenv(key, default) in {True, 1, "1"}
+
 
 @pytest.fixture
 def fake_data(request, tmp_path):
@@ -41,10 +43,12 @@ def pytest_addoption(parser):
         "--data-path", action="store", default=None, help="Path to test TIFF folder"
     )
 
+
 @pytest.fixture
 def fake_data(tiff_paths, tmp_path):
     paths, tempdir = tiff_paths, Path(tmp_path)
     return paths, tempdir
+
 
 def test_run_plane(fake_data):
     files, tempdir = fake_data
@@ -52,9 +56,18 @@ def test_run_plane(fake_data):
     metadata = mbo.get_metadata(file)
     ops = mbo.params_from_metadata(metadata)
     ops["nplanes"] = 1  # for safety
-    result = lsp.run_plane(file, save_path=tempdir, ops=ops, keep_raw=True, keep_reg=True, force_reg=True, force_detect=True)
+    result = lsp.run_plane(
+        file,
+        save_path=tempdir,
+        ops=ops,
+        keep_raw=True,
+        keep_reg=True,
+        force_reg=True,
+        force_detect=True,
+    )
     assert isinstance(result, dict)
     assert (Path(result["save_path"]) / "ops.npy").exists()
+
 
 def test_run_volume(fake_data):
     files, tempdir = fake_data

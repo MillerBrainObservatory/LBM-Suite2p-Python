@@ -214,9 +214,11 @@ def save_job_to_suite2p(
             constant_values=0,
         )
 
-        assert plane_data.shape == (n_frames, max_y, max_x), (
-            f"Padding failed for plane {z}"
-        )
+        assert plane_data.shape == (
+            n_frames,
+            max_y,
+            max_x,
+        ), f"Padding failed for plane {z}"
 
         plane_folder = save_folder / f"plane{z}"
         plane_folder.mkdir(parents=True, exist_ok=True)
