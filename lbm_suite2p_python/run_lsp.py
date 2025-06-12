@@ -522,7 +522,10 @@ def run_plane(
                 else:
                     print("Plotting traces...")
                     plot_traces(
-                        dff, save_path=expected_files["traces"], num_neurons=ncells
+                        dff,
+                        save_path=expected_files["traces"],
+                        num_neurons=ncells,
+                        signal_units="dffp",
                     )
                 print("Plotting noise distribution...")
                 plot_noise_distribution(dff_noise, save_path=expected_files["noise"])
