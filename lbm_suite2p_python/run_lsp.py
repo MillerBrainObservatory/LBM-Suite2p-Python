@@ -8,7 +8,7 @@ from scipy.ndimage import uniform_filter1d
 
 import tifffile
 import suite2p
-from lbm_suite2p_python.utils import dff_percentile
+from lbm_suite2p_python.utils import dff_rolling_percentile
 import mbo_utilities as mbo  # noqa
 
 logger = mbo.log.get("mbo.lsp")
@@ -303,6 +303,8 @@ def run_plane(
     keep_reg: bool = True,
     force_reg: bool = False,
     force_detect: bool = False,
+    dff_window_size: int = 10,
+    dff_percentile: int = 8,
     **kwargs,
 ):
     """
@@ -325,6 +327,11 @@ def run_plane(
         if true, force a new registration even if existing shifts are found in ops.npy.
     force_detect : bool, default false
         if true, force roi detection even if an existing stat.npy is present.
+    dff_window_size : int, default 10
+        Size of the window for calculating dF/F traces.
+    dff_percentile : int, default 8
+        Percentile to use for baseline F₀ estimation in dF/F calculation.
+    **kwargs : dict, optional
 
     Returns
     -------
@@ -500,8 +507,13 @@ def run_plane(
                     print(f"Too few cells to plot traces for {plane_dir.stem}.")
                     return output_ops
 
-                dff = dff_percentile(f, percentile=2) * 100
-                dff = uniform_filter1d(dff, size=3, axis=1)
+                percentile = output_ops.get("dff_percentile", dff_percentile)
+                win_size = output_ops.get("dff_window_size", dff_window_size)
+                dff = dff_rolling_percentile(
+                    f,
+                    percentile=percentile,
+                    window_size=win_size
+                ) * 100
                 dff_noise = dff_shot_noise(dff, output_ops["fs"])
 
                 ncells = min(30, dff.shape[0])
@@ -538,15 +550,15 @@ def run_plane(
                     model = Rastermap(**params).fit(spks)
                     np.save(expected_files["model"], model)
 
-                    neuron_bin_size = (
-                        1 if n_neurons < 200 else 5 if n_neurons < 500 else 10
-                    )
-                    xmax = min(spks.shape[1], int(2000 * (200 / n_neurons) ** 0.5))
+                    # neuron_bin_size = (
+                    #     1 if n_neurons < 200 else 5 if n_neurons < 500 else 10
+                    # )
+                    # xmax = min(spks.shape[1], int(2000 * (200 / n_neurons) ** 0.5))
                     plot_rastermap(
                         spks,
                         model,
-                        neuron_bin_size=neuron_bin_size,
-                        xmax=xmax,
+                        neuron_bin_size=0,
+                        # xmax=spks.shape[1],
                         save_path=expected_files["rastermap"],
                         title_kwargs={"fontsize": 8, "y": 0.95},
                         title="Rastermap Sorted Activity",

@@ -10,7 +10,7 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 from matplotlib.offsetbox import VPacker, HPacker, DrawingArea
 
-from lbm_suite2p_python.utils import dff_percentile
+from lbm_suite2p_python.utils import dff_rolling_percentile
 from lbm_suite2p_python.utils import _resize_masks_fit_crop
 from suite2p.detection.stats import ROI
 
@@ -254,7 +254,9 @@ def plot_traces(
         print("Loading dff (%) from ops-dict")
         res = load_planar_results(ops)
         f = res["F"]
-        f = dff_percentile(f) * 100
+        percentile = ops.get("dff_percentile", 8)
+        window = ops.get("dff_window_size", window)
+        f = dff_rolling_percentile(f, percentile=percentile, window_size=window) * 100
         signal_units = "dffp"
 
     if signal_units is None:
