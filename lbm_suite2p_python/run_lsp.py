@@ -8,15 +8,11 @@ from scipy.ndimage import uniform_filter1d
 
 import tifffile
 import suite2p
+from suite2p.io.binary import BinaryFile
 from lbm_suite2p_python.utils import dff_rolling_percentile
 import mbo_utilities as mbo  # noqa
 
-logger = mbo.log.get("mbo.lsp")
-
-try:
-    from suite2p.io.binary import BinaryFile
-except ImportError:
-    BinaryFile = None
+logger = mbo.log.get("run_lsp")
 
 from lbm_suite2p_python.zplane import (
     plot_traces,
@@ -402,30 +398,17 @@ def run_plane(
     )
     ops = {**ops_default, **ops_user, **ops_from_inpath}
 
-    # The only variable set in both
-    # if statements is 'save_folder'
-    if input_path.suffix.lower() in (".tif", ".tiff"):
-        # for tiffs, convert to bin
-        metadata = mbo.get_metadata(input_path)
-        plane_dir = metadata.get("plane", None)
-        if plane_dir is None:
-            plane_dir = ops.get("plane", mbo.normalize_file_url(input_path))
-        plane_dir = save_path / f"plane{plane_dir}"
-        mbo.save_nonscan(
-            input_path,
-            plane_dir,
-            ext=".bin",
-            overwrite=True,
-            metadata=metadata,
-        )
-    elif input_path.suffix.lower() in (".bin", "bin"):
-        # if this is a bin file, we assume it is already in the correct format
-        plane_dir = input_path.parent
-        logger.info(f"Input is a binary file: {input_path}")
+    file = mbo.imread(input_path)
+    metadata = file.metadata
+    if "plane" in ops:
+        plane = ops["plane"]
+    elif "plane" in metadata:
+        plane = metadata["plane"]
     else:
-        raise ValueError(
-            f"Unsupported file type: {input_path.suffix}. Only .tif/.tiff or .bin files are supported."
-        )
+        # get the plane from the filename
+        plane = mbo.get_plane_from_filename(input_path, ops.get("plane", None))
+    mbo.imwrite(file, save_path, ext=".bin", planes=[plane])
+    plane_dir = save_path
 
     ops_outpath = (
         np.load(plane_dir / "ops.npy", allow_pickle=True).item()
