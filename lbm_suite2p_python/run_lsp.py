@@ -20,6 +20,7 @@ from lbm_suite2p_python.zplane import (
     plot_noise_distribution,
     load_planar_results,
     load_ops,
+    suite2p_roi_overlay
 )
 from . import dff_shot_noise
 from .volume import (
@@ -407,8 +408,9 @@ def run_plane(
     else:
         # get the plane from the filename
         plane = mbo.get_plane_from_filename(input_path, ops.get("plane", None))
-    mbo.imwrite(file, save_path, ext=".bin", planes=[plane])
+
     plane_dir = save_path
+    mbo.imwrite(file, save_path, ext=".bin", planes=[plane])
 
     ops_outpath = (
         np.load(plane_dir / "ops.npy", allow_pickle=True).item()
@@ -443,6 +445,7 @@ def run_plane(
     np.save(ops["ops_path"], ops)
 
     output_ops = run_plane_bin(plane_dir)
+    np.save(ops["ops_path"], output_ops)
 
     # cleanup ourselves
     if not keep_raw:
@@ -484,6 +487,7 @@ def run_plane(
             if expected_files["stat"].is_file():
                 res = load_planar_results(output_ops)
                 iscell = res["iscell"]
+                stat = res["stat"]
                 f = res["F"][iscell]
 
                 if f.shape[0] < 10:
@@ -496,7 +500,7 @@ def run_plane(
                     f,
                     percentile=percentile,
                     window_size=win_size
-                ) * 100
+                )
                 dff_noise = dff_shot_noise(dff, output_ops["fs"])
 
                 ncells = min(30, dff.shape[0])
@@ -505,7 +509,7 @@ def run_plane(
                 else:
                     print("Plotting traces...")
                     plot_traces(
-                        dff,
+                        dff * 100,
                         save_path=expected_files["traces"],
                         num_neurons=ncells,
                         signal_units="dffp",
@@ -552,15 +556,16 @@ def run_plane(
                 else:
                     print("No rastermap is available.")
 
+                suite2p_roi_overlay(
+                    output_ops,
+                    stat,
+                    iscell,
+                    "max_proj",
+                    plot_indices=None,
+                    savepath=expected_files["segmentation"],
+                )
+
             fig_label = kwargs.get("fig_label", plane_dir.stem)
-            plot_projection(
-                output_ops,
-                expected_files["segmentation"],
-                fig_label=fig_label,
-                display_masks=True,
-                add_scalebar=True,
-                proj="meanImg",
-            )
             plot_projection(
                 output_ops,
                 expected_files["max_proj"],

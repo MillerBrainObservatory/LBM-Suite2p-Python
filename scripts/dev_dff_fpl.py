@@ -7,6 +7,8 @@ from scipy.ndimage import generic_filter
 import matplotlib.pyplot as plt
 from matplotlib.colors import hsv_to_rgb
 from skimage.segmentation import find_boundaries
+import tifffile
+import fastplotlib as fpl
 
 
 def pick_unique_cells(peaks, stds, skews, noise, num_each=4):
@@ -98,6 +100,7 @@ def plot_dff_event_counts(
         [f"{m[0]} {m[1]}th ({m[2]}s)" if m[2] else f"{m[0]} {m[1]}th" for m in method_info],
         color='white'
     )
+
     ax.set_xlabel("Cell Index", color='white')
     ax.set_title(f"ΔF/F Events > {threshold}× Noise", color='white')
 
@@ -114,6 +117,7 @@ def plot_dff_event_counts(
         plt.close()
     else:
         plt.show()
+
 
 def save_dff_traces_by_method(dffs, method_info, outpath):
     outpath = Path(outpath)
@@ -351,8 +355,11 @@ def suite2p_roi_overlay(
         plt.show()
 
 
-#%% Counting significant events in dF/F traces
+#%% Load Data
+
 ops = r"D:\demo\test\suite2p\anatomical_cpsam\ops.npy"
+all_ops = lsp.load_ops(ops)
+max_proj = all_ops["max_proj"]
 all_res = lsp.load_planar_results(ops)
 iscell = all_res["iscell"]
 fneu = all_res["Fneu"][iscell]
@@ -371,192 +378,13 @@ noise = np.array([standardized_noise(trace, fps=17) for trace in corrected_f])
 
 # cell_groups, noise = split_high_low_noise_groups(res[0], fps=17, num_each=4)
 cell_groups = pick_unique_cells(peaks, stds, skews, noise, num_each=5)
-selected_indices = sorted(set(sum(cell_groups.values(), [])))
-
-res = dff_methods(f, indices=selected_indices, fps=17)
-
-for i in range(4):
-    label = "High Std"
-    cell_index = cell_groups[label][i]  # 4th cell in "High Mean" row
-    trace = f[cell_index]
-
-    fig, ax = plt.subplots(figsize=(28, 4), facecolor="black")
-    ax.plot(trace, color='w', lw=1)
-    ax.plot(spks[cell_index], color='cyan', lw=1, label='Static Baseline')
-    print(min(trace))
-    ax.set_facecolor("black")
-    ax.tick_params(colors='white')
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.spines['left'].set_color('white')
-    ax.spines['bottom'].set_color('white')
-    plt.tight_layout()
-    plt.savefig(
-        f"example_trace_deonv{i}.png",
-        bbox_inches='tight',
-        facecolor='black',
-        dpi=300,
-        transparent=True
-    )
-    plt.show()
-
-#%% Save traces
-save_path = Path(r"D:\demo\test\suite2p\anatomical_cpsam\traces")
-save_path.mkdir(exist_ok=True)
-# save_dff_traces_by_method(res[0], res[1], save_path)
-
-# all_cells_dff = dff_methods(f, np.arange(f.shape[0]), fps=17)
-# plot_dff_event_counts(all_cells_dff[0], all_cells_dff[1], threshold=3)
-
-root = Path(r"D:\demo\strategies")
-root.mkdir(exist_ok=True)
-
-for label in ["High Peak", "High Std", "High Skew", "Low Noise"]:
-    label_text = label.lower().replace(" ", "_")
-    fpath = root / label_text
-    fpath.mkdir(exist_ok=True)
-
-    for i, cell_index in enumerate(cell_groups[label]):
-        trace = f[cell_index]
-
-        panel_savename = fpath / f"panel_{label_text}_{i}.png"
-        plot_full_trace_panel(
-            f, fneu, spks, cell_index,
-            fps=17, spike_thresh=0.2, savename=panel_savename
-        )
-
-        drift_savename = fpath / f"drift_{label_text}_{i}.png"
-        corrected, trend, ramp = plot_drift_correction(
-            trace, fps=17, savename=drift_savename
-        )
-
-        s2p_roi_savename = fpath / f"s2p_roi_overlay_{label_text}_{i}.png"
-        suite2p_roi_overlay(
-            ops,
-            all_res["stat"],
-            all_res["iscell"],
-            plot_indices=[cell_index],
-            proj="max_proj",
-            color_mode='uniform',
-            red_border=True,
-            savename=s2p_roi_savename
-        )
-
-        dff_comp_savename = fpath / f"dff_comp_{label_text}_{i}.png"
-        dff_comp_savename.parent.mkdir(exist_ok=True)
-        plot_dff_comparison(
-            trace,
-            res[0], res[1], res[2], cell_index=cell_index, fps=17,
-            minimal=False,
-            savename=dff_comp_savename
-        )
-
-
-#%%
+# selected_indices = sorted(set(sum(cell_groups.values(), [])))
 selected_indices = [130, 138, 61, 129]
+
 res = dff_methods(f, indices=selected_indices, fps=17)
+# res = dff_methods(f, indices=selected_indices, fps=17)
 
-
-for i, cell_index in enumerate(selected_indices):
-    label_text = f"cell_{cell_index}"
-    fpath = root / label_text
-    fpath.mkdir(exist_ok=True)
-
-    trace = f[cell_index]
-
-    panel_savename = fpath / f"panel_{label_text}.png"
-    plot_full_trace_panel(f, fneu, spks, cell_index, fps=17, spike_thresh=0.2, savename=panel_savename)
-
-    drift_savename = fpath / f"drift_{label_text}.png"
-    corrected, trend, ramp = plot_drift_correction(trace, fps=17, savename=drift_savename)
-
-    s2p_roi_savename = fpath / f"s2p_roi_overlay_{label_text}.png"
-    suite2p_roi_overlay(
-        ops,
-        all_res["stat"],
-        all_res["iscell"],
-        plot_indices=[cell_index],
-        proj="max_proj",
-        color_mode='uniform',
-        red_border=True,
-        savename=s2p_roi_savename
-    )
-
-    dff_comp_savename = fpath / f"dff_comp_{label_text}.png"
-    dff_comp_savename.parent.mkdir(exist_ok=True)
-    plot_dff_comparison(
-        trace,
-        res[0], res[1], res[2], cell_index=cell_index, fps=17,
-        minimal=False,
-        savename=dff_comp_savename
-    )
-
-
-def plot_single_trace(trace, fps=17, savename=None, title=None):
-    time = np.arange(len(trace)) / fps
-    fig, ax = plt.subplots(figsize=(28, 4), facecolor="black")
-    ax.plot(time, trace, color='white', lw=1.0)
-    ax.set_xlabel("Time (s)", color='white', fontsize=14)
-    if title:
-        ax.set_title(title, color='white', fontsize=16)
-    ax.set_facecolor("black")
-    ax.tick_params(colors='white')
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.spines['left'].set_color('white')
-    ax.spines['bottom'].set_color('white')
-    fig.tight_layout()
-    fig.patch.set_alpha(0)
-    if savename:
-        plt.savefig(savename, bbox_inches='tight', facecolor='black', dpi=300, transparent=True)
-        plt.close()
-    else:
-        plt.show()
-
-plot_single_trace(f[61, :, ], fps=17, title="Cell 61 Trace")
-
-def plot_single_dff_trace(trace, fps=17, window_s=30, percentile=8, duration_s=None, savename=None, title=None):
-    nt = len(trace)
-    t = np.arange(nt) / fps
-
-    if duration_s is not None:
-        nframes = int(duration_s * fps)
-        trace = trace[:nframes]
-        t = t[:nframes]
-
-    win = int(window_s * fps)
-    if win % 2 == 0:
-        win += 1
-
-    f0 = generic_filter(trace, lambda x: np.percentile(x, percentile), size=win, mode='nearest')
-    dff = (trace - f0) / f0
-
-    fig, ax = plt.subplots(figsize=(28, 4), facecolor="black")
-    ax.plot(t, dff, color='lime', lw=1.5)
-    ax.axhline(0, color='white', linestyle='--', lw=1)
-
-    label = f"ΔF/F (win={window_s}s, {percentile}th percentile)"
-    ax.set_title(title or label, color='white', fontsize=16)
-
-    ax.set_xlabel("Time (s)", color='white', fontsize=14)
-    ax.set_facecolor("black")
-    ax.tick_params(colors='white')
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.spines['left'].set_color('white')
-    ax.spines['bottom'].set_color('white')
-    fig.tight_layout()
-    fig.patch.set_alpha(0)
-
-    if savename:
-        plt.savefig(savename, bbox_inches='tight', facecolor='black', dpi=300, transparent=True)
-        plt.close()
-    else:
-        plt.show()
-
-plot_single_dff_trace(f[61], fps=17, window_s=30, percentile=8, duration_s=60, title="Cell 61 ΔF/F")
-
-def plot_dff(trace, fps=17, window_s=30, percentile=8, duration_s=None, savename=None, title=None):
+def get_dff_line(trace, fps=17, window_s=30, percentile=8, duration_s=None, savename=None, title=None):
     nt = len(trace)
     t = np.arange(nt) / fps
 
@@ -571,47 +399,32 @@ def plot_dff(trace, fps=17, window_s=30, percentile=8, duration_s=None, savename
 
     f0 = generic_filter(trace, lambda x: np.percentile(x, percentile), size=win, mode='nearest')
     dff = (trace - f0) / f0 * 100  # in percent
+    return dff, t
 
-    fig, ax1 = plt.subplots(figsize=(28, 4), facecolor="black")
-    ax2 = ax1.twinx()
+# fname = Path(r"D://demo//test//plane10_roi2.tif")
+# data = tifffile.memmap(fname)
+# mdata = mbo.get_metadata(fname)
+## FASTPLOTLIB
 
-    ax1.plot(t, trace, color='white', lw=1.5)
-    ax2.plot(t, dff, color='lime', lw=1.5)
+dff, t = get_dff_line(f[61], fps=17, window_s=30, percentile=8, duration_s=60)
 
-    ax1.set_xlabel("Time (s)", color='white', fontsize=14)
-    if title:
-        ax1.set_title(title, color='white', fontsize=16)
+fig = fpl.Figure()
 
-    for ax in (ax1, ax2):
-        ax.set_facecolor("black")
-        ax.tick_params(colors='white')
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.spines['left'].set_visible(False)
-        ax.set_yticks([])
+figure = fpl.Figure(
+    names=["max_proj", "proj_histogram"],
+    shape=(1,2),
+)
 
-    ax1.spines['bottom'].set_color('white')
-    fig.tight_layout()
-    fig.patch.set_alpha(0)
+# add image to the corresponding subplots
+figure["max_proj"].add_image(max_proj)
 
-    if savename:
-        plt.savefig(savename, bbox_inches='tight', facecolor='black', dpi=300, transparent=True)
-        plt.close()
-    else:
-        plt.show()
+# add histogram to the corresponding subplots
+figure["proj_histogram"].add_line(dff)
 
-root = Path(r"D:\demo\strategies")
-for cell in selected_indices:
-    import itertools
-    win = [10, 30, 60, 120]
-    percentiles = [8, 20, 40, 60]
+for subplot in figure:
+    print(subplot.name)
+    # if subplot.name == "proj_histogram":
+    subplot.camera.maintain_aspect = False
 
-    grid_search_dir = root / f"cell{cell}" / "grid_search"
-    grid_search_dir.mkdir(parents=True, exist_ok=True)
-    for w, p in itertools.product(win, percentiles):
-        savename = grid_search_dir / f"raw_and_dff_win{w}_p{p}.png"
-        plot_dff(
-            f[cell], fps=17, window_s=w, percentile=p, duration_s=600,
-            title=f"Cell 61 Raw and ΔF/F (win={w}s, p={p})",
-            savename=savename
-        )
+figure.show()
+fpl.loop.run()

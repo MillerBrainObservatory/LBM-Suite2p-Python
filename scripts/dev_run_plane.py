@@ -4,11 +4,11 @@ import mbo_utilities as mbo
 
 if __name__ == "__main__":
 
-    path = Path(r"D:\demo\test\plane09_roi2.tif")
-    save_path = path.parent.joinpath("suite2p")
+    path = Path(r"D:\demo\test\plane10_roi2.tif")
+    save_path = path.parent.joinpath("plane10")
     save_path.mkdir(exist_ok=True)
     user_ops = {
-        "anatomical_only": 3,
+        "anatomical_only": 0,
         "pretrained_model": "cpsam",
         "cellprob_threshold": -6,
         "flow_threshold": 0.8,
@@ -17,7 +17,7 @@ if __name__ == "__main__":
 
     ops = lsp.run_plane(
         input_path=path,
-        save_path=save_path.joinpath("anatomical_cpsam"),
+        save_path=save_path.joinpath("functional"),
         ops=user_ops,
         keep_reg=True,
         keep_raw=True,

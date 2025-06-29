@@ -9,10 +9,80 @@ from matplotlib.animation import FuncAnimation
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 from matplotlib.offsetbox import VPacker, HPacker, DrawingArea
+from matplotlib.colors import hsv_to_rgb
+
+from scipy.ndimage import distance_transform_edt
 
 from lbm_suite2p_python.utils import dff_rolling_percentile
 from lbm_suite2p_python.utils import _resize_masks_fit_crop
 from suite2p.detection.stats import ROI
+from skimage.segmentation import find_boundaries
+
+
+# keep this on top of module to avoid name errors
+def load_planar_results(ops: dict | str | Path, z_plane: list | int = None) -> dict:
+    """
+    Load stat, iscell, spks files and return as a dict. Does NOT filter by valid cells, array contain both
+    accepted and rejected neurons. Filter for accepted-only via f[iscell] or fneue[iscell] if needed.
+
+    Parameters
+    ----------
+    ops : dict, str or Path
+        Dict of or path to the ops.npy file. Can be a fully qualified path or a directory containing ops.npy.
+    z_plane : int or None, optional
+        the z-plane index for this file. If provided, it is stored in the output.
+
+    Returns
+    -------
+    dict
+        dictionary with keys:
+        - 'F': fluorescence traces loaded from F.npy,
+        - 'Fneu': neuropil fluorescence traces loaded from Fneu.npy,
+        - 'spks': spike traces loaded from spks.npy,
+        - 'stat': stats loaded from stat.npy,
+        - 'iscell': boolean array from iscell.npy,
+        - 'cellprob': cell probability from classifier.
+        - 'z_plane': an array (of shape [n_neurons,]) with the provided z_plane index.
+
+    See Also
+    --------
+    lbm_suite2p_python.load_ops
+    lbm_suite2p_python.load_traces
+    """
+    if isinstance(ops, list):
+        raise ValueError(f"Input should not be a list!")
+    if isinstance(ops, (str, Path)):
+        if Path(ops).is_dir():
+            ops = Path(ops).joinpath("ops.npy")
+            if not ops.exists():
+                raise FileNotFoundError(f"ops.npy not found in given directory: {ops}")
+    output_ops = load_ops(ops)
+
+    save_path = Path(output_ops["save_path"])
+
+    F = np.load(save_path.joinpath("F.npy"))
+    Fneu = np.load(save_path.joinpath("Fneu.npy"))
+    spks = np.load(save_path.joinpath("spks.npy"))
+    stat = np.load(save_path.joinpath("stat.npy"), allow_pickle=True)
+    iscell = np.load(save_path.joinpath("iscell.npy"), allow_pickle=True)[:, 0].astype(
+        bool
+    )
+    cellprob = np.load(save_path.joinpath("iscell.npy"), allow_pickle=True)[:, 1]
+
+    n_neurons = spks.shape[0]
+    if z_plane is None:
+        z_plane_arr = output_ops.get("plane", np.zeros(n_neurons, dtype=int))
+    else:
+        z_plane_arr = np.full(n_neurons, z_plane, dtype=int)
+    return {
+        "F": F,
+        "Fneu": Fneu,
+        "spks": spks,
+        "stat": stat,
+        "iscell": iscell,
+        "cellprob": cellprob,
+        "z_plane": z_plane_arr,
+    }
 
 
 def bin1d(X, bin_size, axis=0):
@@ -106,19 +176,19 @@ class AnchoredHScaleBar(matplotlib.offsetbox.AnchoredOffsetbox):
     """
 
     def __init__(
-        self,
-        size=1,
-        label="",
-        loc=2,
-        ax=None,
-        pad=0.4,
-        borderpad=0.5,
-        ppad=0,
-        sep=2,
-        prop=None,
-        frameon=True,
-        linekw=None,
-        **kwargs,
+            self,
+            size=1,
+            label="",
+            loc=2,
+            ax=None,
+            pad=0.4,
+            borderpad=0.5,
+            ppad=0,
+            sep=2,
+            prop=None,
+            frameon=True,
+            linekw=None,
+            **kwargs,
     ):
         if linekw is None:
             linekw = {}
@@ -167,20 +237,20 @@ class AnchoredVScaleBar(matplotlib.offsetbox.AnchoredOffsetbox):
     """
 
     def __init__(
-        self,
-        height=1,
-        label="",
-        loc=2,
-        ax=None,
-        pad=0.4,
-        borderpad=0.5,
-        ppad=0,
-        sep=2,
-        prop=None,
-        frameon=True,
-        linekw={},
-        spacer_width=6,
-        **kwargs,
+            self,
+            height=1,
+            label="",
+            loc=2,
+            ax=None,
+            pad=0.4,
+            borderpad=0.5,
+            ppad=0,
+            sep=2,
+            prop=None,
+            frameon=True,
+            linekw={},
+            spacer_width=6,
+            **kwargs,
     ):
         if ax is None:
             ax = plt.gca()
@@ -211,16 +281,16 @@ class AnchoredVScaleBar(matplotlib.offsetbox.AnchoredOffsetbox):
 
 
 def plot_traces(
-    f,
-    save_path="",
-    fps=17.0,
-    num_neurons=20,
-    window=220,
-    title="",
-    offset=None,
-    lw=0.5,
-    cmap="tab10",
-    signal_units=None,
+        f,
+        save_path="",
+        fps=17.0,
+        num_neurons=20,
+        window=220,
+        title="",
+        offset=None,
+        lw=0.5,
+        cmap="tab10",
+        signal_units=None,
 ):
     """
     Plot stacked fluorescence traces with automatic offset and scale bars.
@@ -391,20 +461,20 @@ def plot_traces(
 
 
 def animate_traces(
-    f,
-    save_path="./scrolling.mp4",
-    fps=17.0,
-    start_neurons=20,
-    window=120,
-    title="",
-    gap=None,
-    lw=0.5,
-    cmap="tab10",
-    anim_fps=60,
-    expand_after=5,
-    speed_factor=1.0,
-    expansion_factor=2.0,
-    smooth_factor=1,
+        f,
+        save_path="./scrolling.mp4",
+        fps=17.0,
+        start_neurons=20,
+        window=120,
+        title="",
+        gap=None,
+        lw=0.5,
+        cmap="tab10",
+        anim_fps=60,
+        expand_after=5,
+        speed_factor=1.0,
+        expansion_factor=2.0,
+        smooth_factor=1,
 ):
     """WIP"""
     n_neurons, n_timepoints = f.shape
@@ -412,7 +482,7 @@ def animate_traces(
     T_data = data_time[-1]
     current_frame = min(int(window * fps), n_timepoints - 1)
     t_f_local = (T_data - window + expansion_factor * expand_after) / (
-        1 + expansion_factor
+            1 + expansion_factor
     )
 
     if gap is None:
@@ -505,7 +575,7 @@ def animate_traces(
             n_visible = start_neurons
         else:
             u = min(1.0, (t - expand_after) / (t_f_local - expand_after))
-            ease = 3 * u**2 - 2 * u**3  # smoothstep easing
+            ease = 3 * u ** 2 - 2 * u ** 3  # smoothstep easing
             x_min = t
 
             window_start = window
@@ -598,16 +668,87 @@ def animate_traces(
     plt.show()
 
 
+def feather_mask(mask, max_alpha=0.75, edge_width=3):
+    # Suite2p-like soft mask alpha using distance transform
+    dist_out = distance_transform_edt(mask == 0)
+    alpha = np.clip((edge_width - dist_out) / edge_width, 0, 1)
+    return alpha * max_alpha
+
+def suite2p_roi_overlay(
+        ops,
+        stat,
+        iscell,
+        proj=None,
+        plot_indices=None,
+        savepath=None,
+        color_mode='random',  # options: 'random', 'uniform', 'colormap'
+        red_border=False
+):
+    ops = load_ops(ops)
+    img = ops[proj]
+    if img.shape != (ops["Ly"], ops["Lx"]):
+        img_full = np.zeros((ops["Ly"], ops["Lx"]), dtype=np.float32)
+        img_full[ops["yrange"][0]:ops["yrange"][1], ops["xrange"][0]:ops["xrange"][1]] = img
+        img = img_full
+
+    p1, p99 = np.percentile(img, 1), np.percentile(img, 99)
+    norm_img = np.clip((img - p1) / (p99 - p1), 0, 1)
+
+    H = np.zeros_like(norm_img)
+    S = np.zeros_like(norm_img)
+    mask_total = np.zeros_like(norm_img, dtype=bool)
+    iscell = np.asarray(iscell).astype(bool)
+    if plot_indices is not None:
+        indices = plot_indices
+    else:
+        indices = np.flatnonzero(iscell)
+    if plot_indices is not None:
+        indices = [n for n in indices if n in plot_indices]
+
+    for i, n in enumerate(indices):
+        s = stat[n]
+        ypix, xpix = s["ypix"], s["xpix"]
+        mask_total[ypix, xpix] = True
+
+        if color_mode == 'random':
+            hue = np.random.rand()
+        elif color_mode == 'uniform':
+            hue = 0.6  # cyan
+        elif color_mode == 'colormap':
+            hue = (i / max(len(indices), 1)) % 1.0
+        else:
+            raise ValueError("color_mode must be 'random', 'uniform', or 'colormap'")
+
+        H[ypix, xpix] = hue
+        S[ypix, xpix] = 1
+
+    rgb = hsv_to_rgb(np.stack([H, S, norm_img], axis=-1))
+
+    if red_border and mask_total.any():
+        borders = find_boundaries(mask_total, mode='outer')
+        rgb[borders] = [1, 0, 0]  # red
+
+    plt.figure(figsize=(8, 8))
+    plt.imshow(rgb)
+    plt.axis("off")
+    plt.tight_layout()
+    if savepath:
+        plt.savefig(savepath, dpi=300, bbox_inches='tight', facecolor='black')
+        plt.close()
+    else:
+        plt.show()
+
+
 def plot_projection(
-    ops,
-    savepath=None,
-    fig_label=None,
-    vmin=None,
-    vmax=None,
-    add_scalebar=False,
-    proj="meanImg",
-    display_masks=False,
-    accepted_only=False,
+        ops,
+        savepath=None,
+        fig_label=None,
+        vmin=None,
+        vmax=None,
+        add_scalebar=False,
+        proj="meanImg",
+        display_masks=False,
+        accepted_only=False,
 ):
     if proj == "meanImg":
         txt = "Mean-Image"
@@ -667,8 +808,8 @@ def plot_projection(
             shape,
         )
         green_overlay = np.zeros((*shape, 4), dtype=np.float32)
+        green_overlay[..., 3] = feather_mask(cell_rois > 0, max_alpha=0.9)
         green_overlay[..., 1] = 1
-        green_overlay[..., 3] = (cell_rois > 0) * 1.0
         ax.imshow(green_overlay)
         if not accepted_only:
             non_cell_rois = _resize_masks_fit_crop(
@@ -747,7 +888,7 @@ def plot_projection(
 
 
 def plot_noise_distribution(
-    noise_levels: np.ndarray, save_path=None, title="Noise Level Distribution"
+        noise_levels: np.ndarray, save_path=None, title="Noise Level Distribution"
 ):
     """
     Plots and saves the distribution of noise levels across neurons as a standardized image.
@@ -797,71 +938,6 @@ def plot_noise_distribution(
         plt.close(fig)
     else:
         plt.show()
-
-
-def load_planar_results(ops: dict | str | Path, z_plane: list | int = None) -> dict:
-    """
-    Load stat, iscell, spks files and return as a dict. Does NOT filter by valid cells, array contain both
-    accepted and rejected neurons. Filter for accepted-only via f[iscell] or fneue[iscell] if needed.
-
-    Parameters
-    ----------
-    ops : dict, str or Path
-        Dict of or path to the ops.npy file. Can be a fully qualified path or a directory containing ops.npy.
-    z_plane : int or None, optional
-        the z-plane index for this file. If provided, it is stored in the output.
-
-    Returns
-    -------
-    dict
-        dictionary with keys:
-        - 'F': fluorescence traces loaded from F.npy,
-        - 'Fneu': neuropil fluorescence traces loaded from Fneu.npy,
-        - 'spks': spike traces loaded from spks.npy,
-        - 'stat': stats loaded from stat.npy,
-        - 'iscell': boolean array from iscell.npy,
-        - 'cellprob': cell probability from classifier.
-        - 'z_plane': an array (of shape [n_neurons,]) with the provided z_plane index.
-
-    See Also
-    --------
-    lbm_suite2p_python.load_ops
-    lbm_suite2p_python.load_traces
-    """
-    if isinstance(ops, list):
-        raise ValueError(f"Input should not be a list!")
-    if isinstance(ops, (str, Path)):
-        if Path(ops).is_dir():
-            ops = Path(ops).joinpath("ops.npy")
-            if not ops.exists():
-                raise FileNotFoundError(f"ops.npy not found in given directory: {ops}")
-    output_ops = load_ops(ops)
-
-    save_path = Path(output_ops["save_path"])
-
-    F = np.load(save_path.joinpath("F.npy"))
-    Fneu = np.load(save_path.joinpath("Fneu.npy"))
-    spks = np.load(save_path.joinpath("spks.npy"))
-    stat = np.load(save_path.joinpath("stat.npy"), allow_pickle=True)
-    iscell = np.load(save_path.joinpath("iscell.npy"), allow_pickle=True)[:, 0].astype(
-        bool
-    )
-    cellprob = np.load(save_path.joinpath("iscell.npy"), allow_pickle=True)[:, 1]
-
-    n_neurons = spks.shape[0]
-    if z_plane is None:
-        z_plane_arr = output_ops.get("plane", np.zeros(n_neurons, dtype=int))
-    else:
-        z_plane_arr = np.full(n_neurons, z_plane, dtype=int)
-    return {
-        "F": F,
-        "Fneu": Fneu,
-        "spks": spks,
-        "stat": stat,
-        "iscell": iscell,
-        "cellprob": cellprob,
-        "z_plane": z_plane_arr,
-    }
 
 
 def load_traces(ops: dict | str | Path):
@@ -916,18 +992,18 @@ def load_ops(ops_input: str | Path | list[str | Path]) -> dict:
 
 
 def plot_rastermap(
-    spks,
-    model,
-    neuron_bin_size=None,
-    fps=17,
-    vmin=0,
-    vmax=0.8,
-    xmin=0,
-    xmax=None,
-    save_path=None,
-    title=None,
-    title_kwargs={},
-    fig_text=None,
+        spks,
+        model,
+        neuron_bin_size=None,
+        fps=17,
+        vmin=0,
+        vmax=0.8,
+        xmin=0,
+        xmax=None,
+        save_path=None,
+        title=None,
+        title_kwargs={},
+        fig_text=None,
 ):
     n_neurons, n_timepoints = spks.shape
 
