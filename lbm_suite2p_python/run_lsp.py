@@ -2,11 +2,10 @@ import logging
 import os
 import traceback
 from contextlib import nullcontext
+import datetime
 
 import numpy as np
-from scipy.ndimage import uniform_filter1d
 
-import tifffile
 import suite2p
 from suite2p.io.binary import BinaryFile
 from lbm_suite2p_python.utils import dff_rolling_percentile
@@ -253,26 +252,30 @@ def run_volume(
     print(f"Processing completed for {len(input_files)} files.")
     return all_ops
 
+def should_write_ops(ops_path, ops, force=False):
+    if force or not ops_path.exists():
+        return True
+    try:
+        existing_ops = np.load(ops_path, allow_pickle=True).item()
+        has_registration = "xoff" in existing_ops and "meanImg" in existing_ops
+        has_detection = "stat" in ops or (ops_path.parent / "stat.npy").exists()
+        return not (has_registration and has_detection)
+    except Exception:
+        return True
 
-def run_plane_bin(plane_dir):
-    plane_dir = Path(plane_dir)
-    ops_path = plane_dir / "ops.npy"
-    if ops_path.exists():
-        ops = load_ops(str(ops_path))
-    else:
-        raise ValueError(f"Invalid ops path: {ops_path}")
 
-    # ops.update(input_format="binary", delete_bin=False, move_bin=False)
+def run_plane_bin(ops):
+    ops = load_ops(ops)
     if "nframes" in ops and "n_frames" not in ops:
         ops["n_frames"] = ops["nframes"]
     if "n_frames" not in ops:
         raise KeyError("run_plane_bin: missing frame count (nframes or n_frames)")
     n_frames = ops["n_frames"]
-
     Ly, Lx = ops["Ly"], ops["Lx"]
 
-    ops["raw_file"] = str((plane_dir / "data_raw.bin").resolve())
-    ops["reg_file"] = str((plane_dir / "data.bin").resolve())
+    prior_ops = {}
+    if Path(ops["ops_path"]).exists():
+        prior_ops = np.load(ops["ops_path"], allow_pickle=True).item()
 
     with (
         suite2p.io.BinaryFile(
@@ -289,8 +292,12 @@ def run_plane_bin(plane_dir):
         ops = suite2p.pipeline(
             f_reg, f_raw, None, None, ops["do_registration"], ops, stat=None
         )
-    return ops
 
+    # merge in any non-conflicting prior fields
+    merged_ops = {**ops, **{k: v for k, v in prior_ops.items() if k not in ops}}
+    np.save(ops["ops_path"], merged_ops)
+
+    return merged_ops
 
 def run_plane(
     input_path: str | Path,
@@ -300,8 +307,8 @@ def run_plane(
     keep_reg: bool = True,
     force_reg: bool = False,
     force_detect: bool = False,
-    dff_window_size: int = 10,
-    dff_percentile: int = 8,
+    dff_window_size: int = 500,
+    dff_percentile: int = 20,
     **kwargs,
 ):
     """
@@ -392,12 +399,7 @@ def run_plane(
 
     ops_default = suite2p.default_ops()
     ops_user = load_ops(ops) if ops else {}
-    ops_from_inpath = (
-        load_ops(input_parent.joinpath("ops.npy"))
-        if input_parent.joinpath("ops.npy").exists()
-        else {}
-    )
-    ops = {**ops_default, **ops_user, **ops_from_inpath}
+    ops = {**ops_default, **ops_user}
 
     file = mbo.imread(input_path)
     metadata = file.metadata
@@ -410,17 +412,24 @@ def run_plane(
         plane = mbo.get_plane_from_filename(input_path, ops.get("plane", None))
 
     plane_dir = save_path
-    mbo.imwrite(file, save_path, ext=".bin", planes=[plane])
+
+    needs_detect = force_detect or not (plane_dir / "stat.npy").exists()
+
+    ops_file = plane_dir / "ops.npy"
+    reg_data_file = plane_dir / "data.bin"
+    reg_data_file2 = plane_dir / "reg_tif"
+
+    if should_write_ops(ops_file, ops, force=kwargs.get("force_save", False)):
+        mbo.imwrite(ops_file, ops, ext=".bin")
+    else:
+        print(f"Skipping ops.npy save: {ops_file.name} already contains results.")
 
     ops_outpath = (
-        np.load(plane_dir / "ops.npy", allow_pickle=True).item()
+        np.load(ops_file, allow_pickle=True).item()
         if (plane_dir / "ops.npy").exists()
         else {}
     )
-    ops = {**ops, **ops_outpath}
-    # set up the algorithm flags
-    reg_data_file = plane_dir / "data.bin"
-    reg_data_file2 = plane_dir / "reg_tif"
+
     exists = False
     if reg_data_file.exists():
         exists = True
@@ -432,20 +441,22 @@ def run_plane(
         # if either reg data file exists, we assume registration is done
         needs_reg = not exists
 
-    needs_detect = force_detect or not (plane_dir / "stat.npy").exists()
-    ops["do_registration"] = int(needs_reg)
-    ops["roidetect"] = int(needs_detect)
-
-    ops["save_path"] = str(plane_dir)
+    ops = {
+        **ops,
+        **ops_outpath,  # merge any existing ops
+        "ops_path": str(ops_file),
+        "do_registration": int(needs_reg),
+        "roidetect": int(needs_detect),
+        "save_path": str(plane_dir),
+        "raw_file": str((plane_dir / "data_raw.bin").resolve()),
+        "reg_file": str((plane_dir / "data.bin").resolve())
+    }
 
     if "nframes" not in ops and "shape" in ops.get("metadata", {}):
         ops["nframes"] = ops["metadata"]["shape"][0]
 
-    ops["ops_path"] = str(plane_dir.joinpath("ops.npy").resolve())
-    np.save(ops["ops_path"], ops)
-
-    output_ops = run_plane_bin(plane_dir)
-    np.save(ops["ops_path"], output_ops)
+    ops = run_plane_bin(ops)
+    output_ops = load_ops(ops_file)
 
     # cleanup ourselves
     if not keep_raw:
@@ -500,7 +511,7 @@ def run_plane(
                     f,
                     percentile=percentile,
                     window_size=win_size
-                )
+                ) * 100  # convert to percentage
                 dff_noise = dff_shot_noise(dff, output_ops["fs"])
 
                 ncells = min(30, dff.shape[0])
@@ -509,7 +520,7 @@ def run_plane(
                 else:
                     print("Plotting traces...")
                     plot_traces(
-                        dff * 100,
+                        dff,
                         save_path=expected_files["traces"],
                         num_neurons=ncells,
                         signal_units="dffp",

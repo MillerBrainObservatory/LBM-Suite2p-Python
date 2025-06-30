@@ -282,15 +282,15 @@ class AnchoredVScaleBar(matplotlib.offsetbox.AnchoredOffsetbox):
 
 def plot_traces(
         f,
-        save_path="",
-        fps=17.0,
-        num_neurons=20,
-        window=220,
-        title="",
-        offset=None,
-        lw=0.5,
-        cmap="tab10",
-        signal_units=None,
+        save_path: str | Path = "",
+        fps = 17.0,
+        num_neurons = 20,
+        window = 220,
+        title = "",
+        offset = None,
+        lw = 0.5,
+        cmap = "tab10",
+        signal_units = None,
 ):
     """
     Plot stacked fluorescence traces with automatic offset and scale bars.
@@ -324,7 +324,7 @@ def plot_traces(
         print("Loading dff (%) from ops-dict")
         res = load_planar_results(ops)
         f = res["F"]
-        percentile = ops.get("dff_percentile", 8)
+        percentile = ops.get("dff_percentile", 20)
         window = ops.get("dff_window_size", window)
         f = dff_rolling_percentile(f, percentile=percentile, window_size=window) * 100
         signal_units = "dffp"
