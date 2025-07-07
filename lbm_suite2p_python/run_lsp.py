@@ -19,7 +19,7 @@ from lbm_suite2p_python.zplane import (
     plot_noise_distribution,
     load_planar_results,
     load_ops,
-    suite2p_roi_overlay
+    suite2p_roi_overlay, plot_traces_noise
 )
 from . import dff_shot_noise
 from .volume import (
@@ -405,14 +405,17 @@ def run_plane(
     metadata = file.metadata
     if "plane" in ops:
         plane = ops["plane"]
+        metadata["plane"] = plane
     elif "plane" in metadata:
         plane = metadata["plane"]
+        ops["plane"] = plane
     else:
         # get the plane from the filename
         plane = mbo.get_plane_from_filename(input_path, ops.get("plane", None))
+        ops["plane"] = plane
+        metadata["plane"] = plane
 
     plane_dir = save_path
-
     needs_detect = force_detect or not (plane_dir / "stat.npy").exists()
 
     ops_file = plane_dir / "ops.npy"
@@ -420,7 +423,7 @@ def run_plane(
     reg_data_file2 = plane_dir / "reg_tif"
 
     if should_write_ops(ops_file, ops, force=kwargs.get("force_save", False)):
-        mbo.imwrite(ops_file, ops, ext=".bin")
+        mbo.imwrite(file, plane_dir, ext=".bin", metadata=metadata)
     else:
         print(f"Skipping ops.npy save: {ops_file.name} already contains results.")
 
@@ -470,8 +473,12 @@ def run_plane(
         "iscell": plane_dir / "iscell.npy",
         "registration": plane_dir / "registration.png",
         "segmentation": plane_dir / "segmentation.png",
+        "segmentation_traces": plane_dir / "segmentation_traces.png",
         "max_proj": plane_dir / "max_projection_image.png",
+        "meanImg": plane_dir / "mean_image.png",
+        "meanImgE": plane_dir / "mean_image_extracted.png",
         "traces": plane_dir / "traces.png",
+        "traces_noise": plane_dir / "traces_noise.png",
         "noise": plane_dir / "shot_noise_distrubution.png",
         "model": plane_dir / "model.npy",
         "rastermap": plane_dir / "rastermap.png",
@@ -495,6 +502,8 @@ def run_plane(
             for key in ["registration", "segmentation", "traces"]:
                 safe_delete(expected_files[key])
 
+            model = None
+            colors = None
             if expected_files["stat"].is_file():
                 res = load_planar_results(output_ops)
                 iscell = res["iscell"]
@@ -505,30 +514,7 @@ def run_plane(
                     print(f"Too few cells to plot traces for {plane_dir.stem}.")
                     return output_ops
 
-                percentile = output_ops.get("dff_percentile", dff_percentile)
-                win_size = output_ops.get("dff_window_size", dff_window_size)
-                dff = dff_rolling_percentile(
-                    f,
-                    percentile=percentile,
-                    window_size=win_size
-                ) * 100  # convert to percentage
-                dff_noise = dff_shot_noise(dff, output_ops["fs"])
-
-                ncells = min(30, dff.shape[0])
-                if ncells < 10:
-                    print(f"Too few cells to plot traces for {plane_dir.stem}.")
-                else:
-                    print("Plotting traces...")
-                    plot_traces(
-                        dff,
-                        save_path=expected_files["traces"],
-                        num_neurons=ncells,
-                        signal_units="dffp",
-                    )
-                print("Plotting noise distribution...")
-                plot_noise_distribution(dff_noise, save_path=expected_files["noise"])
-
-                if HAS_RASTERMAP:
+                if HAS_RASTERMAP and ops.get("do_rastermap", True):
                     spks = res["spks"][iscell]
                     n_neurons = spks.shape[0]
                     if n_neurons < 200:
@@ -551,10 +537,6 @@ def run_plane(
                     model = Rastermap(**params).fit(spks)
                     np.save(expected_files["model"], model)
 
-                    # neuron_bin_size = (
-                    #     1 if n_neurons < 200 else 5 if n_neurons < 500 else 10
-                    # )
-                    # xmax = min(spks.shape[1], int(2000 * (200 / n_neurons) ** 0.5))
                     plot_rastermap(
                         spks,
                         model,
@@ -567,6 +549,41 @@ def run_plane(
                 else:
                     print("No rastermap is available.")
 
+                if model is not None:
+                    print("Sorting neurons by rastermap model...")
+                    output_ops["isort"] = model.isort
+                    f = f[model.isort, :]
+
+                percentile = output_ops.get("dff_percentile", dff_percentile)
+                win_size = output_ops.get("dff_window_size", dff_window_size)
+                dff = dff_rolling_percentile(
+                    f,
+                    percentile=percentile,
+                    window_size=win_size
+                ) * 100  # convert to percentage
+                dff_noise = dff_shot_noise(dff, output_ops["fs"])
+
+                ncells = min(30, dff.shape[0])
+                if ncells < 10:
+                    print(f"Too few cells to plot traces for {plane_dir.stem}.")
+                else:
+                    print("Plotting traces...")
+                    fig, colors = plot_traces(
+                        dff,
+                        save_path=expected_files["traces"],
+                        num_neurons=ncells,
+                        signal_units="dffp",
+                        return_color=True
+                    )
+                    plot_traces_noise(
+                        dff_noise,
+                        ncells=ncells,
+                        savepath=expected_files["traces_noise"]
+                    )
+
+                print("Plotting noise distribution...")
+                plot_noise_distribution(dff_noise, save_path=expected_files["noise"])
+
                 suite2p_roi_overlay(
                     output_ops,
                     stat,
@@ -575,16 +592,30 @@ def run_plane(
                     plot_indices=None,
                     savepath=expected_files["segmentation"],
                 )
+                cell_indices = np.arange(ncells)
+                suite2p_roi_overlay(
+                    output_ops,
+                    stat,
+                    iscell,
+                    "max_proj",
+                    plot_indices=cell_indices if model is None else model.isort[cell_indices],
+                    savepath=expected_files["segmentation_traces"],
+                    color_mode="colormap",
+                    colors=colors if colors is not None else None,
+                )
 
             fig_label = kwargs.get("fig_label", plane_dir.stem)
-            plot_projection(
-                output_ops,
-                expected_files["max_proj"],
-                fig_label=fig_label,
-                display_masks=False,
-                add_scalebar=True,
-                proj="max_proj",
-            )
+            for key in ["meanImg", "max_proj", "meanImgE"]:
+                if key not in output_ops:
+                    continue
+                plot_projection(
+                    output_ops,
+                    expected_files[key],
+                    fig_label=fig_label,
+                    display_masks=False,
+                    add_scalebar=True,
+                    proj=key,
+                )
             print("Plots generated successfully.")
     except Exception:
         traceback.print_exc()

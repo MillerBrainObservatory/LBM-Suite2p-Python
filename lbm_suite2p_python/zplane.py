@@ -9,7 +9,7 @@ from matplotlib.animation import FuncAnimation
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 from matplotlib.offsetbox import VPacker, HPacker, DrawingArea
-from matplotlib.colors import hsv_to_rgb
+from matplotlib.colors import hsv_to_rgb, rgb_to_hsv
 
 from scipy.ndimage import distance_transform_edt
 
@@ -280,6 +280,19 @@ class AnchoredVScaleBar(matplotlib.offsetbox.AnchoredOffsetbox):
         )
 
 
+def plot_traces_noise(dff_noise, ncells, savepath):
+    print("Plotting noise per trace...")
+    noise_vals = dff_noise[:ncells]
+    fig, ax = plt.subplots(figsize=(ncells * 0.3 + 2, 4))
+    ax.bar(np.arange(ncells), noise_vals, color="gray")
+    ax.set_xlabel("Neuron (sorted)")
+    ax.set_ylabel("Shot noise estimate")
+    ax.set_title("Per-trace Noise Values")
+    fig.tight_layout()
+    fig.savefig(savepath, dpi=200)
+    plt.close(fig)
+
+
 def plot_traces(
         f,
         save_path: str | Path = "",
@@ -291,6 +304,7 @@ def plot_traces(
         lw = 0.5,
         cmap = "tab10",
         signal_units = None,
+        return_color=False
 ):
     """
     Plot stacked fluorescence traces with automatic offset and scale bars.
@@ -458,6 +472,11 @@ def plot_traces(
         plt.close(fig)
     else:
         plt.show()
+
+    if return_color:
+        return fig, colors
+    else:
+        return None
 
 
 def animate_traces(
@@ -682,7 +701,8 @@ def suite2p_roi_overlay(
         plot_indices=None,
         savepath=None,
         color_mode='random',  # options: 'random', 'uniform', 'colormap'
-        red_border=False
+        red_border=False,
+        colors=None,
 ):
     ops = load_ops(ops)
     img = ops[proj]
@@ -710,7 +730,11 @@ def suite2p_roi_overlay(
         ypix, xpix = s["ypix"], s["xpix"]
         mask_total[ypix, xpix] = True
 
-        if color_mode == 'random':
+        if colors is not None:
+            rgb_color = colors[i][:3]
+            h, s, _ = rgb_to_hsv(np.array([[rgb_color]]))[0, 0]
+            hue = h
+        elif color_mode == 'random':
             hue = np.random.rand()
         elif color_mode == 'uniform':
             hue = 0.6  # cyan
