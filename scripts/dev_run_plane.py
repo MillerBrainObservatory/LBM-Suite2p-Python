@@ -4,7 +4,9 @@ import mbo_utilities as mbo
 
 if __name__ == "__main__":
 
-    files = [x for x in Path(r"D:\demo\frame_phase").glob("*.tif*")]
+    files = [
+        x for x in Path().home().joinpath("lbm_data", "fused").glob("*.tif*")
+    ]
     user_ops = {
         "two_step_registration": True,
         "anatomical_only": 3,
