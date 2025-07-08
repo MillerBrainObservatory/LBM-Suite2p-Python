@@ -95,7 +95,7 @@ def plot_dff_event_counts(
     ax.set_xticklabels(xticklabels, color='white')
     ax.set_yticks(np.arange(len(method_info)))
     ax.set_yticklabels(
-        [f"{m[0]} {m[1]}th ({m[2]}s)" if m[2] else f"{m[0]} {m[1]}th" for m in method_info],
+        [f"{m[0]} {m[1]} ({m[2]}s)" if m[2] else f"{m[0]} {m[1]}" for m in method_info],
         color='white'
     )
     ax.set_xlabel("Cell Index", color='white')
@@ -151,7 +151,11 @@ def plot_dff_comparison(
     fig, axs = plt.subplots(len(dff_list), 2, figsize=(36, 2.5 * len(dff_list)), sharex=True, facecolor='black')
 
     for i, (method, dff, f0) in enumerate(zip(method_info, dff_list, f0_list)):
-        label = f"{method[0]} {method[1]}th" + (f" ({method[2]}s)" if method[2] is not None else "")
+        print(method)
+        if "median" in method:
+            label = f"{method[0]} {method[1]}" + (f" ({method[2]}s)" if method[2] is not None else "")
+        else:
+            label = f"{method[0]} {method[1]}th percentile" + (f" ({method[2]}s)" if method[2] is not None else "")
 
         # Raw + baseline
         axs[i, 0].plot(time, trace, color='white', lw=1.5)
@@ -176,11 +180,9 @@ def plot_dff_comparison(
             axs[i, 0].axis('off')
             axs[i, 1].axis('off')
         else:
-            axs[i, 0].set_title(label, color='white', fontsize=14)
             axs[i, 0].set_facecolor("black")
             axs[i, 0].tick_params(colors='white')
 
-            axs[i, 1].set_title(label, color='white', fontsize=14)
             axs[i, 1].set_facecolor("black")
             axs[i, 1].tick_params(colors='white')
 
@@ -192,10 +194,6 @@ def plot_dff_comparison(
     fig.patch.set_alpha(0)
     plt.savefig(savename, bbox_inches='tight', facecolor='black', dpi=300, transparent=True)
     plt.show()
-
-def standardized_noise(dff_trace, fps):
-    diff = np.abs(np.diff(dff_trace))
-    return np.median(diff) / np.sqrt(fps)
 
 def plot_full_trace_panel(f, fneu, spks, cell_index, fps=17, spike_thresh=0.2, savename=None):
     time = np.arange(f.shape[1]) / fps
@@ -241,115 +239,56 @@ def plot_full_trace_panel(f, fneu, spks, cell_index, fps=17, spike_thresh=0.2, s
         plt.savefig(savename, bbox_inches='tight', facecolor='black', dpi=300, transparent=True)
     plt.show()
 
-def plot_drift_correction(trace, fps=17, filter_duration_s=30, savename=None):
-    from scipy.ndimage import median_filter
-    from sklearn.linear_model import LinearRegression
+def plot_rastermap_clusters(f, model, show_individual=False, n_examples=3):
+    labels = model.labels_
+    n_clusters = np.max(labels) + 1
+    time = np.arange(f.shape[1])
 
-    filt_size = int(filter_duration_s * fps)
-    if filt_size % 2 == 0:
-        filt_size += 1
+    fig, axes = plt.subplots(n_clusters, 1, figsize=(10, 2 * n_clusters), sharex=True)
+    for k in range(n_clusters):
+        cluster_traces = f[labels == k]
+        mean_trace = np.mean(cluster_traces, axis=0)
 
-    trend = median_filter(trace, size=filt_size)
-    X = np.arange(len(trend)).reshape(-1, 1)
-    lr = LinearRegression().fit(X, trend)
-    ramp = lr.predict(X)
+        ax = axes[k] if n_clusters > 1 else axes
+        ax.plot(time, mean_trace, color='black', label=f'Cluster {k} mean')
 
-    corrected = trace - trend + np.median(trend) - (ramp - np.median(ramp))
+        if show_individual:
+            for trace in cluster_traces[:n_examples]:
+                ax.plot(time, trace, alpha=0.3)
 
-    fig, ax = plt.subplots(figsize=(28, 4), facecolor="black")
-    ax.plot(trace, label='Raw', color='white', lw=1.5)
-    ax.plot(trend, label='Trend (median)', color='cyan', lw=1.5)
-    ax.plot(ramp, label='Ramp (regression)', color='magenta', lw=1.5)
-    ax.plot(corrected, label='Corrected', color='lime', lw=1)
+        ax.set_ylabel(f'C{k}')
+        ax.legend()
 
-    ax.set_facecolor("black")
-    ax.tick_params(colors='white')
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.spines['left'].set_color('white')
-    ax.spines['bottom'].set_color('white')
-    ax.set_xlabel("Time (frames)", color='white', fontsize=14)
-    ax.set_ylabel("Fluorescence", color='white', fontsize=14)
-    ax.set_title("Drift Removal", color='white', fontsize=16)
-    ax.legend(frameon=False, fontsize=12, loc='best', facecolor='black', edgecolor='white')
-    for text in ax.get_legend().get_texts():
-        text.set_color("white")
-
-    fig.tight_layout()
-    fig.patch.set_alpha(0)
-
-    if savename:
-        plt.savefig(savename, dpi=300, bbox_inches='tight', facecolor='black')
-        plt.close()
-    else:
-        plt.show()
-
-    return corrected, trend, ramp
-
-def suite2p_roi_overlay(
-        ops,
-        stat,
-        iscell,
-        proj=None,
-        plot_indices=None,
-        savename=None,
-        color_mode='random',  # options: 'random', 'uniform', 'colormap'
-        red_border=False
-):
-    ops = lsp.load_ops(ops)
-    img = ops[proj]
-    if img.shape != (ops["Ly"], ops["Lx"]):
-        img_full = np.zeros((ops["Ly"], ops["Lx"]), dtype=np.float32)
-        img_full[ops["yrange"][0]:ops["yrange"][1], ops["xrange"][0]:ops["xrange"][1]] = img
-        img = img_full
-
-    p1, p99 = np.percentile(img, 1), np.percentile(img, 99)
-    norm_img = np.clip((img - p1) / (p99 - p1), 0, 1)
-
-    H = np.zeros_like(norm_img)
-    S = np.zeros_like(norm_img)
-    mask_total = np.zeros_like(norm_img, dtype=bool)
-    iscell = np.asarray(iscell).astype(bool)
-    if plot_indices is not None:
-        indices = plot_indices
-    else:
-        indices = np.flatnonzero(iscell)
-    if plot_indices is not None:
-        indices = [n for n in indices if n in plot_indices]
-
-    for i, n in enumerate(indices):
-        s = stat[n]
-        ypix, xpix = s["ypix"], s["xpix"]
-        mask_total[ypix, xpix] = True
-
-        if color_mode == 'random':
-            hue = np.random.rand()
-        elif color_mode == 'uniform':
-            hue = 0.6  # cyan
-        elif color_mode == 'colormap':
-            hue = (i / max(len(indices), 1)) % 1.0
-        else:
-            raise ValueError("color_mode must be 'random', 'uniform', or 'colormap'")
-
-        H[ypix, xpix] = hue
-        S[ypix, xpix] = 1
-
-    rgb = hsv_to_rgb(np.stack([H, S, norm_img], axis=-1))
-
-    if red_border and mask_total.any():
-        borders = find_boundaries(mask_total, mode='outer')
-        rgb[borders] = [1, 0, 0]  # red
-
-    plt.figure(figsize=(8, 8))
-    plt.imshow(rgb)
-    plt.axis("off")
+    axes[-1].set_xlabel('Time (frames)')
     plt.tight_layout()
-    if savename:
-        plt.savefig(savename, dpi=300, bbox_inches='tight', facecolor='black')
-        plt.close()
-    else:
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    def plot_rastermap_clusters(f, model, show_individual=False, n_examples=3):
+        labels = model.labels_
+        n_clusters = np.max(labels) + 1
+        time = np.arange(f.shape[1])
+
+        fig, axes = plt.subplots(n_clusters, 1, figsize=(10, 2 * n_clusters), sharex=True)
+        for k in range(n_clusters):
+            cluster_traces = f[labels == k]
+            mean_trace = np.mean(cluster_traces, axis=0)
+
+            ax = axes[k] if n_clusters > 1 else axes
+            ax.plot(time, mean_trace, color='black', label=f'Cluster {k} mean')
+
+            if show_individual:
+                for trace in cluster_traces[:n_examples]:
+                    ax.plot(time, trace, alpha=0.3)
+
+            ax.set_ylabel(f'C{k}')
+            ax.legend()
+
+        axes[-1].set_xlabel('Time (frames)')
+        plt.tight_layout()
         plt.show()
 
+    plt.show()
 
 #%% Counting significant events in dF/F traces
 ops = r"D:\demo\test\suite2p\anatomical_cpsam\ops.npy"
@@ -456,7 +395,6 @@ for label in ["High Peak", "High Std", "High Skew", "Low Noise"]:
 selected_indices = [130, 138, 61, 129]
 res = dff_methods(f, indices=selected_indices, fps=17)
 
-
 for i, cell_index in enumerate(selected_indices):
     label_text = f"cell_{cell_index}"
     fpath = root / label_text
@@ -466,9 +404,6 @@ for i, cell_index in enumerate(selected_indices):
 
     panel_savename = fpath / f"panel_{label_text}.png"
     plot_full_trace_panel(f, fneu, spks, cell_index, fps=17, spike_thresh=0.2, savename=panel_savename)
-
-    drift_savename = fpath / f"drift_{label_text}.png"
-    corrected, trend, ramp = plot_drift_correction(trace, fps=17, savename=drift_savename)
 
     s2p_roi_savename = fpath / f"s2p_roi_overlay_{label_text}.png"
     suite2p_roi_overlay(
@@ -615,3 +550,77 @@ for cell in selected_indices:
             title=f"Cell 61 Raw and ΔF/F (win={w}s, p={p})",
             savename=savename
         )
+
+def plot_noise_extremes(f, dff_noise, fps=17, savename=None):
+    time = np.arange(f.shape[1]) / fps
+    sorted_indices = np.argsort(dff_noise)
+    low_noise = sorted_indices[:5]
+    high_noise = sorted_indices[-5:][::-1]
+
+    fig, axs = plt.subplots(5, 2, figsize=(18, 10), sharex=True, facecolor="black")
+
+    for i in range(5):
+        for col, idx in zip([0, 1], [low_noise[i], high_noise[i]]):
+            trace = f[idx]
+            dff = (trace - np.median(trace)) / np.median(trace)
+            ax = axs[i, col]
+            ax.plot(time, dff, color='lime', lw=1.5)
+            ax.axhline(0, color='white', linestyle='--', lw=1)
+            ax.set_ylabel(f"Cell {idx}", color='white')
+            ax.set_facecolor("black")
+            ax.tick_params(colors='white')
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_color('white')
+            ax.spines['bottom'].set_color('white')
+
+    axs[0, 0].set_title("Lowest Noise", color='white', fontsize=14)
+    axs[0, 1].set_title("Highest Noise", color='white', fontsize=14)
+    axs[-1, 0].set_xlabel("Time (s)", color='white')
+    axs[-1, 1].set_xlabel("Time (s)", color='white')
+
+    fig.tight_layout()
+    fig.patch.set_alpha(0)
+
+    if savename:
+        plt.savefig(savename, bbox_inches='tight', facecolor='black', dpi=300, transparent=True)
+    plt.show()
+
+res = lsp.load_planar_results(ops)
+f = res["F"][res["iscell"]]
+dff = lsp.dff_rolling_percentile(f, window_size=300, percentile=20) * 100
+noise = lsp.dff_shot_noise(dff, 17)
+
+plot_noise_extremes(f, noise, fps=17, savename=r"D:\demo\strategies\noise_extremes.png")
+
+time = np.arange(f.shape[1]) / 17
+sorted_indices = np.argsort(noise)
+low_noise = sorted_indices[:5]
+high_noise = sorted_indices[-5:][::-1]
+
+plot_single_dff_trace(f[low_noise[3]], fps=17, window_s=30, percentile=20, duration_s=600,)
+
+cell_index = low_noise[3]
+trace = f[cell_index]
+res = dff_methods(f, indices=[cell_index], fps=17)
+plot_dff_comparison(trace, *res, cell_index=cell_index, fps=17, minimal=True, savename=r"D:\demo\dff_baseline.png")
+
+lsp.suite2p_roi_overlay(
+    ops,
+    res["stat"],
+    res["iscell"], proj="max_proj", plot_indices=[130])
+
+
+res = lsp.load_planar_results(ops)
+f = res["F"][res["iscell"]]
+dff = lsp.dff_rolling_percentile(f, window_size=300, percentile=20) * 100
+noise = lsp.dff_shot_noise(dff, 17)
+
+sorted_indices = np.argsort(noise)
+low_noise = sorted_indices[:5]
+high_noise = sorted_indices[-5:][::-1]
+
+print("Low noise indices:", low_noise)
+print("High noise indices:", high_noise)
+print("Low noise values:", noise[low_noise])
+print("High noise values:", noise[high_noise])
