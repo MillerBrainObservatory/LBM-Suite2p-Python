@@ -472,10 +472,10 @@ def run_plane(
         "iscell": plane_dir / "iscell.npy",
         "registration": plane_dir / "registration.png",
         "segmentation": plane_dir / "segmentation.png",
-        "segmentation_traces": plane_dir / "segmentation_traces.png",
+        "segmentation_traces": plane_dir / "segmentation_match_traces.png",
         "max_proj": plane_dir / "max_projection_image.png",
         "meanImg": plane_dir / "mean_image.png",
-        "meanImgE": plane_dir / "mean_image_extracted.png",
+        "meanImgE": plane_dir / "mean_image_enhanced.png",
         "traces": plane_dir / "traces.png",
         "traces_noise": plane_dir / "traces_noise.png",
         "noise": plane_dir / "shot_noise_distrubution.png",
@@ -550,8 +550,8 @@ def run_plane(
 
                 if model is not None:
                     print("Sorting neurons by rastermap model...")
-                    output_ops["isort"] = model.isort
-                    f = f[model.isort, :]
+                    isort = np.where(iscell[:, 0] == 1)[0][model.isort]
+                    output_ops["isort"] = isort  # now global to stat, not local
 
                 percentile = output_ops.get("dff_percentile", dff_percentile)
                 win_size = output_ops.get("dff_window_size", dff_window_size)
@@ -591,7 +591,7 @@ def run_plane(
                     plot_indices=None,
                     savepath=expected_files["segmentation"],
                 )
-                cell_indices = np.arange(ncells)
+                cell_indices = output_ops["isort"][:ncells]
                 suite2p_roi_overlay(
                     output_ops,
                     stat,
