@@ -11,15 +11,14 @@ if __name__ == "__main__":
     file = files[0]
 
     user_ops = {
-        "two_step_registration": True,
+        # "two_step_registration": True,
         "anatomical_only": 0,
-        "pretrained_model": "cyto3",
-        "cellprob_threshold": -6,
-        "flow_threshold": 1.0,
-        "diameter": 10,
+        "reg_tif": True,
+        # "roi_detect": False,
+        # "do_registration": False,
     }
 
-    save_path = fpath.joinpath("func")
+    save_path = fpath.joinpath("temp")
     save_path.mkdir(exist_ok=True)
 
     _ = lsp.run_plane(
@@ -28,7 +27,7 @@ if __name__ == "__main__":
         ops=user_ops,
         keep_reg=True,
         keep_raw=True,
-        force_reg=True,
-        force_detect=True,
+        force_reg=False,
+        force_detect=False,
     )
 

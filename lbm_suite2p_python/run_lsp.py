@@ -506,6 +506,12 @@ def run_plane(
             if expected_files["stat"].is_file():
                 res = load_planar_results(output_ops)
                 iscell = res["iscell"]
+                spks = res["spks"][iscell]
+                n_neurons = spks.shape[0]
+
+                if iscell.ndim == 2:
+                    iscell = iscell[:, 0]
+
                 stat = res["stat"]
                 f = res["F"][iscell]
 
@@ -513,9 +519,10 @@ def run_plane(
                     print(f"Too few cells to plot traces for {plane_dir.stem}.")
                     return output_ops
 
-                if HAS_RASTERMAP and ops.get("do_rastermap", True):
-                    spks = res["spks"][iscell]
-                    n_neurons = spks.shape[0]
+                if expected_files["model"].is_file():
+                    print("Loading cached rastermap model...")
+                    model = np.load(expected_files["model"], allow_pickle=True).item()
+                else:
                     if n_neurons < 200:
                         params = {
                             "n_clusters": None,
@@ -540,17 +547,14 @@ def run_plane(
                         spks,
                         model,
                         neuron_bin_size=0,
-                        # xmax=spks.shape[1],
                         save_path=expected_files["rastermap"],
                         title_kwargs={"fontsize": 8, "y": 0.95},
                         title="Rastermap Sorted Activity",
                     )
-                else:
-                    print("No rastermap is available.")
 
                 if model is not None:
                     print("Sorting neurons by rastermap model...")
-                    isort = np.where(iscell[:, 0] == 1)[0][model.isort]
+                    isort = np.where(iscell == 1)[0][model.isort]
                     output_ops["isort"] = isort  # now global to stat, not local
 
                 percentile = output_ops.get("dff_percentile", dff_percentile)
@@ -562,21 +566,20 @@ def run_plane(
                 ) * 100  # convert to percentage
                 dff_noise = dff_shot_noise(dff, output_ops["fs"])
 
-                ncells = min(30, dff.shape[0])
-                if ncells < 10:
+                if n_neurons < 10:
                     print(f"Too few cells to plot traces for {plane_dir.stem}.")
                 else:
                     print("Plotting traces...")
                     fig, colors = plot_traces(
                         dff,
                         save_path=expected_files["traces"],
-                        num_neurons=ncells,
+                        num_neurons=n_neurons,
                         signal_units="dffp",
                         return_color=True
                     )
                     plot_traces_noise(
                         dff_noise,
-                        ncells=ncells,
+                        ncells=n_neurons,
                         savepath=expected_files["traces_noise"]
                     )
 
@@ -591,13 +594,13 @@ def run_plane(
                     plot_indices=None,
                     savepath=expected_files["segmentation"],
                 )
-                cell_indices = output_ops["isort"][:ncells]
+                cell_indices = output_ops["isort"][:n_neurons]
                 suite2p_roi_overlay(
                     output_ops,
                     stat,
                     iscell,
                     "max_proj",
-                    plot_indices=cell_indices if model is None else model.isort[cell_indices],
+                    plot_indices=cell_indices,
                     savepath=expected_files["segmentation_traces"],
                     color_mode="colormap",
                     colors=colors if colors is not None else None,

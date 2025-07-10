@@ -693,75 +693,67 @@ def feather_mask(mask, max_alpha=0.75, edge_width=3):
     alpha = np.clip((edge_width - dist_out) / edge_width, 0, 1)
     return alpha * max_alpha
 
-def suite2p_roi_overlay(
-        ops,
-        stat,
-        iscell,
-        proj=None,
-        plot_indices=None,
-        savepath=None,
-        color_mode='random',  # options: 'random', 'uniform', 'colormap'
-        red_border=False,
-        colors=None,
-):
-    ops = load_ops(ops)
-    img = ops[proj]
-    if img.shape != (ops["Ly"], ops["Lx"]):
-        img_full = np.zeros((ops["Ly"], ops["Lx"]), dtype=np.float32)
-        img_full[ops["yrange"][0]:ops["yrange"][1], ops["xrange"][0]:ops["xrange"][1]] = img
-        img = img_full
 
+def suite2p_roi_overlay(ops, stat, iscell, proj=None, plot_indices=None, savepath=None, color_mode='random',
+                        red_border=False, colors=None):
+    ops = load_ops(ops)
+    yr0, yr1 = ops["yrange"]
+    xr0, xr1 = ops["xrange"]
+    img = ops[proj]  # Already cropped by suite2p
+
+    print("yrange, xrange:", ops["yrange"], ops["xrange"])
+    print("img.shape:", img.shape, "operational Ly/Lx:", ops["Ly"], ops["Lx"])
+
+    # Normalize for display
     p1, p99 = np.percentile(img, 1), np.percentile(img, 99)
     norm_img = np.clip((img - p1) / (p99 - p1), 0, 1)
 
     H = np.zeros_like(norm_img)
     S = np.zeros_like(norm_img)
-    mask_total = np.zeros_like(norm_img, dtype=bool)
-    iscell = np.asarray(iscell).astype(bool)
-    if plot_indices is not None:
-        indices = plot_indices
-    else:
-        indices = np.flatnonzero(iscell)
-    if plot_indices is not None:
-        indices = [n for n in indices if n in plot_indices]
+    mask = np.zeros_like(norm_img, dtype=bool)
 
+    iscell = np.asarray(iscell)
+    cell_mask = iscell if iscell.ndim == 1 else iscell[:, 0]
+    indices = np.flatnonzero(cell_mask) if plot_indices is None else plot_indices
     for i, n in enumerate(indices):
         s = stat[n]
-        ypix, xpix = s["ypix"], s["xpix"]
-        mask_total[ypix, xpix] = True
+        # Shift ROI coordinates into cropped image space
+        ypix = np.array(s["ypix"]) - yr0
+        xpix = np.array(s["xpix"]) - xr0
+
+        # Filter out invalid coords (can happen near edges)
+        valid = (ypix >= 0) & (ypix < norm_img.shape[0]) & (xpix >= 0) & (xpix < norm_img.shape[1])
+        ypix = ypix[valid]
+        xpix = xpix[valid]
+
+        mask[ypix, xpix] = True
 
         if colors is not None:
-            rgb_color = colors[i][:3]
-            h, s, _ = rgb_to_hsv(np.array([[rgb_color]]))[0, 0]
-            hue = h
-        elif color_mode == 'random':
+            hue = rgb_to_hsv(np.array([[colors[i][:3]]]))[0, 0, 0]
+        elif color_mode == "random":
             hue = np.random.rand()
-        elif color_mode == 'uniform':
-            hue = 0.6  # cyan
-        elif color_mode == 'colormap':
-            hue = (i / max(len(indices), 1)) % 1.0
+        elif color_mode == "uniform":
+            hue = 0.6
         else:
-            raise ValueError("color_mode must be 'random', 'uniform', or 'colormap'")
-
+            hue = (i / max(len(indices), 1)) % 1.0
         H[ypix, xpix] = hue
         S[ypix, xpix] = 1
 
     rgb = hsv_to_rgb(np.stack([H, S, norm_img], axis=-1))
 
-    if red_border and mask_total.any():
-        borders = find_boundaries(mask_total, mode='outer')
-        rgb[borders] = [1, 0, 0]  # red
+    if red_border and mask.any():
+        borders = find_boundaries(mask, mode="outer")
+        rgb[borders] = [1, 0, 0]
 
     plt.figure(figsize=(8, 8))
     plt.imshow(rgb)
     plt.axis("off")
     plt.tight_layout()
     if savepath:
-        plt.savefig(savepath, dpi=300, bbox_inches='tight', facecolor='black')
+        plt.savefig(savepath, dpi=300, bbox_inches="tight", facecolor="black")
         plt.close()
     else:
         plt.show()
-
 
 def plot_projection(
         ops,
