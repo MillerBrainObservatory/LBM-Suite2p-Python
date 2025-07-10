@@ -2,6 +2,9 @@ import logging
 import os
 import traceback
 from contextlib import nullcontext
+from itertools import product
+from pathlib import Path
+import copy
 
 import numpy as np
 
@@ -681,9 +684,6 @@ def run_grid_search(
     [suite2p parameters](http://suite2p.readthedocs.io/en/latest/parameters.html)
 
     """
-    from itertools import product
-    from pathlib import Path
-    import copy
 
     save_root = Path(save_root)
     save_root.mkdir(exist_ok=True)
@@ -706,4 +706,14 @@ def run_grid_search(
         tag = "_".join(tag_parts)
 
         print(f"Running grid search in: {save_root.joinpath(tag)}")
-        run_plane(ops, input_file, save_root, save_folder=tag)
+
+        save_path = save_root / tag
+        run_plane(
+            input_path=input_file,
+            save_path=save_path,
+            ops=ops,
+            keep_reg=True,
+            keep_raw=True,
+            force_reg=True,
+            force_detect=True,
+        )

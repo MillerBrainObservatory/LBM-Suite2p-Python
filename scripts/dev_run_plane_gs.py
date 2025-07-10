@@ -10,6 +10,9 @@ two_step_options = [False, True]
 block_sizes = [(32, 32), (64, 64), (128, 128), (256, 256)]
 spatial_hp_values = [0, 21, 42]
 
+import suite2p
+base_ops = suite2p.default_ops()
+
 param_grid = list(itertools.product(two_step_options, block_sizes, spatial_hp_values))
 
 for i, (two_step, block_size, spatial_hp) in enumerate(param_grid):
