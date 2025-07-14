@@ -14,6 +14,8 @@ sys.path.insert(0, os.path.abspath(os.path.join("..", "lbm_suite2p_python")))
 from lbm_suite2p_python import __version__
 
 project = "LBM-Suite2p-Python"
+author = ""
+
 copyright = "2024, Elizabeth R. Miller Brain Observatory | The Rockefeller University. All Rights Reserved"
 release = __version__
 
