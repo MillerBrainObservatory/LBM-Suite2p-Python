@@ -53,7 +53,7 @@ from pathlib import Path
 PIPELINE_TAGS = ("plane", "roi", "z", "plane_", "roi_", "z_")
 
 
-def normalize_folder(path):
+def derive_tag_from_filename(path):
     """
     Derive a folder tag from a filename based on “planeN”, “roiN”, or "tagN" patterns.
 
@@ -71,19 +71,19 @@ def normalize_folder(path):
 
     Examples
     --------
-    >>> normalize_folder("plane_01.tif")
+    >>> derive_tag_from_filename("plane_01.tif")
     'plane1'
-    >>> normalize_folder("plane2.bin")
+    >>> derive_tag_from_filename("plane2.bin")
     'plane2'
-    >>> normalize_folder("roi5.raw")
+    >>> derive_tag_from_filename("roi5.raw")
     'roi5'
-    >>> normalize_folder("ROI_10.dat")
+    >>> derive_tag_from_filename("ROI_10.dat")
     'roi10'
-    >>> normalize_folder("res-3.h5")
+    >>> derive_tag_from_filename("res-3.h5")
     'res3'
-    >>> normalize_folder("assembled_data_1.tiff")
+    >>> derive_tag_from_filename("assembled_data_1.tiff")
     'assembled_data_1'
-    >>> normalize_folder("file_12.tif")
+    >>> derive_tag_from_filename("file_12.tif")
     'file_12'
     """
     name = Path(path).stem
@@ -111,7 +111,9 @@ def run_volume(
     keep_raw: bool = True,
     force_reg: bool = False,
     force_detect: bool = False,
-    replot: bool = False,
+    dff_window_size: int = 500,
+    dff_percentile: int = 20,
+    **kwargs,
 ):
     """
     Processes a full volumetric imaging dataset using Suite2p, handling plane-wise registration,
@@ -136,8 +138,10 @@ def run_volume(
         if true, force a new registration even if existing shifts are found in ops.npy.
     force_detect : bool, default false
         if true, force roi detection even if an existing stat.npy is present.
-    replot : bool, optional
-        If True, regenerate all summary plots even if they already exist (default: False).
+    dff_window_size : int, default 500
+        Number of frames to use for windowed dF/F₀ calculations.
+    dff_percentile : int, default 20
+        Percentile to use for baseline F₀ estimation in dF/F₀ calculations.
 
     Returns
     -------
@@ -178,17 +182,20 @@ def run_volume(
         save_path = Path(input_files[0]).parent
 
     all_ops = []
-    for file in tqdm(input_files, desc="Processing Planes"):
-        print(f"Processing {file} ---------------")
+    for file in tqdm(input_files, desc="Processing Planes", unit="plane", leave=False, position=1):
+        subdir = derive_tag_from_filename(Path(file).stem)
+        plane_save_path = Path(save_path).joinpath(subdir)
+        plane_save_path.mkdir(exist_ok=True)
         output_ops = run_plane(
             input_path=file,
-            save_path=str(save_path),
+            save_path=plane_save_path,
             ops=ops,
             keep_reg=keep_reg,
             keep_raw=keep_raw,
             force_reg=force_reg,
             force_detect=force_detect,
-            replot=replot,
+            dff_window_size=dff_window_size,
+            dff_percentile=dff_percentile,
         )
         all_ops.append(output_ops)
 
