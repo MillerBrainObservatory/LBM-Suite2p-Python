@@ -304,7 +304,8 @@ def plot_traces(
         lw = 0.5,
         cmap = "tab10",
         signal_units = None,
-        return_color=False
+        return_color=False,
+        clip_quantiles=(1, 99),
 ):
     """
     Plot stacked fluorescence traces with automatic offset and scale bars.
@@ -694,8 +695,16 @@ def feather_mask(mask, max_alpha=0.75, edge_width=3):
     return alpha * max_alpha
 
 
-def suite2p_roi_overlay(ops, stat, iscell, proj=None, plot_indices=None, savepath=None, color_mode='random',
-                        red_border=False, colors=None):
+def suite2p_roi_overlay(
+        ops,
+        stat,
+        iscell,
+        proj=None,
+        plot_indices=None,
+        savepath=None,
+        color_mode='random', red_border=False,
+        colors=None
+):
     ops = load_ops(ops)
     yr0, yr1 = ops["yrange"]
     xr0, xr1 = ops["xrange"]

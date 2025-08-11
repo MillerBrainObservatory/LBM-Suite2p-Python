@@ -4,22 +4,22 @@ import mbo_utilities as mbo
 
 if __name__ == "__main__":
 
-    fpath = Path(r"D:\W2_DATA\kbarber\2025_07_16\m350\assembled_phase_frame\plane01_roi2.tif")
+    fpath = Path(r"D:\W2_DATA\kbarber\07_27_2025\mk355\stitched")
     files = [
         x for x in fpath.glob("*.tif*")
     ]
-    # file = files[0]
-
-    file = fpath  # Use a specific file for testing
+    file = files[1]
+    # file = fpath  # Use a specific file for testing
     user_ops = {
         "anatomical_only": 0,
         "tau": 0.8,
         "reg_tif": True,
+        "save_nwb": True,
         # "roi_detect": False,
         # "do_registration": False,
     }
 
-    save_path = fpath.parent.joinpath("temp")
+    save_path = fpath.parent.joinpath("nwb_results")
     save_path.mkdir(exist_ok=True)
 
     _ = lsp.run_plane(

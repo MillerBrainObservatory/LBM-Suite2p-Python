@@ -408,7 +408,7 @@ def run_plane(
 
     ops_default = suite2p.default_ops()
     ops_user = load_ops(ops) if ops else {}
-    ops = {**ops_default, **ops_user}
+    ops = {**ops_default, **ops_user, "data_path": str(input_path.resolve())}
 
     file = mbo.imread(input_path)
     metadata = file.metadata
@@ -425,11 +425,13 @@ def run_plane(
         metadata["plane"] = plane
 
     plane_dir = save_path
+    ops["save_path"] = str(plane_dir.resolve())
+
     needs_detect = force_detect or not (plane_dir / "stat.npy").exists()
 
     ops_file = plane_dir / "ops.npy"
     reg_data_file = plane_dir / "data.bin"
-    reg_data_file2 = plane_dir / "reg_tif"
+    reg_data_file_tiff = plane_dir / "reg_tif"
 
     if should_write_ops(ops_file, ops, force=kwargs.get("force_save", False)):
         mbo.imwrite(file, plane_dir, ext=".bin", metadata=metadata)
@@ -445,7 +447,7 @@ def run_plane(
     exists = False
     if reg_data_file.exists():
         exists = True
-    if reg_data_file2.exists():
+    if reg_data_file_tiff.exists():
         exists = True
     if force_reg:
         needs_reg = True
@@ -576,14 +578,14 @@ def run_plane(
                 ) * 100  # convert to percentage
                 dff_noise = dff_shot_noise(dff, output_ops["fs"])
 
-                if n_neurons < 10:
+                if n_neurons < 30:
                     print(f"Too few cells to plot traces for {plane_dir.stem}.")
                 else:
                     print("Plotting traces...")
                     fig, colors = plot_traces(
                         dff,
                         save_path=expected_files["traces"],
-                        num_neurons=n_neurons,
+                        num_neurons=output_ops.get("plot_n_traces", 30),
                         signal_units="dffp",
                         return_color=True
                     )
@@ -613,7 +615,8 @@ def run_plane(
                     plot_indices=cell_indices,
                     savepath=expected_files["segmentation_traces"],
                     color_mode="colormap",
-                    colors=colors if colors is not None else None,
+                    colors=None,
+                    # colors=colors if colors is not None else None,
                 )
 
             fig_label = kwargs.get("fig_label", plane_dir.stem)
