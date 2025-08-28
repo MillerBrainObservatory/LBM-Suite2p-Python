@@ -22,7 +22,7 @@ classifiers=[
 dependencies = [
 	"imgui-bundle==1.6.3",
 	"tifffile>=2025.3.30",
-	"zarr>=2.18.3",
+	"zarr>=2.18.7",
 	"dask>=2025.3.0",
 	"imageio[ffmpeg]",
 	"matplotlib>=3.10.1",
@@ -33,6 +33,7 @@ dependencies = [
 	"suite2p_mbo==1.0.4",
 	"pynwb>=3.0.0",
 	"icecream>=2.1.4",
+	# "neuroconv[scanimage]>=0.7.5",
 ]
 
 [project.optional-dependencies]
