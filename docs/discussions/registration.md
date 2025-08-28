@@ -13,7 +13,9 @@ We use {ref}`suite2p:Registration` to ensure spatial alignment across all frames
 
 Registration uses either a single-channel movie (default: channel 1), or an alternate channel if `ops['align_by_chan'] = 2`.
 
-The result of registration is a binary file (`data.bin`) aligned to a reference frame. Suite2p creates this reference frame by selecting the top correlated subset of frames and refining their alignment iteratively. You can customize this via `ops['nimg_init']`.
+The result of registration is a binary file (`data.bin`) aligned to a reference frame.
+Suite2p creates this reference frame by selecting the top correlated subset of frames and refining their alignment iteratively.
+You can customize this via `ops['nimg_init']`.
 
 ```python
 from suite2p.registration import register
