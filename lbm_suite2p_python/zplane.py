@@ -176,19 +176,19 @@ class AnchoredHScaleBar(matplotlib.offsetbox.AnchoredOffsetbox):
     """
 
     def __init__(
-        self,
-        size=1,
-        label="",
-        loc=2,
-        ax=None,
-        pad=0.4,
-        borderpad=0.5,
-        ppad=0,
-        sep=2,
-        prop=None,
-        frameon=True,
-        linekw=None,
-        **kwargs,
+            self,
+            size=1,
+            label="",
+            loc=2,
+            ax=None,
+            pad=0.4,
+            borderpad=0.5,
+            ppad=0,
+            sep=2,
+            prop=None,
+            frameon=True,
+            linekw=None,
+            **kwargs,
     ):
         if linekw is None:
             linekw = {}
@@ -237,20 +237,20 @@ class AnchoredVScaleBar(matplotlib.offsetbox.AnchoredOffsetbox):
     """
 
     def __init__(
-        self,
-        height=1,
-        label="",
-        loc=2,
-        ax=None,
-        pad=0.4,
-        borderpad=0.5,
-        ppad=0,
-        sep=2,
-        prop=None,
-        frameon=True,
-        linekw={},
-        spacer_width=6,
-        **kwargs,
+            self,
+            height=1,
+            label="",
+            loc=2,
+            ax=None,
+            pad=0.4,
+            borderpad=0.5,
+            ppad=0,
+            sep=2,
+            prop=None,
+            frameon=True,
+            linekw={},
+            spacer_width=6,
+            **kwargs,
     ):
         if ax is None:
             ax = plt.gca()
@@ -529,20 +529,20 @@ def plot_traces(
 
 
 def animate_traces(
-    f,
-    save_path="./scrolling.mp4",
-    fps=17.0,
-    start_neurons=20,
-    window=120,
-    title="",
-    gap=None,
-    lw=0.5,
-    cmap="tab10",
-    anim_fps=60,
-    expand_after=5,
-    speed_factor=1.0,
-    expansion_factor=2.0,
-    smooth_factor=1,
+        f,
+        save_path="./scrolling.mp4",
+        fps=17.0,
+        start_neurons=20,
+        window=120,
+        title="",
+        gap=None,
+        lw=0.5,
+        cmap="tab10",
+        anim_fps=60,
+        expand_after=5,
+        speed_factor=1.0,
+        expansion_factor=2.0,
+        smooth_factor=1,
 ):
     """WIP"""
     n_neurons, n_timepoints = f.shape
@@ -550,7 +550,7 @@ def animate_traces(
     T_data = data_time[-1]
     current_frame = min(int(window * fps), n_timepoints - 1)
     t_f_local = (T_data - window + expansion_factor * expand_after) / (
-        1 + expansion_factor
+            1 + expansion_factor
     )
 
     if gap is None:
@@ -643,7 +643,7 @@ def animate_traces(
             n_visible = start_neurons
         else:
             u = min(1.0, (t - expand_after) / (t_f_local - expand_after))
-            ease = 3 * u**2 - 2 * u**3  # smoothstep easing
+            ease = 3 * u ** 2 - 2 * u ** 3  # smoothstep easing
             x_min = t
 
             window_start = window
@@ -820,15 +820,15 @@ def suite2p_roi_overlay(
 
 
 def plot_projection(
-    ops,
-    savepath=None,
-    fig_label=None,
-    vmin=None,
-    vmax=None,
-    add_scalebar=False,
-    proj="meanImg",
-    display_masks=False,
-    accepted_only=False,
+        ops,
+        savepath=None,
+        fig_label=None,
+        vmin=None,
+        vmax=None,
+        add_scalebar=False,
+        proj="meanImg",
+        display_masks=False,
+        accepted_only=False,
 ):
     if proj == "meanImg":
         txt = "Mean-Image"
@@ -968,7 +968,7 @@ def plot_projection(
 
 
 def plot_noise_distribution(
-    noise_levels: np.ndarray, save_path=None, title="Noise Level Distribution"
+        noise_levels: np.ndarray, save_path=None, title="Noise Level Distribution"
 ):
     """
     Plots and saves the distribution of noise levels across neurons as a standardized image.
@@ -1072,18 +1072,18 @@ def load_ops(ops_input: str | Path | list[str | Path]) -> dict:
 
 
 def plot_rastermap(
-    spks,
-    model,
-    neuron_bin_size=None,
-    fps=17,
-    vmin=0,
-    vmax=0.8,
-    xmin=0,
-    xmax=None,
-    save_path=None,
-    title=None,
-    title_kwargs={},
-    fig_text=None,
+        spks,
+        model,
+        neuron_bin_size=None,
+        fps=17,
+        vmin=0,
+        vmax=0.8,
+        xmin=0,
+        xmax=None,
+        save_path=None,
+        title=None,
+        title_kwargs={},
+        fig_text=None,
 ):
     n_neurons, n_timepoints = spks.shape
 

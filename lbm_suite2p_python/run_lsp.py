@@ -9,7 +9,7 @@ import numpy as np
 
 import suite2p
 from suite2p.io.binary import BinaryFile
-from lbm_suite2p_python.utils import dff_rolling_percentile, dff_median_filter
+from lbm_suite2p_python.utils import dff_rolling_percentile
 import mbo_utilities as mbo  # noqa
 
 logger = mbo.log.get("run_lsp")
@@ -264,6 +264,16 @@ def run_volume(
     print(f"Processing completed for {len(input_files)} files.")
     return all_ops
 
+def should_write_ops(ops_path, ops, force=False):
+    if force or not ops_path.exists():
+        return True
+    try:
+        existing_ops = np.load(ops_path, allow_pickle=True).item()
+        has_registration = "xoff" in existing_ops and "meanImg" in existing_ops
+        has_detection = "stat" in ops or (ops_path.parent / "stat.npy").exists()
+        return not (has_registration and has_detection)
+    except Exception:
+        return True
 
 def should_write_ops(ops_path, ops, force=False):
     if force or not ops_path.exists():
@@ -311,6 +321,11 @@ def run_plane_bin(ops) -> None:
     np.save(ops["ops_path"], merged_ops)
     print(f"Saved ops to {ops['ops_path']}")
 
+    # merge in any non-conflicting prior fields
+    merged_ops = {**ops, **{k: v for k, v in prior_ops.items() if k not in ops}}
+    np.save(ops["ops_path"], merged_ops)
+
+    return merged_ops
 
 def run_plane(
     input_path: str | Path,
@@ -517,6 +532,8 @@ def run_plane(
             for key in ["registration", "segmentation", "traces"]:
                 safe_delete(expected_files[key])
 
+            model = None
+            colors = None
             if expected_files["stat"].is_file():
                 res = load_planar_results(output_ops)
                 iscell = res["iscell"]
