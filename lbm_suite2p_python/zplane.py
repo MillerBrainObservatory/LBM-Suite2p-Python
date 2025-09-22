@@ -280,17 +280,70 @@ class AnchoredVScaleBar(matplotlib.offsetbox.AnchoredOffsetbox):
         )
 
 
-def plot_traces_noise(dff_noise, ncells, savepath):
-    print("Plotting noise per trace...")
-    noise_vals = dff_noise[:ncells]
-    fig, ax = plt.subplots(figsize=(ncells * 0.3 + 2, 4))
-    ax.bar(np.arange(ncells), noise_vals, color="gray")
-    ax.set_xlabel("Neuron (sorted)")
-    ax.set_ylabel("Shot noise estimate")
-    ax.set_title("Per-trace Noise Values")
-    fig.tight_layout()
-    fig.savefig(savepath, dpi=200)
-    plt.close(fig)
+def plot_traces_noise(
+        dff_noise,
+        colors,
+        fps=17.0,
+        window=220,
+        savepath=None,
+        title="Trace Noise",
+        lw=0.5,
+):
+    """
+    Plot stacked noise traces in the same style as plot_traces.
+
+    Parameters
+    ----------
+    dff_noise : ndarray
+        Noise traces, shape (n_neurons, n_timepoints).
+    colors : ndarray
+        Colormap array returned from plot_traces(return_color=True).
+    fps : float
+        Sampling rate, Hz.
+    window : float
+        Time window (seconds) to display.
+    savepath : str or Path, optional
+        If given, save to file.
+    title : str
+        Title for figure.
+    lw : float
+        Line width.
+    """
+    n_neurons, n_timepoints = dff_noise.shape
+    data_time = np.arange(n_timepoints) / fps
+    current_frame = min(int(window * fps), n_timepoints - 1)
+
+    # auto offset based on noise traces
+    p10 = np.percentile(dff_noise[:, : current_frame + 1], 10, axis=1)
+    p90 = np.percentile(dff_noise[:, : current_frame + 1], 90, axis=1)
+    offset = np.median(p90 - p10) * 1.2
+
+    fig, ax = plt.subplots(figsize=(10, 6), facecolor="black")
+    ax.set_facecolor("black")
+    ax.tick_params(axis="x", which="both", labelbottom=False, length=0, colors="white")
+    ax.tick_params(axis="y", which="both", labelleft=False, length=0, colors="white")
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+
+    for i in reversed(range(n_neurons)):
+        trace = dff_noise[i, : current_frame + 1]
+        shifted_trace = trace + i * offset
+        ax.plot(
+            data_time[: current_frame + 1],
+            shifted_trace,
+            color=colors[i],
+            lw=lw,
+            zorder=-i,
+        )
+
+    if title:
+        fig.suptitle(title, fontsize=16, fontweight="bold", color="white")
+
+    if savepath:
+        plt.savefig(savepath, dpi=200, facecolor=fig.get_facecolor())
+        plt.close(fig)
+    else:
+        plt.show()
 
 
 def plot_traces(
@@ -304,8 +357,6 @@ def plot_traces(
         lw = 0.5,
         cmap = "tab10",
         signal_units = None,
-        return_color=False,
-        clip_quantiles=(1, 99),
 ):
     """
     Plot stacked fluorescence traces with automatic offset and scale bars.
@@ -474,10 +525,7 @@ def plot_traces(
     else:
         plt.show()
 
-    if return_color:
-        return fig, colors
-    else:
-        return None
+    return fig, colors
 
 
 def animate_traces(

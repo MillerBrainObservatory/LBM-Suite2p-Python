@@ -3,14 +3,13 @@ import os
 import traceback
 from contextlib import nullcontext
 from itertools import product
-from pathlib import Path
 import copy
 
 import numpy as np
 
 import suite2p
 from suite2p.io.binary import BinaryFile
-from lbm_suite2p_python.utils import dff_rolling_percentile
+from lbm_suite2p_python.utils import dff_rolling_percentile, dff_median_filter
 import mbo_utilities as mbo  # noqa
 
 logger = mbo.log.get("run_lsp")
@@ -224,7 +223,8 @@ def run_volume(
         plot_volume_signal(
             zstats_file, os.path.join(save_path, "mean_volume_signal.png")
         )
-        plot_execution_time(zstats_file, os.path.join(save_path, "execution_time.png"))
+        # todo: why is suite2p not saving timings to ops.npy?
+        # plot_execution_time(zstats_file, os.path.join(save_path, "execution_time.png"))
 
         res_z = [
             load_planar_results(ops_path, z_plane=i)
@@ -273,7 +273,7 @@ def should_write_ops(ops_path, ops, force=False):
         return True
 
 
-def run_plane_bin(ops):
+def run_plane_bin(ops) -> None:
     ops = load_ops(ops)
     if "nframes" in ops and "n_frames" not in ops:
         ops["n_frames"] = ops["nframes"]
@@ -305,8 +305,8 @@ def run_plane_bin(ops):
     # merge in any non-conflicting prior fields
     merged_ops = {**ops, **{k: v for k, v in prior_ops.items() if k not in ops}}
     np.save(ops["ops_path"], merged_ops)
+    print(f"Saved ops to {ops['ops_path']}")
 
-    return merged_ops
 
 def run_plane(
     input_path: str | Path,
@@ -513,8 +513,6 @@ def run_plane(
             for key in ["registration", "segmentation", "traces"]:
                 safe_delete(expected_files[key])
 
-            model = None
-            colors = None
             if expected_files["stat"].is_file():
                 res = load_planar_results(output_ops)
                 iscell = res["iscell"]
@@ -526,6 +524,7 @@ def run_plane(
 
                 stat = res["stat"]
                 f = res["F"][iscell]
+                f = f - f.min(axis=1, keepdims=True) * 0.9  # shift to positive
 
                 if f.shape[0] < 10:
                     print(f"Too few cells to plot traces for {plane_dir.stem}.")
@@ -568,30 +567,34 @@ def run_plane(
                     print("Sorting neurons by rastermap model...")
                     isort = np.where(iscell == 1)[0][model.isort]
                     output_ops["isort"] = isort  # now global to stat, not local
+                    f = f[model.isort]
 
                 percentile = output_ops.get("dff_percentile", dff_percentile)
                 win_size = output_ops.get("dff_window_size", dff_window_size)
+
+                # clip outliers from f
+                f = np.clip(f, np.percentile(f, 1), np.percentile(f, 99))
                 dff = dff_rolling_percentile(
                     f,
                     percentile=percentile,
                     window_size=win_size
                 ) * 100  # convert to percentage
+
                 dff_noise = dff_shot_noise(dff, output_ops["fs"])
 
                 if n_neurons < 30:
                     print(f"Too few cells to plot traces for {plane_dir.stem}.")
                 else:
                     print("Plotting traces...")
-                    fig, colors = plot_traces(
+                    _, colors = plot_traces(
                         dff,
                         save_path=expected_files["traces"],
                         num_neurons=output_ops.get("plot_n_traces", 30),
                         signal_units="dffp",
-                        return_color=True
                     )
                     plot_traces_noise(
-                        dff_noise,
-                        ncells=n_neurons,
+                        dff_noise[:n_neurons],
+                        colors,
                         savepath=expected_files["traces_noise"]
                     )
 

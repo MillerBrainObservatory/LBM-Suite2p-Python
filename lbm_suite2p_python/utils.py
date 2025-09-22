@@ -118,14 +118,41 @@ def dff_rolling_percentile(f_trace, window_size=300, percentile=8):
     if f_trace.shape[0] == 0 or f_trace.shape[1] == 0:
         raise ValueError("f_trace must not be empty")
 
+    floor = np.median(f_trace, axis=1, keepdims=True) * 0.01
+
     f0 = np.array(
         [
             percentile_filter(f, percentile, size=window_size, mode="nearest")
             for f in f_trace
         ]
     )
+
+    f0 = np.maximum(f0, floor)
     return (f_trace - f0) / (f0 + 1e-6)  # 1e-6 to avoid division by zero
 
+def dff_median_filter(f_trace):
+    """
+    Compute ΔF/F₀ using a rolling median filter baseline.
+
+    Parameters:
+    -----------
+    f_trace : np.ndarray
+        (N_neurons, N_frames) fluorescence traces.
+
+    Returns:
+    --------
+    dff : np.ndarray
+        (N_neurons, N_frames) ΔF/F₀ traces.
+    """
+    if not isinstance(f_trace, np.ndarray):
+        raise TypeError("f_trace must be a numpy array")
+    if f_trace.ndim != 2:
+        raise ValueError("f_trace must be a 2D array with shape (N_neurons, N_frames)")
+    if f_trace.shape[0] == 0 or f_trace.shape[1] == 0:
+        raise ValueError("f_trace must not be empty")
+
+    f0 = np.median(f_trace, axis=1, keepdims=True) * 0.01
+    return (f_trace - f0) / (f0 + 1e-6)  # 1e-6 to avoid division by zero
 
 def dff_shot_noise(dff, fr):
     """
