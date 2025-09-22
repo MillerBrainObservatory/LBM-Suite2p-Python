@@ -25,7 +25,7 @@ __all__ = [
     "save_images_to_movie",
     "get_common_path",
     "update_ops_paths",
-    "dff_percentile",
+    "dff_rolling_percentile",
     "dff_maxmin",
     "dff_shot_noise",
     "combine_tiffs",
