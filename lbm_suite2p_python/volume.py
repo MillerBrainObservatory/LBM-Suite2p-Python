@@ -155,7 +155,7 @@ def plot_volume_signal(zstats, savepath):
     mean_signal = plane_stats["mean_trace"]
     std_signal = plane_stats["std_trace"]
 
-    fig, ax = plt.figure(figsize=(10, 6), facecolor="black")
+    fig, ax = plt.subplots(figsize=(10, 6), facecolor="black")
     ax.set_facecolor("black")
 
     plt.xlabel("Z-Plane", fontsize=14, fontweight="bold", color="white")
