@@ -130,7 +130,7 @@ def infer_units(f: np.ndarray) -> str:
     if p99 > 500 or p50 > 100:
         return "raw"
     elif 5 < p1 < 30 and 20 < p50 < 60 and 40 < p99 < 100:
-        return "dff-percentile"
+        return "dffp"
     elif 0.1 < p1 < 0.2 and 0.2 < p50 < 0.5 and 0.5 < p99 < 1.0:
         return "dff"
     else:
