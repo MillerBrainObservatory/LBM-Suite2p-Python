@@ -6,4 +6,3 @@ save_path = r"D:\W2_DATA\santi\stitched"
 files = mbo.get_files("D:\W2_DATA\santi\stitched", 'tif', 3)
 
 lsp.run_volume(input_files=files, save_path=save_path)
-x = 2

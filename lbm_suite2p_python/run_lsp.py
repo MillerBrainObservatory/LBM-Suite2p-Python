@@ -20,7 +20,8 @@ from lbm_suite2p_python.zplane import (
     plot_noise_distribution,
     load_planar_results,
     load_ops,
-    suite2p_roi_overlay, plot_traces_noise
+    suite2p_roi_overlay,
+    plot_traces_noise,
 )
 from . import dff_shot_noise
 from .volume import (
@@ -181,7 +182,9 @@ def run_volume(
         save_path = Path(input_files[0]).parent
 
     all_ops = []
-    for file in tqdm(input_files, desc="Processing Planes", unit="plane", leave=False, position=1):
+    for file in tqdm(
+        input_files, desc="Processing Planes", unit="plane", leave=False, position=1
+    ):
         subdir = derive_tag_from_filename(Path(file).stem)
         plane_save_path = Path(save_path).joinpath(subdir)
         plane_save_path.mkdir(exist_ok=True)
@@ -260,6 +263,7 @@ def run_volume(
 
     print(f"Processing completed for {len(input_files)} files.")
     return all_ops
+
 
 def should_write_ops(ops_path, ops, force=False):
     if force or not ops_path.exists():
@@ -384,17 +388,17 @@ def run_plane(
         logger.setLevel(logging.DEBUG)
         logger.info("Debug mode enabled.")
 
-    assert isinstance(
-        input_path, (Path, str)
-    ), f"input_path should be a pathlib.Path or string, not: {type(input_path)}"
+    assert isinstance(input_path, (Path, str)), (
+        f"input_path should be a pathlib.Path or string, not: {type(input_path)}"
+    )
     input_path = Path(input_path)
     if not input_path.is_file():
         raise ValueError(f"Input file does not exist: {input_path}")
     input_parent = input_path.parent
 
-    assert isinstance(
-        save_path, (Path, str, type(None))
-    ), f"save_path should be a pathlib.Path or string, not: {type(save_path)}"
+    assert isinstance(save_path, (Path, str, type(None))), (
+        f"save_path should be a pathlib.Path or string, not: {type(save_path)}"
+    )
     if save_path is None:
         logger.debug(f"save_path is None, using parent of input file: {input_parent}")
         save_path = input_parent
@@ -463,7 +467,7 @@ def run_plane(
         "roidetect": int(needs_detect),
         "save_path": str(plane_dir),
         "raw_file": str((plane_dir / "data_raw.bin").resolve()),
-        "reg_file": str((plane_dir / "data.bin").resolve())
+        "reg_file": str((plane_dir / "data.bin").resolve()),
     }
 
     if "nframes" not in ops and "shape" in ops.get("metadata", {}):
@@ -574,11 +578,12 @@ def run_plane(
 
                 # clip outliers from f
                 f = np.clip(f, np.percentile(f, 1), np.percentile(f, 99))
-                dff = dff_rolling_percentile(
-                    f,
-                    percentile=percentile,
-                    window_size=win_size
-                ) * 100  # convert to percentage
+                dff = (
+                    dff_rolling_percentile(
+                        f, percentile=percentile, window_size=win_size
+                    )
+                    * 100
+                )  # convert to percentage
 
                 dff_noise = dff_shot_noise(dff, output_ops["fs"])
 
@@ -595,7 +600,7 @@ def run_plane(
                     plot_traces_noise(
                         dff_noise[:n_neurons],
                         colors,
-                        savepath=expected_files["traces_noise"]
+                        savepath=expected_files["traces_noise"],
                     )
 
                 print("Plotting noise distribution...")

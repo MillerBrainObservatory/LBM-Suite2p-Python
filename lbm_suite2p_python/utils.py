@@ -130,6 +130,7 @@ def dff_rolling_percentile(f_trace, window_size=300, percentile=8):
     f0 = np.maximum(f0, floor)
     return (f_trace - f0) / (f0 + 1e-6)  # 1e-6 to avoid division by zero
 
+
 def dff_median_filter(f_trace):
     """
     Compute ΔF/F₀ using a rolling median filter baseline.
@@ -153,6 +154,7 @@ def dff_median_filter(f_trace):
 
     f0 = np.median(f_trace, axis=1, keepdims=True) * 0.01
     return (f_trace - f0) / (f0 + 1e-6)  # 1e-6 to avoid division by zero
+
 
 def dff_shot_noise(dff, fr):
     """
