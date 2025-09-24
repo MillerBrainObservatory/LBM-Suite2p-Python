@@ -200,8 +200,7 @@ def run_volume(
 
         # log resource usage
         gc.collect()
-        gpu_util, gpu_mem = get_gpu_stats()
-        print(f"CPU {get_cpu_percent():4.1f}% | RAM {get_ram_used()/1024:5.2f} GB | GPU {gpu:3d}% {gpu_mem / 1024:5.2f} GB")
+        print(f"CPU {get_cpu_percent():4.1f}% | RAM {get_ram_used()/1024:5.2f} GB")
 
     # batch was ran, lets accumulate data
     if isinstance(all_ops[0], dict):
