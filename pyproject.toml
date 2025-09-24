@@ -19,25 +19,32 @@ classifiers=[
 ]
 
 dependencies = [
-	"imgui-bundle==1.6.3",
+	"numba==0.60.0",
+	# "numpy>=2.0.0",
 	"tifffile>=2025.3.30",
-	"zarr>=2.18.7",
+	"scikit-image",
+	"zarr>=2.18.3",
 	"dask>=2025.3.0",
 	"imageio[ffmpeg]",
+	"ffmpeg-python",
 	"matplotlib>=3.10.1",
 	"h5py",
 	"tqdm",
-	"mbo_utilities[all]>=1.0.0",
-	"cellpose>=4.0.6",
-	"suite2p_mbo==1.0.4",
-	"pynwb>=3.0.0",
+	"jupyterlab",
+	"ipykernel",
+	"ipywidgets>=8.0.0,<9",
 	"icecream>=2.1.4",
-	# "neuroconv[scanimage]>=0.7.5",
+	"llvmlite==0.43.0",
+]
+
+dependencies = [
+	"mbo_utilities>=1.0.5",
+	"suite2p_mbo>=1.0.5",
+	"mkl_fft",
 ]
 
 [project.optional-dependencies]
-napari = ["napari"]
-all = ["napari"]
+cpsam = ["cellpose==4.0.6"]
 
 [dependency-groups]
 all = [
