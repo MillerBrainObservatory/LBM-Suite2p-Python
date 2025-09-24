@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 import os
 import traceback
 from contextlib import nullcontext
@@ -10,11 +11,11 @@ import numpy as np
 
 import suite2p
 from suite2p.io.binary import BinaryFile
-from lbm_suite2p_python.utils import dff_rolling_percentile
 import mbo_utilities as mbo  # noqa
 
 logger = mbo.log.get("run_lsp")
 
+from lbm_suite2p_python._benchmarking import get_cpu_percent, get_gpu_stats, get_ram_used
 from lbm_suite2p_python.zplane import (
     plot_traces,
     plot_projection,
@@ -23,18 +24,16 @@ from lbm_suite2p_python.zplane import (
     load_ops,
     suite2p_roi_overlay,
 )
-from . import dff_shot_noise
-from .volume import (
+from lbm_suite2p_python.utils import (
+    dff_shot_noise,
+    dff_rolling_percentile
+)
+from lbm_suite2p_python.volume import (
     plot_volume_signal,
     plot_volume_neuron_counts,
     get_volume_stats,
     save_images_to_movie,
 )
-
-if mbo.is_running_jupyter():
-    from tqdm.notebook import tqdm
-else:
-    from tqdm import tqdm
 
 try:
     from rastermap import Rastermap
@@ -47,7 +46,6 @@ except ImportError:
 if HAS_RASTERMAP:
     from lbm_suite2p_python.zplane import plot_rastermap
 
-from pathlib import Path
 
 PIPELINE_TAGS = ("plane", "roi", "z", "plane_", "roi_", "z_")
 
@@ -198,7 +196,11 @@ def run_volume(
             dff_percentile=dff_percentile,
         )
         all_ops.append(ops_file)
+
+        # log resource usage
         gc.collect()
+        gpu_util, gpu_mem = get_gpu_stats()
+        print(f"CPU {get_cpu_percent():4.1f}% | RAM {get_ram_used()/1024:5.2f} GB | GPU {gpu:3d}% {gpu_mem / 1024:5.2f} GB")
 
     # batch was ran, lets accumulate data
     if isinstance(all_ops[0], dict):
