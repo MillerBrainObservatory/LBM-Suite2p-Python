@@ -196,6 +196,7 @@ def run_volume(
             dff_percentile=dff_percentile,
         )
         all_ops.append(ops_file)
+        del ops_file
 
         # log resource usage
         gc.collect()
