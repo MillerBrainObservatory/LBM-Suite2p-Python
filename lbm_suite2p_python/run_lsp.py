@@ -4,6 +4,7 @@ import traceback
 from contextlib import nullcontext
 from itertools import product
 import copy
+import gc
 
 import numpy as np
 
@@ -21,11 +22,9 @@ from lbm_suite2p_python.zplane import (
     load_planar_results,
     load_ops,
     suite2p_roi_overlay,
-    plot_traces_noise,
 )
 from . import dff_shot_noise
 from .volume import (
-    plot_execution_time,
     plot_volume_signal,
     plot_volume_neuron_counts,
     get_volume_stats,
@@ -104,16 +103,16 @@ def get_missing_ops_keys(ops: dict) -> list[str]:
 
 
 def run_volume(
-    input_files: list,
-    save_path: str | Path = None,
-    ops: dict | str | Path = None,
-    keep_reg: bool = True,
-    keep_raw: bool = True,
-    force_reg: bool = False,
-    force_detect: bool = False,
-    dff_window_size: int = 500,
-    dff_percentile: int = 20,
-    **kwargs,
+        input_files: list,
+        save_path: str | Path = None,
+        ops: dict | str | Path = None,
+        keep_reg: bool = True,
+        keep_raw: bool = True,
+        force_reg: bool = False,
+        force_detect: bool = False,
+        dff_window_size: int = 500,
+        dff_percentile: int = 20,
+        **kwargs,
 ):
     """
     Processes a full volumetric imaging dataset using Suite2p, handling plane-wise registration,
@@ -182,13 +181,12 @@ def run_volume(
         save_path = Path(input_files[0]).parent
 
     all_ops = []
-    for file in tqdm(
-        input_files, desc="Processing Planes", unit="plane", leave=False, position=1
-    ):
+    for file in input_files:
+        print(f"Processing: {file}")
         subdir = derive_tag_from_filename(Path(file).stem)
         plane_save_path = Path(save_path).joinpath(subdir)
         plane_save_path.mkdir(exist_ok=True)
-        output_ops = run_plane(
+        ops_file = run_plane(
             input_path=file,
             save_path=plane_save_path,
             ops=ops,
@@ -199,12 +197,12 @@ def run_volume(
             dff_window_size=dff_window_size,
             dff_percentile=dff_percentile,
         )
-        all_ops.append(output_ops)
+        all_ops.append(ops_file)
+        gc.collect()
 
     # batch was ran, lets accumulate data
     if isinstance(all_ops[0], dict):
         all_ops = [ops["ops_path"] for ops in all_ops]
-
     try:
         zstats_file = get_volume_stats(all_ops, overwrite=True)
 
@@ -275,19 +273,8 @@ def should_write_ops(ops_path, ops, force=False):
     except Exception:
         return True
 
-def should_write_ops(ops_path, ops, force=False):
-    if force or not ops_path.exists():
-        return True
-    try:
-        existing_ops = np.load(ops_path, allow_pickle=True).item()
-        has_registration = "xoff" in existing_ops and "meanImg" in existing_ops
-        has_detection = "stat" in ops or (ops_path.parent / "stat.npy").exists()
-        return not (has_registration and has_detection)
-    except Exception:
-        return True
 
-
-def run_plane_bin(ops) -> None:
+def run_plane_bin(ops) -> bool:
     ops = load_ops(ops)
     if "nframes" in ops and "n_frames" not in ops:
         ops["n_frames"] = ops["nframes"]
@@ -305,11 +292,11 @@ def run_plane_bin(ops) -> None:
             Ly=Ly, Lx=Lx, filename=ops["reg_file"], n_frames=n_frames
         ) as f_reg,
         (
-            suite2p.io.BinaryFile(
-                Ly=Ly, Lx=Lx, filename=ops["raw_file"], n_frames=n_frames
-            )
-            if "raw_file" in ops and ops["raw_file"] is not None
-            else nullcontext()
+                suite2p.io.BinaryFile(
+                    Ly=Ly, Lx=Lx, filename=ops["raw_file"], n_frames=n_frames
+                )
+                if "raw_file" in ops and ops["raw_file"] is not None
+                else nullcontext()
         ) as f_raw,
     ):
         ops = suite2p.pipeline(
@@ -324,21 +311,22 @@ def run_plane_bin(ops) -> None:
     # merge in any non-conflicting prior fields
     merged_ops = {**ops, **{k: v for k, v in prior_ops.items() if k not in ops}}
     np.save(ops["ops_path"], merged_ops)
+    del merged_ops, f_reg, f_raw, ops
 
-    return merged_ops
+    return True
 
 def run_plane(
-    input_path: str | Path,
-    save_path: str | Path | None = None,
-    ops: dict | str | Path = None,
-    keep_raw: bool = False,
-    keep_reg: bool = True,
-    force_reg: bool = False,
-    force_detect: bool = False,
-    dff_window_size: int = 500,
-    dff_percentile: int = 20,
-    **kwargs,
-):
+        input_path: str | Path,
+        save_path: str | Path | None = None,
+        ops: dict | str | Path = None,
+        keep_raw: bool = False,
+        keep_reg: bool = True,
+        force_reg: bool = False,
+        force_detect: bool = False,
+        dff_window_size: int = 500,
+        dff_percentile: int = 20,
+        **kwargs,
+) -> Path:
     """
     Processes a single imaging plane using suite2p, handling registration, segmentation,
     and plotting of results.
@@ -453,7 +441,7 @@ def run_plane(
     reg_data_file_tiff = plane_dir / "reg_tif"
 
     if should_write_ops(ops_file, ops, force=kwargs.get("force_save", False)):
-        mbo.imwrite(file, plane_dir, ext=".bin", metadata=metadata)
+        mbo.imwrite(file, plane_dir, ext=".bin", metadata=metadata, preprocess=False)
     else:
         print(f"Skipping ops.npy save: {ops_file.name} already contains results.")
 
@@ -488,7 +476,12 @@ def run_plane(
     if "nframes" not in ops and "shape" in ops.get("metadata", {}):
         ops["nframes"] = ops["metadata"]["shape"][0]
 
-    ops = run_plane_bin(ops)
+    processed = run_plane_bin(ops)
+
+    if not processed:
+        print(f"Skipping {ops_file.name}, processing was not completed.")
+        return ops_file
+
     output_ops = load_ops(ops_file)
 
     # cleanup ourselves
@@ -503,7 +496,6 @@ def run_plane(
         "iscell": plane_dir / "iscell.npy",
         "registration": plane_dir / "registration.png",
         "segmentation": plane_dir / "segmentation.png",
-        "segmentation_traces": plane_dir / "segmentation_match_traces.png",
         "max_proj": plane_dir / "max_projection_image.png",
         "meanImg": plane_dir / "mean_image.png",
         "meanImgE": plane_dir / "mean_image_enhanced.png",
@@ -515,8 +507,8 @@ def run_plane(
     }
     try:
         if not all(
-            expected_files[key].is_file()
-            for key in ["registration", "segmentation", "traces"]
+                expected_files[key].is_file()
+                for key in ["registration", "segmentation", "traces"]
         ):
             print(f"Generating missing plots for {plane_dir.stem}...")
 
@@ -596,10 +588,10 @@ def run_plane(
                 # clip outliers from f
                 f = np.clip(f, np.percentile(f, 1), np.percentile(f, 99))
                 dff = (
-                    dff_rolling_percentile(
-                        f, percentile=percentile, window_size=win_size
-                    )
-                    * 100
+                        dff_rolling_percentile(
+                            f, percentile=percentile, window_size=win_size
+                        )
+                        * 100
                 )  # convert to percentage
 
                 dff_noise = dff_shot_noise(dff, output_ops["fs"])
@@ -614,11 +606,11 @@ def run_plane(
                         num_neurons=output_ops.get("plot_n_traces", 30),
                         signal_units="dffp",
                     )
-                    plot_traces_noise(
-                        dff_noise[:n_neurons],
-                        colors,
-                        savepath=expected_files["traces_noise"],
-                    )
+                    # plot_traces_noise(
+                    #     dff_noise[:n_neurons],
+                    #     colors,
+                    #     savepath=expected_files["traces_noise"],
+                    # )
 
                 print("Plotting noise distribution...")
                 plot_noise_distribution(dff_noise, save_path=expected_files["noise"])
@@ -630,18 +622,6 @@ def run_plane(
                     "max_proj",
                     plot_indices=None,
                     savepath=expected_files["segmentation"],
-                )
-                cell_indices = output_ops["isort"][:n_neurons]
-                suite2p_roi_overlay(
-                    output_ops,
-                    stat,
-                    iscell,
-                    "max_proj",
-                    plot_indices=cell_indices,
-                    savepath=expected_files["segmentation_traces"],
-                    color_mode="colormap",
-                    colors=None,
-                    # colors=colors if colors is not None else None,
                 )
 
             fig_label = kwargs.get("fig_label", plane_dir.stem)
@@ -659,14 +639,14 @@ def run_plane(
             print("Plots generated successfully.")
     except Exception:
         traceback.print_exc()
-    return output_ops
+    return ops_file
 
 
 def run_grid_search(
-    base_ops: dict,
-    grid_search_dict: dict,
-    input_file: Path | str,
-    save_root: Path | str,
+        base_ops: dict,
+        grid_search_dict: dict,
+        input_file: Path | str,
+        save_root: Path | str,
 ):
     """
     Run a grid search over all combinations of the input suite2p parameters.

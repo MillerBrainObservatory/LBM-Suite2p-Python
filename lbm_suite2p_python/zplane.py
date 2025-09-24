@@ -281,13 +281,13 @@ class AnchoredVScaleBar(matplotlib.offsetbox.AnchoredOffsetbox):
 
 
 def plot_traces_noise(
-    dff_noise,
-    colors,
-    fps=17.0,
-    window=220,
-    savepath=None,
-    title="Trace Noise",
-    lw=0.5,
+        dff_noise,
+        colors,
+        fps=17.0,
+        window=220,
+        savepath=None,
+        title="Trace Noise",
+        lw=0.5,
 ):
     """
     Plot stacked noise traces in the same style as plot_traces.
@@ -347,16 +347,16 @@ def plot_traces_noise(
 
 
 def plot_traces(
-    f,
-    save_path: str | Path = "",
-    fps=17.0,
-    num_neurons=20,
-    window=220,
-    title="",
-    offset=None,
-    lw=0.5,
-    cmap="tab10",
-    signal_units=None,
+        f,
+        save_path: str | Path = "",
+        fps=17.0,
+        num_neurons=20,
+        window=220,
+        title="",
+        offset=None,
+        lw=0.5,
+        cmap="tab10",
+        signal_units=None,
 ):
     """
     Plot stacked fluorescence traces with automatic offset and scale bars.
@@ -744,15 +744,15 @@ def feather_mask(mask, max_alpha=0.75, edge_width=3):
 
 
 def suite2p_roi_overlay(
-    ops,
-    stat,
-    iscell,
-    proj=None,
-    plot_indices=None,
-    savepath=None,
-    color_mode="random",
-    red_border=False,
-    colors=None,
+        ops,
+        stat,
+        iscell,
+        proj=None,
+        plot_indices=None,
+        savepath=None,
+        color_mode="random",
+        red_border=False,
+        colors=None,
 ):
     ops = load_ops(ops)
     yr0, yr1 = ops["yrange"]
@@ -781,10 +781,10 @@ def suite2p_roi_overlay(
 
         # Filter out invalid coords (can happen near edges)
         valid = (
-            (ypix >= 0)
-            & (ypix < norm_img.shape[0])
-            & (xpix >= 0)
-            & (xpix < norm_img.shape[1])
+                (ypix >= 0)
+                & (ypix < norm_img.shape[0])
+                & (xpix >= 0)
+                & (xpix < norm_img.shape[1])
         )
         ypix = ypix[valid]
         xpix = xpix[valid]
@@ -951,7 +951,7 @@ def plot_projection(
             fontsize=10,
             ha="center",
             fontweight="bold",
-        )
+            )
 
     # remove the spines that will show up as white bars
     for spine in ax.spines.values():
@@ -1163,7 +1163,7 @@ def plot_rastermap(
         va="top",
         color="white",
         fontsize=6,
-    )
+        )
 
     scalebar_neurons = int(0.1 * current_neurons)
 
