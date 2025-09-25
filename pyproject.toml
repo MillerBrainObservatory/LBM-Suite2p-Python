@@ -19,25 +19,6 @@ classifiers=[
 ]
 
 dependencies = [
-	"numba==0.60.0",
-	# "numpy>=2.0.0",
-	"tifffile>=2025.3.30",
-	"scikit-image",
-	"zarr>=2.18.3",
-	"dask>=2025.3.0",
-	"imageio[ffmpeg]",
-	"ffmpeg-python",
-	"matplotlib>=3.10.1",
-	"h5py",
-	"tqdm",
-	"jupyterlab",
-	"ipykernel",
-	"ipywidgets>=8.0.0,<9",
-	"icecream>=2.1.4",
-	"llvmlite==0.43.0",
-]
-
-dependencies = [
 	"mbo_utilities>=1.0.5",
 	"suite2p_mbo>=1.0.5",
 	"mkl_fft",
@@ -45,6 +26,7 @@ dependencies = [
 
 [project.optional-dependencies]
 cpsam = ["cellpose==4.0.6"]
+all = ["mbo_utilities[all]>=1.0.5"]
 
 [dependency-groups]
 all = [
@@ -77,7 +59,7 @@ docs = [
 	"scikit-image",
 	"scipy",
 	"pandas",
-	"suite2p_mbo>=1.0.0,<2.0.0",
+	"suite2p_mbo",
 ]
 
 [tool.uv]

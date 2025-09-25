@@ -1,4 +1,5 @@
 import logging
+import time
 from pathlib import Path
 import os
 import traceback
@@ -15,7 +16,7 @@ import mbo_utilities as mbo  # noqa
 
 logger = mbo.log.get("run_lsp")
 
-from lbm_suite2p_python._benchmarking import get_cpu_percent, get_gpu_stats, get_ram_used
+from lbm_suite2p_python._benchmarking import get_cpu_percent, get_ram_used
 from lbm_suite2p_python.zplane import (
     plot_traces,
     plot_projection,
@@ -175,11 +176,15 @@ def run_volume(
     - Traces animation over time and neurons
     - Optional rastermap clustering results
     """
+    start = time.time()
     if save_path is None:
         save_path = Path(input_files[0]).parent
 
+    save_path.mkdir(exist_ok=True)
+
     all_ops = []
     for file in input_files:
+        start_file = time.time()
         print(f"Processing: {file}")
         subdir = derive_tag_from_filename(Path(file).stem)
         plane_save_path = Path(save_path).joinpath(subdir)
@@ -195,12 +200,17 @@ def run_volume(
             dff_window_size=dff_window_size,
             dff_percentile=dff_percentile,
         )
+        end_file = time.time()
+        print(f"Time for {file}: {(end_file - start_file)/60:0.1f} min")
+        print(f"CPU {get_cpu_percent():4.1f}% | RAM {get_ram_used()/1024:5.2f} GB")
         all_ops.append(ops_file)
         del ops_file
 
         # log resource usage
         gc.collect()
-        print(f"CPU {get_cpu_percent():4.1f}% | RAM {get_ram_used()/1024:5.2f} GB")
+
+    end = time.time()
+    print(f"Total time for volume: {(end - start)/60:0.1f} min")
 
     # batch was ran, lets accumulate data
     if isinstance(all_ops[0], dict):
