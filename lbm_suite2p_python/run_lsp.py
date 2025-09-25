@@ -180,6 +180,7 @@ def run_volume(
     if save_path is None:
         save_path = Path(input_files[0]).parent
 
+    save_path = Path(save_path)
     save_path.mkdir(exist_ok=True)
 
     all_ops = []
