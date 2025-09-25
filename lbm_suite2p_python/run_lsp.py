@@ -213,9 +213,6 @@ def run_volume(
     end = time.time()
     print(f"Total time for volume: {(end - start)/60:0.1f} min")
 
-    # batch was ran, lets accumulate data
-    if isinstance(all_ops[0], dict):
-        all_ops = [ops["ops_path"] for ops in all_ops]
     try:
         zstats_file = get_volume_stats(all_ops, overwrite=True)
 
