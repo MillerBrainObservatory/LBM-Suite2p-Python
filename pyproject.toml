@@ -19,14 +19,14 @@ classifiers=[
 ]
 
 dependencies = [
-	"mbo_utilities>=1.0.5",
+	"mbo_utilities>=1.0.4",
 	"suite2p_mbo>=1.0.5",
 	"mkl_fft",
 ]
 
 [project.optional-dependencies]
 cpsam = ["cellpose==4.0.6"]
-all = ["mbo_utilities[all]>=1.0.5"]
+all = ["mbo_utilities[all]>=1.0.4"]
 
 [dependency-groups]
 all = [
@@ -78,8 +78,8 @@ ignore = [
 	"COM812", # Missing trailing comma (conflicts with ruff format)
 	"ISC001", # Import sorting (conflicts with ruff format)
 	"FIX002", # Fixable issue
-	"DOC201", # TODO(manzt) enable in follow-up PR; no doc for return type.
-	"FBT",    # TODO(manzt): enable in follow-up PR; require bool options to be keyword-only.
+	"DOC201", # TODO enable in follow-up PR; no doc for return type.
+	"FBT",    # TODO: enable in follow-up PR; require bool options to be keyword-only.
 ]
 
 [tool.ruff.lint.per-file-ignores]
