@@ -30,7 +30,6 @@ all = ["mbo_utilities[all]>=1.0.5"]
 
 [dependency-groups]
 all = [
-	"lbm_suite2p_python",
 	"pytest>=7.4.4",
 	"ruff>=0.6.1",
 ]
@@ -64,11 +63,6 @@ docs = [
 
 [tool.uv]
 default-groups = "all"
-
-[tool.uv.sources]
-mbo_utilities = { git = "https://github.com/MillerBrainObservatory/mbo_utilities", branch = "dev" }
-mbo_utilities_dev = { git = "https://github.com/MillerBrainObservatory/mbo_utilities", branch = "dev" }
-suite3d = { git = "https://github.com/alihaydaroglu/suite3d.git", branch = "py310" }
 
 # https://github.com/charliermarsh/ruff
 [tool.ruff]
