@@ -3,12 +3,12 @@ from pathlib import Path
 import warnings
 import lbm_suite2p_python as lsp
 
-# 1. Extract Raw Data
-inpath = Path(r"D:\W2_DATA\kbarber\07_27_2025\mk355\green")
-arr = imread(inpath)
-imwrite(arr, inpath.parent.joinpath("raw_data"))
-
-warnings.simplefilter(action='ignore')
+# # 1. Extract Raw Data
+# inpath = Path(r"D:\W2_DATA\kbarber\07_27_2025\mk355\green")
+# arr = imread(inpath)
+# imwrite(arr, inpath.parent.joinpath("raw_data"))
+#
+# warnings.simplefilter(action='ignore')
 
 inpath = Path(r"D:\W2_DATA\kbarber\07_27_2025\mk355\suite2p\z_registered")
 aligned_files = get_files(inpath, "aligned", max_depth=3)

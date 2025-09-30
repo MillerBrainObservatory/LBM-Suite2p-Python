@@ -19,14 +19,14 @@ classifiers=[
 ]
 
 dependencies = [
-	"mbo_utilities>=1.0.4",
-	"suite2p_mbo>=1.0.5",
+	"mbo_utilities[gui]>=1.0.7",
+	"suite2p_mbo>=1.0.6",
 	"mkl_fft",
 ]
 
 [project.optional-dependencies]
 cpsam = ["cellpose==4.0.6"]
-all = ["mbo_utilities[all]>=1.0.4"]
+all = ["mbo_utilities[all]>=1.0.7"]
 
 [dependency-groups]
 all = [

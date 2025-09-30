@@ -1,5 +1,4 @@
 import glob
-import os
 import subprocess
 from pathlib import Path
 
@@ -7,8 +6,7 @@ import cv2
 import numpy as np
 from matplotlib import pyplot as plt
 
-from lbm_suite2p_python.zplane import load_ops
-from lbm_suite2p_python.utils import get_common_path
+from lbm_suite2p_python.utils import get_common_path, load_ops
 
 
 def update_ops_paths(ops_files: str | list):
