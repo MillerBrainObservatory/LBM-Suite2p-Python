@@ -9,6 +9,7 @@ import copy
 import gc
 
 import numpy as np
+import pandas as pd
 
 import suite2p
 from suite2p.io.binary import BinaryFile
@@ -25,9 +26,8 @@ from lbm_suite2p_python.volume import (
     plot_volume_neuron_counts,
     get_volume_stats,
     save_images_to_movie,
+    plot_execution_time,
 )
-
-
 
 PIPELINE_TAGS = ("plane", "roi", "z", "plane_", "roi_", "z_")
 
@@ -77,10 +77,30 @@ def derive_tag_from_filename(path):
     return name
 
 
-def get_missing_ops_keys(ops: dict) -> list[str]:
-    required = ["Ly", "Lx", "fs", "nframes", "raw_file", "input_format"]
-    return [k for k in required if k not in ops or ops[k] is None]
+def summarize_regdx_metrics(root_dir: Path, subdir: str = "") -> pd.DataFrame:
+    rows = []
 
+    for ops_path in root_dir.rglob(f"*{subdir}*/ops.npy"):
+        try:
+            ops = load_ops(ops_path)
+            regdx = np.array(ops.get("regDX"))
+            if regdx is None or len(regdx) == 0 or regdx.ndim != 2:
+                continue
+
+            dx = regdx[:, 0]
+            dy = regdx[:, 1]
+            norm = regdx[:, 2]
+
+            rows.append({
+                "config": ops_path.parent.parent.name,
+                "mean_rigid": np.mean(np.abs(dx)),
+                "mean_avg_nr": np.mean(np.abs(dy)),
+                "mean_max_nr": np.mean(np.abs(norm)),
+            })
+        except Exception as e:
+            print(f"Error processing {ops_path}: {e}")
+            continue
+    return pd.DataFrame(rows)
 
 def run_volume(
         input_files: list,
@@ -92,6 +112,7 @@ def run_volume(
         force_detect: bool = False,
         dff_window_size: int = 500,
         dff_percentile: int = 20,
+        save_json: bool = False,
         **kwargs,
 ):
     """
@@ -121,6 +142,8 @@ def run_volume(
         Number of frames to use for windowed dF/F₀ calculations.
     dff_percentile : int, default 20
         Percentile to use for baseline F₀ estimation in dF/F₀ calculations.
+    save_json : bool, default False
+        If true, saves ops as a JSON file in addition to npy.
 
     Returns
     -------
@@ -167,7 +190,6 @@ def run_volume(
     all_ops = []
     for file in input_files:
         start_file = time.time()
-        print(f"Processing: {file}")
         subdir = derive_tag_from_filename(Path(file).stem)
         plane_save_path = Path(save_path).joinpath(subdir)
         plane_save_path.mkdir(exist_ok=True)
@@ -181,6 +203,7 @@ def run_volume(
             force_detect=force_detect,
             dff_window_size=dff_window_size,
             dff_percentile=dff_percentile,
+            save_json=save_json,
         )
         end_file = time.time()
         print(f"Time for {file}: {(end_file - start_file)/60:0.1f} min")
@@ -193,6 +216,7 @@ def run_volume(
     print(f"Total time for volume: {(end - start)/60:0.1f} min")
 
     if "roi" in Path(input_files[0]).stem.lower():
+        print(f"Detected mROI data, merging ROIs for each z-plane...")
         from .merging import merge_rois_for_planes, remake_plane_figures
         base_dir = Path(input_files[0]).parent
         merged_dir = base_dir.joinpath(f"merged")
@@ -204,6 +228,7 @@ def run_volume(
             remake_plane_figures(ops_path.parent)
 
     try:
+
         zstats_file = get_volume_stats(all_ops, overwrite=True)
 
         all_segs = mbo.get_files(save_path, "segmentation.png", 4)
@@ -225,7 +250,7 @@ def run_volume(
             zstats_file, os.path.join(save_path, "mean_volume_signal.png")
         )
         # todo: why is suite2p not saving timings to ops.npy?
-        # plot_execution_time(zstats_file, os.path.join(save_path, "execution_time.png"))
+        plot_execution_time(zstats_file, os.path.join(save_path, "execution_time.png"))
 
         res_z = [
             load_planar_results(ops_path, z_plane=i)
@@ -466,7 +491,11 @@ def run_plane(
     ops = {**ops_default, **ops_user, "data_path": str(input_path.resolve())}
 
     file = mbo.imread(input_path)
-    metadata = file.metadata
+    if hasattr(file, "metadata"):
+        metadata = file.metadata  # noqa
+    else:
+        metadata = mbo.get_metadata(input_path)
+
     if "plane" in ops:
         plane = ops["plane"]
         metadata["plane"] = plane
@@ -486,9 +515,16 @@ def run_plane(
     if force_detect:
         print(f"Roi detection forced for plane {plane}.")
         needs_detect = True
-    elif not ops["roidetect"]:
-        print(f"Roi detection disabled via ops.npy for plane {plane}.")
-        needs_detect = False
+    elif ops["roidetect"]:
+        if (plane_dir / "stat.npy").is_file():
+            # make sure this is a valid stat.npy file
+            stat = np.load(plane_dir / "stat.npy", allow_pickle=True)
+            if stat is None or len(stat) == 0:
+                print(f"Detected empty stat.npy, forcing roi detection for plane {plane}.")
+                needs_detect = True
+            else:
+                print(f"Roi detection skipped, stat.npy already exists for plane {plane}.")
+                needs_detect = False
     elif (plane_dir / "stat.npy").is_file():
         # check contents of stat.npy
         stat = np.load(plane_dir / "stat.npy", allow_pickle=True)
@@ -560,16 +596,14 @@ def run_plane(
             )
 
     processed = run_plane_bin(ops)
+
     if save_json:
-        ops_to_json(ops_file)
         # convert ops dict to JSON serializable and save as ops.json
-        # mbo.save_json(ops, plane_dir / "ops.json", indent=4)
+        ops_to_json(ops_file)
 
     if not processed:
         print(f"Skipping {ops_file.name}, processing was not completed.")
         return ops_file
-
-    output_ops = load_ops(ops_file)
 
     # cleanup ourselves
     if not keep_raw:
@@ -578,7 +612,12 @@ def run_plane(
         (plane_dir / "data.bin").unlink(missing_ok=True)
 
     try:
-        remake_plane_figures(plane_dir)
+        remake_plane_figures(
+            plane_dir,
+            dff_percentile=dff_percentile,
+            dff_window_size=dff_window_size,
+            run_rastermap=kwargs.get("run_rastermap", False)
+        )
     except Exception:
         traceback.print_exc()
     return ops_file

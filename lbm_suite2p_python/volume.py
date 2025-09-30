@@ -319,7 +319,7 @@ def get_volume_stats(ops_files: list[str | Path], overwrite: bool = True):
     plane_stats = {}
     for i, file in enumerate(ops_files):
         output_ops = load_ops(file)
-        raw_z = output_ops.get("zplane")
+        raw_z = output_ops.get("plane")
         if raw_z is None:
             zplane_num = i + 1
         else:
