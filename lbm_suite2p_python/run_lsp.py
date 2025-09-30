@@ -214,21 +214,15 @@ def run_volume(
 
     end = time.time()
     print(f"Total time for volume: {(end - start)/60:0.1f} min")
-
+    all_ops = [load_ops(x) for x in save_path.iterdir() if x.is_dir()]
     if "roi" in Path(input_files[0]).stem.lower():
         print(f"Detected mROI data, merging ROIs for each z-plane...")
-        from .merging import merge_rois_for_planes, remake_plane_figures
-        base_dir = Path(input_files[0]).parent
-        merged_dir = base_dir.joinpath(f"merged")
-        merged_dir.mkdir(exist_ok=True)
-        print(f"Merging ROIs for planes in {base_dir}...")
-        merge_rois_for_planes(base_dir, merged_dir)
-        print("Remaking plane figures...")
-        for ops_path in all_ops:
-            remake_plane_figures(ops_path.parent)
+        from .merging import merge_mrois, remake_plane_figures
+        merged_savepath = save_path.parent.joinpath("merged_mrois")
+        merge_mrois(save_path, merged_savepath)
+        all_ops = mbo.get_files(merged_savepath, "ops.npy", 2)
 
     try:
-
         zstats_file = get_volume_stats(all_ops, overwrite=True)
 
         all_segs = mbo.get_files(save_path, "segmentation.png", 4)
@@ -315,7 +309,6 @@ def _should_write_bin(ops_path: Path, force: bool = False) -> bool:
 
     if not bin_path.is_file() and not tiff_path.is_dir() or force:
         return True
-
 
     try:
         ops = np.load(ops_path, allow_pickle=True).item()

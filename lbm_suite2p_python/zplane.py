@@ -296,7 +296,6 @@ def plot_traces(
     """
     if isinstance(f, dict):
         ops = f
-        print("Loading dff (%) from ops-dict")
         res = load_planar_results(ops)
         f = res["F"]
         percentile = ops.get("dff_percentile", 20)
@@ -398,7 +397,6 @@ def plot_traces(
     elif signal_units == "dffp":
         dff_label = f"{rounded_dff:.0f} % ΔF/F₀"
     else:
-        print(f"unknown label: {signal_units}")
         dff_label = "Unknown"
 
     vsb = AnchoredVScaleBar(
@@ -682,7 +680,6 @@ def _draw_masks(stat, meanImg, mask_idx, fname, out_prefix, outpath):
     plt.tight_layout()
     plt.savefig(outfile, dpi=300)
     plt.close()
-    print(f"Saved {outfile}")
 
 
 def plot_masks(plane_dir, out_prefix="rois", output_directory=None):
@@ -711,82 +708,6 @@ def plot_masks(plane_dir, out_prefix="rois", output_directory=None):
 
     _draw_masks(stat, meanImg, iscell[:, 0] == 1, "accepted", out_prefix, output_directory)
     _draw_masks(stat, meanImg, iscell[:, 0] == 0, "rejected", out_prefix, output_directory)
-
-def suite2p_roi_overlay(
-        ops,
-        stat,
-        iscell,
-        proj=None,
-        plot_indices=None,
-        output_directory=None,
-        color_mode="random",
-        red_border=False,
-        colors=None,
-):
-    ops = load_ops(ops)
-    yr0, yr1 = ops["yrange"]
-    xr0, xr1 = ops["xrange"]
-    img = ops[proj]  # Already cropped by suite2p
-
-    print("yrange, xrange:", ops["yrange"], ops["xrange"])
-    print("img.shape:", img.shape, "operational Ly/Lx:", ops["Ly"], ops["Lx"])
-
-    # Normalize for display
-    p1, p99 = np.percentile(img, 1), np.percentile(img, 99)
-    norm_img = np.clip((img - p1) / (p99 - p1), 0, 1)
-
-    H = np.zeros_like(norm_img)
-    S = np.zeros_like(norm_img)
-    mask = np.zeros_like(norm_img, dtype=bool)
-
-    iscell = np.asarray(iscell)
-    cell_mask = iscell if iscell.ndim == 1 else iscell[:, 0]
-    indices = np.flatnonzero(cell_mask) if plot_indices is None else plot_indices
-    for i, n in enumerate(indices):
-        s = stat[n]
-        # Shift ROI coordinates into cropped image space
-        ypix = np.array(s["ypix"]) - yr0
-        xpix = np.array(s["xpix"]) - xr0
-
-        # Filter out invalid coords (can happen near edges)
-        valid = (
-                (ypix >= 0)
-                & (ypix < norm_img.shape[0])
-                & (xpix >= 0)
-                & (xpix < norm_img.shape[1])
-        )
-        ypix = ypix[valid]
-        xpix = xpix[valid]
-
-        mask[ypix, xpix] = True
-
-        if colors is not None:
-            hue = rgb_to_hsv(np.array([[colors[i][:3]]]))[0, 0, 0]
-        elif color_mode == "random":
-            hue = np.random.rand()
-        elif color_mode == "uniform":
-            hue = 0.6
-        else:
-            hue = (i / max(len(indices), 1)) % 1.0
-        H[ypix, xpix] = hue
-        S[ypix, xpix] = 1
-
-    rgb = hsv_to_rgb(np.stack([H, S, norm_img], axis=-1))
-
-    if red_border and mask.any():
-        borders = find_boundaries(mask, mode="outer")
-        rgb[borders] = [1, 0, 0]
-
-    plt.figure(figsize=(8, 8))
-    plt.imshow(rgb)
-    plt.axis("off")
-    plt.tight_layout()
-    if output_directory:
-        plt.savefig(output_directory, dpi=300, bbox_inches="tight", facecolor="black")
-        plt.close()
-    else:
-        plt.show()
-
 
 def plot_projection(
         ops,
@@ -1012,7 +933,6 @@ def plot_rastermap(
     else:
         neuron_bin_size = max(1, min(neuron_bin_size, n_neurons))
 
-    print(f"Neuron binning factor (default): {neuron_bin_size}")
     sn = bin1d(spks[model.isort], neuron_bin_size, axis=0)
     if xmax is None or xmax < xmin or xmax > sn.shape[1]:
         xmax = sn.shape[1]

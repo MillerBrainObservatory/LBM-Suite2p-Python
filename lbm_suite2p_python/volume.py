@@ -494,24 +494,3 @@ def save_images_to_movie(image_input, savepath, duration=None, format=".mp4"):
         subprocess.run(ffmpeg_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         temp_video.unlink()
 
-
-def get_fcells_list(ops_list: list):
-    if not isinstance(ops_list, list):
-        raise ValueError("`ops_list` must be a list")
-    f_cells_list = []
-    for ops in ops_list:
-        ops = load_ops(ops)
-        f_cells = np.load(Path(ops["save_path"]).joinpath("F.npy"))
-        f_cells_list.append(f_cells)
-    return f_cells_list
-
-
-def collect_result_png(ops_list):
-    if not isinstance(ops_list, list):
-        raise ValueError("`ops_list` must be a list")
-    png_list = []
-    for ops in ops_list:
-        ops = load_ops(ops)
-        f_cells = np.load(Path(ops["save_path"]).joinpath("segmentation.png"))
-        png_list.append(f_cells)
-    return png_list

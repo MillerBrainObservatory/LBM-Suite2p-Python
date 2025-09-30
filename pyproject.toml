@@ -17,21 +17,68 @@ classifiers=[
 	"Intended Audience :: Science/Research",
 	"Programming Language :: Python :: 3 :: Only",
 ]
-
 dependencies = [
-	"mbo_utilities[gui]>=1.0.7",
-	"suite2p_mbo>=1.0.6",
 	"mkl_fft",
+	"mbo_utilities[gui]>=1.0.7",
+	"suite2p_mbo",
+	"tqdm",
+	"pandas",
+	"matplotlib",
+	"dask>=2025.9.1",
+	"zarr==3.1.3",
 ]
 
 [project.optional-dependencies]
-cpsam = ["cellpose==4.0.6"]
-all = ["mbo_utilities[all]>=1.0.7"]
+cpsam = ["cellpose==4.0.6", "pytorch", "torchaudio"]
+cpu = [
+  "torch>=2.7.0",
+  "torchvision>=0.22.0",
+]
+cu126 = [
+  "torch>=2.7.0",
+  "torchvision>=0.22.0",
+]
+
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cu126", extra = "cu126" }, # default
+  { index = "pytorch-cpu", extra = "cpu" },
+]
+torchvision = [
+  { index = "pytorch-cu126", extra = "cu126" }, # default
+  { index = "pytorch-cpu", extra = "cpu" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv]
+default-groups = ["all"]
+conflicts = [
+  [
+    { extra = "cpu" },
+    { extra = "cu126" },
+  ],
+]
 
 [dependency-groups]
 all = [
-	"pytest>=7.4.4",
-	"ruff>=0.6.1",
+	"rastermap",
+	"cellpose==4.0.6",
+	"torch>=2.7.0",
+	"torchvision>=0.22.0",
 ]
 dev = [
 	"black>=25.9.0",
@@ -60,9 +107,6 @@ docs = [
 	"pandas",
 	"suite2p_mbo",
 ]
-
-[tool.uv]
-default-groups = "all"
 
 # https://github.com/charliermarsh/ruff
 [tool.ruff]

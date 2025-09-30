@@ -1,2 +1,0 @@
-# mostly for syntax highlighting
-mbo_utilities
