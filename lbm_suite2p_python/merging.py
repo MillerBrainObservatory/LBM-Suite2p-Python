@@ -217,7 +217,6 @@ def merge_mrois(input_dir, output_dir, overwrite=True):
         np.save(out_dir / "spks.npy", spks)
 
         remake_plane_figures(out_dir, run_rastermap=False)
-        print(f"✔ Finished merging {plane} ({len(dirs)} ROIs)")
 
 
 def normalize_traces(F, mode="per_neuron"):
@@ -335,7 +334,6 @@ def remake_plane_figures(
 
         n_neurons = F.shape[0]
         if n_neurons < 10:
-            print(f"Too few cells to plot traces for {plane_dir.stem}.")
             return output_ops
 
         # rastermap model
@@ -406,7 +404,6 @@ def remake_plane_figures(
         )
 
         if n_neurons >= 30:
-            print(f"Plotting traces for {plane_dir.stem}...")
             _, colors = plot_traces(
                 dffp_acc,
                 save_path=expected_files["traces_dff"],
