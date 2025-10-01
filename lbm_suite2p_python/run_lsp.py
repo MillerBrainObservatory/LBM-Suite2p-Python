@@ -93,29 +93,32 @@ def summarize_regdx_metrics(root_dir: Path, subdir: str = "") -> pd.DataFrame:
             dy = regdx[:, 1]
             norm = regdx[:, 2]
 
-            rows.append({
-                "config": ops_path.parent.parent.name,
-                "mean_rigid": np.mean(np.abs(dx)),
-                "mean_avg_nr": np.mean(np.abs(dy)),
-                "mean_max_nr": np.mean(np.abs(norm)),
-            })
+            rows.append(
+                {
+                    "config": ops_path.parent.parent.name,
+                    "mean_rigid": np.mean(np.abs(dx)),
+                    "mean_avg_nr": np.mean(np.abs(dy)),
+                    "mean_max_nr": np.mean(np.abs(norm)),
+                }
+            )
         except Exception as e:
             print(f"Error processing {ops_path}: {e}")
             continue
     return pd.DataFrame(rows)
 
+
 def run_volume(
-        input_files: list,
-        save_path: str | Path = None,
-        ops: dict | str | Path = None,
-        keep_reg: bool = True,
-        keep_raw: bool = False,
-        force_reg: bool = False,
-        force_detect: bool = False,
-        dff_window_size: int = 500,
-        dff_percentile: int = 20,
-        save_json: bool = False,
-        **kwargs,
+    input_files: list,
+    save_path: str | Path = None,
+    ops: dict | str | Path = None,
+    keep_reg: bool = True,
+    keep_raw: bool = False,
+    force_reg: bool = False,
+    force_detect: bool = False,
+    dff_window_size: int = 500,
+    dff_percentile: int = 20,
+    save_json: bool = False,
+    **kwargs,
 ):
     """
     Processes a full volumetric imaging dataset using Suite2p, handling plane-wise registration,
@@ -206,20 +209,21 @@ def run_volume(
             dff_window_size=dff_window_size,
             dff_percentile=dff_percentile,
             save_json=save_json,
-            **kwargs
+            **kwargs,
         )
         end_file = time.time()
-        print(f"Time for {file}: {(end_file - start_file)/60:0.1f} min")
-        print(f"CPU {get_cpu_percent():4.1f}% | RAM {get_ram_used()/1024:5.2f} GB")
+        print(f"Time for {file}: {(end_file - start_file) / 60:0.1f} min")
+        print(f"CPU {get_cpu_percent():4.1f}% | RAM {get_ram_used() / 1024:5.2f} GB")
         all_ops.append(ops_file)
         del ops_file
         gc.collect()
 
     end = time.time()
-    print(f"Total time for volume: {(end - start)/60:0.1f} min")
+    print(f"Total time for volume: {(end - start) / 60:0.1f} min")
     if "roi" in Path(input_files[0]).stem.lower():
         print(f"Detected mROI data, merging ROIs for each z-plane...")
         from .merging import merge_mrois, remake_plane_figures
+
         merged_savepath = save_path.parent.joinpath("merged_mrois")
         merge_mrois(save_path, merged_savepath)
         all_ops = mbo.get_files(merged_savepath, "ops.npy", 2)
@@ -257,6 +261,7 @@ def run_volume(
         try:
             from rastermap import Rastermap
             from lbm_suite2p_python.zplane import plot_rastermap
+
             HAS_RASTERMAP = True
         except ImportError:
             Rastermap = None
@@ -290,6 +295,7 @@ def run_volume(
 
     print(f"Processing completed for {len(input_files)} files.")
     return all_ops
+
 
 def _should_write_bin(ops_path: Path, force: bool = False) -> bool:
     """
@@ -329,8 +335,7 @@ def _should_write_bin(ops_path: Path, force: bool = False) -> bool:
             return True
 
         # Try opening first few frames to verify integrity
-        arr = np.memmap(bin_path, dtype=np.int16, mode="r",
-                        shape=(nframes, Ly, Lx))
+        arr = np.memmap(bin_path, dtype=np.int16, mode="r", shape=(nframes, Ly, Lx))
         _ = arr[0].sum()  # touch data
         del arr
 
@@ -358,11 +363,11 @@ def run_plane_bin(ops) -> bool:
             Ly=Ly, Lx=Lx, filename=ops["reg_file"], n_frames=n_frames
         ) as f_reg,
         (
-                suite2p.io.BinaryFile(
-                    Ly=Ly, Lx=Lx, filename=ops["raw_file"], n_frames=n_frames
-                )
-                if "raw_file" in ops and ops["raw_file"] is not None
-                else nullcontext()
+            suite2p.io.BinaryFile(
+                Ly=Ly, Lx=Lx, filename=ops["raw_file"], n_frames=n_frames
+            )
+            if "raw_file" in ops and ops["raw_file"] is not None
+            else nullcontext()
         ) as f_raw,
     ):
         ops = suite2p.pipeline(
@@ -381,18 +386,19 @@ def run_plane_bin(ops) -> bool:
 
     return True
 
+
 def run_plane(
-        input_path: str | Path,
-        save_path: str | Path | None = None,
-        ops: dict | str | Path = None,
-        keep_raw: bool = False,
-        keep_reg: bool = True,
-        force_reg: bool = False,
-        force_detect: bool = False,
-        dff_window_size: int = 500,
-        dff_percentile: int = 20,
-        save_json: bool = False,
-        **kwargs,
+    input_path: str | Path,
+    save_path: str | Path | None = None,
+    ops: dict | str | Path = None,
+    keep_raw: bool = False,
+    keep_reg: bool = True,
+    force_reg: bool = False,
+    force_detect: bool = False,
+    dff_window_size: int = 500,
+    dff_percentile: int = 20,
+    save_json: bool = False,
+    **kwargs,
 ) -> Path:
     """
     Processes a single imaging plane using suite2p, handling registration, segmentation,
@@ -457,6 +463,7 @@ def run_plane(
     >> output_ops = lsp.run_plane(input_files[0], save_path="D://data//outputs", keep_raw=True, keep_registered=True, force_reg=True, force_detect=True)
     """
     from mbo_utilities.array_types import MboRawArray
+
     if "debug" in kwargs:
         logger.setLevel(logging.DEBUG)
         logger.info("Debug mode enabled.")
@@ -494,7 +501,9 @@ def run_plane(
 
     file = mbo.imread(input_path)
     if isinstance(file, MboRawArray):
-        raise TypeError("Input file appears to be a raw array. Please provide a planar input file.")
+        raise TypeError(
+            "Input file appears to be a raw array. Please provide a planar input file."
+        )
     if hasattr(file, "metadata"):
         metadata = file.metadata  # noqa
     else:
@@ -524,10 +533,14 @@ def run_plane(
             # make sure this is a valid stat.npy file
             stat = np.load(plane_dir / "stat.npy", allow_pickle=True)
             if stat is None or len(stat) == 0:
-                print(f"Detected empty stat.npy, forcing roi detection for plane {plane}.")
+                print(
+                    f"Detected empty stat.npy, forcing roi detection for plane {plane}."
+                )
                 needs_detect = True
             else:
-                print(f"Roi detection skipped, stat.npy already exists for plane {plane}.")
+                print(
+                    f"Roi detection skipped, stat.npy already exists for plane {plane}."
+                )
                 needs_detect = False
     elif (plane_dir / "stat.npy").is_file():
         # check contents of stat.npy
@@ -545,15 +558,11 @@ def run_plane(
 
     if _should_write_bin(ops_file, force=kwargs.get("force_save", False)):
         md_combined = {**metadata, **ops}
-        mbo.imwrite(
-            file,
-            plane_dir,
-            ext=".bin",
-            metadata=md_combined,
-            register_z=False
-        )
+        mbo.imwrite(file, plane_dir, ext=".bin", metadata=md_combined, register_z=False)
     else:
-        print(f"Skipping data_raw.bin write, already exists and passes data validation checks.")
+        print(
+            f"Skipping data_raw.bin write, already exists and passes data validation checks."
+        )
 
     ops_outpath = (
         np.load(ops_file, allow_pickle=True).item()
@@ -623,7 +632,7 @@ def run_plane(
             plane_dir,
             dff_percentile=dff_percentile,
             dff_window_size=dff_window_size,
-            run_rastermap=kwargs.get("run_rastermap", False)
+            run_rastermap=kwargs.get("run_rastermap", False),
         )
     except Exception:
         traceback.print_exc()
@@ -631,10 +640,10 @@ def run_plane(
 
 
 def run_grid_search(
-        base_ops: dict,
-        grid_search_dict: dict,
-        input_file: Path | str,
-        save_root: Path | str,
+    base_ops: dict,
+    grid_search_dict: dict,
+    input_file: Path | str,
+    save_root: Path | str,
 ):
     """
     Run a grid search over all combinations of the input suite2p parameters.

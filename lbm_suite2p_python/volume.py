@@ -493,4 +493,3 @@ def save_images_to_movie(image_input, savepath, duration=None, format=".mp4"):
         ]
         subprocess.run(ffmpeg_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         temp_video.unlink()
-

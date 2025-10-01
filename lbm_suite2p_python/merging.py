@@ -4,7 +4,12 @@ from pathlib import Path
 import numpy as np
 from tqdm.auto import tqdm
 
-from lbm_suite2p_python.zplane import plot_noise_distribution, plot_projection, plot_traces, plot_masks
+from lbm_suite2p_python.zplane import (
+    plot_noise_distribution,
+    plot_projection,
+    plot_traces,
+    plot_masks,
+)
 from lbm_suite2p_python.utils import dff_rolling_percentile, dff_shot_noise
 from mbo_utilities.lazy_array import Suite2pArray
 
@@ -16,18 +21,25 @@ def safe_delete(file_path):
         except PermissionError:
             print(f"Error: Cannot delete {file_path}, it's open elsewhere.")
 
+
 def group_plane_rois(input_dir):
     input_dir = Path(input_dir)
     grouped = defaultdict(list)
 
     for d in input_dir.iterdir():
-        if d.is_dir() and d.stem.startswith("plane") and "_roi" in d.stem:
+        if (
+                d.is_dir()
+                and not d.name.endswith(".zarr")     # exclude zarr dirs
+                and d.stem.startswith("plane")
+                and "_roi" in d.stem
+        ):
             parts = d.stem.split("_")
             if len(parts) == 2 and parts[1].startswith("roi"):
-                plane = parts[0]  # "plane01"
+                plane = parts[0]  # e.g. "plane01"
                 grouped[plane].append(d)
 
     return grouped
+
 
 def load_ops(ops_input: str | Path | list[str | Path]) -> dict:
     """Simple utility load a suite2p npy file"""
@@ -37,6 +49,7 @@ def load_ops(ops_input: str | Path | list[str | Path]) -> dict:
         return ops_input
     print("Warning: No valid ops file provided, returning empty dict.")
     return {}
+
 
 def merge_mrois(input_dir, output_dir, overwrite=True):
     """
@@ -57,7 +70,7 @@ def merge_mrois(input_dir, output_dir, overwrite=True):
 
     grouped = group_plane_rois(input_dir)
     for plane, dirs in tqdm(
-            sorted(grouped.items()), desc="Merging mROIs", unit="plane"
+        sorted(grouped.items()), desc="Merging mROIs", unit="plane"
     ):
         out_dir = output_dir / plane
         out_ops = out_dir / "ops.npy"
@@ -82,7 +95,11 @@ def merge_mrois(input_dir, output_dir, overwrite=True):
             spks = np.load(d / "spks.npy")
 
             # prefer data_raw.bin if it exists, else data.bin
-            bin_path = (d / "data_raw.bin") if (d / "data_raw.bin").exists() else (d / "data.bin")
+            bin_path = (
+                (d / "data_raw.bin")
+                if (d / "data_raw.bin").exists()
+                else (d / "data.bin")
+            )
 
             ops_list.append(ops)
             stat_list.append(stat)
@@ -137,16 +154,18 @@ def merge_mrois(input_dir, output_dir, overwrite=True):
 
         # --- Merge ops
         merged_ops = dict(ops_list[0])
-        merged_ops.update({
-            "Ly": Ly,
-            "Lx": total_Lx,
-            "yrange": [0, Ly],
-            "xrange": [0, total_Lx],
-            "reg_file": str(merged_bin.resolve()),
-            "ops_path": str(out_ops.resolve()),
-            "save_path": str(out_dir.resolve()),
-            "nrois": len(dirs),
-        })
+        merged_ops.update(
+            {
+                "Ly": Ly,
+                "Lx": total_Lx,
+                "yrange": [0, Ly],
+                "xrange": [0, total_Lx],
+                "reg_file": str(merged_bin.resolve()),
+                "ops_path": str(out_ops.resolve()),
+                "save_path": str(out_dir.resolve()),
+                "nrois": len(dirs),
+            }
+        )
 
         # Full-FOV images: just tile ROIs horizontally
         for key in ["refImg", "meanImg", "meanImgE"]:
@@ -156,7 +175,7 @@ def merge_mrois(input_dir, output_dir, overwrite=True):
                 for ops in ops_list:
                     arr = ops[key]
                     h, w = arr.shape
-                    canvas[0:h, x_offset:x_offset + w] = arr
+                    canvas[0:h, x_offset : x_offset + w] = arr
                     x_offset += ops["Lx"]
                 merged_ops[key] = canvas  # noqa
 
@@ -172,7 +191,9 @@ def merge_mrois(input_dir, output_dir, overwrite=True):
                     h, w = arr.shape
                     # Ensure array size matches expected slice
                     h_slice, w_slice = yr[1] - yr[0], xr[1] - xr[0]
-                    canvas[yr[0]:yr[0] + h, xr[0]:xr[0] + w] = arr[:h_slice, :w_slice]
+                    canvas[yr[0] : yr[0] + h, xr[0] : xr[0] + w] = arr[
+                        :h_slice, :w_slice
+                    ]
                     x_offset += ops["Lx"]
                 merged_ops[key] = canvas  # noqa
 
@@ -197,6 +218,7 @@ def merge_mrois(input_dir, output_dir, overwrite=True):
 
         remake_plane_figures(out_dir, run_rastermap=False)
         print(f"✔ Finished merging {plane} ({len(dirs)} ROIs)")
+
 
 def normalize_traces(F, mode="per_neuron"):
     """
@@ -236,12 +258,15 @@ def normalize_traces(F, mode="per_neuron"):
             fmin = np.percentile(f, 1)
             fmax = np.percentile(f, 99)
             if fmax > fmin:
-                F_norm[i] = (f - fmin) / (fmax - fmin) # noqa
+                F_norm[i] = (f - fmin) / (fmax - fmin)  # noqa
             else:
                 F_norm[i] = f * 0
     return F_norm
 
-def remake_plane_figures(plane_dir, dff_percentile=8, dff_window_size=101, run_rastermap=False, **kwargs):
+
+def remake_plane_figures(
+    plane_dir, dff_percentile=8, dff_window_size=101, run_rastermap=False, **kwargs
+):
     """
     Re-generate Suite2p figures for a merged plane.
 
@@ -283,19 +308,27 @@ def remake_plane_figures(plane_dir, dff_percentile=8, dff_window_size=101, run_r
 
     # force remake of the heavy figures
     for key in [
-        "registration", "segmentation_accepted",
-        "segmentation_rejected", "traces_raw",
-        "traces_dff", "traces_noise",
-        "noise_acc","noise_rej", "rastermap"
+        "registration",
+        "segmentation_accepted",
+        "segmentation_rejected",
+        "traces_raw",
+        "traces_dff",
+        "traces_noise",
+        "noise_acc",
+        "noise_rej",
+        "rastermap",
     ]:
         if key in expected_files:
             safe_delete(expected_files[key])
 
     if expected_files["stat"].is_file():
         from lbm_suite2p_python.utils import load_planar_results
+
         res = load_planar_results(plane_dir)
         iscell = res["iscell"]
-        iscell_mask = iscell[:, 0].astype(bool) if iscell.ndim == 2 else iscell.astype(bool)
+        iscell_mask = (
+            iscell[:, 0].astype(bool) if iscell.ndim == 2 else iscell.astype(bool)
+        )
 
         spks = res["spks"]
         F = res["F"]
@@ -315,11 +348,14 @@ def remake_plane_figures(plane_dir, dff_percentile=8, dff_window_size=101, run_r
             try:
                 from lbm_suite2p_python.zplane import plot_rastermap
                 import rastermap
+
                 has_rastermap = True
             except ImportError:
-                print("rastermap package not found, skipping rastermap plotting. \n"
-                      "Install via `pip install rastermap` or set run_rastermap=False \n"
-                      "for run_plane(), run_volume(), or plot_rastermap() to work.")
+                print(
+                    "rastermap package not found, skipping rastermap plotting. \n"
+                    "Install via `pip install rastermap` or set run_rastermap=False \n"
+                    "for run_plane(), run_volume(), or plot_rastermap() to work."
+                )
                 has_rastermap = False
                 rastermap, plot_rastermap = None, None
             if expected_files["model"].is_file():
@@ -356,8 +392,18 @@ def remake_plane_figures(plane_dir, dff_percentile=8, dff_window_size=101, run_r
         f_norm_acc = normalize_traces(F_accepted, mode="per_neuron")
         f_norm_rej = normalize_traces(F_rejected, mode="per_neuron")
 
-        dffp_acc = dff_rolling_percentile(f_norm_acc, percentile=dff_percentile, window_size=dff_window_size) * 100
-        dffp_rej = dff_rolling_percentile(f_norm_rej, percentile=dff_percentile, window_size=dff_window_size) * 100
+        dffp_acc = (
+            dff_rolling_percentile(
+                f_norm_acc, percentile=dff_percentile, window_size=dff_window_size
+            )
+            * 100
+        )
+        dffp_rej = (
+            dff_rolling_percentile(
+                f_norm_rej, percentile=dff_percentile, window_size=dff_window_size
+            )
+            * 100
+        )
 
         if n_neurons >= 30:
             print(f"Plotting traces for {plane_dir.stem}...")
@@ -377,8 +423,12 @@ def remake_plane_figures(plane_dir, dff_percentile=8, dff_window_size=101, run_r
         fs = output_ops.get("fs", 1.0)
         dff_noise_acc = dff_shot_noise(dffp_acc, fs)
         dff_noise_rej = dff_shot_noise(dffp_rej, fs)
-        plot_noise_distribution(dff_noise_acc, output_filename=expected_files["noise_acc"])
-        plot_noise_distribution(dff_noise_rej, output_filename=expected_files["noise_rej"])
+        plot_noise_distribution(
+            dff_noise_acc, output_filename=expected_files["noise_acc"]
+        )
+        plot_noise_distribution(
+            dff_noise_rej, output_filename=expected_files["noise_rej"]
+        )
         plot_masks(plane_dir)
 
     fig_label = kwargs.get("fig_label", plane_dir.stem)
@@ -395,6 +445,7 @@ def remake_plane_figures(plane_dir, dff_percentile=8, dff_window_size=101, run_r
 
     return output_ops
 
+
 def merge_zarr_rois(input_dir, output_dir=None, overwrite=True):
     """
     Concatenate roi1 + roi2 .zarr stores for each plane into a single planeXX.zarr.
@@ -409,9 +460,14 @@ def merge_zarr_rois(input_dir, output_dir=None, overwrite=True):
         If True, existing outputs are replaced.
     """
     import dask.array as da
+
     z_merged = None
     input_dir = Path(input_dir)
-    output_dir = Path(output_dir) if output_dir else input_dir.parent / (input_dir.name + "_merged")
+    output_dir = (
+        Path(output_dir)
+        if output_dir
+        else input_dir.parent / (input_dir.name + "_merged")
+    )
     output_dir.mkdir(parents=True, exist_ok=True)
 
     roi1_dirs = sorted(input_dir.glob("*plane*_roi1*"))
@@ -427,6 +483,7 @@ def merge_zarr_rois(input_dir, output_dir=None, overwrite=True):
         if out_path.exists():
             if overwrite:
                 import shutil
+
                 shutil.rmtree(out_path)
             else:
                 print(f"Skipping {zplane}, {out_path} exists")
@@ -445,9 +502,10 @@ def merge_zarr_rois(input_dir, output_dir=None, overwrite=True):
         z_merged.to_zarr(out_path, overwrite=overwrite)
 
     if z_merged:
-      print(f"{z_merged}")
+        print(f"{z_merged}")
 
     return None
+
 
 if __name__ == "__main__":
     fpath = Path(r"D:\W2_DATA\kbarber\07_27_2025\mk355\raw\anatomical_3_roi")

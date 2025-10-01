@@ -14,8 +14,13 @@ from matplotlib.offsetbox import VPacker, HPacker, DrawingArea
 
 from scipy.ndimage import distance_transform_edt
 
-from lbm_suite2p_python.utils import dff_rolling_percentile, _resize_masks_fit_crop, load_planar_results, bin1d, \
-    load_ops
+from lbm_suite2p_python.utils import (
+    dff_rolling_percentile,
+    _resize_masks_fit_crop,
+    load_planar_results,
+    bin1d,
+    load_ops,
+)
 from suite2p.detection.stats import ROI
 
 
@@ -83,19 +88,19 @@ class AnchoredHScaleBar(matplotlib.offsetbox.AnchoredOffsetbox):
     """
 
     def __init__(
-            self,
-            size=1,
-            label="",
-            loc=2,
-            ax=None,
-            pad=0.4,
-            borderpad=0.5,
-            ppad=0,
-            sep=2,
-            prop=None,
-            frameon=True,
-            linekw=None,
-            **kwargs,
+        self,
+        size=1,
+        label="",
+        loc=2,
+        ax=None,
+        pad=0.4,
+        borderpad=0.5,
+        ppad=0,
+        sep=2,
+        prop=None,
+        frameon=True,
+        linekw=None,
+        **kwargs,
     ):
         if linekw is None:
             linekw = {}
@@ -144,20 +149,20 @@ class AnchoredVScaleBar(matplotlib.offsetbox.AnchoredOffsetbox):
     """
 
     def __init__(
-            self,
-            height=1,
-            label="",
-            loc=2,
-            ax=None,
-            pad=0.4,
-            borderpad=0.5,
-            ppad=0,
-            sep=2,
-            prop=None,
-            frameon=True,
-            linekw=None,
-            spacer_width=6,
-            **kwargs,
+        self,
+        height=1,
+        label="",
+        loc=2,
+        ax=None,
+        pad=0.4,
+        borderpad=0.5,
+        ppad=0,
+        sep=2,
+        prop=None,
+        frameon=True,
+        linekw=None,
+        spacer_width=6,
+        **kwargs,
     ):
         if ax is None:
             ax = plt.gca()
@@ -190,13 +195,13 @@ class AnchoredVScaleBar(matplotlib.offsetbox.AnchoredOffsetbox):
 
 
 def plot_traces_noise(
-        dff_noise,
-        colors,
-        fps=17.0,
-        window=220,
-        savepath=None,
-        title="Trace Noise",
-        lw=0.5,
+    dff_noise,
+    colors,
+    fps=17.0,
+    window=220,
+    savepath=None,
+    title="Trace Noise",
+    lw=0.5,
 ):
     """
     Plot stacked noise traces in the same style as plot_traces.
@@ -256,16 +261,16 @@ def plot_traces_noise(
 
 
 def plot_traces(
-        f,
-        save_path: str | Path = "",
-        fps=17.0,
-        num_neurons=20,
-        window=220,
-        title="",
-        offset=None,
-        lw=0.5,
-        cmap="tab10",
-        signal_units=None,
+    f,
+    save_path: str | Path = "",
+    fps=17.0,
+    num_neurons=20,
+    window=220,
+    title="",
+    offset=None,
+    lw=0.5,
+    cmap="tab10",
+    signal_units=None,
 ):
     """
     Plot stacked fluorescence traces with automatic offset and scale bars.
@@ -436,20 +441,20 @@ def plot_traces(
 
 
 def animate_traces(
-        f,
-        save_path="./scrolling.mp4",
-        fps=17.0,
-        start_neurons=20,
-        window=120,
-        title="",
-        gap=None,
-        lw=0.5,
-        cmap="tab10",
-        anim_fps=60,
-        expand_after=5,
-        speed_factor=1.0,
-        expansion_factor=2.0,
-        smooth_factor=1,
+    f,
+    save_path="./scrolling.mp4",
+    fps=17.0,
+    start_neurons=20,
+    window=120,
+    title="",
+    gap=None,
+    lw=0.5,
+    cmap="tab10",
+    anim_fps=60,
+    expand_after=5,
+    speed_factor=1.0,
+    expansion_factor=2.0,
+    smooth_factor=1,
 ):
     """WIP"""
     n_neurons, n_timepoints = f.shape
@@ -457,7 +462,7 @@ def animate_traces(
     T_data = data_time[-1]
     current_frame = min(int(window * fps), n_timepoints - 1)
     t_f_local = (T_data - window + expansion_factor * expand_after) / (
-            1 + expansion_factor
+        1 + expansion_factor
     )
 
     if gap is None:
@@ -550,7 +555,7 @@ def animate_traces(
             n_visible = start_neurons
         else:
             u = min(1.0, (t - expand_after) / (t_f_local - expand_after))
-            ease = 3 * u ** 2 - 2 * u ** 3  # smoothstep easing
+            ease = 3 * u**2 - 2 * u**3  # smoothstep easing
             x_min = t
 
             window_start = window
@@ -599,7 +604,8 @@ def animate_traces(
             fills.append(fill)
 
         _all_shifted = [
-            (f[ix, i_lower:i_upper] - np.percentile(f[ix, i_lower:i_upper], 8)) + ix * gap
+            (f[ix, i_lower:i_upper] - np.percentile(f[ix, i_lower:i_upper], 8))
+            + ix * gap
             for ix in range(n_visible)
         ]
         _all_y = np.concatenate(_all_shifted)
@@ -649,10 +655,10 @@ def feather_mask(mask, max_alpha=0.75, edge_width=3):
     alpha = np.clip((edge_width - dist_out) / edge_width, 0, 1)
     return alpha * max_alpha
 
+
 def _draw_masks(stat, meanImg, mask_idx, fname, out_prefix, outpath):
     canvas = np.tile(
-        (meanImg - meanImg.min()) / (np.ptp(meanImg) + 1e-6),
-        (3, 1, 1)
+        (meanImg - meanImg.min()) / (np.ptp(meanImg) + 1e-6), (3, 1, 1)
     ).transpose(1, 2, 0)  # grayscale RGB
 
     colors = plt.cm.hsv(np.linspace(0, 1, mask_idx.sum() + 1))  # noqa
@@ -666,9 +672,7 @@ def _draw_masks(stat, meanImg, mask_idx, fname, out_prefix, outpath):
             col = colors[c][:3]  # RGB
             c += 1
             for k in range(3):
-                canvas[ypix, xpix, k] = (
-                        0.5 * canvas[ypix, xpix, k] + 0.5 * col[k] * lam
-                )
+                canvas[ypix, xpix, k] = 0.5 * canvas[ypix, xpix, k] + 0.5 * col[k] * lam
 
     outpath = Path(outpath)
     outpath.mkdir(parents=True, exist_ok=True)
@@ -706,19 +710,24 @@ def plot_masks(plane_dir, out_prefix="rois", output_directory=None):
     if output_directory is None:
         output_directory = plane_dir
 
-    _draw_masks(stat, meanImg, iscell[:, 0] == 1, "accepted", out_prefix, output_directory)  # noqa
-    _draw_masks(stat, meanImg, iscell[:, 0] == 0, "rejected", out_prefix, output_directory)  # noqa
+    _draw_masks(
+        stat, meanImg, iscell[:, 0] == 1, "accepted", out_prefix, output_directory
+    )  # noqa
+    _draw_masks(
+        stat, meanImg, iscell[:, 0] == 0, "rejected", out_prefix, output_directory
+    )  # noqa
+
 
 def plot_projection(
-        ops,
-        output_directory=None,
-        fig_label=None,
-        vmin=None,
-        vmax=None,
-        add_scalebar=False,
-        proj="meanImg",
-        display_masks=False,
-        accepted_only=False,
+    ops,
+    output_directory=None,
+    fig_label=None,
+    vmin=None,
+    vmax=None,
+    add_scalebar=False,
+    proj="meanImg",
+    display_masks=False,
+    accepted_only=False,
 ):
     if proj == "meanImg":
         txt = "Mean-Image"
@@ -841,7 +850,7 @@ def plot_projection(
             fontsize=10,
             ha="center",
             fontweight="bold",
-            )
+        )
 
     # remove the spines that will show up as white bars
     for spine in ax.spines.values():
@@ -858,7 +867,7 @@ def plot_projection(
 
 
 def plot_noise_distribution(
-        noise_levels: np.ndarray, output_filename=None, title="Noise Level Distribution"
+    noise_levels: np.ndarray, output_filename=None, title="Noise Level Distribution"
 ):
     """
     Plots and saves the distribution of noise levels across neurons as a standardized image.
@@ -911,18 +920,18 @@ def plot_noise_distribution(
 
 
 def plot_rastermap(
-        spks,
-        model,
-        neuron_bin_size=None,
-        fps=17,
-        vmin=0,
-        vmax=0.8,
-        xmin=0,
-        xmax=None,
-        save_path=None,
-        title=None,
-        title_kwargs=None,
-        fig_text=None,
+    spks,
+    model,
+    neuron_bin_size=None,
+    fps=17,
+    vmin=0,
+    vmax=0.8,
+    xmin=0,
+    xmax=None,
+    save_path=None,
+    title=None,
+    title_kwargs=None,
+    fig_text=None,
 ):
     n_neurons, n_timepoints = spks.shape
     if title_kwargs is None:
@@ -1003,7 +1012,7 @@ def plot_rastermap(
         va="top",
         color="white",
         fontsize=6,
-        )
+    )
 
     scalebar_neurons = int(0.1 * current_neurons)
 
@@ -1059,7 +1068,8 @@ def plot_rastermap(
 
     return fig, ax
 
-def save_pc_panels_and_metrics(ops, savepath, pcs=(0,1,2,3)):
+
+def save_pc_panels_and_metrics(ops, savepath, pcs=(0, 1, 2, 3)):
     """
     Save PC metrics in two forms:
     1. Alternating TIFF (PC Low/High side-by-side per frame, press play in ImageJ to flip).
@@ -1078,11 +1088,12 @@ def save_pc_panels_and_metrics(ops, savepath, pcs=(0,1,2,3)):
     if not isinstance(ops, dict):
         ops = np.load(ops, allow_pickle=True).item()
 
-
-    if 'nframes' in ops and ops['nframes'] < 1500:
-        print(f"1500 frames needed for registration metrics, found {ops['nframes']}. Skipping PC metrics.")
+    if "nframes" in ops and ops["nframes"] < 1500:
+        print(
+            f"1500 frames needed for registration metrics, found {ops['nframes']}. Skipping PC metrics."
+        )
         return {}
-    elif 'regPC' not in ops or 'regDX' not in ops:
+    elif "regPC" not in ops or "regDX" not in ops:
         print("regPC or regDX not found in ops, skipping PC metrics.")
         return {}
     elif len(pcs) != 4 or any(p < 0 for p in pcs):
@@ -1092,8 +1103,8 @@ def save_pc_panels_and_metrics(ops, savepath, pcs=(0,1,2,3)):
             f" Got: {pcs}"
         )
 
-    regPC = ops["regPC"]   # shape (2, nPC, Ly, Lx)
-    regDX = ops["regDX"]   # shape (nPC, 3)
+    regPC = ops["regPC"]  # shape (2, nPC, Ly, Lx)
+    regDX = ops["regDX"]  # shape (nPC, 3)
     savepath = Path(savepath)
 
     alt_frames = []
@@ -1104,14 +1115,14 @@ def save_pc_panels_and_metrics(ops, savepath, pcs=(0,1,2,3)):
         right = regPC[view, pcs[1]]
         combined = np.hstack([left, right])
         alt_frames.append(combined.astype(np.float32))
-        alt_labels.append(f"PC{pcs[0]+1}/{pcs[1]+1} {view_name}")
+        alt_labels.append(f"PC{pcs[0] + 1}/{pcs[1] + 1} {view_name}")
 
         # side-by-side: PC3 | PC4
         left = regPC[view, pcs[2]]
         right = regPC[view, pcs[3]]
         combined = np.hstack([left, right])
         alt_frames.append(combined.astype(np.float32))
-        alt_labels.append(f"PC{pcs[2]+1}/{pcs[3]+1} {view_name}")
+        alt_labels.append(f"PC{pcs[2] + 1}/{pcs[3] + 1} {view_name}")
 
     alt_tiff = savepath.with_name(savepath.stem + "_alternating.tif")
     tifffile.imwrite(
@@ -1131,10 +1142,10 @@ def save_pc_panels_and_metrics(ops, savepath, pcs=(0,1,2,3)):
         for view, view_name in zip([0, 1], ["Low", "High"]):
             fig, axes = plt.subplots(1, 2, figsize=(10, 5))
             axes[0].imshow(regPC[view, left], cmap="gray")
-            axes[0].set_title(f"PC{left+1} {view_name}")
+            axes[0].set_title(f"PC{left + 1} {view_name}")
             axes[0].axis("off")
             axes[1].imshow(regPC[view, right], cmap="gray")
-            axes[1].set_title(f"PC{right+1} {view_name}")
+            axes[1].set_title(f"PC{right + 1} {view_name}")
             axes[1].axis("off")
             fig.tight_layout()
             fig.canvas.draw()
@@ -1142,7 +1153,7 @@ def save_pc_panels_and_metrics(ops, savepath, pcs=(0,1,2,3)):
             w, h = fig.canvas.get_width_height()
             img = img.reshape((h, w, 4))[..., :3]
             panel_frames.append(img)
-            panel_labels.append(f"PC{left+1}/{right+1} {view_name}")
+            panel_labels.append(f"PC{left + 1}/{right + 1} {view_name}")
             plt.close(fig)
 
     panel_tiff = savepath.with_name(savepath.stem + "_panels.tif")
@@ -1171,4 +1182,8 @@ def save_pc_panels_and_metrics(ops, savepath, pcs=(0,1,2,3)):
     print(f"Saved metrics CSV to {csv_path}")
     print(df.head())
 
-    return {"alternating_tiff": alt_tiff, "panel_tiff": panel_tiff, "metrics_csv": csv_path}
+    return {
+        "alternating_tiff": alt_tiff,
+        "panel_tiff": panel_tiff,
+        "metrics_csv": csv_path,
+    }
