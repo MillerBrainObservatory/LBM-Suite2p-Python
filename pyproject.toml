@@ -19,7 +19,7 @@ classifiers=[
 ]
 dependencies = [
 	"mkl_fft",
-	"mbo_utilities[gui]>=1.0.7",
+	"mbo_utilities[gui, suite3d]>=1.0.7",
 	"suite2p_mbo",
 	"tqdm",
 	"pandas",

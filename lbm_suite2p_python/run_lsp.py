@@ -227,19 +227,19 @@ def run_volume(
     try:
         zstats_file = get_volume_stats(all_ops, overwrite=True)
 
-        all_segs = mbo.get_files(save_path, "segmentation.png", 4)
-        all_means = mbo.get_files(save_path, "mean_image.png", 4)
-        all_maxs = mbo.get_files(save_path, "max_projection_image.png", 4)
-        all_traces = mbo.get_files(save_path, "traces.png", 4)
+        # all_segs = mbo.get_files(save_path, "segmentation.png", 4)
+        # all_means = mbo.get_files(save_path, "mean_image.png", 4)
+        # all_maxs = mbo.get_files(save_path, "max_projection_image.png", 4)
+        # all_traces = mbo.get_files(save_path, "traces.png", 4)
 
-        save_images_to_movie(
-            all_segs, os.path.join(save_path, "segmentation_volume.mp4")
-        )
-        save_images_to_movie(
-            all_means, os.path.join(save_path, "mean_images_volume.mp4")
-        )
-        save_images_to_movie(all_maxs, os.path.join(save_path, "max_images_volume.mp4"))
-        save_images_to_movie(all_traces, os.path.join(save_path, "traces_volume.mp4"))
+        # save_images_to_movie(
+        #     all_segs, os.path.join(save_path, "segmentation_volume.mp4")
+        # )
+        # save_images_to_movie(
+        #     all_means, os.path.join(save_path, "mean_images_volume.mp4")
+        # )
+        # save_images_to_movie(all_maxs, os.path.join(save_path, "max_images_volume.mp4"))
+        # save_images_to_movie(all_traces, os.path.join(save_path, "traces_volume.mp4"))
 
         plot_volume_neuron_counts(zstats_file, save_path)
         plot_volume_signal(
@@ -302,14 +302,16 @@ def _should_write_bin(ops_path: Path, force: bool = False) -> bool:
       - mismatch between ops metadata (Ly, Lx, nframes) and bin file size
       - bin file cannot be read or has wrong shape
     """
+    if force:
+        return True
     ops_path = Path(ops_path)
     if not ops_path.is_file():
         return True
 
-    bin_path = ops_path.parent / "data_raw.bin"
+    bin_path = ops_path.parent / "data.bin"
     tiff_path = ops_path.parent / "reg_tif"
 
-    if not bin_path.is_file() and not tiff_path.is_dir() or force:
+    if not bin_path.is_file() and not tiff_path.is_dir():
         return True
 
     try:

@@ -1078,13 +1078,24 @@ def save_pc_panels_and_metrics(ops, savepath, pcs=(0,1,2,3)):
     if not isinstance(ops, dict):
         ops = np.load(ops, allow_pickle=True).item()
 
+
+    if 'nframes' in ops and ops['nframes'] < 1500:
+        print(f"1500 frames needed for registration metrics, found {ops['nframes']}. Skipping PC metrics.")
+        return {}
+    elif 'regPC' not in ops or 'regDX' not in ops:
+        print("regPC or regDX not found in ops, skipping PC metrics.")
+        return {}
+    elif len(pcs) != 4 or any(p < 0 for p in pcs):
+        raise ValueError(
+            "pcs must be a tuple of four non-negative integers."
+            " E.g., (0, 1, 2, 3) for the first four PCs."
+            f" Got: {pcs}"
+        )
+
     regPC = ops["regPC"]   # shape (2, nPC, Ly, Lx)
     regDX = ops["regDX"]   # shape (nPC, 3)
     savepath = Path(savepath)
 
-    # -------------------
-    # 1. Alternating TIFF
-    # -------------------
     alt_frames = []
     alt_labels = []
     for view, view_name in zip([0, 1], ["Low", "High"]):

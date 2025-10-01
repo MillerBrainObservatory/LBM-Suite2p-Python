@@ -12,6 +12,7 @@ if __name__ == "__main__":
 
     # file = fpath  # Use a specific file for testing
     user_ops = {
+        "do_regmetrics": True,
         "two_step_registration": True,
         "block_size": (64, 64),
         "reg_tif": True,

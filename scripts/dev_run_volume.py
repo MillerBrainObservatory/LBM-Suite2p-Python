@@ -1,26 +1,29 @@
-from mbo_utilities import get_files, imread, imwrite
 from pathlib import Path
-import warnings
-import lbm_suite2p_python as lsp
+from lbm_suite2p_python.run_lsp import run_volume
+import numpy as np
+from mbo_utilities import imread, imwrite
 
-# # 1. Extract Raw Data
-# inpath = Path(r"D:\W2_DATA\kbarber\07_27_2025\mk355\green")
-# arr = imread(inpath)
-# imwrite(arr, inpath.parent.joinpath("raw_data"))
-#
-# warnings.simplefilter(action='ignore')
+if __name__ == "__main__":
 
-inpath = Path(r"D:\W2_DATA\kbarber\07_27_2025\mk355\suite2p\z_registered")
-aligned_files = get_files(inpath, "aligned", max_depth=3)
+    inpath = Path(r"D:\W2_DATA\kbarber\2025-03-01\green")
+    outpath = inpath.parent.joinpath("green.processed")
+    # data = imread(inpath)
+    # imwrite(data, outpath, roi=0, ext=".zarr", register_z=True)
 
-for anatomical in [1, 2, 3]:
-    lsp.run_volume(
-        aligned_files,
-        save_path=inpath.joinpath(f"anatomical_{anatomical}"),
+    files = [file for file in outpath.iterdir() if file.suffix in [".tif", ".tiff", ".zarr"]]
+
+    run_volume(
+        files,
+        save_path=outpath,
         ops={
-            "anatomical_only": anatomical,
-            "diameter": 6,
+            "diameter": [6, 6],
+            "anatomical_only": 3,
+            "cellprob_threshold": -6,
+            "flow_threshold": -6,
+            "do_regmetrics": True,
+            "two_step_registration": True,
         },
         keep_raw=False,
         force_reg=False,
+        force_detect=False,
     )
