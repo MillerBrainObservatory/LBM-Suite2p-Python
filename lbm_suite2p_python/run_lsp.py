@@ -486,6 +486,10 @@ def run_plane(
     ops_user = load_ops(ops) if ops else {}
     ops = {**ops_default, **ops_user, "data_path": str(input_path.resolve())}
 
+    print(ops_default.get("diameter"))
+    print(ops_user.get("diameter"))
+    print(ops.get("diameter"))
+
     file = mbo.imread(input_path)
     if isinstance(file, MboRawArray):
         raise TypeError("Input file appears to be a raw array. Please provide a planar input file.")
@@ -610,10 +614,7 @@ def run_plane(
         (plane_dir / "data.bin").unlink(missing_ok=True)
 
     ops_file = plane_dir / "ops.npy"
-    # save_pc_metrics(ops_file, plane_dir / "pc_metrics", plane=plane, n_pcs=10)
-    # save_pc_regpc_tiff(ops_file, plane_dir / "pc_metrics.tif", n_pcs=10)
     save_pc_panels_and_metrics(ops_file, plane_dir / "pc_metrics")
-    # save_reg_metrics_summary(ops_file, save_path / "reg_metrics_summary.csv", plane=plane)
 
     try:
         remake_plane_figures(

@@ -1,8 +1,8 @@
-import time
 from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
+from tqdm.auto import tqdm
 
 from lbm_suite2p_python.zplane import plot_noise_distribution, plot_projection, plot_traces, plot_masks
 from lbm_suite2p_python.utils import dff_rolling_percentile, dff_shot_noise
@@ -56,8 +56,9 @@ def merge_mrois(input_dir, output_dir, overwrite=True):
     output_dir.mkdir(exist_ok=True)
 
     grouped = group_plane_rois(input_dir)
-
-    for plane, dirs in sorted(grouped.items()):
+    for plane, dirs in tqdm(
+            sorted(grouped.items()), desc="Merging mROIs", unit="plane"
+    ):
         out_dir = output_dir / plane
         out_ops = out_dir / "ops.npy"
 
@@ -143,6 +144,7 @@ def merge_mrois(input_dir, output_dir, overwrite=True):
             "xrange": [0, total_Lx],
             "reg_file": str(merged_bin.resolve()),
             "ops_path": str(out_ops.resolve()),
+            "save_path": str(out_dir.resolve()),
             "nrois": len(dirs),
         })
 
@@ -193,9 +195,8 @@ def merge_mrois(input_dir, output_dir, overwrite=True):
         np.save(out_dir / "Fneu.npy", Fneu)
         np.save(out_dir / "spks.npy", spks)
 
-        print(f"✔ Finished merging {plane} ({len(dirs)} ROIs)")
         remake_plane_figures(out_dir, run_rastermap=False)
-        print(f"✔ Finished figures for {plane}")
+        print(f"✔ Finished merging {plane} ({len(dirs)} ROIs)")
 
 def normalize_traces(F, mode="per_neuron"):
     """
