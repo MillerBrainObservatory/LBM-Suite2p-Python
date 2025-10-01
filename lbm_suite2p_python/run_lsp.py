@@ -18,6 +18,8 @@ from lbm_suite2p_python.utils import ops_to_json, load_planar_results, load_ops
 from mbo_utilities.log import get as get_logger
 import mbo_utilities as mbo  # noqa
 
+from lbm_suite2p_python.zplane import save_pc_panels_and_metrics
+
 logger = get_logger("run_lsp")
 
 from lbm_suite2p_python._benchmarking import get_cpu_percent, get_ram_used
@@ -107,7 +109,7 @@ def run_volume(
         save_path: str | Path = None,
         ops: dict | str | Path = None,
         keep_reg: bool = True,
-        keep_raw: bool = True,
+        keep_raw: bool = False,
         force_reg: bool = False,
         force_detect: bool = False,
         dff_window_size: int = 500,
@@ -204,6 +206,7 @@ def run_volume(
             dff_window_size=dff_window_size,
             dff_percentile=dff_percentile,
             save_json=save_json,
+            **kwargs
         )
         end_file = time.time()
         print(f"Time for {file}: {(end_file - start_file)/60:0.1f} min")
@@ -214,7 +217,6 @@ def run_volume(
 
     end = time.time()
     print(f"Total time for volume: {(end - start)/60:0.1f} min")
-    all_ops = [load_ops(x) for x in save_path.iterdir() if x.is_dir()]
     if "roi" in Path(input_files[0]).stem.lower():
         print(f"Detected mROI data, merging ROIs for each z-plane...")
         from .merging import merge_mrois, remake_plane_figures
@@ -452,6 +454,7 @@ def run_plane(
     Run a single z-plane through suite2p, keeping raw and registered files.
     >> output_ops = lsp.run_plane(input_files[0], save_path="D://data//outputs", keep_raw=True, keep_registered=True, force_reg=True, force_detect=True)
     """
+    from mbo_utilities.array_types import MboRawArray
     if "debug" in kwargs:
         logger.setLevel(logging.DEBUG)
         logger.info("Debug mode enabled.")
@@ -484,6 +487,8 @@ def run_plane(
     ops = {**ops_default, **ops_user, "data_path": str(input_path.resolve())}
 
     file = mbo.imread(input_path)
+    if isinstance(file, MboRawArray):
+        raise TypeError("Input file appears to be a raw array. Please provide a planar input file.")
     if hasattr(file, "metadata"):
         metadata = file.metadata  # noqa
     else:
@@ -603,6 +608,12 @@ def run_plane(
         (plane_dir / "data_raw.bin").unlink(missing_ok=True)
     if not keep_reg:
         (plane_dir / "data.bin").unlink(missing_ok=True)
+
+    ops_file = plane_dir / "ops.npy"
+    # save_pc_metrics(ops_file, plane_dir / "pc_metrics", plane=plane, n_pcs=10)
+    # save_pc_regpc_tiff(ops_file, plane_dir / "pc_metrics.tif", n_pcs=10)
+    save_pc_panels_and_metrics(ops_file, plane_dir / "pc_metrics")
+    # save_reg_metrics_summary(ops_file, save_path / "reg_metrics_summary.csv", plane=plane)
 
     try:
         remake_plane_figures(

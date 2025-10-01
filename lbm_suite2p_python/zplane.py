@@ -1,6 +1,8 @@
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
+import tifffile
 import math
 
 import matplotlib.offsetbox
@@ -9,14 +11,12 @@ from matplotlib.animation import FuncAnimation
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 from matplotlib.offsetbox import VPacker, HPacker, DrawingArea
-from matplotlib.colors import hsv_to_rgb, rgb_to_hsv
 
 from scipy.ndimage import distance_transform_edt
 
 from lbm_suite2p_python.utils import dff_rolling_percentile, _resize_masks_fit_crop, load_planar_results, bin1d, \
     load_ops
 from suite2p.detection.stats import ROI
-from skimage.segmentation import find_boundaries
 
 
 def infer_units(f: np.ndarray) -> str:
@@ -706,8 +706,8 @@ def plot_masks(plane_dir, out_prefix="rois", output_directory=None):
     if output_directory is None:
         output_directory = plane_dir
 
-    _draw_masks(stat, meanImg, iscell[:, 0] == 1, "accepted", out_prefix, output_directory)
-    _draw_masks(stat, meanImg, iscell[:, 0] == 0, "rejected", out_prefix, output_directory)
+    _draw_masks(stat, meanImg, iscell[:, 0] == 1, "accepted", out_prefix, output_directory)  # noqa
+    _draw_masks(stat, meanImg, iscell[:, 0] == 0, "rejected", out_prefix, output_directory)  # noqa
 
 def plot_projection(
         ops,
@@ -886,7 +886,7 @@ def plot_noise_distribution(
     fig = plt.figure(figsize=(8, 5))
     plt.hist(noise_levels, bins=50, color="gray", alpha=0.7, edgecolor="black")
 
-    mean_noise = np.mean(noise_levels)
+    mean_noise: float = np.mean(noise_levels)
     plt.axvline(
         mean_noise,
         color="r",
@@ -1058,3 +1058,106 @@ def plot_rastermap(
         plt.show()
 
     return fig, ax
+
+def save_pc_panels_and_metrics(ops, savepath, pcs=(0,1,2,3)):
+    """
+    Save PC metrics in two forms:
+    1. Alternating TIFF (PC Low/High side-by-side per frame, press play in ImageJ to flip).
+    2. Panel TIFF (static figures for PC1/2 and PC3/4).
+    Also saves summary metrics as CSV.
+
+    Parameters
+    ----------
+    ops : dict or str or Path
+        Suite2p ops dict or path to ops.npy. Must contain "regPC" and "regDX".
+    savepath : str or Path
+        Output file stem (without extension).
+    pcs : tuple of int
+        PCs to include (default first four).
+    """
+    if not isinstance(ops, dict):
+        ops = np.load(ops, allow_pickle=True).item()
+
+    regPC = ops["regPC"]   # shape (2, nPC, Ly, Lx)
+    regDX = ops["regDX"]   # shape (nPC, 3)
+    savepath = Path(savepath)
+
+    # -------------------
+    # 1. Alternating TIFF
+    # -------------------
+    alt_frames = []
+    alt_labels = []
+    for view, view_name in zip([0, 1], ["Low", "High"]):
+        # side-by-side: PC1 | PC2
+        left = regPC[view, pcs[0]]
+        right = regPC[view, pcs[1]]
+        combined = np.hstack([left, right])
+        alt_frames.append(combined.astype(np.float32))
+        alt_labels.append(f"PC{pcs[0]+1}/{pcs[1]+1} {view_name}")
+
+        # side-by-side: PC3 | PC4
+        left = regPC[view, pcs[2]]
+        right = regPC[view, pcs[3]]
+        combined = np.hstack([left, right])
+        alt_frames.append(combined.astype(np.float32))
+        alt_labels.append(f"PC{pcs[2]+1}/{pcs[3]+1} {view_name}")
+
+    alt_tiff = savepath.with_name(savepath.stem + "_alternating.tif")
+    tifffile.imwrite(
+        alt_tiff,
+        np.stack(alt_frames, axis=0),
+        imagej=True,
+        metadata={"Labels": alt_labels},
+    )
+    print(f"Saved alternating TIFF to {alt_tiff}")
+
+    # ----------------
+    # 2. Panel TIFF
+    # ----------------
+    panel_frames = []
+    panel_labels = []
+    for left, right in [(pcs[0], pcs[1]), (pcs[2], pcs[3])]:
+        for view, view_name in zip([0, 1], ["Low", "High"]):
+            fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+            axes[0].imshow(regPC[view, left], cmap="gray")
+            axes[0].set_title(f"PC{left+1} {view_name}")
+            axes[0].axis("off")
+            axes[1].imshow(regPC[view, right], cmap="gray")
+            axes[1].set_title(f"PC{right+1} {view_name}")
+            axes[1].axis("off")
+            fig.tight_layout()
+            fig.canvas.draw()
+            img = np.frombuffer(fig.canvas.buffer_rgba(), dtype=np.uint8)
+            w, h = fig.canvas.get_width_height()
+            img = img.reshape((h, w, 4))[..., :3]
+            panel_frames.append(img)
+            panel_labels.append(f"PC{left+1}/{right+1} {view_name}")
+            plt.close(fig)
+
+    panel_tiff = savepath.with_name(savepath.stem + "_panels.tif")
+    tifffile.imwrite(
+        panel_tiff,
+        np.stack(panel_frames, axis=0),
+        imagej=True,
+        metadata={"Labels": panel_labels},
+    )
+    print(f"Saved panel TIFF to {panel_tiff}")
+
+    # ----------------
+    # 3. CSV metrics
+    # ----------------
+    df = pd.DataFrame(regDX, columns=["Rigid", "Avg_NR", "Max_NR"])
+    metrics = {
+        "Avg_Rigid": df["Rigid"].mean(),
+        "Avg_Average_NR": df["Avg_NR"].mean(),
+        "Avg_Max_NR": df["Max_NR"].mean(),
+        "Max_Rigid": df["Rigid"].max(),
+        "Max_Average_NR": df["Avg_NR"].max(),
+        "Max_Max_NR": df["Max_NR"].max(),
+    }
+    csv_path = savepath.with_suffix(".csv")
+    pd.DataFrame([metrics]).to_csv(csv_path, index=False)
+    print(f"Saved metrics CSV to {csv_path}")
+    print(df.head())
+
+    return {"alternating_tiff": alt_tiff, "panel_tiff": panel_tiff, "metrics_csv": csv_path}
