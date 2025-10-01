@@ -224,7 +224,7 @@ def run_volume(
         print(f"Detected mROI data, merging ROIs for each z-plane...")
         from .merging import merge_mrois, remake_plane_figures
 
-        merged_savepath = save_path.parent.joinpath("merged_mrois")
+        merged_savepath = save_path.joinpath("merged_mrois")
         merge_mrois(save_path, merged_savepath)
         all_ops = mbo.get_files(merged_savepath, "ops.npy", 2)
 
@@ -495,10 +495,6 @@ def run_plane(
     ops_user = load_ops(ops) if ops else {}
     ops = {**ops_default, **ops_user, "data_path": str(input_path.resolve())}
 
-    print(ops_default.get("diameter"))
-    print(ops_user.get("diameter"))
-    print(ops.get("diameter"))
-
     file = mbo.imread(input_path)
     if isinstance(file, MboRawArray):
         raise TypeError(
@@ -542,6 +538,11 @@ def run_plane(
                     f"Roi detection skipped, stat.npy already exists for plane {plane}."
                 )
                 needs_detect = False
+        else:
+            print(
+                f"ops['roidetect'] is True with no stat.npy file present, "
+                f"proceeding with segmentation/detection for plane {plane}.")
+            needs_detect = True
     elif (plane_dir / "stat.npy").is_file():
         # check contents of stat.npy
         stat = np.load(plane_dir / "stat.npy", allow_pickle=True)

@@ -6,12 +6,18 @@ from mbo_utilities import imread, imwrite
 if __name__ == "__main__":
 
     inpath = Path(r"D:\W2_DATA\kbarber\2025-03-01\green")
-    outpath = inpath.parent.joinpath("green.processed")
+    extracted_outpath = inpath.parent.joinpath("green.processed")
+    files = [
+        x for x in extracted_outpath.iterdir() if x.suffix == ".zarr"
+    ]
     # data = imread(inpath)
     # imwrite(data, outpath, roi=0, ext=".zarr", register_z=True)
 
-    files = [file for file in outpath.iterdir() if file.suffix in [".tif", ".tiff", ".zarr"]]
 
+    oname = extracted_outpath.name
+    # change green.extracted to green.extracted.processed
+    oname = oname.replace("processed", "extracted.processed.results")
+    outpath = extracted_outpath.parent.joinpath(oname)
     run_volume(
         files,
         save_path=outpath,
@@ -22,6 +28,7 @@ if __name__ == "__main__":
             "flow_threshold": -6,
             "do_regmetrics": True,
             "two_step_registration": True,
+            "roidetect": True,
         },
         keep_raw=False,
         force_reg=False,
