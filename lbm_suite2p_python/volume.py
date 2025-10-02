@@ -320,15 +320,22 @@ def get_volume_stats(ops_files: list[str | Path], overwrite: bool = True):
     plane_stats = {}
     for i, file in enumerate(ops_files):
         output_ops = load_ops(file)
-        raw_z = output_ops.get("plane")
+        raw_z = output_ops.get("plane", None)
         if raw_z is None:
-            zplane_num = i + 1
+            zplane_num = i
         else:
-            zplane_num = int(str(raw_z).removeprefix("plane"))
+            if isinstance(raw_z, (int, np.integer)):
+                zplane_num = int(raw_z)
+            else:
+                s = str(raw_z)
+                digits = "".join([c for c in s if c.isdigit()])
+                zplane_num = int(digits) if digits else i
+
         save_path = Path(output_ops["save_path"])
         iscell = np.load(save_path / "iscell.npy", allow_pickle=True)[:, 0].astype(bool)
         traces = np.load(save_path / "F.npy", allow_pickle=True)
         timing = output_ops.get("timing", {})
+
         plane_stats[zplane_num] = {
             "accepted": iscell.sum(),
             "rejected": (~iscell).sum(),

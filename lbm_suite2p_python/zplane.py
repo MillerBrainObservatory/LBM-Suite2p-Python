@@ -732,7 +732,6 @@ def plot_masks(
             raise ValueError("savepath must be a file path, not a directory.")
         plt.savefig(savepath, dpi=300)
         plt.close()
-        print(f"Saved traces figure to {savepath}")
     else:
         plt.show()
 
