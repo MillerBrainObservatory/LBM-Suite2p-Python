@@ -1,7 +1,7 @@
 from pathlib import Path
 from lbm_suite2p_python.run_lsp import run_volume
-import numpy as np
-from mbo_utilities import imread, imwrite
+# import numpy as np
+# from mbo_utilities import imread, imwrite
 
 if __name__ == "__main__":
 
@@ -11,22 +11,20 @@ if __name__ == "__main__":
         x for x in extracted_outpath.iterdir() if x.suffix == ".zarr"
     ]
 
-    oname = extracted_outpath.name
-    oname = oname.replace("processed", "extracted.processed.results")
-    outpath = extracted_outpath.parent.joinpath(oname)
+    outpath = inpath.parent.joinpath("green.s2p_results")
     run_volume(
         files,
         save_path=outpath,
         ops={
-            "diameter": [6, 6],
+            "diameter": [4, 4],
             "anatomical_only": 3,
             "cellprob_threshold": -6,
-            "flow_threshold": -6,
+            "flow_threshold": 0.1,
             "do_regmetrics": True,
             "two_step_registration": True,
-            "roidetect": True,
+            # "roidetect": True,
         },
-        keep_raw=False,
-        force_reg=False,
-        force_detect=False,
+        # keep_raw=False,
+        # force_reg=False,
+        # force_detect=False,
     )
