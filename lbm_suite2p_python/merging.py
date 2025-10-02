@@ -10,7 +10,7 @@ from lbm_suite2p_python.zplane import (
     plot_traces,
     plot_masks,
 )
-from lbm_suite2p_python.utils import dff_rolling_percentile, dff_shot_noise
+from lbm_suite2p_python.postprocessing import dff_rolling_percentile, dff_shot_noise, load_planar_results
 from mbo_utilities.lazy_array import Suite2pArray
 
 
@@ -211,172 +211,6 @@ def merge_mrois(input_dir, output_dir, overwrite=True):
 
         print(f"Merged {len(ops_list)} ROI(s) for {plane} into {out_dir}")
 
-def merge_mrois_old(input_dir, output_dir, overwrite=True):
-    """
-    Merge Suite2p outputs from multiple ROIs into per-plane outputs.
-
-    Parameters
-    ----------
-    input_dir : str or Path
-        Directory with subfolders like plane01_roi1, plane01_roi2, ...
-    output_dir : str or Path
-        Directory where merged outputs will be saved (plane01, plane02, ...).
-    overwrite : bool
-        If False, skip merging if ops.npy already exists in target.
-    """
-    input_dir = Path(input_dir)
-    output_dir = Path(output_dir)
-    output_dir.mkdir(exist_ok=True)
-
-    grouped = group_plane_rois(input_dir)
-    for plane, dirs in tqdm(
-        sorted(grouped.items()), desc="Merging mROIs", unit="plane"
-    ):
-        out_dir = output_dir / plane
-        out_ops = out_dir / "ops.npy"
-
-        if out_ops.exists() and not overwrite:
-            print(f"Skipping {plane}, merged outputs already exist")
-            continue
-
-        out_dir.mkdir(exist_ok=True)
-
-        # --- Load all ROI results
-        ops_list, stat_list, iscell_list = [], [], []
-        F_list, Fneu_list, spks_list = [], [], []
-        bin_paths = []
-
-        for d in sorted(dirs):
-            ops = np.load(d / "ops.npy", allow_pickle=True).item()
-            stat = np.load(d / "stat.npy", allow_pickle=True)
-            iscell = np.load(d / "iscell.npy", allow_pickle=True)
-            F = np.load(d / "F.npy")
-            Fneu = np.load(d / "Fneu.npy")
-            spks = np.load(d / "spks.npy")
-
-            # prefer data_raw.bin if it exists, else data.bin
-            bin_path = (
-                (d / "data_raw.bin")
-                if (d / "data_raw.bin").exists()
-                else (d / "data.bin")
-            )
-
-            ops_list.append(ops)
-            stat_list.append(stat)
-            iscell_list.append(iscell)
-            F_list.append(F)
-            Fneu_list.append(Fneu)
-            spks_list.append(spks)
-            bin_paths.append(bin_path)
-
-        # --- Dimensions
-        Ly = ops_list[0]["Ly"]
-        for ops in ops_list:
-            if ops["Ly"] != Ly:
-                raise ValueError("Inconsistent Ly across ROIs")
-        Lx_list = [ops["Lx"] for ops in ops_list]
-        total_Lx = sum(Lx_list)
-
-        # --- Shift stat coordinates by ROI offsets
-        for i, stat in enumerate(stat_list):
-            offset_x = sum(Lx_list[:i])
-
-            for s in stat:
-                # shift ROI into global canvas
-                s["xpix"] = np.asarray(s["xpix"], dtype=int) + offset_x
-                s["ypix"] = np.asarray(s["ypix"], dtype=int)
-
-                s["med"] = [float(s["med"][0]), float(s["med"][1]) + offset_x]
-
-                s["lam"] = np.asarray(s["lam"], dtype=float).ravel()
-
-                if "ipix_neuropil" in s:
-                    ypix, xpix = s["ypix"], s["xpix"]
-                    s["ipix_neuropil"] = ypix + xpix * Ly
-
-        stat = np.concatenate(stat_list)
-        iscell = np.concatenate(iscell_list, axis=0)
-        F = np.concatenate(F_list, axis=0)
-        Fneu = np.concatenate(Fneu_list, axis=0)
-        spks = np.concatenate(spks_list, axis=0)
-
-        # --- Merge binary
-        arrays = [Suite2pArray(p) for p in bin_paths]
-        nframes = arrays[0].nframes
-        dtype = arrays[0].dtype
-        merged_bin = out_dir / "data.bin"
-        with open(merged_bin, "wb") as f:
-            for i in range(nframes):
-                frames = [arr[i] for arr in arrays]
-                f.write(np.hstack(frames).astype(dtype).tobytes())  # noqa
-        for arr in arrays:
-            arr.close()
-
-        # --- Merge ops
-        merged_ops = dict(ops_list[0])
-        merged_ops.update(
-            {
-                "Ly": Ly,
-                "Lx": total_Lx,
-                "yrange": [0, Ly],
-                "xrange": [0, total_Lx],
-                "reg_file": str(merged_bin.resolve()),
-                "ops_path": str(out_ops.resolve()),
-                "save_path": str(out_dir.resolve()),
-                "nrois": len(dirs),
-            }
-        )
-
-        # Full-FOV images: just tile ROIs horizontally
-        for key in ["refImg", "meanImg", "meanImgE"]:
-            if all(key in ops for ops in ops_list):
-                canvas = np.zeros((Ly, total_Lx), dtype=ops_list[0][key].dtype)
-                x_offset = 0
-                for ops in ops_list:
-                    arr = ops[key]
-                    h, w = arr.shape
-                    canvas[0:h, x_offset : x_offset + w] = arr
-                    x_offset += ops["Lx"]
-                merged_ops[key] = canvas  # noqa
-
-        # Cropped images: place at yrange/xrange
-        for key in ["max_proj", "Vcorr"]:
-            if all(key in ops for ops in ops_list):
-                canvas = np.zeros((Ly, total_Lx), dtype=ops_list[0][key].dtype)
-                x_offset = 0
-                for ops in ops_list:
-                    arr = ops[key]
-                    yr = np.array(ops["yrange"])
-                    xr = np.array(ops["xrange"]) + x_offset
-                    h, w = arr.shape
-                    # Ensure array size matches expected slice
-                    h_slice, w_slice = yr[1] - yr[0], xr[1] - xr[0]
-                    canvas[yr[0] : yr[0] + h, xr[0] : xr[0] + w] = arr[
-                        :h_slice, :w_slice
-                    ]
-                    x_offset += ops["Lx"]
-                merged_ops[key] = canvas  # noqa
-
-        # --- Handle timeseries arrays (check consistency)
-        timeseries_keys = ["yoff", "xoff", "corrXY", "badframes"]
-        for key in timeseries_keys:
-            if all(key in ops for ops in ops_list):
-                arrays = [ops[key] for ops in ops_list]
-                if all(np.array_equal(a, arrays[0]) for a in arrays[1:]):
-                    merged_ops[key] = arrays[0]  # identical across ROIs
-                else:
-                    # fallback: take from first
-                    merged_ops[key] = arrays[0]
-
-        # --- Save merged results
-        np.save(out_ops, merged_ops)
-        np.save(out_dir / "stat.npy", stat)
-        np.save(out_dir / "iscell.npy", iscell)
-        np.save(out_dir / "F.npy", F)
-        np.save(out_dir / "Fneu.npy", Fneu)
-        np.save(out_dir / "spks.npy", spks)
-
-        remake_plane_figures(out_dir, run_rastermap=False)
 
 def normalize_traces(F, mode="per_neuron"):
     """
@@ -480,7 +314,6 @@ def remake_plane_figures(
             safe_delete(expected_files[key])
 
     if expected_files["stat"].is_file():
-        from lbm_suite2p_python.utils import load_planar_results
 
         res = load_planar_results(plane_dir)
         iscell = res["iscell"]

@@ -15,12 +15,10 @@ from matplotlib.offsetbox import VPacker, HPacker, DrawingArea
 from scipy.ndimage import distance_transform_edt
 
 from lbm_suite2p_python.utils import (
-    dff_rolling_percentile,
     _resize_masks_fit_crop,
-    load_planar_results,
     bin1d,
-    load_ops,
 )
+from lbm_suite2p_python.postprocessing import dff_rolling_percentile, load_planar_results
 from suite2p.detection.stats import ROI
 
 
@@ -261,16 +259,17 @@ def plot_traces_noise(
 
 
 def plot_traces(
-    f,
-    save_path: str | Path = "",
-    fps=17.0,
-    num_neurons=20,
-    window=220,
-    title="",
-    offset=None,
-    lw=0.5,
-    cmap="tab10",
-    signal_units=None,
+        f,
+        save_path: str | Path = "",
+        cell_indices: np.ndarray | list[int] | None = None,
+        fps=17.0,
+        num_neurons=20,
+        window=220,
+        title="",
+        offset=None,
+        lw=0.5,
+        cmap="tab10",
+        signal_units=None,
 ):
     """
     Plot stacked fluorescence traces with automatic offset and scale bars.
@@ -280,25 +279,27 @@ def plot_traces(
     f : ndarray
         2d array of fluorescence traces (n_neurons x n_timepoints).
     save_path : str, optional
-        Path to save the output plot (default is "./stacked_traces.png").
-    fps : float, optional
-        Sampling rate in frames per second (default is 17.0).
-    num_neurons : int, optional
-        Number of neurons to display (default is 20).
-    window : float, optional
-        Time window (in seconds) to display (default is 120).
-    title : str, optional
-        Title of the figure (default is "").
-    offset : float or None, optional
+        Path to save the output plot.
+    fps : float
+        Sampling rate in frames per second.
+    num_neurons : int
+        Number of neurons to display if cell_indices is None.
+    window : float
+        Time window (in seconds) to display.
+    title : str
+        Title of the figure.
+    offset : float or None
         Vertical offset between traces; if None, computed automatically.
-    lw : float, optional
+    lw : float
         Line width for data points.
-    cmap : str, optional
-        Matplotlib colormap string (default is 'tab10').
+    cmap : str
+        Matplotlib colormap string.
     signal_units : str, optional
-        Units of fluorescence signal. Options: "raw", "dff", "dffp", if None will infer from percentile,
-        recommended to keep None unless units are misinterpreted.
+        Units of fluorescence signal.
+    cell_indices : array-like or None
+        Specific cell indices to plot. If provided, overrides num_neurons.
     """
+
     if isinstance(f, dict):
         ops = f
         res = load_planar_results(ops)
@@ -311,14 +312,25 @@ def plot_traces(
     if signal_units is None:
         signal_units = infer_units(f)
 
-    displayed_neurons = min(num_neurons, f.shape[0])
     n_timepoints = f.shape[-1]
     data_time = np.arange(n_timepoints) / fps
     current_frame = min(int(window * fps), n_timepoints - 1)
 
+    if cell_indices is None:
+        displayed_neurons = min(num_neurons, f.shape[0])
+        indices = np.arange(displayed_neurons)
+    else:
+        indices = np.array(cell_indices)
+        if indices.dtype == bool:
+            indices = np.where(indices)[0]  # convert boolean mask to int indices
+        displayed_neurons = len(indices)
+
+    if len(indices) == 0:
+        return None
+
     if offset is None:
-        p10 = np.percentile(f[:displayed_neurons, : current_frame + 1], 10, axis=1)
-        p90 = np.percentile(f[:displayed_neurons, : current_frame + 1], 90, axis=1)
+        p10 = np.percentile(f[indices, : current_frame + 1], 10, axis=1)
+        p90 = np.percentile(f[indices, : current_frame + 1], 90, axis=1)
         offset = np.median(p90 - p10) * 1.2
 
     cmap_inst = plt.get_cmap(cmap)
@@ -333,8 +345,8 @@ def plot_traces(
     for spine in ax.spines.values():
         spine.set_visible(False)
 
-    for i in reversed(range(displayed_neurons)):
-        trace = f[i, : current_frame + 1]
+    for i, idx in enumerate(reversed(indices)):
+        trace = f[idx, : current_frame + 1]
         baseline = np.percentile(trace, 8)
         shifted_trace = (trace - baseline) + i * offset
 
@@ -346,8 +358,10 @@ def plot_traces(
             zorder=-i,
         )
 
+        # overlap fill with next trace
         if i < displayed_neurons - 1:
-            prev_trace = f[i + 1, : current_frame + 1]
+            next_idx = list(reversed(indices))[i + 1]
+            prev_trace = f[next_idx, : current_frame + 1]
             prev_baseline = np.percentile(prev_trace, 8)
             prev_shifted = (prev_trace - prev_baseline) + (i + 1) * offset
             mask = shifted_trace > prev_shifted
@@ -656,66 +670,71 @@ def feather_mask(mask, max_alpha=0.75, edge_width=3):
     return alpha * max_alpha
 
 
-def _draw_masks(stat, meanImg, mask_idx, fname, out_prefix, outpath):
-    canvas = np.tile(
-        (meanImg - meanImg.min()) / (np.ptp(meanImg) + 1e-6), (3, 1, 1)
-    ).transpose(1, 2, 0)  # grayscale RGB
+def plot_masks(
+        img: np.ndarray,
+        stat: list[dict] | dict,
+        mask_idx: np.ndarray,
+        savepath: str | Path,
+        colors=None,
+        title=None,
+):
+    """
+    Draw ROI overlays onto the mean image.
 
-    colors = plt.cm.hsv(np.linspace(0, 1, mask_idx.sum() + 1))  # noqa
+    Parameters
+    ----------
+    stat : list[dict]
+        Suite2p ROI stat dictionaries (with "ypix", "xpix", "lam").
+    img : ndarray (Ly x Lx)
+        Background image to overlay on.
+    mask_idx : ndarray[bool]
+        Boolean array selecting which ROIs to plot.
+    savepath : str or Path
+        Fully qualified path to save the figure.
+    colors : ndarray or list, optional
+        Array/list of RGB tuples for each ROI selected.
+        If None, colors are assigned via HSV colormap.
+    title : str, optional
+        Title string to place on the figure.
+    """
+
+    # Normalize background image
+    canvas = np.tile(
+        (img - img.min()) / (np.ptp(img) + 1e-6), (3, 1, 1)
+    ).transpose(1, 2, 0)
+
+    # Assign colors if not provided
+    n_masks = mask_idx.sum()
+    if colors is None:
+        colors = plt.cm.hsv(np.linspace(0, 1, n_masks + 1))[:, :3]  # noqa
 
     c = 0
     for n, s in enumerate(stat):
         if mask_idx[n]:
-            ypix = s["ypix"]
-            xpix = s["xpix"]
-            lam = s["lam"] / s["lam"].max()
-            col = colors[c][:3]  # RGB
+            ypix, xpix, lam = s["ypix"], s["xpix"], s["lam"]
+            lam = lam / lam.max()
+            col = colors[c]
             c += 1
             for k in range(3):
-                canvas[ypix, xpix, k] = 0.5 * canvas[ypix, xpix, k] + 0.5 * col[k] * lam
-
-    outpath = Path(outpath)
-    outpath.mkdir(parents=True, exist_ok=True)
-    outfile = outpath / f"{out_prefix}_{fname}.png"
+                canvas[ypix, xpix, k] = (
+                        0.5 * canvas[ypix, xpix, k] + 0.5 * col[k] * lam
+                )
 
     plt.figure(figsize=(10, 10))
     plt.imshow(canvas, interpolation="nearest")
+    if title is not None:
+        plt.title(title, fontsize=10)
     plt.axis("off")
     plt.tight_layout()
-    plt.savefig(outfile, dpi=300)
-    plt.close()
 
-
-def plot_masks(plane_dir, out_prefix="rois", output_directory=None):
-    """
-    Make ROI overlays like Suite2p GUI: one PNG for accepted and one for rejected.
-
-    Parameters
-    ----------
-    plane_dir : str or Path
-        Directory containing ops.npy, stat.npy, iscell.npy
-    out_prefix : str
-        Prefix for output files (saved in plane_dir by default)
-    output_directory : str or Path, optional
-        If given, save to this directory instead of plane_dir
-    """
-    plane_dir = Path(plane_dir)
-    ops = np.load(plane_dir / "ops.npy", allow_pickle=True).item()
-    stat = np.load(plane_dir / "stat.npy", allow_pickle=True)
-    iscell = np.load(plane_dir / "iscell.npy")
-
-    Ly, Lx = ops["Ly"], ops["Lx"]
-    meanImg = ops.get("meanImgE", ops.get("meanImg", np.zeros((Ly, Lx))))
-
-    if output_directory is None:
-        output_directory = plane_dir
-
-    _draw_masks(
-        stat, meanImg, iscell[:, 0] == 1, "accepted", out_prefix, output_directory
-    )  # noqa
-    _draw_masks(
-        stat, meanImg, iscell[:, 0] == 0, "rejected", out_prefix, output_directory
-    )  # noqa
+    if savepath:
+        if Path(savepath).is_dir():
+            raise ValueError("savepath must be a file path, not a directory.")
+        plt.savefig(savepath, dpi=300)
+        plt.close()
+        print(f"Saved traces figure to {savepath}")
+    else:
+        plt.show()
 
 
 def plot_projection(
@@ -895,7 +914,7 @@ def plot_noise_distribution(
     fig = plt.figure(figsize=(8, 5))
     plt.hist(noise_levels, bins=50, color="gray", alpha=0.7, edgecolor="black")
 
-    mean_noise: float = np.mean(noise_levels)
+    mean_noise: float = np.mean(noise_levels)  # noqa
     plt.axvline(
         mean_noise,
         color="r",
@@ -1149,7 +1168,7 @@ def save_pc_panels_and_metrics(ops, savepath, pcs=(0, 1, 2, 3)):
             axes[1].axis("off")
             fig.tight_layout()
             fig.canvas.draw()
-            img = np.frombuffer(fig.canvas.buffer_rgba(), dtype=np.uint8)
+            img = np.frombuffer(fig.canvas.buffer_rgba(), dtype=np.uint8)  # noqa
             w, h = fig.canvas.get_width_height()
             img = img.reshape((h, w, 4))[..., :3]
             panel_frames.append(img)

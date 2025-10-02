@@ -14,7 +14,7 @@ import pandas as pd
 import suite2p
 from suite2p.io.binary import BinaryFile
 from lbm_suite2p_python.merging import remake_plane_figures
-from lbm_suite2p_python.utils import ops_to_json, load_planar_results, load_ops
+from lbm_suite2p_python.postprocessing import ops_to_json, load_planar_results, load_ops
 from mbo_utilities.log import get as get_logger
 import mbo_utilities as mbo  # noqa
 
@@ -79,41 +79,13 @@ def derive_tag_from_filename(path):
     return name
 
 
-def summarize_regdx_metrics(root_dir: Path, subdir: str = "") -> pd.DataFrame:
-    rows = []
-
-    for ops_path in root_dir.rglob(f"*{subdir}*/ops.npy"):
-        try:
-            ops = load_ops(ops_path)
-            regdx = np.array(ops.get("regDX"))
-            if regdx is None or len(regdx) == 0 or regdx.ndim != 2:
-                continue
-
-            dx = regdx[:, 0]
-            dy = regdx[:, 1]
-            norm = regdx[:, 2]
-
-            rows.append(
-                {
-                    "config": ops_path.parent.parent.name,
-                    "mean_rigid": np.mean(np.abs(dx)),
-                    "mean_avg_nr": np.mean(np.abs(dy)),
-                    "mean_max_nr": np.mean(np.abs(norm)),
-                }
-            )
-        except Exception as e:
-            print(f"Error processing {ops_path}: {e}")
-            continue
-    return pd.DataFrame(rows)
-
-
 def run_volume(
     input_files: list,
     save_path: str | Path = None,
     ops: dict | str | Path = None,
     keep_reg: bool = True,
     keep_raw: bool = False,
-    force_reg: bool = False,
+    force_reg: bool = True,
     force_detect: bool = False,
     dff_window_size: int = 500,
     dff_percentile: int = 20,
@@ -230,20 +202,6 @@ def run_volume(
 
     try:
         zstats_file = get_volume_stats(all_ops, overwrite=True)
-
-        # all_segs = mbo.get_files(save_path, "segmentation.png", 4)
-        # all_means = mbo.get_files(save_path, "mean_image.png", 4)
-        # all_maxs = mbo.get_files(save_path, "max_projection_image.png", 4)
-        # all_traces = mbo.get_files(save_path, "traces.png", 4)
-
-        # save_images_to_movie(
-        #     all_segs, os.path.join(save_path, "segmentation_volume.mp4")
-        # )
-        # save_images_to_movie(
-        #     all_means, os.path.join(save_path, "mean_images_volume.mp4")
-        # )
-        # save_images_to_movie(all_maxs, os.path.join(save_path, "max_images_volume.mp4"))
-        # save_images_to_movie(all_traces, os.path.join(save_path, "traces_volume.mp4"))
 
         plot_volume_neuron_counts(zstats_file, save_path)
         plot_volume_signal(

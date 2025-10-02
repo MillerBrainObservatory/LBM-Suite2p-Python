@@ -10,12 +10,8 @@ if __name__ == "__main__":
     files = [
         x for x in extracted_outpath.iterdir() if x.suffix == ".zarr"
     ]
-    # data = imread(inpath)
-    # imwrite(data, outpath, roi=0, ext=".zarr", register_z=True)
-
 
     oname = extracted_outpath.name
-    # change green.extracted to green.extracted.processed
     oname = oname.replace("processed", "extracted.processed.results")
     outpath = extracted_outpath.parent.joinpath(oname)
     run_volume(
