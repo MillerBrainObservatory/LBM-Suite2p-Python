@@ -12,15 +12,12 @@ if __name__ == "__main__":
     files = [
         x for x in extracted_outpath.iterdir() if x.suffix == ".zarr"
     ]
-    zarray = mbo.imread(files[0],)
-    mean = np.mean(zarray[:100, 0, :, :], axis=0).squeeze()
 
     # file = fpath  # Use a specific file for testing
     user_ops = {
-        "diameter": 6,
-        "anatomical_only": 3,
+        "anatomical_only": 0,
         "cellprob_threshold": -6,
-        "flow_threshold": 0.1,
+        "flow_threshold": -6,
         "do_regmetrics": True,
         "two_step_registration": True,
     }

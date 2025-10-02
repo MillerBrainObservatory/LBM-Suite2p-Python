@@ -462,8 +462,8 @@ def remake_plane_figures(
             title="Accepted ROIs"
         )
 
-        iscell_area = filter_by_area(iscell, res["stat"])
-        eliminated_area = iscell & ~iscell_area
+        iscell_area = filter_by_area(iscell_mask, res["stat"])
+        eliminated_area = iscell_mask & ~iscell_area
         plot_masks(
             img=output_ops.get("meanImgE"),
             stat=res["stat"],

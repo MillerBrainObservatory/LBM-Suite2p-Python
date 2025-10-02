@@ -324,10 +324,13 @@ def run_plane_bin(ops) -> bool:
     n_frames = ops["n_frames"]
     Ly, Lx = ops["Ly"], ops["Lx"]
 
-    prior_ops = {}
-    if Path(ops["ops_path"]).exists():
-        prior_ops = np.load(ops["ops_path"], allow_pickle=True).item()
-
+    # make sure diam is not nan
+    if ops["diameter"] is not None and np.isnan(ops["diameter"]):
+        ops["diameter"] = 8
+    if ops["diameter"] is None or ops["diameter"] == 0 and ops["anatomical_only"] > 0:
+        ops["diameter"] = 8
+        print("Warning: diameter was not set, defaulting to 8."
+              "Cellpose-SAM currently does not estimate diameter.")
     with (
         suite2p.io.BinaryFile(
             Ly=Ly, Lx=Lx, filename=ops["reg_file"], n_frames=n_frames
@@ -344,15 +347,8 @@ def run_plane_bin(ops) -> bool:
             f_reg, f_raw, None, None, ops["do_registration"], ops, stat=None
         )
 
-    # merge in any non-conflicting prior fields
-    merged_ops = {**ops, **{k: v for k, v in prior_ops.items() if k not in ops}}
-    np.save(ops["ops_path"], merged_ops)
-    print(f"Saved ops to {ops['ops_path']}")
-
-    # merge in any non-conflicting prior fields
-    merged_ops = {**ops, **{k: v for k, v in prior_ops.items() if k not in ops}}
-    np.save(ops["ops_path"], merged_ops)
-    del merged_ops, f_reg, f_raw, ops
+    np.save(ops["ops_path"], ops)
+    del f_reg, f_raw, ops
 
     return True
 
