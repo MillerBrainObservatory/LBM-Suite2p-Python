@@ -244,8 +244,6 @@ def merge_mrois(input_dir, output_dir, overwrite=True):
         except Exception:
             pass
 
-        print(f"Merged {len(ops_list)} ROI(s) for {plane} into {out_dir}")
-
 
 def normalize_traces(F, mode="per_neuron"):
     """
