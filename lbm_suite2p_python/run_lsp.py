@@ -27,11 +27,12 @@ from lbm_suite2p_python.volume import (
     plot_volume_signal,
     plot_volume_neuron_counts,
     get_volume_stats,
-    save_images_to_movie,
     plot_execution_time,
 )
+from mbo_utilities.file_io import get_plane_from_filename
 
 PIPELINE_TAGS = ("plane", "roi", "z", "plane_", "roi_", "z_")
+
 
 
 def derive_tag_from_filename(path):
@@ -165,11 +166,14 @@ def run_volume(
     save_path.mkdir(exist_ok=True)
 
     all_ops = []
-    for file in input_files:
-        start_file = time.time()
-        subdir = derive_tag_from_filename(Path(file).stem)
+    for z, file in enumerate(input_files):
+        tag = derive_tag_from_filename(Path(file).name)
+        plane_num = get_plane_from_filename(tag, fallback=len(all_ops))
+        subdir = f"plane{plane_num:02d}"
         plane_save_path = Path(save_path).joinpath(subdir)
         plane_save_path.mkdir(exist_ok=True)
+
+        start_file = time.time()
         ops_file = run_plane(
             input_path=file,
             save_path=plane_save_path,
@@ -181,8 +185,10 @@ def run_volume(
             dff_window_size=dff_window_size,
             dff_percentile=dff_percentile,
             save_json=save_json,
+            plane=plane_num,
             **kwargs,
         )
+
         end_file = time.time()
         print(f"Time for {file}: {(end_file - start_file) / 60:0.1f} min")
         print(f"CPU {get_cpu_percent():4.1f}% | RAM {get_ram_used() / 1024:5.2f} GB")
@@ -192,13 +198,15 @@ def run_volume(
 
     end = time.time()
     print(f"Total time for volume: {(end - start) / 60:0.1f} min")
-    if "roi" in Path(input_files[0]).stem.lower():
-        print(f"Detected mROI data, merging ROIs for each z-plane...")
-        from .merging import merge_mrois, remake_plane_figures
 
+    if "roi" in Path(input_files[0]).stem.lower():
+        print("Detected mROI data, merging ROIs for each z-plane...")
+        from .merging import merge_mrois, remake_plane_figures
         merged_savepath = save_path.joinpath("merged_mrois")
         merge_mrois(save_path, merged_savepath)
-        all_ops = mbo.get_files(merged_savepath, "ops.npy", 2)
+        all_ops = sorted(mbo.get_files(merged_savepath, "ops.npy", 2))
+
+    print(f"Planes found after merge: {len(all_ops)}")
 
     try:
         zstats_file = get_volume_stats(all_ops, overwrite=True)
