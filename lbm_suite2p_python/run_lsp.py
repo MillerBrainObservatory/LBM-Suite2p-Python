@@ -465,6 +465,11 @@ def run_plane(
     ops_user = load_ops(ops) if ops else {}
     ops = {**ops_default, **ops_user, "data_path": str(input_path.resolve())}
 
+    # suite2p diameter handling
+    if isinstance(ops["diameter"], list) and len(
+            ops["diameter"]) > 1 and ops["aspect"] == 1.0:
+        ops["aspect"] = ops["diameter"][0] / ops["diameter"][1]  # noqa
+
     file = mbo.imread(input_path)
     if isinstance(file, MboRawArray):
         raise TypeError(
@@ -553,8 +558,9 @@ def run_plane(
         needs_reg = not exists
 
     ops = {
-        **ops,
-        **ops_outpath,  # merge any existing ops
+        **ops_default,
+        **ops_outpath,
+        **ops_user,
         "ops_path": str(ops_file),
         "do_registration": int(needs_reg),
         "roidetect": int(needs_detect),
