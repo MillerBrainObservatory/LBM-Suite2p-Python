@@ -13,7 +13,7 @@ from lbm_suite2p_python.zplane import (
 from lbm_suite2p_python.postprocessing import (
     dff_rolling_percentile,
     dff_shot_noise,
-    load_planar_results,
+    load_planar_results, filter_by_area,
 )
 from mbo_utilities.lazy_array import Suite2pArray
 
@@ -317,12 +317,15 @@ def remake_plane_figures(
         "registration": plane_dir / "registration.png",
         "segmentation_accepted": plane_dir / "segmentation_accepted.png",
         "segmentation_rejected": plane_dir / "segmentation_rejected.png",
+        "area_filter": plane_dir / "segmentation_rejected_area_filter.png",
+        "segmentation_filtered": plane_dir / "segmentation_rejected.png",
         "max_proj": plane_dir / "max_projection_image.png",
         "meanImg": plane_dir / "mean_image.png",
         "meanImgE": plane_dir / "mean_image_enhanced.png",
         "traces_raw": plane_dir / "traces_raw.png",
         "traces_dff": plane_dir / "traces_dff.png",
         "traces_noise": plane_dir / "traces_noise.png",
+        "traces_area": plane_dir / "traces_rejected_area_filter.png",
         "noise_acc": plane_dir / "shot_noise_distrubution_accepted.png",
         "noise_rej": plane_dir / "shot_noise_distrubution_rejected.png",
         "model": plane_dir / "model.npy",
@@ -457,6 +460,23 @@ def remake_plane_figures(
             mask_idx=iscell_mask,
             savepath=expected_files["segmentation_accepted"],
             title="Accepted ROIs"
+        )
+
+        iscell_area = filter_by_area(iscell, res["stat"])
+        eliminated_area = iscell & ~iscell_area
+        plot_masks(
+            img=output_ops.get("meanImgE"),
+            stat=res["stat"],
+            mask_idx=eliminated_area,
+            savepath=expected_files["area_filter"],
+            title="Cells Rejected: Area filter"
+        )
+        plot_traces(
+            F,
+            save_path=expected_files["traces_area"],
+            cell_indices=eliminated_area,
+            title="Traces eliminated by Area filter",
+            fps=output_ops["fs"],
         )
 
     fig_label = kwargs.get("fig_label", plane_dir.stem)

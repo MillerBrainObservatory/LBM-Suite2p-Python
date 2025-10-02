@@ -9,12 +9,16 @@ import copy
 import gc
 
 import numpy as np
-import pandas as pd
 
 import suite2p
 from suite2p.io.binary import BinaryFile
 from lbm_suite2p_python.merging import remake_plane_figures
-from lbm_suite2p_python.postprocessing import ops_to_json, load_planar_results, load_ops
+from lbm_suite2p_python.postprocessing import (
+    ops_to_json,
+    load_planar_results,
+    load_ops,
+    filter_by_area
+)
 from mbo_utilities.log import get as get_logger
 import mbo_utilities as mbo  # noqa
 
@@ -361,7 +365,7 @@ def run_plane(
     keep_reg: bool = True,
     force_reg: bool = False,
     force_detect: bool = False,
-    dff_window_size: int = 500,
+    dff_window_size: int = 300,
     dff_percentile: int = 20,
     save_json: bool = False,
     **kwargs,
@@ -591,7 +595,6 @@ def run_plane(
     if not keep_reg:
         (plane_dir / "data.bin").unlink(missing_ok=True)
 
-    ops_file = plane_dir / "ops.npy"
     save_pc_panels_and_metrics(ops_file, plane_dir / "pc_metrics")
 
     try:
