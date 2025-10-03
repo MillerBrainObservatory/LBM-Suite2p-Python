@@ -14,25 +14,27 @@ if __name__ == "__main__":
     ]
 
     # file = fpath  # Use a specific file for testing
-    user_ops = {
-        "anatomical_only": 0,
-        "cellprob_threshold": -6,
-        "flow_threshold": -6,
-        "do_regmetrics": True,
-        "two_step_registration": True,
-    }
+    for anat in [0, 1, 2, 3]:
+        print(f"Running anatomical_only = {anat}")
 
-    outpath = inpath.parent.joinpath("green.s2p_planar")
+        user_ops = {
+            "anatomical_only": anat,
+            "cellprob_threshold": -6,
+            "flow_threshold": -6,
+            "do_regmetrics": True,
+            "two_step_registration": True,
+        }
 
-    _ = run_plane(
-        input_path=files[8],
-        save_path=outpath,
-        ops=user_ops,
-        keep_reg=True,
-        keep_raw=False,
-        force_reg=False,
-        force_detect=False,
-        save_json=False,
+        outpath = inpath.parent.joinpath(f"anatomical_{anat}")
 
-    )
+        _ = run_plane(
+            input_path=files[8],
+            save_path=outpath,
+            ops=user_ops,
+            keep_reg=True,
+            keep_raw=False,
+            force_reg=False,
+            force_detect=False,
+            save_json=False,
+        )
 
