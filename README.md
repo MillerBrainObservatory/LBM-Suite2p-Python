@@ -47,6 +47,6 @@ Widgets may throw "Invalid Rect" errors. This can be safely ignored until it is 
 
 ## Acknowledgements
 
-Thank you to the developers of [scanreader](https://github.com/atlab/scanreader), which provides a clean interface to ScanImage metadata using only tifffile and numpy.
+This pipeline is mostly a volumetric wrapper around [suite2p](https://github.com/MouseLand/suite2p), [cellpose](https://github.com/MouseLand/cellpose) and [Suite3D](https://github.com/alihaydaroglu/suite3d). We thank the contributors to those projects.
 
-We vendor this repository because it is not published to an indexable Python package registry like PyPI.
+Thank you to the developers of [scanreader](https://github.com/atlab/scanreader), which provides a clean interface to ScanImage metadata using only tifffile and numpy.
