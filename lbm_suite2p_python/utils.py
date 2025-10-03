@@ -1,12 +1,9 @@
 import os
 import subprocess
-
 import numpy as np
 from pathlib import Path
 
 import tifffile
-
-from scipy.ndimage import percentile_filter, gaussian_filter1d, uniform_filter1d
 
 
 def smooth_video(input_path, output_path, target_fps=60):
@@ -93,116 +90,6 @@ def gaussian(x, mu, sigma):
     return np.exp(-0.5 * ((x - mu) / sigma) ** 2) / (sigma * np.sqrt(2 * np.pi))
 
 
-def dff_rolling_percentile(f_trace, window_size=300, percentile=8):
-    """
-    Compute ΔF/F₀ using a rolling percentile baseline.
-
-    Parameters:
-    -----------
-    f_trace : np.ndarray
-        (N_neurons, N_frames) fluorescence traces.
-    window_size : int
-        Size of the rolling window (in frames).
-    percentile : int
-        Percentile to use for baseline F₀ estimation.
-
-    Returns:
-    --------
-    dff : np.ndarray
-        (N_neurons, N_frames) ΔF/F₀ traces.
-    """
-    if not isinstance(f_trace, np.ndarray):
-        raise TypeError("f_trace must be a numpy array")
-    if f_trace.ndim != 2:
-        raise ValueError("f_trace must be a 2D array with shape (N_neurons, N_frames)")
-    if f_trace.shape[0] == 0 or f_trace.shape[1] == 0:
-        raise ValueError("f_trace must not be empty")
-
-    floor = np.median(f_trace, axis=1, keepdims=True) * 0.01
-
-    f0 = np.array(
-        [
-            percentile_filter(f, percentile, size=window_size, mode="nearest")
-            for f in f_trace
-        ]
-    )
-
-    f0 = np.maximum(f0, floor)
-    return (f_trace - f0) / (f0 + 1e-6)  # 1e-6 to avoid division by zero
-
-
-def dff_median_filter(f_trace):
-    """
-    Compute ΔF/F₀ using a rolling median filter baseline.
-
-    Parameters:
-    -----------
-    f_trace : np.ndarray
-        (N_neurons, N_frames) fluorescence traces.
-
-    Returns:
-    --------
-    dff : np.ndarray
-        (N_neurons, N_frames) ΔF/F₀ traces.
-    """
-    if not isinstance(f_trace, np.ndarray):
-        raise TypeError("f_trace must be a numpy array")
-    if f_trace.ndim != 2:
-        raise ValueError("f_trace must be a 2D array with shape (N_neurons, N_frames)")
-    if f_trace.shape[0] == 0 or f_trace.shape[1] == 0:
-        raise ValueError("f_trace must not be empty")
-
-    f0 = np.median(f_trace, axis=1, keepdims=True) * 0.01
-    return (f_trace - f0) / (f0 + 1e-6)  # 1e-6 to avoid division by zero
-
-
-def dff_shot_noise(dff, fr):
-    """
-    Estimate the shot noise level of calcium imaging traces.
-
-    This metric quantifies the noise level based on frame-to-frame differences,
-    assuming slow calcium dynamics compared to the imaging frame rate. It was
-    introduced by Rupprecht et al. (2021) [1] as a standardized method for comparing
-    noise levels across datasets with different acquisition parameters.
-
-    The noise level :math:`\\nu` is computed as:
-
-    .. math::
-
-        \\nu = \\frac{\\mathrm{median}_t\\left( \\left| \\Delta F/F_{t+1} - \\Delta F/F_t \\right| \\right)}{\\sqrt{f_r}}
-
-    where
-      - :math:`\\Delta F/F_t` is the fluorescence trace at time :math:`t`
-      - :math:`f_r` is the imaging frame rate (in Hz).
-
-    Parameters
-    ----------
-    dff : np.ndarray
-        Array of shape (n_neurons, n_frames), containing raw :math:`\\Delta F/F` traces
-        (percent units, **without neuropil subtraction**).
-    fr : float
-        Frame rate of the recording in Hz.
-
-    Returns
-    -------
-    np.ndarray
-        Noise level :math:`\\nu` for each neuron, expressed in %/√Hz units.
-
-    Notes
-    -----
-    - The metric relies on the slow dynamics of calcium signals compared to frame rate.
-    - Higher values of :math:`\\nu` indicate higher shot noise.
-    - Units are % divided by √Hz, and while unconventional, they enable comparison across frame rates.
-
-    References
-    ----------
-    [1] Rupprecht et al., "Large-scale calcium imaging & noise levels",
-        A Neuroscientific Blog (2021).
-        https://gcamp6f.com/2021/10/04/large-scale-calcium-imaging-noise-levels/
-    """
-    return np.median(np.abs(np.diff(dff, axis=1)), axis=1) / np.sqrt(fr)
-
-
 def get_common_path(ops_files: list | tuple):
     """
     Find the common path of all files in `ops_files`.
@@ -221,7 +108,7 @@ def get_common_path(ops_files: list | tuple):
         return Path(os.path.commonpath(ops_files))
 
 
-def combine_tiffs(files):
+def combine_tiffs(files: list[str | Path]) -> np.ndarray:
     """
     Combines multiple TIFF files into a single stacked TIFF.
 
@@ -252,3 +139,35 @@ def combine_tiffs(files):
         new_tiff[i * num_frames : (i + 1) * num_frames] = tiff
 
     return new_tiff
+
+
+def bin1d(X, bin_size, axis=0):
+    """
+    Mean bin over `axis` of `X` with bin `bin_size`.
+
+    Directly from [rastermap](https://github.com/MouseLand/rastermap/blob/main/rastermap/utils.py).
+
+    Parameters
+    ----------
+    X : np.ndarray
+        Input array to be binned.
+    bin_size : int
+        Size of the bin. If <=0, no binning is performed.
+    axis : int, optional
+        Axis along which to bin. Default is 0.
+    """
+    if bin_size > 0:
+        size = list(X.shape)
+        Xb = X.swapaxes(0, axis)
+        size_new = Xb.shape
+        Xb = (
+            Xb[: size[axis] // bin_size * bin_size]
+            .reshape((size[axis] // bin_size, bin_size, *size_new[1:]))
+            .mean(axis=1)
+        )
+        Xb = Xb.swapaxes(axis, 0)
+        return Xb
+    else:
+        return X
+
+

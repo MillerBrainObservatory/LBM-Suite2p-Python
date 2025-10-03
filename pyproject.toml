@@ -17,33 +17,69 @@ classifiers=[
 	"Intended Audience :: Science/Research",
 	"Programming Language :: Python :: 3 :: Only",
 ]
-
 dependencies = [
-	"imgui-bundle==1.6.3",
-	"tifffile>=2025.3.30",
-	"zarr>=2.18.7",
-	"dask>=2025.3.0",
-	"imageio[ffmpeg]",
-	"matplotlib>=3.10.1",
-	"h5py",
+	"mkl_fft",
+	"mbo_utilities[gui, suite3d]>=1.0.7",
+	"suite2p_mbo",
 	"tqdm",
-	"mbo_utilities[all]>=1.0.0",
-	"cellpose>=4.0.6",
-	"suite2p_mbo==1.0.4",
-	"pynwb>=3.0.0",
-	"icecream>=2.1.4",
-	# "neuroconv[scanimage]>=0.7.5",
+	"pandas",
+	"matplotlib",
+	"dask>=2025.9.1",
+	"zarr==3.1.3",
+	"seaborn>=0.13.2",
 ]
 
 [project.optional-dependencies]
-napari = ["napari"]
-all = ["napari"]
+cpsam = ["cellpose==4.0.6", "pytorch", "torchaudio"]
+cpu = [
+  "torch>=2.7.0",
+  "torchvision>=0.22.0",
+]
+cu126 = [
+  "torch>=2.7.0",
+  "torchvision>=0.22.0",
+]
+
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cu126", extra = "cu126" }, # default
+  { index = "pytorch-cpu", extra = "cpu" },
+]
+torchvision = [
+  { index = "pytorch-cu126", extra = "cu126" }, # default
+  { index = "pytorch-cpu", extra = "cpu" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv]
+default-groups = ["all"]
+conflicts = [
+  [
+    { extra = "cpu" },
+    { extra = "cu126" },
+  ],
+]
 
 [dependency-groups]
 all = [
-	"lbm_suite2p_python",
-	"pytest>=7.4.4",
-	"ruff>=0.6.1",
+	"rastermap",
+	"cellpose==4.0.6",
+	"torch>=2.7.0",
+	"torchvision>=0.22.0",
 ]
 dev = [
 	"black>=25.9.0",
@@ -70,16 +106,8 @@ docs = [
 	"scikit-image",
 	"scipy",
 	"pandas",
-	"suite2p_mbo>=1.0.0,<2.0.0",
+	"suite2p_mbo",
 ]
-
-[tool.uv]
-default-groups = "all"
-
-[tool.uv.sources]
-mbo_utilities = { git = "https://github.com/MillerBrainObservatory/mbo_utilities", branch = "dev" }
-mbo_utilities_dev = { git = "https://github.com/MillerBrainObservatory/mbo_utilities", branch = "dev" }
-suite3d = { git = "https://github.com/alihaydaroglu/suite3d.git", branch = "py310" }
 
 # https://github.com/charliermarsh/ruff
 [tool.ruff]
@@ -95,8 +123,8 @@ ignore = [
 	"COM812", # Missing trailing comma (conflicts with ruff format)
 	"ISC001", # Import sorting (conflicts with ruff format)
 	"FIX002", # Fixable issue
-	"DOC201", # TODO(manzt) enable in follow-up PR; no doc for return type.
-	"FBT",    # TODO(manzt): enable in follow-up PR; require bool options to be keyword-only.
+	"DOC201", # TODO enable in follow-up PR; no doc for return type.
+	"FBT",    # TODO: enable in follow-up PR; require bool options to be keyword-only.
 ]
 
 [tool.ruff.lint.per-file-ignores]

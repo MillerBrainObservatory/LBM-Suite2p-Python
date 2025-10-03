@@ -1,6 +1,8 @@
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
+import tifffile
 import math
 
 import matplotlib.offsetbox
@@ -9,107 +11,15 @@ from matplotlib.animation import FuncAnimation
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 from matplotlib.offsetbox import VPacker, HPacker, DrawingArea
-from matplotlib.colors import hsv_to_rgb, rgb_to_hsv
 
 from scipy.ndimage import distance_transform_edt
 
-from lbm_suite2p_python.utils import dff_rolling_percentile
-from lbm_suite2p_python.utils import _resize_masks_fit_crop
+from lbm_suite2p_python.utils import (
+    _resize_masks_fit_crop,
+    bin1d,
+)
+from lbm_suite2p_python.postprocessing import dff_rolling_percentile, load_planar_results
 from suite2p.detection.stats import ROI
-from skimage.segmentation import find_boundaries
-
-
-# keep this on top of module to avoid name errors
-def load_planar_results(ops: dict | str | Path, z_plane: list | int = None) -> dict:
-    """
-    Load stat, iscell, spks files and return as a dict. Does NOT filter by valid cells, array contain both
-    accepted and rejected neurons. Filter for accepted-only via f[iscell] or fneue[iscell] if needed.
-
-    Parameters
-    ----------
-    ops : dict, str or Path
-        Dict of or path to the ops.npy file. Can be a fully qualified path or a directory containing ops.npy.
-    z_plane : int or None, optional
-        the z-plane index for this file. If provided, it is stored in the output.
-
-    Returns
-    -------
-    dict
-        dictionary with keys:
-        - 'F': fluorescence traces loaded from F.npy,
-        - 'Fneu': neuropil fluorescence traces loaded from Fneu.npy,
-        - 'spks': spike traces loaded from spks.npy,
-        - 'stat': stats loaded from stat.npy,
-        - 'iscell': boolean array from iscell.npy,
-        - 'cellprob': cell probability from classifier.
-        - 'z_plane': an array (of shape [n_neurons,]) with the provided z_plane index.
-
-    See Also
-    --------
-    lbm_suite2p_python.load_ops
-    lbm_suite2p_python.load_traces
-    """
-    if isinstance(ops, list):
-        raise ValueError(f"Input should not be a list!")
-    if isinstance(ops, (str, Path)):
-        if Path(ops).is_dir():
-            ops = Path(ops).joinpath("ops.npy")
-            if not ops.exists():
-                raise FileNotFoundError(f"ops.npy not found in given directory: {ops}")
-    output_ops = load_ops(ops)
-
-    save_path = Path(output_ops["save_path"])
-
-    F = np.load(save_path.joinpath("F.npy"))
-    Fneu = np.load(save_path.joinpath("Fneu.npy"))
-    spks = np.load(save_path.joinpath("spks.npy"))
-    stat = np.load(save_path.joinpath("stat.npy"), allow_pickle=True)
-    iscell = np.load(save_path.joinpath("iscell.npy"), allow_pickle=True)[:, 0].astype(
-        bool
-    )
-    cellprob = np.load(save_path.joinpath("iscell.npy"), allow_pickle=True)[:, 1]
-
-    n_neurons = spks.shape[0]
-    if z_plane is None:
-        z_plane_arr = output_ops.get("plane", np.zeros(n_neurons, dtype=int))
-    else:
-        z_plane_arr = np.full(n_neurons, z_plane, dtype=int)
-    return {
-        "F": F,
-        "Fneu": Fneu,
-        "spks": spks,
-        "stat": stat,
-        "iscell": iscell,
-        "cellprob": cellprob,
-        "z_plane": z_plane_arr,
-    }
-
-
-def bin1d(X, bin_size, axis=0):
-    """
-    Mean bin over `axis` of `X` with bin `bin_size`
-
-    Taken from rastermap: https://github.com/MouseLand/rastermap/blob/main/rastermap/utils.py
-
-    Parameters
-    ----------
-    X : np.ndarray
-
-
-    """
-    if bin_size > 0:
-        size = list(X.shape)
-        Xb = X.swapaxes(0, axis)
-        size_new = Xb.shape
-        Xb = (
-            Xb[: size[axis] // bin_size * bin_size]
-            .reshape((size[axis] // bin_size, bin_size, *size_new[1:]))
-            .mean(axis=1)
-        )
-        Xb = Xb.swapaxes(axis, 0)
-        return Xb
-    else:
-        return X
 
 
 def infer_units(f: np.ndarray) -> str:
@@ -131,7 +41,7 @@ def infer_units(f: np.ndarray) -> str:
         return "raw"
     elif 5 < p1 < 30 and 20 < p50 < 60 and 40 < p99 < 100:
         return "dffp"
-    elif 0.1 < p1 < 0.2 and 0.2 < p50 < 0.5 and 0.5 < p99 < 1.0:
+    elif 0.1 < p1 < 0.2 < p50 < 0.5 < p99 < 1.0:
         return "dff"
     else:
         return "unknown"
@@ -176,19 +86,19 @@ class AnchoredHScaleBar(matplotlib.offsetbox.AnchoredOffsetbox):
     """
 
     def __init__(
-            self,
-            size=1,
-            label="",
-            loc=2,
-            ax=None,
-            pad=0.4,
-            borderpad=0.5,
-            ppad=0,
-            sep=2,
-            prop=None,
-            frameon=True,
-            linekw=None,
-            **kwargs,
+        self,
+        size=1,
+        label="",
+        loc=2,
+        ax=None,
+        pad=0.4,
+        borderpad=0.5,
+        ppad=0,
+        sep=2,
+        prop=None,
+        frameon=True,
+        linekw=None,
+        **kwargs,
     ):
         if linekw is None:
             linekw = {}
@@ -204,7 +114,7 @@ class AnchoredHScaleBar(matplotlib.offsetbox.AnchoredOffsetbox):
         self.txt = txt
         self.vpac = VPacker(children=[size_bar, txt], align="center", pad=ppad, sep=sep)
         super().__init__(
-            loc,
+            loc,  # noqa
             pad=pad,
             borderpad=borderpad,
             child=self.vpac,
@@ -237,23 +147,25 @@ class AnchoredVScaleBar(matplotlib.offsetbox.AnchoredOffsetbox):
     """
 
     def __init__(
-            self,
-            height=1,
-            label="",
-            loc=2,
-            ax=None,
-            pad=0.4,
-            borderpad=0.5,
-            ppad=0,
-            sep=2,
-            prop=None,
-            frameon=True,
-            linekw={},
-            spacer_width=6,
-            **kwargs,
+        self,
+        height=1,
+        label="",
+        loc=2,
+        ax=None,
+        pad=0.4,
+        borderpad=0.5,
+        ppad=0,
+        sep=2,
+        prop=None,
+        frameon=True,
+        linekw=None,
+        spacer_width=6,
+        **kwargs,
     ):
         if ax is None:
             ax = plt.gca()
+        if linekw is None:
+            linekw = {}
         trans = ax.transAxes
 
         size_bar = matplotlib.offsetbox.AuxTransformBox(trans)
@@ -270,7 +182,7 @@ class AnchoredVScaleBar(matplotlib.offsetbox.AnchoredOffsetbox):
             children=[size_bar, spacer, txt], align="bottom", pad=ppad, sep=sep
         )
         super().__init__(
-            loc,
+            loc,  # noqa
             pad=pad,
             borderpad=borderpad,
             child=self.hpac,
@@ -347,16 +259,17 @@ def plot_traces_noise(
 
 
 def plot_traces(
-    f,
-    save_path: str | Path = "",
-    fps=17.0,
-    num_neurons=20,
-    window=220,
-    title="",
-    offset=None,
-    lw=0.5,
-    cmap="tab10",
-    signal_units=None,
+        f,
+        save_path: str | Path = "",
+        cell_indices: np.ndarray | list[int] | None = None,
+        fps=17.0,
+        num_neurons=20,
+        window=220,
+        title="",
+        offset=None,
+        lw=0.5,
+        cmap="tab10",
+        signal_units=None,
 ):
     """
     Plot stacked fluorescence traces with automatic offset and scale bars.
@@ -366,28 +279,29 @@ def plot_traces(
     f : ndarray
         2d array of fluorescence traces (n_neurons x n_timepoints).
     save_path : str, optional
-        Path to save the output plot (default is "./stacked_traces.png").
-    fps : float, optional
-        Sampling rate in frames per second (default is 17.0).
-    num_neurons : int, optional
-        Number of neurons to display (default is 20).
-    window : float, optional
-        Time window (in seconds) to display (default is 120).
-    title : str, optional
-        Title of the figure (default is "").
-    offset : float or None, optional
+        Path to save the output plot.
+    fps : float
+        Sampling rate in frames per second.
+    num_neurons : int
+        Number of neurons to display if cell_indices is None.
+    window : float
+        Time window (in seconds) to display.
+    title : str
+        Title of the figure.
+    offset : float or None
         Vertical offset between traces; if None, computed automatically.
-    lw : float, optional
+    lw : float
         Line width for data points.
-    cmap : str, optional
-        Matplotlib colormap string (default is 'tab10').
+    cmap : str
+        Matplotlib colormap string.
     signal_units : str, optional
-        Units of fluorescence signal. Options: "raw", "dff", "dffp", if None will infer from percentile,
-        recommended to keep None unless units are misinterpreted.
+        Units of fluorescence signal.
+    cell_indices : array-like or None
+        Specific cell indices to plot. If provided, overrides num_neurons.
     """
+
     if isinstance(f, dict):
         ops = f
-        print("Loading dff (%) from ops-dict")
         res = load_planar_results(ops)
         f = res["F"]
         percentile = ops.get("dff_percentile", 20)
@@ -398,14 +312,25 @@ def plot_traces(
     if signal_units is None:
         signal_units = infer_units(f)
 
-    displayed_neurons = min(num_neurons, f.shape[0])
     n_timepoints = f.shape[-1]
     data_time = np.arange(n_timepoints) / fps
     current_frame = min(int(window * fps), n_timepoints - 1)
 
+    if cell_indices is None:
+        displayed_neurons = min(num_neurons, f.shape[0])
+        indices = np.arange(displayed_neurons)
+    else:
+        indices = np.array(cell_indices)
+        if indices.dtype == bool:
+            indices = np.where(indices)[0]  # convert boolean mask to int indices
+        displayed_neurons = len(indices)
+
+    if len(indices) == 0:
+        return None
+
     if offset is None:
-        p10 = np.percentile(f[:displayed_neurons, : current_frame + 1], 10, axis=1)
-        p90 = np.percentile(f[:displayed_neurons, : current_frame + 1], 90, axis=1)
+        p10 = np.percentile(f[indices, : current_frame + 1], 10, axis=1)
+        p90 = np.percentile(f[indices, : current_frame + 1], 90, axis=1)
         offset = np.median(p90 - p10) * 1.2
 
     cmap_inst = plt.get_cmap(cmap)
@@ -420,8 +345,8 @@ def plot_traces(
     for spine in ax.spines.values():
         spine.set_visible(False)
 
-    for i in reversed(range(displayed_neurons)):
-        trace = f[i, : current_frame + 1]
+    for i, idx in enumerate(reversed(indices)):
+        trace = f[idx, : current_frame + 1]
         baseline = np.percentile(trace, 8)
         shifted_trace = (trace - baseline) + i * offset
 
@@ -433,8 +358,10 @@ def plot_traces(
             zorder=-i,
         )
 
+        # overlap fill with next trace
         if i < displayed_neurons - 1:
-            prev_trace = f[i + 1, : current_frame + 1]
+            next_idx = list(reversed(indices))[i + 1]
+            prev_trace = f[next_idx, : current_frame + 1]
             prev_baseline = np.percentile(prev_trace, 8)
             prev_shifted = (prev_trace - prev_baseline) + (i + 1) * offset
             mask = shifted_trace > prev_shifted
@@ -474,8 +401,8 @@ def plot_traces(
         linekw=linekw,
         ax=ax,
     )
-    hsb.set_bbox_to_anchor((0.9, -0.05), transform=ax.transAxes)
-    hsb.txt._text.set_color("white")
+    hsb.set_bbox_to_anchor((0.9, -0.05), transform=ax.transAxes)  # noqa
+    hsb.txt._text.set_color("white")  # noqa
 
     ax.add_artist(hsb)
 
@@ -489,13 +416,12 @@ def plot_traces(
     elif signal_units == "dffp":
         dff_label = f"{rounded_dff:.0f} % ΔF/F₀"
     else:
-        print(f"unknown label: {signal_units}")
         dff_label = "Unknown"
 
     vsb = AnchoredVScaleBar(
         height=0.1,
         label=dff_label,
-        loc="lower right",
+        loc="lower right",  # noqa
         frameon=False,
         pad=-0.1,
         sep=4,
@@ -503,9 +429,9 @@ def plot_traces(
         ax=ax,
         spacer_width=0,
     )
-    vsb.set_bbox_to_anchor((1.00, 0.05), transform=ax.transAxes)
+    vsb.set_bbox_to_anchor((1.00, 0.05), transform=ax.transAxes)  # noqa
     # vsb.set_bbox_to_anchor(, transform=ax.transAxes)
-    vsb.txt._text.set_color("white")
+    vsb.txt._text.set_color("white")  # noqa
     ax.add_artist(vsb)
 
     if title:
@@ -529,20 +455,20 @@ def plot_traces(
 
 
 def animate_traces(
-        f,
-        save_path="./scrolling.mp4",
-        fps=17.0,
-        start_neurons=20,
-        window=120,
-        title="",
-        gap=None,
-        lw=0.5,
-        cmap="tab10",
-        anim_fps=60,
-        expand_after=5,
-        speed_factor=1.0,
-        expansion_factor=2.0,
-        smooth_factor=1,
+    f,
+    save_path="./scrolling.mp4",
+    fps=17.0,
+    start_neurons=20,
+    window=120,
+    title="",
+    gap=None,
+    lw=0.5,
+    cmap="tab10",
+    anim_fps=60,
+    expand_after=5,
+    speed_factor=1.0,
+    expansion_factor=2.0,
+    smooth_factor=1,
 ):
     """WIP"""
     n_neurons, n_timepoints = f.shape
@@ -550,7 +476,7 @@ def animate_traces(
     T_data = data_time[-1]
     current_frame = min(int(window * fps), n_timepoints - 1)
     t_f_local = (T_data - window + expansion_factor * expand_after) / (
-            1 + expansion_factor
+        1 + expansion_factor
     )
 
     if gap is None:
@@ -598,14 +524,14 @@ def animate_traces(
         ax=ax,
     )
 
-    hsb.set_bbox_to_anchor((0.97, -0.1), transform=ax.transAxes)
+    hsb.set_bbox_to_anchor((0.97, -0.1), transform=ax.transAxes)  # noqa
 
     ax.add_artist(hsb)
 
     vsb = AnchoredVScaleBar(
         height=0.1,
         label=dff_label,
-        loc="lower right",
+        loc="lower right",  # noqa
         frameon=False,
         pad=0,
         sep=4,
@@ -621,14 +547,14 @@ def animate_traces(
         lines.append(line)
 
     def init():
-        for i in range(n_neurons):
-            if i < start_neurons:
-                trace = f[i, : current_frame + 1]
-                baseline = np.percentile(trace, 8)
-                shifted = (trace - baseline) + i * gap
-                lines[i].set_data(data_time[: current_frame + 1], shifted)
+        for ix in range(n_neurons):
+            if ix < start_neurons:
+                _trace = f[ix, : current_frame + 1]
+                _baseline = np.percentile(_trace, 8)
+                _shifted = (_trace - _baseline) + ix * gap
+                lines[ix].set_data(data_time[: current_frame + 1], _shifted)
             else:
-                lines[i].set_data([], [])
+                lines[ix].set_data([], [])
         extra = 0.05 * window
         ax.set_xlim(0, window + extra)
         ax.set_ylim(y_min - 0.05 * abs(y_min), y_max + 0.05 * abs(y_max))
@@ -643,7 +569,7 @@ def animate_traces(
             n_visible = start_neurons
         else:
             u = min(1.0, (t - expand_after) / (t_f_local - expand_after))
-            ease = 3 * u ** 2 - 2 * u ** 3  # smoothstep easing
+            ease = 3 * u**2 - 2 * u**3  # smoothstep easing
             x_min = t
 
             window_start = window
@@ -659,27 +585,27 @@ def animate_traces(
         i_upper = int(x_max * fps)
         i_upper = max(i_upper, i_lower + 1)
 
-        for i in range(n_neurons):
-            if i < n_visible:
-                trace = f[i, i_lower:i_upper]
-                baseline = np.percentile(trace, 8)
-                shifted = (trace - baseline) + i * gap
-                lines[i].set_data(data_time[i_lower:i_upper], shifted)
+        for ix in range(n_neurons):
+            if ix < n_visible:
+                _trace = f[ix, i_lower:i_upper]
+                _baseline = np.percentile(_trace, 8)
+                _shifted = (_trace - _baseline) + ix * gap
+                lines[ix].set_data(data_time[i_lower:i_upper], _shifted)
             else:
-                lines[i].set_data([], [])
+                lines[ix].set_data([], [])
 
         for fill in fills:
             fill.remove()
         fills.clear()
 
-        for i in range(n_visible - 1):
-            trace1 = f[i, i_lower:i_upper]
+        for ix in range(n_visible - 1):
+            trace1 = f[ix, i_lower:i_upper]
             baseline1 = np.percentile(trace1, 8)
-            shifted1 = (trace1 - baseline1) + i * gap
+            shifted1 = (trace1 - baseline1) + ix * gap
 
-            trace2 = f[i + 1, i_lower:i_upper]
+            trace2 = f[ix + 1, i_lower:i_upper]
             baseline2 = np.percentile(trace2, 8)
-            shifted2 = (trace2 - baseline2) + (i + 1) * gap
+            shifted2 = (trace2 - baseline2) + (ix + 1) * gap
 
             fill = ax.fill_between(
                 data_time[i_lower:i_upper],
@@ -687,16 +613,17 @@ def animate_traces(
                 shifted2,
                 where=shifted1 > shifted2,
                 color="black",
-                zorder=-i - 1,
+                zorder=-ix - 1,
             )
             fills.append(fill)
 
-        all_shifted = [
-            (f[i, i_lower:i_upper] - np.percentile(f[i, i_lower:i_upper], 8)) + i * gap
-            for i in range(n_visible)
+        _all_shifted = [
+            (f[ix, i_lower:i_upper] - np.percentile(f[ix, i_lower:i_upper], 8))
+            + ix * gap
+            for ix in range(n_visible)
         ]
-        all_y = np.concatenate(all_shifted)
-        y_min_new, y_max_new = np.min(all_y), np.max(all_y)
+        _all_y = np.concatenate(_all_shifted)
+        y_min_new, y_max_new = np.min(_all_y), np.max(_all_y)
 
         extra_axis = 0.05 * (x_max - x_min)
         ax.set_xlim(x_min, x_max + extra_axis)
@@ -707,13 +634,13 @@ def animate_traces(
         if title:
             ax.set_title(title, fontsize=16, fontweight="bold", color="white")
 
-        rounded_dff = np.round(y_max_new - y_min_new) * 0.1
+        _dff_rounded = np.round(y_max_new - y_min_new) * 0.1
 
-        if rounded_dff > 300:
+        if _dff_rounded > 300:
             vsb.set_visible(False)
         else:
-            dff_label = f"{rounded_dff:.0f} % ΔF/F₀"
-            vsb.txt.set_text(dff_label)
+            _dff_label = f"{_dff_rounded:.0f} % ΔF/F₀"
+            vsb.txt.set_text(_dff_label)
         hsb.txt.set_text(format_time(0.1 * (x_max - x_min)))
         ax.set_ylabel(
             f"Neuron Count: {n_visible}", fontsize=8, fontweight="bold", labelpad=2
@@ -737,98 +664,88 @@ def animate_traces(
 
 
 def feather_mask(mask, max_alpha=0.75, edge_width=3):
-    # Suite2p-like soft mask alpha using distance transform
+    # mask alpha using distance transform
     dist_out = distance_transform_edt(mask == 0)
     alpha = np.clip((edge_width - dist_out) / edge_width, 0, 1)
     return alpha * max_alpha
 
 
-def suite2p_roi_overlay(
-    ops,
-    stat,
-    iscell,
-    proj=None,
-    plot_indices=None,
-    savepath=None,
-    color_mode="random",
-    red_border=False,
-    colors=None,
+def plot_masks(
+        img: np.ndarray,
+        stat: list[dict] | dict,
+        mask_idx: np.ndarray,
+        savepath: str | Path,
+        colors=None,
+        title=None,
 ):
-    ops = load_ops(ops)
-    yr0, yr1 = ops["yrange"]
-    xr0, xr1 = ops["xrange"]
-    img = ops[proj]  # Already cropped by suite2p
+    """
+    Draw ROI overlays onto the mean image.
 
-    print("yrange, xrange:", ops["yrange"], ops["xrange"])
-    print("img.shape:", img.shape, "operational Ly/Lx:", ops["Ly"], ops["Lx"])
+    Parameters
+    ----------
+    stat : list[dict]
+        Suite2p ROI stat dictionaries (with "ypix", "xpix", "lam").
+    img : ndarray (Ly x Lx)
+        Background image to overlay on.
+    mask_idx : ndarray[bool]
+        Boolean array selecting which ROIs to plot.
+    savepath : str or Path
+        Fully qualified path to save the figure.
+    colors : ndarray or list, optional
+        Array/list of RGB tuples for each ROI selected.
+        If None, colors are assigned via HSV colormap.
+    title : str, optional
+        Title string to place on the figure.
+    """
 
-    # Normalize for display
-    p1, p99 = np.percentile(img, 1), np.percentile(img, 99)
-    norm_img = np.clip((img - p1) / (p99 - p1), 0, 1)
+    # Normalize background image
+    canvas = np.tile(
+        (img - img.min()) / (np.ptp(img) + 1e-6), (3, 1, 1)
+    ).transpose(1, 2, 0)
 
-    H = np.zeros_like(norm_img)
-    S = np.zeros_like(norm_img)
-    mask = np.zeros_like(norm_img, dtype=bool)
+    # Assign colors if not provided
+    n_masks = mask_idx.sum()
+    if colors is None:
+        colors = plt.cm.hsv(np.linspace(0, 1, n_masks + 1))[:, :3]  # noqa
 
-    iscell = np.asarray(iscell)
-    cell_mask = iscell if iscell.ndim == 1 else iscell[:, 0]
-    indices = np.flatnonzero(cell_mask) if plot_indices is None else plot_indices
-    for i, n in enumerate(indices):
-        s = stat[n]
-        # Shift ROI coordinates into cropped image space
-        ypix = np.array(s["ypix"]) - yr0
-        xpix = np.array(s["xpix"]) - xr0
+    c = 0
+    for n, s in enumerate(stat):
+        if mask_idx[n]:
+            ypix, xpix, lam = s["ypix"], s["xpix"], s["lam"]
+            lam = lam / lam.max()
+            col = colors[c]
+            c += 1
+            for k in range(3):
+                canvas[ypix, xpix, k] = (
+                        0.5 * canvas[ypix, xpix, k] + 0.5 * col[k] * lam
+                )
 
-        # Filter out invalid coords (can happen near edges)
-        valid = (
-            (ypix >= 0)
-            & (ypix < norm_img.shape[0])
-            & (xpix >= 0)
-            & (xpix < norm_img.shape[1])
-        )
-        ypix = ypix[valid]
-        xpix = xpix[valid]
-
-        mask[ypix, xpix] = True
-
-        if colors is not None:
-            hue = rgb_to_hsv(np.array([[colors[i][:3]]]))[0, 0, 0]
-        elif color_mode == "random":
-            hue = np.random.rand()
-        elif color_mode == "uniform":
-            hue = 0.6
-        else:
-            hue = (i / max(len(indices), 1)) % 1.0
-        H[ypix, xpix] = hue
-        S[ypix, xpix] = 1
-
-    rgb = hsv_to_rgb(np.stack([H, S, norm_img], axis=-1))
-
-    if red_border and mask.any():
-        borders = find_boundaries(mask, mode="outer")
-        rgb[borders] = [1, 0, 0]
-
-    plt.figure(figsize=(8, 8))
-    plt.imshow(rgb)
+    plt.figure(figsize=(10, 10))
+    plt.imshow(canvas, interpolation="nearest")
+    if title is not None:
+        plt.title(title, fontsize=10)
     plt.axis("off")
     plt.tight_layout()
+
     if savepath:
-        plt.savefig(savepath, dpi=300, bbox_inches="tight", facecolor="black")
+        if Path(savepath).is_dir():
+            raise ValueError("savepath must be a file path, not a directory.")
+        plt.savefig(savepath, dpi=300)
         plt.close()
     else:
         plt.show()
 
 
 def plot_projection(
-        ops,
-        savepath=None,
-        fig_label=None,
-        vmin=None,
-        vmax=None,
-        add_scalebar=False,
-        proj="meanImg",
-        display_masks=False,
-        accepted_only=False,
+    ops,
+    output_directory=None,
+    fig_label=None,
+    vmin=None,
+    vmax=None,
+    add_scalebar=False,
+    proj="meanImg",
+    display_masks=False,
+    accepted_only=False,
 ):
     if proj == "meanImg":
         txt = "Mean-Image"
@@ -841,8 +758,8 @@ def plot_projection(
             "Unknown projection type. Options are ['meanImg', 'max_proj', 'meanImgE']"
         )
 
-    if savepath:
-        savepath = Path(savepath)
+    if output_directory:
+        output_directory = Path(output_directory)
 
     data = ops[proj]
     shape = data.shape
@@ -959,16 +876,16 @@ def plot_projection(
 
     plt.tight_layout()
 
-    if savepath:
-        savepath.parent.mkdir(parents=True, exist_ok=True)
-        plt.savefig(savepath, dpi=300, facecolor="black")
+    if output_directory:
+        output_directory.parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(output_directory, dpi=300, facecolor="black")
         plt.close(fig)
     else:
         plt.show()
 
 
 def plot_noise_distribution(
-        noise_levels: np.ndarray, save_path=None, title="Noise Level Distribution"
+    noise_levels: np.ndarray, output_filename=None, title="Noise Level Distribution"
 ):
     """
     Plots and saves the distribution of noise levels across neurons as a standardized image.
@@ -977,7 +894,7 @@ def plot_noise_distribution(
     ----------
     noise_levels : np.ndarray
         1D array of noise levels for each neuron.
-    save_path : str or Path, optional
+    output_filename : str or Path, optional
         Path to save the plot. If empty, the plot will be displayed instead of saved.
     title : str, optional
         Suptitle for plot, default is "Noise Level Distribution".
@@ -986,17 +903,17 @@ def plot_noise_distribution(
     --------
     lbm_suite2p_python.dff_shot_noise
     """
-    if save_path:
-        save_path = Path(save_path)
-        if save_path.is_dir():
+    if output_filename:
+        output_filename = Path(output_filename)
+        if output_filename.is_dir():
             raise AttributeError(
-                f"save_path should be a fully qualified file path, not a directory: {save_path}"
+                f"save_path should be a fully qualified file path, not a directory: {output_filename}"
             )
 
     fig = plt.figure(figsize=(8, 5))
     plt.hist(noise_levels, bins=50, color="gray", alpha=0.7, edgecolor="black")
 
-    mean_noise = np.mean(noise_levels)
+    mean_noise: float = np.mean(noise_levels)  # noqa
     plt.axvline(
         mean_noise,
         color="r",
@@ -1013,86 +930,36 @@ def plot_noise_distribution(
     plt.xticks(fontsize=12)
     plt.yticks(fontsize=12)
 
-    if save_path:
-        plt.savefig(save_path, dpi=200, bbox_inches="tight")
+    if output_filename:
+        plt.savefig(output_filename, dpi=200, bbox_inches="tight")
         plt.close(fig)
     else:
         plt.show()
 
 
-def load_traces(ops: dict | str | Path):
-    """
-    Return (accepted-only) fluorescence traces, neuropil traces and spike traces from ops file.
-
-    Parameters
-    ----------
-    ops : str, Path or dict
-        Path to the ops.npy file or a dict containing the ops data.
-
-    Returns
-    -------
-    tuple
-        A tuple containing three arrays **filtered to contain only accepted neurons**:
-        - F: Fluorescence traces (2D array, shape [n_neurons, n_timepoints])
-        - Fneu: Neuropil fluorescence traces (2D array, shape [n_neurons, n_timepoints])
-        - spks: Spike traces (2D array, shape [n_neurons, n_timepoints])
-
-    See Also
-    --------
-    lbm_suite2p_python.load_ops
-    lbm_suite2p_python.load_planar_results
-    """
-    output_ops = load_ops(ops)
-    save_path = Path(output_ops["save_path"])
-
-    F = np.load(save_path.joinpath("F.npy"))
-    Fneu = np.load(save_path.joinpath("Fneu.npy"))
-    spks = np.load(save_path.joinpath("spks.npy"))
-    iscell = np.load(save_path.joinpath("iscell.npy"), allow_pickle=True)[:, 0].astype(
-        bool
-    )
-    return F[iscell], Fneu[iscell], spks[iscell]
-
-
-def save_ops(ops: dict, path: Path | str) -> None:
-    """Save ops dict to a npy file. Ensure parent directory exists."""
-    path = Path(path)
-    path.parent.mkdir(exist_ok=True, parents=True)
-    np.save(str(path), ops, allow_pickle=True)
-
-
-def load_ops(ops_input: str | Path | list[str | Path]) -> dict:
-    """Simple utility load a suite2p npy file"""
-    if isinstance(ops_input, (str, Path)):
-        return np.load(ops_input, allow_pickle=True).item()
-    elif isinstance(ops_input, dict):
-        return ops_input
-    print("Warning: No valid ops file provided, returning empty dict.")
-    return {}
-
-
 def plot_rastermap(
-        spks,
-        model,
-        neuron_bin_size=None,
-        fps=17,
-        vmin=0,
-        vmax=0.8,
-        xmin=0,
-        xmax=None,
-        save_path=None,
-        title=None,
-        title_kwargs={},
-        fig_text=None,
+    spks,
+    model,
+    neuron_bin_size=None,
+    fps=17,
+    vmin=0,
+    vmax=0.8,
+    xmin=0,
+    xmax=None,
+    save_path=None,
+    title=None,
+    title_kwargs=None,
+    fig_text=None,
 ):
     n_neurons, n_timepoints = spks.shape
+    if title_kwargs is None:
+        title_kwargs = dict(fontsize=14, fontweight="bold", color="white")
 
     if neuron_bin_size is None:
         neuron_bin_size = max(1, np.ceil(n_neurons // 500))
     else:
         neuron_bin_size = max(1, min(neuron_bin_size, n_neurons))
 
-    print(f"Neuron binning factor (default): {neuron_bin_size}")
     sn = bin1d(spks[model.isort], neuron_bin_size, axis=0)
     if xmax is None or xmax < xmin or xmax > sn.shape[1]:
         xmax = sn.shape[1]
@@ -1114,7 +981,7 @@ def plot_rastermap(
 
     scalebar_length = heatmap_pos.width * 0.1  # 10% width of heatmap
     scalebar_duration = np.round(
-        current_time * 0.1
+        current_time * 0.1  # noqa
     )  # 10% of the displayed time in heatmap
 
     x_start = heatmap_pos.x1 - scalebar_length
@@ -1143,7 +1010,7 @@ def plot_rastermap(
     )
 
     axins = fig.add_axes(
-        [
+        [  # noqa
             heatmap_pos.x0,  # exactly aligned with heatmap's left edge
             heatmap_pos.y0 - 0.03,  # slightly below the heatmap
             heatmap_pos.width * 0.1,  # 20% width of heatmap
@@ -1153,7 +1020,7 @@ def plot_rastermap(
 
     cbar = fig.colorbar(img, cax=axins, orientation="horizontal", ticks=[vmin, vmax])
     cbar.ax.tick_params(labelsize=5, colors="white", pad=2)
-    cbar.outline.set_edgecolor("white")
+    cbar.outline.set_edgecolor("white")  # noqa
 
     fig.text(
         heatmap_pos.x0,
@@ -1218,3 +1085,123 @@ def plot_rastermap(
         plt.show()
 
     return fig, ax
+
+
+def save_pc_panels_and_metrics(ops, savepath, pcs=(0, 1, 2, 3)):
+    """
+    Save PC metrics in two forms:
+    1. Alternating TIFF (PC Low/High side-by-side per frame, press play in ImageJ to flip).
+    2. Panel TIFF (static figures for PC1/2 and PC3/4).
+    Also saves summary metrics as CSV.
+
+    Parameters
+    ----------
+    ops : dict or str or Path
+        Suite2p ops dict or path to ops.npy. Must contain "regPC" and "regDX".
+    savepath : str or Path
+        Output file stem (without extension).
+    pcs : tuple of int
+        PCs to include (default first four).
+    """
+    if not isinstance(ops, dict):
+        ops = np.load(ops, allow_pickle=True).item()
+
+    if "nframes" in ops and ops["nframes"] < 1500:
+        print(
+            f"1500 frames needed for registration metrics, found {ops['nframes']}. Skipping PC metrics."
+        )
+        return {}
+    elif "regPC" not in ops or "regDX" not in ops:
+        print("regPC or regDX not found in ops, skipping PC metrics.")
+        return {}
+    elif len(pcs) != 4 or any(p < 0 for p in pcs):
+        raise ValueError(
+            "pcs must be a tuple of four non-negative integers."
+            " E.g., (0, 1, 2, 3) for the first four PCs."
+            f" Got: {pcs}"
+        )
+
+    regPC = ops["regPC"]  # shape (2, nPC, Ly, Lx)
+    regDX = ops["regDX"]  # shape (nPC, 3)
+    savepath = Path(savepath)
+
+    alt_frames = []
+    alt_labels = []
+    for view, view_name in zip([0, 1], ["Low", "High"]):
+        # side-by-side: PC1 | PC2
+        left = regPC[view, pcs[0]]
+        right = regPC[view, pcs[1]]
+        combined = np.hstack([left, right])
+        alt_frames.append(combined.astype(np.float32))
+        alt_labels.append(f"PC{pcs[0] + 1}/{pcs[1] + 1} {view_name}")
+
+        # side-by-side: PC3 | PC4
+        left = regPC[view, pcs[2]]
+        right = regPC[view, pcs[3]]
+        combined = np.hstack([left, right])
+        alt_frames.append(combined.astype(np.float32))
+        alt_labels.append(f"PC{pcs[2] + 1}/{pcs[3] + 1} {view_name}")
+
+    alt_tiff = savepath.with_name(savepath.stem + "_alternating.tif")
+    tifffile.imwrite(
+        alt_tiff,
+        np.stack(alt_frames, axis=0),
+        imagej=True,
+        metadata={"Labels": alt_labels},
+    )
+    print(f"Saved alternating TIFF to {alt_tiff}")
+
+    # ----------------
+    # 2. Panel TIFF
+    # ----------------
+    panel_frames = []
+    panel_labels = []
+    for left, right in [(pcs[0], pcs[1]), (pcs[2], pcs[3])]:
+        for view, view_name in zip([0, 1], ["Low", "High"]):
+            fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+            axes[0].imshow(regPC[view, left], cmap="gray")
+            axes[0].set_title(f"PC{left + 1} {view_name}")
+            axes[0].axis("off")
+            axes[1].imshow(regPC[view, right], cmap="gray")
+            axes[1].set_title(f"PC{right + 1} {view_name}")
+            axes[1].axis("off")
+            fig.tight_layout()
+            fig.canvas.draw()
+            img = np.frombuffer(fig.canvas.buffer_rgba(), dtype=np.uint8)  # noqa
+            w, h = fig.canvas.get_width_height()
+            img = img.reshape((h, w, 4))[..., :3]
+            panel_frames.append(img)
+            panel_labels.append(f"PC{left + 1}/{right + 1} {view_name}")
+            plt.close(fig)
+
+    panel_tiff = savepath.with_name(savepath.stem + "_panels.tif")
+    tifffile.imwrite(
+        panel_tiff,
+        np.stack(panel_frames, axis=0),
+        imagej=True,
+        metadata={"Labels": panel_labels},
+    )
+    print(f"Saved panel TIFF to {panel_tiff}")
+
+    # ----------------
+    # 3. CSV metrics
+    # ----------------
+    df = pd.DataFrame(regDX, columns=["Rigid", "Avg_NR", "Max_NR"])
+    metrics = {
+        "Avg_Rigid": df["Rigid"].mean(),
+        "Avg_Average_NR": df["Avg_NR"].mean(),
+        "Avg_Max_NR": df["Max_NR"].mean(),
+        "Max_Rigid": df["Rigid"].max(),
+        "Max_Average_NR": df["Avg_NR"].max(),
+        "Max_Max_NR": df["Max_NR"].max(),
+    }
+    csv_path = savepath.with_suffix(".csv")
+    pd.DataFrame([metrics]).to_csv(csv_path, index=False)
+    print(f"Saved metrics CSV to {csv_path}")
+    print(df.head())
+
+    return {
+        "alternating_tiff": alt_tiff,
+        "panel_tiff": panel_tiff,
+        "metrics_csv": csv_path,
+    }

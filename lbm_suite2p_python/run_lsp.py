@@ -1,56 +1,42 @@
 import logging
+import time
+from pathlib import Path
 import os
 import traceback
 from contextlib import nullcontext
 from itertools import product
 import copy
+import gc
 
 import numpy as np
 
 import suite2p
 from suite2p.io.binary import BinaryFile
-from lbm_suite2p_python.utils import dff_rolling_percentile
-import mbo_utilities as mbo  # noqa
-
-logger = mbo.log.get("run_lsp")
-
-from lbm_suite2p_python.zplane import (
-    plot_traces,
-    plot_projection,
-    plot_noise_distribution,
+from lbm_suite2p_python.merging import remake_plane_figures
+from lbm_suite2p_python.postprocessing import (
+    ops_to_json,
     load_planar_results,
     load_ops,
-    suite2p_roi_overlay,
-    plot_traces_noise,
+    filter_by_area
 )
-from . import dff_shot_noise
-from .volume import (
-    plot_execution_time,
+from mbo_utilities.log import get as get_logger
+import mbo_utilities as mbo  # noqa
+
+from lbm_suite2p_python.zplane import save_pc_panels_and_metrics
+
+logger = get_logger("run_lsp")
+
+from lbm_suite2p_python._benchmarking import get_cpu_percent, get_ram_used
+from lbm_suite2p_python.volume import (
     plot_volume_signal,
     plot_volume_neuron_counts,
     get_volume_stats,
-    save_images_to_movie,
+    plot_execution_time,
 )
-
-if mbo.is_running_jupyter():
-    from tqdm.notebook import tqdm
-else:
-    from tqdm import tqdm
-
-try:
-    from rastermap import Rastermap
-
-    HAS_RASTERMAP = True
-except ImportError:
-    Rastermap = None
-    utils = None
-    HAS_RASTERMAP = False
-if HAS_RASTERMAP:
-    from lbm_suite2p_python.zplane import plot_rastermap
-
-from pathlib import Path
+from mbo_utilities.file_io import get_plane_from_filename
 
 PIPELINE_TAGS = ("plane", "roi", "z", "plane_", "roi_", "z_")
+
 
 
 def derive_tag_from_filename(path):
@@ -98,21 +84,17 @@ def derive_tag_from_filename(path):
     return name
 
 
-def get_missing_ops_keys(ops: dict) -> list[str]:
-    required = ["Ly", "Lx", "fs", "nframes", "raw_file", "input_format"]
-    return [k for k in required if k not in ops or ops[k] is None]
-
-
 def run_volume(
     input_files: list,
     save_path: str | Path = None,
     ops: dict | str | Path = None,
     keep_reg: bool = True,
-    keep_raw: bool = True,
-    force_reg: bool = False,
+    keep_raw: bool = False,
+    force_reg: bool = True,
     force_detect: bool = False,
     dff_window_size: int = 500,
     dff_percentile: int = 20,
+    save_json: bool = False,
     **kwargs,
 ):
     """
@@ -142,6 +124,8 @@ def run_volume(
         Number of frames to use for windowed dF/F₀ calculations.
     dff_percentile : int, default 20
         Percentile to use for baseline F₀ estimation in dF/F₀ calculations.
+    save_json : bool, default False
+        If true, saves ops as a JSON file in addition to npy.
 
     Returns
     -------
@@ -178,17 +162,23 @@ def run_volume(
     - Traces animation over time and neurons
     - Optional rastermap clustering results
     """
+    start = time.time()
     if save_path is None:
         save_path = Path(input_files[0]).parent
 
+    save_path = Path(save_path)
+    save_path.mkdir(exist_ok=True)
+
     all_ops = []
-    for file in tqdm(
-        input_files, desc="Processing Planes", unit="plane", leave=False, position=1
-    ):
-        subdir = derive_tag_from_filename(Path(file).stem)
+    for z, file in enumerate(input_files):
+        tag = derive_tag_from_filename(Path(file).name)
+        plane_num = get_plane_from_filename(tag, fallback=len(all_ops))
+        subdir = f"plane{plane_num:02d}"
         plane_save_path = Path(save_path).joinpath(subdir)
         plane_save_path.mkdir(exist_ok=True)
-        output_ops = run_plane(
+
+        start_file = time.time()
+        ops_file = run_plane(
             input_path=file,
             save_path=plane_save_path,
             ops=ops,
@@ -198,36 +188,39 @@ def run_volume(
             force_detect=force_detect,
             dff_window_size=dff_window_size,
             dff_percentile=dff_percentile,
+            save_json=save_json,
+            plane=plane_num,
+            **kwargs,
         )
-        all_ops.append(output_ops)
 
-    # batch was ran, lets accumulate data
-    if isinstance(all_ops[0], dict):
-        all_ops = [ops["ops_path"] for ops in all_ops]
+        end_file = time.time()
+        print(f"Time for {file}: {(end_file - start_file) / 60:0.1f} min")
+        print(f"CPU {get_cpu_percent():4.1f}% | RAM {get_ram_used() / 1024:5.2f} GB")
+        all_ops.append(ops_file)
+        del ops_file
+        gc.collect()
+
+    end = time.time()
+    print(f"Total time for volume: {(end - start) / 60:0.1f} min")
+
+    if "roi" in Path(input_files[0]).stem.lower():
+        print("Detected mROI data, merging ROIs for each z-plane...")
+        from .merging import merge_mrois, remake_plane_figures
+        merged_savepath = save_path.joinpath("merged_mrois")
+        merge_mrois(save_path, merged_savepath)
+        all_ops = sorted(mbo.get_files(merged_savepath, "ops.npy", 2))
+
+    print(f"Planes found after merge: {len(all_ops)}")
 
     try:
         zstats_file = get_volume_stats(all_ops, overwrite=True)
-
-        all_segs = mbo.get_files(save_path, "segmentation.png", 4)
-        all_means = mbo.get_files(save_path, "mean_image.png", 4)
-        all_maxs = mbo.get_files(save_path, "max_projection_image.png", 4)
-        all_traces = mbo.get_files(save_path, "traces.png", 4)
-
-        save_images_to_movie(
-            all_segs, os.path.join(save_path, "segmentation_volume.mp4")
-        )
-        save_images_to_movie(
-            all_means, os.path.join(save_path, "mean_images_volume.mp4")
-        )
-        save_images_to_movie(all_maxs, os.path.join(save_path, "max_images_volume.mp4"))
-        save_images_to_movie(all_traces, os.path.join(save_path, "traces_volume.mp4"))
 
         plot_volume_neuron_counts(zstats_file, save_path)
         plot_volume_signal(
             zstats_file, os.path.join(save_path, "mean_volume_signal.png")
         )
         # todo: why is suite2p not saving timings to ops.npy?
-        # plot_execution_time(zstats_file, os.path.join(save_path, "execution_time.png"))
+        plot_execution_time(zstats_file, os.path.join(save_path, "execution_time.png"))
 
         res_z = [
             load_planar_results(ops_path, z_plane=i)
@@ -235,7 +228,15 @@ def run_volume(
         ]
         all_spks = np.concatenate([res["spks"] for res in res_z], axis=0)
         print(type(all_spks))
-        # all_iscell = np.stack([res['iscell'] for res in res_z], axis=-1)
+        try:
+            from rastermap import Rastermap
+            from lbm_suite2p_python.zplane import plot_rastermap
+
+            HAS_RASTERMAP = True
+        except ImportError:
+            Rastermap = None
+            HAS_RASTERMAP = False
+            plot_rastermap = None
         if HAS_RASTERMAP:
             model = Rastermap(
                 n_clusters=100,
@@ -245,15 +246,16 @@ def run_volume(
             ).fit(all_spks)
             np.save(os.path.join(save_path, "model.npy"), model)
             title_kwargs = {"fontsize": 8, "y": 0.95}
-            plot_rastermap(
-                all_spks,
-                model,
-                neuron_bin_size=20,
-                xmax=min(2000, all_spks.shape[1]),
-                save_path=os.path.join(save_path, "rastermap.png"),
-                title_kwargs=title_kwargs,
-                title="Rastermap Sorted Activity",
-            )
+            if plot_rastermap is not None:
+                plot_rastermap(
+                    all_spks,
+                    model,
+                    neuron_bin_size=20,
+                    xmax=min(2000, all_spks.shape[1]),
+                    save_path=os.path.join(save_path, "rastermap.png"),
+                    title_kwargs=title_kwargs,
+                    title="Rastermap Sorted Activity",
+                )
         else:
             print("No rastermap is available.")
 
@@ -264,30 +266,56 @@ def run_volume(
     print(f"Processing completed for {len(input_files)} files.")
     return all_ops
 
-def should_write_ops(ops_path, ops, force=False):
-    if force or not ops_path.exists():
+
+def _should_write_bin(ops_path: Path, force: bool = False) -> bool:
+    """
+    Decide whether a data_raw.bin should be re-written.
+
+    Conditions that trigger re-write:
+      - force=True
+      - bin file missing
+      - ops.npy missing
+      - mismatch between ops metadata (Ly, Lx, nframes) and bin file size
+      - bin file cannot be read or has wrong shape
+    """
+    if force:
         return True
+    ops_path = Path(ops_path)
+    if not ops_path.is_file():
+        return True
+
+    bin_path = ops_path.parent / "data.bin"
+    tiff_path = ops_path.parent / "reg_tif"
+
+    if not bin_path.is_file() and not tiff_path.is_dir():
+        return True
+
     try:
-        existing_ops = np.load(ops_path, allow_pickle=True).item()
-        has_registration = "xoff" in existing_ops and "meanImg" in existing_ops
-        has_detection = "stat" in ops or (ops_path.parent / "stat.npy").exists()
-        return not (has_registration and has_detection)
-    except Exception:
+        ops = np.load(ops_path, allow_pickle=True).item()
+        Ly, Lx = ops.get("Ly"), ops.get("Lx")
+        nframes = ops.get("nframes", ops.get("n_frames"))
+
+        if None in (Ly, Lx, nframes):
+            return True
+
+        expected_size = nframes * Ly * Lx * np.dtype(np.int16).itemsize
+        actual_size = bin_path.stat().st_size
+
+        if actual_size != expected_size:
+            return True
+
+        # Try opening first few frames to verify integrity
+        arr = np.memmap(bin_path, dtype=np.int16, mode="r", shape=(nframes, Ly, Lx))
+        _ = arr[0].sum()  # touch data
+        del arr
+
+        return False  # all checks passed
+    except Exception as e:
+        print(f"Bin validation failed: {e}")
         return True
 
-def should_write_ops(ops_path, ops, force=False):
-    if force or not ops_path.exists():
-        return True
-    try:
-        existing_ops = np.load(ops_path, allow_pickle=True).item()
-        has_registration = "xoff" in existing_ops and "meanImg" in existing_ops
-        has_detection = "stat" in ops or (ops_path.parent / "stat.npy").exists()
-        return not (has_registration and has_detection)
-    except Exception:
-        return True
 
-
-def run_plane_bin(ops) -> None:
+def run_plane_bin(ops) -> bool:
     ops = load_ops(ops)
     if "nframes" in ops and "n_frames" not in ops:
         ops["n_frames"] = ops["nframes"]
@@ -296,10 +324,13 @@ def run_plane_bin(ops) -> None:
     n_frames = ops["n_frames"]
     Ly, Lx = ops["Ly"], ops["Lx"]
 
-    prior_ops = {}
-    if Path(ops["ops_path"]).exists():
-        prior_ops = np.load(ops["ops_path"], allow_pickle=True).item()
-
+    # make sure diam is not nan
+    if ops["diameter"] is not None and np.isnan(ops["diameter"]):
+        ops["diameter"] = 8
+    if ops["diameter"] is None or ops["diameter"] == 0 and ops["anatomical_only"] > 0:
+        ops["diameter"] = 8
+        print("Warning: diameter was not set, defaulting to 8."
+              "Cellpose-SAM currently does not estimate diameter.")
     with (
         suite2p.io.BinaryFile(
             Ly=Ly, Lx=Lx, filename=ops["reg_file"], n_frames=n_frames
@@ -316,16 +347,11 @@ def run_plane_bin(ops) -> None:
             f_reg, f_raw, None, None, ops["do_registration"], ops, stat=None
         )
 
-    # merge in any non-conflicting prior fields
-    merged_ops = {**ops, **{k: v for k, v in prior_ops.items() if k not in ops}}
-    np.save(ops["ops_path"], merged_ops)
-    print(f"Saved ops to {ops['ops_path']}")
+    np.save(ops["ops_path"], ops)
+    del f_reg, f_raw, ops
 
-    # merge in any non-conflicting prior fields
-    merged_ops = {**ops, **{k: v for k, v in prior_ops.items() if k not in ops}}
-    np.save(ops["ops_path"], merged_ops)
+    return True
 
-    return merged_ops
 
 def run_plane(
     input_path: str | Path,
@@ -335,10 +361,11 @@ def run_plane(
     keep_reg: bool = True,
     force_reg: bool = False,
     force_detect: bool = False,
-    dff_window_size: int = 500,
+    dff_window_size: int = 300,
     dff_percentile: int = 20,
+    save_json: bool = False,
     **kwargs,
-):
+) -> Path:
     """
     Processes a single imaging plane using suite2p, handling registration, segmentation,
     and plotting of results.
@@ -363,6 +390,8 @@ def run_plane(
         Size of the window for calculating dF/F traces.
     dff_percentile : int, default 8
         Percentile to use for baseline F₀ estimation in dF/F calculation.
+    save_json : bool, default True
+        If true, saves ops as a JSON file in addition to npy.
     **kwargs : dict, optional
 
     Returns
@@ -399,6 +428,8 @@ def run_plane(
     Run a single z-plane through suite2p, keeping raw and registered files.
     >> output_ops = lsp.run_plane(input_files[0], save_path="D://data//outputs", keep_raw=True, keep_registered=True, force_reg=True, force_detect=True)
     """
+    from mbo_utilities.array_types import MboRawArray
+
     if "debug" in kwargs:
         logger.setLevel(logging.DEBUG)
         logger.info("Debug mode enabled.")
@@ -408,7 +439,8 @@ def run_plane(
     )
     input_path = Path(input_path)
     if not input_path.is_file():
-        raise ValueError(f"Input file does not exist: {input_path}")
+        if input_path.suffix != ".zarr":
+            raise ValueError(f"Input file does not exist: {input_path}")
     input_parent = input_path.parent
 
     assert isinstance(save_path, (Path, str, type(None))), (
@@ -429,8 +461,21 @@ def run_plane(
     ops_user = load_ops(ops) if ops else {}
     ops = {**ops_default, **ops_user, "data_path": str(input_path.resolve())}
 
+    # suite2p diameter handling
+    if isinstance(ops["diameter"], list) and len(
+            ops["diameter"]) > 1 and ops["aspect"] == 1.0:
+        ops["aspect"] = ops["diameter"][0] / ops["diameter"][1]  # noqa
+
     file = mbo.imread(input_path)
-    metadata = file.metadata
+    if isinstance(file, MboRawArray):
+        raise TypeError(
+            "Input file appears to be a raw array. Please provide a planar input file."
+        )
+    if hasattr(file, "metadata"):
+        metadata = file.metadata  # noqa
+    else:
+        metadata = mbo.get_metadata(input_path)
+
     if "plane" in ops:
         plane = ops["plane"]
         metadata["plane"] = plane
@@ -446,16 +491,50 @@ def run_plane(
     plane_dir = save_path
     ops["save_path"] = str(plane_dir.resolve())
 
-    needs_detect = force_detect or not (plane_dir / "stat.npy").exists()
+    needs_detect = False
+    if force_detect:
+        print(f"Roi detection forced for plane {plane}.")
+        needs_detect = True
+    elif ops["roidetect"]:
+        if (plane_dir / "stat.npy").is_file():
+            # make sure this is a valid stat.npy file
+            stat = np.load(plane_dir / "stat.npy", allow_pickle=True)
+            if stat is None or len(stat) == 0:
+                print(
+                    f"Detected empty stat.npy, forcing roi detection for plane {plane}."
+                )
+                needs_detect = True
+            else:
+                print(
+                    f"Roi detection skipped, stat.npy already exists for plane {plane}."
+                )
+                needs_detect = False
+        else:
+            print(
+                f"ops['roidetect'] is True with no stat.npy file present, "
+                f"proceeding with segmentation/detection for plane {plane}.")
+            needs_detect = True
+    elif (plane_dir / "stat.npy").is_file():
+        # check contents of stat.npy
+        stat = np.load(plane_dir / "stat.npy", allow_pickle=True)
+        if stat is None or len(stat) == 0:
+            print(f"Detected empty stat.npy, forcing roi detection for plane {plane}.")
+            needs_detect = True
+        else:
+            print(f"Roi detection skipped, stat.npy already exists for plane {plane}.")
+            needs_detect = True
 
     ops_file = plane_dir / "ops.npy"
     reg_data_file = plane_dir / "data.bin"
     reg_data_file_tiff = plane_dir / "reg_tif"
 
-    if should_write_ops(ops_file, ops, force=kwargs.get("force_save", False)):
-        mbo.imwrite(file, plane_dir, ext=".bin", metadata=metadata)
+    if _should_write_bin(ops_file, force=kwargs.get("force_save", False)):
+        md_combined = {**metadata, **ops}
+        mbo.imwrite(file, plane_dir, ext=".bin", metadata=md_combined, register_z=False)
     else:
-        print(f"Skipping ops.npy save: {ops_file.name} already contains results.")
+        print(
+            f"Skipping data_raw.bin write, already exists and passes data validation checks."
+        )
 
     ops_outpath = (
         np.load(ops_file, allow_pickle=True).item()
@@ -475,8 +554,9 @@ def run_plane(
         needs_reg = not exists
 
     ops = {
-        **ops,
-        **ops_outpath,  # merge any existing ops
+        **ops_default,
+        **ops_outpath,
+        **ops_user,
         "ops_path": str(ops_file),
         "do_registration": int(needs_reg),
         "roidetect": int(needs_detect),
@@ -485,11 +565,31 @@ def run_plane(
         "reg_file": str((plane_dir / "data.bin").resolve()),
     }
 
-    if "nframes" not in ops and "shape" in ops.get("metadata", {}):
-        ops["nframes"] = ops["metadata"]["shape"][0]
+    if "nframes" not in ops:
+        if "metadata" in ops and "shape" in ops["metadata"]:
+            ops["nframes"] = ops["metadata"]["shape"][0]
+        elif "num_frames" in metadata:
+            ops["nframes"] = metadata["num_frames"]
+        elif "nframes" in metadata:
+            ops["nframes"] = metadata["nframes"]
+        elif file is not None and hasattr(file, "shape") and len(file.shape) >= 1:
+            ops["nframes"] = file.shape[0]
+        elif "shape" in metadata:
+            ops["nframes"] = metadata["shape"][0]
+        else:
+            raise KeyError(
+                "missing frame count (nframes) in ops or metadata, and cannot infer from data"
+            )
 
-    ops = run_plane_bin(ops)
-    output_ops = load_ops(ops_file)
+    processed = run_plane_bin(ops)
+
+    if save_json:
+        # convert ops dict to JSON serializable and save as ops.json
+        ops_to_json(ops_file)
+
+    if not processed:
+        print(f"Skipping {ops_file.name}, processing was not completed.")
+        return ops_file
 
     # cleanup ourselves
     if not keep_raw:
@@ -497,169 +597,18 @@ def run_plane(
     if not keep_reg:
         (plane_dir / "data.bin").unlink(missing_ok=True)
 
-    expected_files = {
-        "ops": plane_dir / "ops.npy",
-        "stat": plane_dir / "stat.npy",
-        "iscell": plane_dir / "iscell.npy",
-        "registration": plane_dir / "registration.png",
-        "segmentation": plane_dir / "segmentation.png",
-        "segmentation_traces": plane_dir / "segmentation_match_traces.png",
-        "max_proj": plane_dir / "max_projection_image.png",
-        "meanImg": plane_dir / "mean_image.png",
-        "meanImgE": plane_dir / "mean_image_enhanced.png",
-        "traces": plane_dir / "traces.png",
-        "traces_noise": plane_dir / "traces_noise.png",
-        "noise": plane_dir / "shot_noise_distrubution.png",
-        "model": plane_dir / "model.npy",
-        "rastermap": plane_dir / "rastermap.png",
-    }
+    save_pc_panels_and_metrics(ops_file, plane_dir / "pc_metrics")
+
     try:
-        if not all(
-            expected_files[key].is_file()
-            for key in ["registration", "segmentation", "traces"]
-        ):
-            print(f"Generating missing plots for {plane_dir.stem}...")
-
-            def safe_delete(file_path):
-                if file_path.exists():
-                    try:
-                        file_path.unlink()
-                    except PermissionError:
-                        print(
-                            f"Error: Cannot delete {file_path}. Ensure it is not open elsewhere."
-                        )
-
-            for key in ["registration", "segmentation", "traces"]:
-                safe_delete(expected_files[key])
-
-            model = None
-            colors = None
-            if expected_files["stat"].is_file():
-                res = load_planar_results(output_ops)
-                iscell = res["iscell"]
-                spks = res["spks"][iscell]
-                n_neurons = spks.shape[0]
-
-                if iscell.ndim == 2:
-                    iscell = iscell[:, 0]
-
-                stat = res["stat"]
-                f = res["F"][iscell]
-                f = f - f.min(axis=1, keepdims=True) * 0.9  # shift to positive
-
-                if f.shape[0] < 10:
-                    print(f"Too few cells to plot traces for {plane_dir.stem}.")
-                    return output_ops
-
-                if expected_files["model"].is_file():
-                    print("Loading cached rastermap model...")
-                    model = np.load(expected_files["model"], allow_pickle=True).item()
-                else:
-                    if n_neurons < 200:
-                        params = {
-                            "n_clusters": None,
-                            "n_PCs": min(64, n_neurons - 1),
-                            "locality": 0.1,
-                            "time_lag_window": 15,
-                            "grid_upsample": 0,
-                        }
-                    else:
-                        params = {
-                            "n_clusters": 100,
-                            "n_PCs": 128,
-                            "locality": 0.0,
-                            "grid_upsample": 10,
-                        }
-
-                    print("Computing rastermap model...")
-                    model = Rastermap(**params).fit(spks)
-                    np.save(expected_files["model"], model)
-
-                    plot_rastermap(
-                        spks,
-                        model,
-                        neuron_bin_size=0,
-                        save_path=expected_files["rastermap"],
-                        title_kwargs={"fontsize": 8, "y": 0.95},
-                        title="Rastermap Sorted Activity",
-                    )
-
-                if model is not None:
-                    print("Sorting neurons by rastermap model...")
-                    isort = np.where(iscell == 1)[0][model.isort]
-                    output_ops["isort"] = isort  # now global to stat, not local
-                    f = f[model.isort]
-
-                percentile = output_ops.get("dff_percentile", dff_percentile)
-                win_size = output_ops.get("dff_window_size", dff_window_size)
-
-                # clip outliers from f
-                f = np.clip(f, np.percentile(f, 1), np.percentile(f, 99))
-                dff = (
-                    dff_rolling_percentile(
-                        f, percentile=percentile, window_size=win_size
-                    )
-                    * 100
-                )  # convert to percentage
-
-                dff_noise = dff_shot_noise(dff, output_ops["fs"])
-
-                if n_neurons < 30:
-                    print(f"Too few cells to plot traces for {plane_dir.stem}.")
-                else:
-                    print("Plotting traces...")
-                    _, colors = plot_traces(
-                        dff,
-                        save_path=expected_files["traces"],
-                        num_neurons=output_ops.get("plot_n_traces", 30),
-                        signal_units="dffp",
-                    )
-                    plot_traces_noise(
-                        dff_noise[:n_neurons],
-                        colors,
-                        savepath=expected_files["traces_noise"],
-                    )
-
-                print("Plotting noise distribution...")
-                plot_noise_distribution(dff_noise, save_path=expected_files["noise"])
-
-                suite2p_roi_overlay(
-                    output_ops,
-                    stat,
-                    iscell,
-                    "max_proj",
-                    plot_indices=None,
-                    savepath=expected_files["segmentation"],
-                )
-                cell_indices = output_ops["isort"][:n_neurons]
-                suite2p_roi_overlay(
-                    output_ops,
-                    stat,
-                    iscell,
-                    "max_proj",
-                    plot_indices=cell_indices,
-                    savepath=expected_files["segmentation_traces"],
-                    color_mode="colormap",
-                    colors=None,
-                    # colors=colors if colors is not None else None,
-                )
-
-            fig_label = kwargs.get("fig_label", plane_dir.stem)
-            for key in ["meanImg", "max_proj", "meanImgE"]:
-                if key not in output_ops:
-                    continue
-                plot_projection(
-                    output_ops,
-                    expected_files[key],
-                    fig_label=fig_label,
-                    display_masks=False,
-                    add_scalebar=True,
-                    proj=key,
-                )
-            print("Plots generated successfully.")
+        remake_plane_figures(
+            plane_dir,
+            dff_percentile=dff_percentile,
+            dff_window_size=dff_window_size,
+            run_rastermap=kwargs.get("run_rastermap", False),
+        )
     except Exception:
         traceback.print_exc()
-    return output_ops
+    return ops_file
 
 
 def run_grid_search(
