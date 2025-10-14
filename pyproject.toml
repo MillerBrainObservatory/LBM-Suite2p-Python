@@ -18,15 +18,7 @@ classifiers=[
 	"Programming Language :: Python :: 3 :: Only",
 ]
 dependencies = [
-	"mkl_fft",
-	"mbo_utilities[gui, suite3d]>=2.0.0",
-	"suite2p_mbo",
-	"tqdm",
-	"pandas",
-	"matplotlib",
-	"dask>=2025.9.1",
-	"zarr==3.1.3",
-	"seaborn>=0.13.2",
+	"mbo_utilities>=2.0.2",
 ]
 
 [project.optional-dependencies]
@@ -81,13 +73,7 @@ all = [
 	"torch>=2.7.0",
 	"torchvision>=0.22.0",
 ]
-dev = [
-	"black>=25.9.0",
-	"pytest>=7.4.4",
-	"ruff>=0.6.1",
-]
 docs = [
-	"numpy<=2.2.0",
 	"docutils>=0.21.2",
 	"myst-nb>=1.2.0",
 	"sphinx>=8.1.3",
