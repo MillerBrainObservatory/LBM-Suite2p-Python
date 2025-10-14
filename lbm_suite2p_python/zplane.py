@@ -1355,13 +1355,13 @@ def plot_zplane_figures(
         )
 
         if n_neurons >= 30:
-            _, colors = plot_traces(
+            plot_traces(
                 dffp_acc,
                 save_path=expected_files["traces_dff"],
                 num_neurons=output_ops.get("plot_n_traces", 30),
                 signal_units="dffp",
             )
-            _, colors = plot_traces(
+            plot_traces(
                 f_norm_acc,
                 save_path=expected_files["traces_raw"],
                 num_neurons=output_ops.get("plot_n_traces", 30),
