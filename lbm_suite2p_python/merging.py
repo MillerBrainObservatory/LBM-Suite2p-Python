@@ -4,9 +4,7 @@ from pathlib import Path
 import numpy as np
 from tqdm.auto import tqdm
 
-from lbm_suite2p_python.postprocessing import (
-    remake_plane_figures,
-)
+from lbm_suite2p_python import remake_plane_figures
 from mbo_utilities.lazy_array import Suite2pArray
 
 
