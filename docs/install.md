@@ -1,18 +1,6 @@
 (installation)=
 # Installation Guide
 
-```{admonition} 
-:class: dropdown
-
-pip install "lbm_suite2p_python[all]"
-```
-
-**Note**: The gui dependencies often install in under a minute with `python 3.11` and `python 3.12`. On `3.10`, pip will have to build wheels for `imgui-bundle`, which can take ~8 to 10 minutes.
-
-For example, a `gui` install on Python 3.10 will build `imgui-bundle` from source, increasing the install time by several minutes. We recommend **Python 3.11** for the greatest compatibility and install speed.
-
-## Quick Install
-
 LBM-Suite2p-Python has been developed to be a pure `pip` install.
 
 This makes the choice of virtual-environment less relevant, you can use `venv`, `uv (recommended)`, `conda`, it does not matter.
@@ -20,32 +8,41 @@ This makes the choice of virtual-environment less relevant, you can use `venv`, 
 `````` {tip}
 :class: dropdown
 
-While this pipeline is early in development, we recommend keeping a versioon of the codebase locally using `git`. 
+While this pipeline is early in development, we recommend keeping a version of the codebase locally using `git`. 
 This will allow you to quickly pull changes and incorperate them into your environment without waiting for a pypi release.
 
 ``` {code} bash
 git clone https://github.com/MillerBrainObservatory/LBM-Suite2p-Python.git
 cd LBM-Suite2p-Python
-pip install -e ".[all]"
+pip install -e "."
 ```
 ``````
 
 ::::{tab-set}
 
-:::{tab-item} With pip
+:::{tab-item} With uv
+
 ```bash
-pip install lbm_suite2p_python[all]
+
+# create a new project folder
+mkdir my_project
+cd my_project
+
+# create our environment
+uv venv --python 3.12.9
+uv pip install lbm_suite2p_python
 ```
 :::
 
 :::{tab-item} With Conda (Miniforge3)
 ```bash
-conda create -n lsp -c conda-forge python=3.11
+conda create -n lsp -c conda-forge python=3.12.9
 conda activate lbm
 git clone https://github.com/millerbrainobservatory/lbm_suite2p_python.git
 cd lbm_suite2p_python
 pip install -e .
 ```
+
 :::
 
 ::::
@@ -88,8 +85,3 @@ git lfs logs last
 ```
 
 This avoids downloading large binary files (e.g. images, model checkpoints) managed by Git LFS.
-
-## TODO
-
-- Upload mp4 for animate traces
-- animate_traces

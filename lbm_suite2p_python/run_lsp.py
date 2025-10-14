@@ -12,17 +12,17 @@ import numpy as np
 
 import suite2p
 from suite2p.io.binary import BinaryFile
-from lbm_suite2p_python.merging import remake_plane_figures
 from lbm_suite2p_python.postprocessing import (
     ops_to_json,
     load_planar_results,
     load_ops,
-    filter_by_area
 )
 from mbo_utilities.log import get as get_logger
-import mbo_utilities as mbo  # noqa
 
-from lbm_suite2p_python.zplane import save_pc_panels_and_metrics
+from lbm_suite2p_python.zplane import (
+    save_pc_panels_and_metrics,
+    plot_zplane_figures
+)
 
 logger = get_logger("run_lsp")
 
@@ -162,6 +162,7 @@ def run_volume(
     - Traces animation over time and neurons
     - Optional rastermap clustering results
     """
+    from mbo_utilities.file_io import get_files, get_plane_from_filename
     start = time.time()
     if save_path is None:
         save_path = Path(input_files[0]).parent
@@ -205,10 +206,10 @@ def run_volume(
 
     if "roi" in Path(input_files[0]).stem.lower():
         print("Detected mROI data, merging ROIs for each z-plane...")
-        from .merging import merge_mrois, remake_plane_figures
+        from .merging import merge_mrois
         merged_savepath = save_path.joinpath("merged_mrois")
         merge_mrois(save_path, merged_savepath)
-        all_ops = sorted(mbo.get_files(merged_savepath, "ops.npy", 2))
+        all_ops = sorted(get_files(merged_savepath, "ops.npy", 2))
 
     print(f"Planes found after merge: {len(all_ops)}")
 
@@ -429,6 +430,8 @@ def run_plane(
     >> output_ops = lsp.run_plane(input_files[0], save_path="D://data//outputs", keep_raw=True, keep_registered=True, force_reg=True, force_detect=True)
     """
     from mbo_utilities.array_types import MboRawArray
+    from mbo_utilities.lazy_array import imread, imwrite
+    from mbo_utilities.metadata import get_metadata
 
     if "debug" in kwargs:
         logger.setLevel(logging.DEBUG)
@@ -466,7 +469,7 @@ def run_plane(
             ops["diameter"]) > 1 and ops["aspect"] == 1.0:
         ops["aspect"] = ops["diameter"][0] / ops["diameter"][1]  # noqa
 
-    file = mbo.imread(input_path)
+    file = imread(input_path)
     if isinstance(file, MboRawArray):
         raise TypeError(
             "Input file appears to be a raw array. Please provide a planar input file."
@@ -474,7 +477,7 @@ def run_plane(
     if hasattr(file, "metadata"):
         metadata = file.metadata  # noqa
     else:
-        metadata = mbo.get_metadata(input_path)
+        metadata = get_metadata(input_path)
 
     if "plane" in ops:
         plane = ops["plane"]
@@ -484,7 +487,7 @@ def run_plane(
         ops["plane"] = plane
     else:
         # get the plane from the filename
-        plane = mbo.get_plane_from_filename(input_path, ops.get("plane", None))
+        plane = get_plane_from_filename(input_path, ops.get("plane", None))
         ops["plane"] = plane
         metadata["plane"] = plane
 
@@ -530,7 +533,7 @@ def run_plane(
 
     if _should_write_bin(ops_file, force=kwargs.get("force_save", False)):
         md_combined = {**metadata, **ops}
-        mbo.imwrite(file, plane_dir, ext=".bin", metadata=md_combined, register_z=False)
+        imwrite(file, plane_dir, ext=".bin", metadata=md_combined, register_z=False)
     else:
         print(
             f"Skipping data_raw.bin write, already exists and passes data validation checks."
@@ -600,7 +603,7 @@ def run_plane(
     save_pc_panels_and_metrics(ops_file, plane_dir / "pc_metrics")
 
     try:
-        remake_plane_figures(
+        plot_zplane_figures(
             plane_dir,
             dff_percentile=dff_percentile,
             dff_window_size=dff_window_size,

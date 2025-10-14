@@ -14,11 +14,17 @@ from matplotlib.offsetbox import VPacker, HPacker, DrawingArea
 
 from scipy.ndimage import distance_transform_edt
 
+from lbm_suite2p_python.postprocessing import (
+    load_ops,
+    load_planar_results,
+    dff_rolling_percentile,
+    dff_shot_noise,
+    filter_by_area
+)
 from lbm_suite2p_python.utils import (
     _resize_masks_fit_crop,
     bin1d,
 )
-from lbm_suite2p_python.postprocessing import dff_rolling_percentile, load_planar_results
 from suite2p.detection.stats import ROI
 
 
@@ -270,7 +276,7 @@ def plot_traces(
         lw=0.5,
         cmap="tab10",
         signal_units=None,
-):
+) -> None:
     """
     Plot stacked fluorescence traces with automatic offset and scale bars.
 
@@ -299,15 +305,8 @@ def plot_traces(
     cell_indices : array-like or None
         Specific cell indices to plot. If provided, overrides num_neurons.
     """
-
     if isinstance(f, dict):
-        ops = f
-        res = load_planar_results(ops)
-        f = res["F"]
-        percentile = ops.get("dff_percentile", 20)
-        window = ops.get("dff_window_size", window)
-        f = dff_rolling_percentile(f, percentile=percentile, window_size=window) * 100
-        signal_units = "dffp"
+        raise ValueError("f must be a numpy array, not a dictionary")
 
     if signal_units is None:
         signal_units = infer_units(f)
@@ -338,6 +337,25 @@ def plot_traces(
     perm = get_color_permutation(displayed_neurons)
     colors = colors[perm]
 
+    # fig, ax = plt.subplots(figsize=(10, 6), facecolor="black")
+    # ax.set_facecolor("black")
+
+    # build a composite array
+    # each pixel is the value of the lowest trace at that timepoint
+    composite = np.full_like(f[:displayed_neurons, :current_frame + 1], np.nan)
+    for i in range(displayed_neurons):
+        trace = f[indices[i], : current_frame + 1]
+        baseline = np.percentile(trace, 8)
+        shifted = (trace - baseline) + i * offset
+        if i == 0:
+            composite[i] = shifted
+        else:
+            # keep only parts that are strictly above all lower traces
+            below = np.nanmax(composite[:i], axis=0)
+            masked = np.where(shifted > below, shifted, np.nan)
+            composite[i] = masked
+
+    # plot only the visible parts
     fig, ax = plt.subplots(figsize=(10, 6), facecolor="black")
     ax.set_facecolor("black")
     ax.tick_params(axis="x", which="both", labelbottom=False, length=0, colors="white")
@@ -345,34 +363,14 @@ def plot_traces(
     for spine in ax.spines.values():
         spine.set_visible(False)
 
-    for i, idx in enumerate(reversed(indices)):
-        trace = f[idx, : current_frame + 1]
-        baseline = np.percentile(trace, 8)
-        shifted_trace = (trace - baseline) + i * offset
-
+    for i in range(displayed_neurons):
         ax.plot(
             data_time[: current_frame + 1],
-            shifted_trace,
+            composite[i],
             color=colors[i],
             lw=lw,
             zorder=-i,
         )
-
-        # overlap fill with next trace
-        if i < displayed_neurons - 1:
-            next_idx = list(reversed(indices))[i + 1]
-            prev_trace = f[next_idx, : current_frame + 1]
-            prev_baseline = np.percentile(prev_trace, 8)
-            prev_shifted = (prev_trace - prev_baseline) + (i + 1) * offset
-            mask = shifted_trace > prev_shifted
-            ax.fill_between(
-                data_time[: current_frame + 1],
-                shifted_trace,
-                prev_shifted,
-                where=mask,
-                color="black",
-                zorder=-i - 1,
-            )
 
     all_shifted = [
         (f[i, : current_frame + 1] - np.percentile(f[i, : current_frame + 1], 10))
@@ -406,17 +404,20 @@ def plot_traces(
 
     ax.add_artist(hsb)
 
-    dff_bar_height = 0.1 * (y_max - y_min)
-    rounded_dff = round(dff_bar_height / 5) * 5
+    # how much signal change corresponds to 10% of the y-axis span
+    vertical_bar_height = 0.1 * (y_max - y_min)
+
+    # express it directly in the same units as f (no offset normalization)
+    rounded_signal_units = np.round(vertical_bar_height, 2)
 
     if signal_units == "raw":
-        dff_label = f"{rounded_dff:.0f} raw signal (a.u)"
+        dff_label = f"{rounded_signal_units:.2f} raw signal (a.u)"
     elif signal_units == "dff":
-        dff_label = f"{rounded_dff:.0f} ΔF/F₀"
+        dff_label = f"{rounded_signal_units:.2f} ΔF/F₀"
     elif signal_units == "dffp":
-        dff_label = f"{rounded_dff:.0f} % ΔF/F₀"
+        dff_label = f"{rounded_signal_units:.2f} % ΔF/F₀"
     else:
-        dff_label = "Unknown"
+        dff_label = f"{rounded_signal_units:.2f}"
 
     vsb = AnchoredVScaleBar(
         height=0.1,
@@ -450,9 +451,7 @@ def plot_traces(
         plt.close(fig)
     else:
         plt.show()
-
-    return fig, colors
-
+    return None
 
 def animate_traces(
     f,
@@ -1205,3 +1204,214 @@ def save_pc_panels_and_metrics(ops, savepath, pcs=(0, 1, 2, 3)):
         "panel_tiff": panel_tiff,
         "metrics_csv": csv_path,
     }
+
+
+def plot_zplane_figures(
+    plane_dir, dff_percentile=8, dff_window_size=101, run_rastermap=False, **kwargs
+):
+    """
+    Re-generate Suite2p figures for a merged plane.
+
+    Parameters
+    ----------
+    plane_dir : Path
+        Path to the planeXX output directory (with ops.npy, stat.npy, etc.).
+    dff_percentile : int, optional
+        Percentile used for ΔF/F baseline.
+    dff_window_size : int, optional
+        Window size for ΔF/F rolling baseline.
+    run_rastermap : bool, optional
+        If True, compute and plot rastermap sorting of cells.
+    kwargs : dict
+        Extra keyword args (e.g. fig_label).
+    """
+    plane_dir = Path(plane_dir)
+
+    expected_files = {
+        "ops": plane_dir / "ops.npy",
+        "stat": plane_dir / "stat.npy",
+        "iscell": plane_dir / "iscell.npy",
+        "registration": plane_dir / "registration.png",
+        "segmentation_accepted": plane_dir / "segmentation_accepted.png",
+        "segmentation_rejected": plane_dir / "segmentation_rejected.png",
+        "area_filter": plane_dir / "segmentation_rejected_area_filter.png",
+        "segmentation_filtered": plane_dir / "segmentation_rejected.png",
+        "max_proj": plane_dir / "max_projection_image.png",
+        "meanImg": plane_dir / "mean_image.png",
+        "meanImgE": plane_dir / "mean_image_enhanced.png",
+        "traces_raw": plane_dir / "traces_raw.png",
+        "traces_dff": plane_dir / "traces_dff.png",
+        "traces_noise": plane_dir / "traces_noise.png",
+        "traces_area": plane_dir / "traces_rejected_area_filter.png",
+        "noise_acc": plane_dir / "shot_noise_distrubution_accepted.png",
+        "noise_rej": plane_dir / "shot_noise_distrubution_rejected.png",
+        "model": plane_dir / "model.npy",
+        "rastermap": plane_dir / "rastermap.png",
+    }
+
+    output_ops = load_ops(expected_files["ops"])
+
+    # force remake of the heavy figures
+    for key in [
+        "registration",
+        "segmentation_accepted",
+        "segmentation_rejected",
+        "traces_raw",
+        "traces_dff",
+        "traces_noise",
+        "noise_acc",
+        "noise_rej",
+        "rastermap",
+    ]:
+        if key in expected_files:
+            if expected_files[key].exists():
+                try:
+                    expected_files[key].unlink()
+                except PermissionError:
+                    print(f"Error: Cannot delete {expected_files[key]}, it's open elsewhere.")
+
+    if expected_files["stat"].is_file():
+
+        res = load_planar_results(plane_dir)
+        iscell = res["iscell"]
+        iscell_mask = (
+            iscell[:, 0].astype(bool) if iscell.ndim == 2 else iscell.astype(bool)
+        )
+
+        spks = res["spks"]
+        F = res["F"]
+
+        n_neurons = F.shape[0]
+        if n_neurons < 10:
+            return output_ops
+
+        # rastermap model
+        F_accepted = F[iscell_mask]
+        F_rejected = F[~iscell_mask]
+        spks_cells = spks[iscell_mask]
+
+        model = None
+        if run_rastermap:
+            try:
+                from lbm_suite2p_python.zplane import plot_rastermap
+                import rastermap
+
+                has_rastermap = True
+            except ImportError:
+                print(
+                    "rastermap package not found, skipping rastermap plotting. \n"
+                    "Install via `pip install rastermap` or set run_rastermap=False \n"
+                    "for run_plane(), run_volume(), or plot_rastermap() to work."
+                )
+                has_rastermap = False
+                rastermap, plot_rastermap = None, None
+            if expected_files["model"].is_file():
+                model = np.load(expected_files["model"], allow_pickle=True).item()
+            elif has_rastermap:
+                params = {
+                    "n_clusters": 100 if n_neurons >= 200 else None,
+                    "n_PCs": min(128, max(2, n_neurons - 1)),
+                    "locality": 0.0 if n_neurons >= 200 else 0.1,
+                    "time_lag_window": 15,
+                    "grid_upsample": 10 if n_neurons >= 200 else 0,
+                }
+                model = rastermap.Rastermap(**params).fit(spks_cells)
+                np.save(expected_files["model"], model)
+
+                plot_rastermap(
+                    spks_cells,
+                    model,
+                    neuron_bin_size=0,
+                    save_path=expected_files["rastermap"],
+                    title_kwargs={"fontsize": 8, "y": 0.95},
+                    title="Rastermap Sorted Activity",
+                )
+
+            if model is not None:
+                # indices of cells relative to *all* ROIs
+                isort_global = np.where(iscell_mask)[0][model.isort]
+                output_ops["isort"] = isort_global
+
+                # reorder just the cells
+                F_accepted = F_accepted[model.isort]
+
+        # compute dF/F
+        # f_norm_acc = normalize_traces(F_accepted, mode="percentile")
+        # f_norm_rej = normalize_traces(F_rejected, mode="percentile")
+        f_norm_acc = F_accepted
+        f_norm_rej = F_rejected
+
+        dffp_acc = (
+            dff_rolling_percentile(
+                f_norm_acc, percentile=dff_percentile, window_size=dff_window_size
+            )
+            * 100
+        )
+        dffp_rej = (
+            dff_rolling_percentile(
+                f_norm_rej, percentile=dff_percentile, window_size=dff_window_size
+            )
+            * 100
+        )
+
+        if n_neurons >= 30:
+            plot_traces(
+                dffp_acc,
+                save_path=expected_files["traces_dff"],
+                num_neurons=output_ops.get("plot_n_traces", 30),
+                signal_units="dffp",
+            )
+            plot_traces(
+                f_norm_acc,
+                save_path=expected_files["traces_raw"],
+                num_neurons=output_ops.get("plot_n_traces", 30),
+                signal_units="raw",
+            )
+
+        fs = output_ops.get("fs", 1.0)
+        dff_noise_acc = dff_shot_noise(dffp_acc, fs)
+        dff_noise_rej = dff_shot_noise(dffp_rej, fs)
+        plot_noise_distribution(
+            dff_noise_acc, output_filename=expected_files["noise_acc"]
+        )
+        plot_noise_distribution(
+            dff_noise_rej, output_filename=expected_files["noise_rej"]
+        )
+        plot_masks(
+            img=output_ops.get("meanImgE"),
+            stat=res["stat"],
+            mask_idx=iscell_mask,
+            savepath=expected_files["segmentation_accepted"],
+            title="Accepted ROIs"
+        )
+
+        # iscell_area = filter_by_area(iscell_mask, res["stat"])
+        # eliminated_area = iscell_mask & ~iscell_area
+        # plot_masks(
+        #     img=output_ops.get("meanImgE"),
+        #     stat=res["stat"],
+        #     mask_idx=eliminated_area,
+        #     savepath=expected_files["area_filter"],
+        #     title="Cells Rejected: Area filter"
+        # )
+        # plot_traces(
+        #     F,
+        #     save_path=expected_files["traces_area"],
+        #     cell_indices=eliminated_area,
+        #     title="Traces eliminated by Area filter",
+        #     fps=output_ops["fs"],
+        # )
+
+    fig_label = kwargs.get("fig_label", plane_dir.stem)
+    for key in ["meanImg", "max_proj", "meanImgE"]:
+        if key in output_ops:
+            plot_projection(
+                output_ops,
+                expected_files[key],
+                fig_label=fig_label,
+                display_masks=False,
+                add_scalebar=True,
+                proj=key,
+            )
+
+    return output_ops

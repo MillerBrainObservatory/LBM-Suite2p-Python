@@ -6,7 +6,6 @@ from scipy.ndimage import percentile_filter
 from scipy.stats import norm
 
 
-import numpy as np
 
 def _normalize_iscell(iscell):
     """Ensure iscell is 1D boolean array."""
@@ -197,7 +196,7 @@ def ops_to_json(ops: dict | str | Path, outpath=None, indent=2):
     return outpath
 
 
-def normalize_traces(F, mode="per_neuron"):
+def normalize_traces(F, mode="percentile"):
     """
     Normalize fluorescence traces F to [0, 1] range.
     Parameters
@@ -429,3 +428,5 @@ def load_ops(ops_input: str | Path | list[str | Path]) -> dict:
         return ops_input
     print("Warning: No valid ops file provided, returning empty dict.")
     return {}
+
+

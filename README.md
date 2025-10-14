@@ -4,11 +4,11 @@
 
 [![Documentation](https://img.shields.io/badge/Documentation-blue?style=for-the-badge&logo=readthedocs&logoColor=white)](https://millerbrainobservatory.github.io/LBM-Suite2p-Python/index.html)
 
-This package is still in a *beta* stage of development.
+This package is still in a *late-beta* stage of development.
 
-A pipeline for processing 2-photon Light Beads Microscopy (LBM) datasets.
+A pipeline for processing volumetric 2-photon Light Beads Microscopy (LBM) datasets.
 
-This pipeline uses the following software:
+This pipeline uses the following open-source software:
 
 - [suite2p](https://github.com/MouseLand/suite2p)
 - [cellpose](https://github.com/MouseLand/cellpose)
@@ -23,24 +23,27 @@ This pipeline uses the following software:
 
 ## Installation
 
-See the [installation documentation](https://millerbrainobservatory.github.io/LBM-Suite2p-Python/install.html) for more details.
+This pipeline is installable with `pip`:
 
-This pipeline is fully installable with `pip`.
-
-`conda` can still be used for the virual environment, but be mindful to only install packages with `conda install` when absolutely necessary.
-
-We recommend cloning the repository, until a more established workflow is available to upload to PyPi.
-
+```bash
+pip install lbm_suite2p_python
+# with uv: uv pip install lbm_suite2p_python
 ```
+
+We highly encourage the use of a virtual environment. If you are unfamiliar with virtual environments, see our documentation [here](https://millerbrainobservatory.github.io/mbo_utilities/venvs.html).
+
+You may also use git to clone and install locally for updates not yet released to pypi:
+
+```bash
 git clone https://github.com/MillerBrainObservatory/LBM-Suite2p-Python.git
-git clone https://github.com/Suite3D # TODO
 cd LBM-Suite2p-Python
 
 # make sure your virtual environment is active
-pip install ".[all]"  # optional, contains ".[gui, notebook]"
+pip install "." 
 ```
 
 ## Issues
+
 Widgets may throw "Invalid Rect" errors. This can be safely ignored until it is [resolved](https://github.com/pygfx/wgpu-py/issues/716#issuecomment-2880853089).
 
 ---
