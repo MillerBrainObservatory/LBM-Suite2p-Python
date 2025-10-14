@@ -5,7 +5,12 @@ import numpy as np
 from scipy.ndimage import percentile_filter
 from scipy.stats import norm
 
-from lbm_suite2p_python import plot_traces, plot_noise_distribution, plot_masks, plot_projection
+from lbm_suite2p_python.zplane import (
+    plot_traces,
+    plot_noise_distribution,
+    plot_masks,
+    plot_projection
+)
 
 
 def _normalize_iscell(iscell):
