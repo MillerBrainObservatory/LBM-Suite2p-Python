@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 from tqdm.auto import tqdm
 
-from lbm_suite2p_python import remake_plane_figures
+from lbm_suite2p_python import plot_zplane_figures
 from mbo_utilities.lazy_array import Suite2pArray
 
 
@@ -210,7 +210,7 @@ def merge_mrois(input_dir, output_dir, overwrite=True):
         if spks is not None: np.save(out_dir / "spks.npy", spks)
 
         try:
-            remake_plane_figures(out_dir, run_rastermap=False)
+            plot_zplane_figures(out_dir, run_rastermap=False)
         except Exception:
             pass
 

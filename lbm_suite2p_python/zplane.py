@@ -414,10 +414,15 @@ def plot_traces(
     ax.add_artist(hsb)
 
     dff_bar_height = 0.1 * (y_max - y_min)
-    rounded_dff = round(dff_bar_height / 5) * 5
+    if dff_bar_height < 1e-6:
+        dff_bar_height = np.ptp(f[:displayed_neurons, :current_frame + 1]) * 0.1
+    rounded_dff = np.clip(round(dff_bar_height / 5) * 5, 1, None)
+
+    # dff_bar_height = 0.1 * (y_max - y_min)
+    # rounded_dff = round(dff_bar_height / 5) * 5
 
     if signal_units == "raw":
-        dff_label = f"{rounded_dff:.0f} raw signal (a.u)"
+        dff_label = f"{rounded_dff:.0f} raw signal (a.u.)"
     elif signal_units == "dff":
         dff_label = f"{rounded_dff:.0f} ΔF/F₀"
     elif signal_units == "dffp":
@@ -1214,7 +1219,7 @@ def save_pc_panels_and_metrics(ops, savepath, pcs=(0, 1, 2, 3)):
     }
 
 
-def remake_plane_figures(
+def plot_zplane_figures(
     plane_dir, dff_percentile=8, dff_window_size=101, run_rastermap=False, **kwargs
 ):
     """

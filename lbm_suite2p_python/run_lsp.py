@@ -21,7 +21,7 @@ from mbo_utilities.log import get as get_logger
 
 from lbm_suite2p_python.zplane import (
     save_pc_panels_and_metrics,
-    remake_plane_figures
+    plot_zplane_figures
 )
 
 logger = get_logger("run_lsp")
@@ -603,7 +603,7 @@ def run_plane(
     save_pc_panels_and_metrics(ops_file, plane_dir / "pc_metrics")
 
     try:
-        remake_plane_figures(
+        plot_zplane_figures(
             plane_dir,
             dff_percentile=dff_percentile,
             dff_window_size=dff_window_size,
