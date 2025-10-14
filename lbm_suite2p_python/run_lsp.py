@@ -12,12 +12,12 @@ import numpy as np
 
 import suite2p
 from suite2p.io.binary import BinaryFile
-from lbm_suite2p_python.merging import remake_plane_figures
+from lbm_suite2p_python import remake_plane_figures
 from lbm_suite2p_python.postprocessing import (
     ops_to_json,
     load_planar_results,
     load_ops,
-    filter_by_area
+    filter_by_area, remake_plane_figures
 )
 from mbo_utilities.log import get as get_logger
 import mbo_utilities as mbo  # noqa
@@ -205,7 +205,7 @@ def run_volume(
 
     if "roi" in Path(input_files[0]).stem.lower():
         print("Detected mROI data, merging ROIs for each z-plane...")
-        from .merging import merge_mrois, remake_plane_figures
+        from .merging import merge_mrois
         merged_savepath = save_path.joinpath("merged_mrois")
         merge_mrois(save_path, merged_savepath)
         all_ops = sorted(mbo.get_files(merged_savepath, "ops.npy", 2))
