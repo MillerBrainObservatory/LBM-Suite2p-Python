@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lbm_suite2p_python"
+version = "2.0.1"
 description = "Light Beads Microscopy Pipeline using Suite2p"
 readme = "README.md"
 license = "BSD-3-Clause"
-dynamic = ["version"]
 requires-python = ">=3.12.7, <3.12.10"
 keywords = ["Pipeline", "Numpy", "Microscopy", "ScanImage", "Suite2p", "tiff"]
 urls = {homepage = "https://github.com/MillerBrainObservatory/LBM-Suite2p-Python"}
@@ -132,6 +132,6 @@ exclude_lines = [
 	"\\.\\.\\.",
 	"raise NotImplementedError()"
 ]
-
-[tool.setuptools.dynamic]
-version = {file = ["lbm_suite2p_python/VERSION"]}
+#
+#[tool.setuptools.dynamic]
+#version = {file = ["lbm_suite2p_python/VERSION"]}

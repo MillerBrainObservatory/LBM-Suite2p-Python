@@ -1,11 +1,16 @@
-from pathlib import Path
+from importlib.metadata import version, PackageNotFoundError
+
+from lbm_suite2p_python.default_ops import default_ops
+from lbm_suite2p_python.run_lsp import *
 from lbm_suite2p_python.utils import *
 from lbm_suite2p_python.volume import *
-from lbm_suite2p_python.run_lsp import *
 from lbm_suite2p_python.zplane import *
-from lbm_suite2p_python.default_ops import default_ops
 
-__version__ = (Path(__file__).parent / "VERSION").read_text().strip()
+try:
+    __version__ = version("lbm_suite2p_python")
+except PackageNotFoundError:
+    # fallback for editable installs
+    __version__ = "0.0.0"
 
 __all__ = [
     "run_volume",
