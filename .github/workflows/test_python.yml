@@ -32,7 +32,7 @@ jobs:
           enable-cache: true
 
       - name: Sync dependencies
-        run: GIT_LFS_SKIP_SMUDGE=1 uv sync --dev
+        run: GIT_LFS_SKIP_SMUDGE=1 uv sync
 
       # - name: Run tests
       #   run: uv run pytest tests
