@@ -386,8 +386,7 @@ def plot_traces(
         + i * offset
         for i in range(displayed_neurons)
     ]
-    all_y = np.concatenate(all_shifted)
-    y_min, y_max = np.min(all_y), np.max(all_y)
+    # all_y = np.concatenate(all_shifted)
 
     time_bar_length = 0.1 * window
     if time_bar_length < 60:
@@ -413,20 +412,24 @@ def plot_traces(
 
     ax.add_artist(hsb)
 
-    dff_bar_height = 0.1 * (y_max - y_min)
-    if dff_bar_height < 1e-6:
-        dff_bar_height = np.ptp(f[:displayed_neurons, :current_frame + 1]) * 0.1
-    rounded_dff = np.clip(round(dff_bar_height / 5) * 5, 1, None)
+    bottom_idx = list(reversed(indices))[0]
+    bottom_trace = f[bottom_idx, :current_frame + 1]
 
-    # dff_bar_height = 0.1 * (y_max - y_min)
-    # rounded_dff = round(dff_bar_height / 5) * 5
+    # compute its baseline and amplitude
+    baseline = np.percentile(bottom_trace, 8)
+    trace_min = np.min(bottom_trace - baseline)
+    trace_max = np.max(bottom_trace - baseline)
+    trace_range = trace_max - trace_min
+
+    # scale bar height = 10% of the visible stack height for that trace only
+    vert_scalebar_height = 0.1 * trace_range
 
     if signal_units == "raw":
-        dff_label = f"{rounded_dff:.0f} raw signal (a.u.)"
+        dff_label = f"{vert_scalebar_height:.0f} raw signal (a.u.)"
     elif signal_units == "dff":
-        dff_label = f"{rounded_dff:.0f} ΔF/F₀"
+        dff_label = f"{vert_scalebar_height:.0f} ΔF/F₀"
     elif signal_units == "dffp":
-        dff_label = f"{rounded_dff:.0f} % ΔF/F₀"
+        dff_label = f"{vert_scalebar_height:.0f} % ΔF/F₀"
     else:
         dff_label = "Unknown"
 
