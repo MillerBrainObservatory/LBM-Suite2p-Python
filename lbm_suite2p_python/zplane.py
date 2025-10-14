@@ -1385,23 +1385,22 @@ def plot_zplane_figures(
             title="Accepted ROIs"
         )
 
-        iscell_area = filter_by_area(iscell_mask, res["stat"])
-        eliminated_area = iscell_mask & ~iscell_area
-        plot_masks(
-            img=output_ops.get("meanImgE"),
-            stat=res["stat"],
-            mask_idx=eliminated_area,
-            savepath=expected_files["area_filter"],
-            title="Cells Rejected: Area filter"
-        )
-        print(("Eliminated area:", len(eliminated_area)))
-        plot_traces(
-            F,
-            save_path=expected_files["traces_area"],
-            cell_indices=eliminated_area,
-            title="Traces eliminated by Area filter",
-            fps=output_ops["fs"],
-        )
+        # iscell_area = filter_by_area(iscell_mask, res["stat"])
+        # eliminated_area = iscell_mask & ~iscell_area
+        # plot_masks(
+        #     img=output_ops.get("meanImgE"),
+        #     stat=res["stat"],
+        #     mask_idx=eliminated_area,
+        #     savepath=expected_files["area_filter"],
+        #     title="Cells Rejected: Area filter"
+        # )
+        # plot_traces(
+        #     F,
+        #     save_path=expected_files["traces_area"],
+        #     cell_indices=eliminated_area,
+        #     title="Traces eliminated by Area filter",
+        #     fps=output_ops["fs"],
+        # )
 
     fig_label = kwargs.get("fig_label", plane_dir.stem)
     for key in ["meanImg", "max_proj", "meanImgE"]:
