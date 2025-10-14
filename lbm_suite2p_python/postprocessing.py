@@ -196,7 +196,7 @@ def ops_to_json(ops: dict | str | Path, outpath=None, indent=2):
     return outpath
 
 
-def normalize_traces(F, mode="per_neuron"):
+def normalize_traces(F, mode="percentile"):
     """
     Normalize fluorescence traces F to [0, 1] range.
     Parameters

@@ -17,7 +17,6 @@ from scipy.ndimage import distance_transform_edt
 from lbm_suite2p_python.postprocessing import (
     load_ops,
     load_planar_results,
-    normalize_traces,
     dff_rolling_percentile,
     dff_shot_noise,
     filter_by_area
@@ -277,7 +276,7 @@ def plot_traces(
         lw=0.5,
         cmap="tab10",
         signal_units=None,
-):
+) -> None:
     """
     Plot stacked fluorescence traces with automatic offset and scale bars.
 
@@ -306,15 +305,8 @@ def plot_traces(
     cell_indices : array-like or None
         Specific cell indices to plot. If provided, overrides num_neurons.
     """
-
     if isinstance(f, dict):
-        ops = f
-        res = load_planar_results(ops)
-        f = res["F"]
-        percentile = ops.get("dff_percentile", 20)
-        window = ops.get("dff_window_size", window)
-        f = dff_rolling_percentile(f, percentile=percentile, window_size=window) * 100
-        signal_units = "dffp"
+        raise ValueError("f must be a numpy array, not a dictionary")
 
     if signal_units is None:
         signal_units = infer_units(f)
@@ -345,6 +337,25 @@ def plot_traces(
     perm = get_color_permutation(displayed_neurons)
     colors = colors[perm]
 
+    # fig, ax = plt.subplots(figsize=(10, 6), facecolor="black")
+    # ax.set_facecolor("black")
+
+    # build a composite array
+    # each pixel is the value of the lowest trace at that timepoint
+    composite = np.full_like(f[:displayed_neurons, :current_frame + 1], np.nan)
+    for i in range(displayed_neurons):
+        trace = f[indices[i], : current_frame + 1]
+        baseline = np.percentile(trace, 8)
+        shifted = (trace - baseline) + i * offset
+        if i == 0:
+            composite[i] = shifted
+        else:
+            # keep only parts that are strictly above all lower traces
+            below = np.nanmax(composite[:i], axis=0)
+            masked = np.where(shifted > below, shifted, np.nan)
+            composite[i] = masked
+
+    # plot only the visible parts
     fig, ax = plt.subplots(figsize=(10, 6), facecolor="black")
     ax.set_facecolor("black")
     ax.tick_params(axis="x", which="both", labelbottom=False, length=0, colors="white")
@@ -352,41 +363,22 @@ def plot_traces(
     for spine in ax.spines.values():
         spine.set_visible(False)
 
-    for i, idx in enumerate(reversed(indices)):
-        trace = f[idx, : current_frame + 1]
-        baseline = np.percentile(trace, 8)
-        shifted_trace = (trace - baseline) + i * offset
-
+    for i in range(displayed_neurons):
         ax.plot(
             data_time[: current_frame + 1],
-            shifted_trace,
+            composite[i],
             color=colors[i],
             lw=lw,
             zorder=-i,
         )
-
-        # overlap fill with next trace
-        if i < displayed_neurons - 1:
-            next_idx = list(reversed(indices))[i + 1]
-            prev_trace = f[next_idx, : current_frame + 1]
-            prev_baseline = np.percentile(prev_trace, 8)
-            prev_shifted = (prev_trace - prev_baseline) + (i + 1) * offset
-            mask = shifted_trace > prev_shifted
-            ax.fill_between(
-                data_time[: current_frame + 1],
-                shifted_trace,
-                prev_shifted,
-                where=mask,
-                color="black",
-                zorder=-i - 1,
-            )
 
     all_shifted = [
         (f[i, : current_frame + 1] - np.percentile(f[i, : current_frame + 1], 10))
         + i * offset
         for i in range(displayed_neurons)
     ]
-    # all_y = np.concatenate(all_shifted)
+    all_y = np.concatenate(all_shifted)
+    y_min, y_max = np.min(all_y), np.max(all_y)
 
     time_bar_length = 0.1 * window
     if time_bar_length < 60:
@@ -412,26 +404,20 @@ def plot_traces(
 
     ax.add_artist(hsb)
 
-    bottom_idx = list(reversed(indices))[0]
-    bottom_trace = f[bottom_idx, :current_frame + 1]
+    # how much signal change corresponds to 10% of the y-axis span
+    vertical_bar_height = 0.1 * (y_max - y_min)
 
-    # compute its baseline and amplitude
-    baseline = np.percentile(bottom_trace, 8)
-    trace_min = np.min(bottom_trace - baseline)
-    trace_max = np.max(bottom_trace - baseline)
-    trace_range = trace_max - trace_min
-
-    # scale bar height = 10% of the visible stack height for that trace only
-    vert_scalebar_height = 0.1 * trace_range
+    # express it directly in the same units as f (no offset normalization)
+    rounded_signal_units = np.round(vertical_bar_height, 2)
 
     if signal_units == "raw":
-        dff_label = f"{vert_scalebar_height:.0f} raw signal (a.u.)"
+        dff_label = f"{rounded_signal_units:.2f} raw signal (a.u)"
     elif signal_units == "dff":
-        dff_label = f"{vert_scalebar_height:.0f} ΔF/F₀"
+        dff_label = f"{rounded_signal_units:.2f} ΔF/F₀"
     elif signal_units == "dffp":
-        dff_label = f"{vert_scalebar_height:.0f} % ΔF/F₀"
+        dff_label = f"{rounded_signal_units:.2f} % ΔF/F₀"
     else:
-        dff_label = "Unknown"
+        dff_label = f"{rounded_signal_units:.2f}"
 
     vsb = AnchoredVScaleBar(
         height=0.1,
@@ -465,9 +451,7 @@ def plot_traces(
         plt.close(fig)
     else:
         plt.show()
-
-    return fig, colors
-
+    return None
 
 def animate_traces(
     f,
@@ -1352,8 +1336,10 @@ def plot_zplane_figures(
                 F_accepted = F_accepted[model.isort]
 
         # compute dF/F
-        f_norm_acc = normalize_traces(F_accepted, mode="per_neuron")
-        f_norm_rej = normalize_traces(F_rejected, mode="per_neuron")
+        # f_norm_acc = normalize_traces(F_accepted, mode="percentile")
+        # f_norm_rej = normalize_traces(F_rejected, mode="percentile")
+        f_norm_acc = F_accepted
+        f_norm_rej = F_rejected
 
         dffp_acc = (
             dff_rolling_percentile(
@@ -1408,6 +1394,7 @@ def plot_zplane_figures(
             savepath=expected_files["area_filter"],
             title="Cells Rejected: Area filter"
         )
+        print(("Eliminated area:", len(eliminated_area)))
         plot_traces(
             F,
             save_path=expected_files["traces_area"],
