@@ -31,7 +31,6 @@ from lbm_suite2p_python.volume import (
     plot_volume_signal,
     plot_volume_neuron_counts,
     get_volume_stats,
-    plot_execution_time,
 )
 from mbo_utilities.file_io import get_plane_from_filename
 
@@ -225,7 +224,7 @@ def run_volume(
             zstats_file, os.path.join(save_path, "mean_volume_signal.png")
         )
         # todo: why is suite2p not saving timings to ops.npy?
-        plot_execution_time(zstats_file, os.path.join(save_path, "execution_time.png"))
+        # plot_execution_time(zstats_file, os.path.join(save_path, "execution_time.png"))
 
         res_z = [
             load_planar_results(ops_path, z_plane=i)
