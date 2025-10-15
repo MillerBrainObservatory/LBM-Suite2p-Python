@@ -32,10 +32,9 @@ from lbm_suite2p_python.volume import (
     plot_volume_neuron_counts,
     get_volume_stats,
 )
-from mbo_utilities.file_io import get_plane_from_filename
+from mbo_utilities.file_io import get_plane_from_filename, get_files # derive_tag_from_filename, PIPELINE_TAGS
 
 PIPELINE_TAGS = ("plane", "roi", "z", "plane_", "roi_", "z_")
-
 
 
 def derive_tag_from_filename(path):
@@ -161,7 +160,6 @@ def run_volume(
     - Traces animation over time and neurons
     - Optional rastermap clustering results
     """
-    from mbo_utilities.file_io import get_files, get_plane_from_filename
     start = time.time()
     if save_path is None:
         save_path = Path(input_files[0]).parent
