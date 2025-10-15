@@ -90,7 +90,7 @@ def run_volume(
     ops: dict | str | Path = None,
     keep_reg: bool = True,
     keep_raw: bool = False,
-    force_reg: bool = True,
+    force_reg: bool = False,
     force_detect: bool = False,
     dff_window_size: int = 500,
     dff_percentile: int = 20,
@@ -174,8 +174,8 @@ def run_volume(
     for z, file in enumerate(input_files):
         tag = derive_tag_from_filename(Path(file).name)
         plane_num = get_plane_from_filename(tag, fallback=len(all_ops))
-        subdir = f"plane{plane_num:02d}"
-        plane_save_path = Path(save_path).joinpath(subdir)
+        # subdir = f"plane{tag:02d}"
+        plane_save_path = Path(save_path).joinpath(tag)
         plane_save_path.mkdir(exist_ok=True)
 
         start_file = time.time()
@@ -210,8 +210,10 @@ def run_volume(
         merged_savepath = save_path.joinpath("merged_mrois")
         merge_mrois(save_path, merged_savepath)
         all_ops = sorted(get_files(merged_savepath, "ops.npy", 2))
-
-    print(f"Planes found after merge: {len(all_ops)}")
+        print(f"Planes found after merge: {len(all_ops)}")
+    else:
+        all_ops = sorted(get_files(save_path, "ops.npy", 2))
+        print(f"No mROI data detected, planes found: {len(all_ops)}")
 
     try:
         zstats_file = get_volume_stats(all_ops, overwrite=True)
