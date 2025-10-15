@@ -209,6 +209,8 @@ def run_volume(
         from .merging import merge_mrois
         merged_savepath = save_path.joinpath("merged_mrois")
         merge_mrois(save_path, merged_savepath)
+        save_path = merged_savepath
+
         all_ops = sorted(get_files(merged_savepath, "ops.npy", 2))
         print(f"Planes found after merge: {len(all_ops)}")
     else:
