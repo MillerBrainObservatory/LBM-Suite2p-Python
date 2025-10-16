@@ -159,6 +159,7 @@ def run_volume(
     - Traces animation over time and neurons
     - Optional rastermap clustering results
     """
+    from mbo_utilities.file_io import get_files, get_plane_from_filename
     start = time.time()
     if save_path is None:
         save_path = Path(input_files[0]).parent
