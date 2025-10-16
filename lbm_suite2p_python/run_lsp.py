@@ -10,8 +10,7 @@ import gc
 
 import numpy as np
 
-import suite2p
-from suite2p.io.binary import BinaryFile
+from lbm_suite2p_python import default_ops
 from lbm_suite2p_python.postprocessing import (
     ops_to_json,
     load_planar_results,
@@ -318,6 +317,8 @@ def _should_write_bin(ops_path: Path, force: bool = False) -> bool:
 
 
 def run_plane_bin(ops) -> bool:
+    from suite2p.io.binary import BinaryFile
+    from suite2p.run_s2p import pipeline
     ops = load_ops(ops)
     if "nframes" in ops and "n_frames" not in ops:
         ops["n_frames"] = ops["nframes"]
@@ -334,18 +335,19 @@ def run_plane_bin(ops) -> bool:
         print("Warning: diameter was not set, defaulting to 8."
               "Cellpose-SAM currently does not estimate diameter.")
     with (
-        suite2p.io.BinaryFile(
+
+        BinaryFile(
             Ly=Ly, Lx=Lx, filename=ops["reg_file"], n_frames=n_frames
         ) as f_reg,
         (
-            suite2p.io.BinaryFile(
+            BinaryFile(
                 Ly=Ly, Lx=Lx, filename=ops["raw_file"], n_frames=n_frames
             )
             if "raw_file" in ops and ops["raw_file"] is not None
             else nullcontext()
         ) as f_raw,
     ):
-        ops = suite2p.pipeline(
+        ops = pipeline(
             f_reg, f_raw, None, None, ops["do_registration"], ops, stat=None
         )
 
@@ -461,7 +463,7 @@ def run_plane(
             )
         save_path.mkdir(exist_ok=True)
 
-    ops_default = suite2p.default_ops()
+    ops_default = default_ops()
     ops_user = load_ops(ops) if ops else {}
     ops = {**ops_default, **ops_user, "data_path": str(input_path.resolve())}
 
