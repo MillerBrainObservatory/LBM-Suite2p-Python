@@ -42,6 +42,19 @@ cd LBM-Suite2p-Python
 pip install "." 
 ```
 
+## Features
+
+### 2.0.0
+
+- Process ScanImage multi-ROI as separate datasets
+- Post-processing cell filters for area, exceptional events and eccentricity
+
+### 1.0.0
+
+- Suite2p planar segmentation
+- DF/F, baseline calculation and documentation
+- Aggregate planar outputs into volumetric dataset
+
 ## Issues
 
 Widgets may throw "Invalid Rect" errors. This can be safely ignored until it is [resolved](https://github.com/pygfx/wgpu-py/issues/716#issuecomment-2880853089).

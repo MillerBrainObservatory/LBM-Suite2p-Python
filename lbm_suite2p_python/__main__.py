@@ -5,8 +5,6 @@ from functools import partial
 import lbm_suite2p_python as lsp
 import mbo_utilities as mbo
 
-import suite2p
-
 print = partial(print, flush=True)
 
 
@@ -53,6 +51,7 @@ def main():
     The main function that orchestrates the CLI operations.
     """
     print("\n----------- LBM-Suite2p-Pipeline -----------\n")
+    from suite2p.default_ops import default_ops
 
     parser = argparse.ArgumentParser(description="LBM-Suite2p-pipeline parameters")
     parser = add_args(parser)
@@ -65,7 +64,7 @@ def main():
     ops = (
         np.load(args.ops, allow_pickle=True).item()
         if args.ops
-        else suite2p.default_ops()
+        else default_ops()
     )
 
     if not args.data:
@@ -82,7 +81,9 @@ def main():
 
     if input_path.is_file():
         output_ops = lsp.run_plane(
-            ops=ops, input_tiff=input_path, save_path=save_path, save_folder=subdir
+            input_path=input_path,
+            save_path=save_path,
+            ops=ops,
         )
     elif input_path.is_dir():
         files = mbo.get_files(input_path, "tiff", max_depth=args.max_depth)
