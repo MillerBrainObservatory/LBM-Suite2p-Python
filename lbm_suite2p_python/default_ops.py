@@ -1,7 +1,4 @@
-from suite2p import default_ops as s2p_default_ops
-
-
-def default_ops(metadata=None, ops=None, nplanes=1):
+def default_ops(metadata=None, ops=None):
     """
     Returns default ops for Suite2P processing on Light Beads Microscopy datasets.
 
@@ -11,8 +8,6 @@ def default_ops(metadata=None, ops=None, nplanes=1):
         Metadata dictionary containing information about the dataset.
     ops : dict, str or Path, optional
         Path to or dict of suite2p ops.
-    nplanes : int, optional
-        Number of z-planes that will be processed by Suite2p, may differ from the number of z-planes in the dataset.
 
     Returns
     -------
@@ -33,6 +28,7 @@ def default_ops(metadata=None, ops=None, nplanes=1):
     >>> )
     """
     if ops is None:
+        from suite2p import default_ops as s2p_default_ops
         ops = s2p_default_ops()
 
     if metadata is not None:
