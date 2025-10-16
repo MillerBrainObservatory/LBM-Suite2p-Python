@@ -19,13 +19,11 @@ from lbm_suite2p_python.postprocessing import (
     load_planar_results,
     dff_rolling_percentile,
     dff_shot_noise,
-    filter_by_area
 )
 from lbm_suite2p_python.utils import (
     _resize_masks_fit_crop,
     bin1d,
 )
-from suite2p.detection.stats import ROI
 
 
 def infer_units(f: np.ndarray) -> str:
@@ -227,6 +225,7 @@ def plot_traces_noise(
     lw : float
         Line width.
     """
+
     n_neurons, n_timepoints = dff_noise.shape
     data_time = np.arange(n_timepoints) / fps
     current_frame = min(int(window * fps), n_timepoints - 1)
@@ -746,6 +745,7 @@ def plot_projection(
     display_masks=False,
     accepted_only=False,
 ):
+    from suite2p.detection.stats import ROI
     if proj == "meanImg":
         txt = "Mean-Image"
     elif proj == "max_proj":

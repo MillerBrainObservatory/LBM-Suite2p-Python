@@ -10,8 +10,7 @@ import gc
 
 import numpy as np
 
-import suite2p
-from suite2p.io.binary import BinaryFile
+from lbm_suite2p_python import default_ops
 from lbm_suite2p_python.postprocessing import (
     ops_to_json,
     load_planar_results,
@@ -31,12 +30,10 @@ from lbm_suite2p_python.volume import (
     plot_volume_signal,
     plot_volume_neuron_counts,
     get_volume_stats,
-    plot_execution_time,
 )
-from mbo_utilities.file_io import get_plane_from_filename
+from mbo_utilities.file_io import get_plane_from_filename, get_files # derive_tag_from_filename, PIPELINE_TAGS
 
 PIPELINE_TAGS = ("plane", "roi", "z", "plane_", "roi_", "z_")
-
 
 
 def derive_tag_from_filename(path):
@@ -90,7 +87,7 @@ def run_volume(
     ops: dict | str | Path = None,
     keep_reg: bool = True,
     keep_raw: bool = False,
-    force_reg: bool = True,
+    force_reg: bool = False,
     force_detect: bool = False,
     dff_window_size: int = 500,
     dff_percentile: int = 20,
@@ -174,8 +171,8 @@ def run_volume(
     for z, file in enumerate(input_files):
         tag = derive_tag_from_filename(Path(file).name)
         plane_num = get_plane_from_filename(tag, fallback=len(all_ops))
-        subdir = f"plane{plane_num:02d}"
-        plane_save_path = Path(save_path).joinpath(subdir)
+        # subdir = f"plane{tag:02d}"
+        plane_save_path = Path(save_path).joinpath(tag)
         plane_save_path.mkdir(exist_ok=True)
 
         start_file = time.time()
@@ -209,9 +206,13 @@ def run_volume(
         from .merging import merge_mrois
         merged_savepath = save_path.joinpath("merged_mrois")
         merge_mrois(save_path, merged_savepath)
-        all_ops = sorted(get_files(merged_savepath, "ops.npy", 2))
+        save_path = merged_savepath
 
-    print(f"Planes found after merge: {len(all_ops)}")
+        all_ops = sorted(get_files(merged_savepath, "ops.npy", 2))
+        print(f"Planes found after merge: {len(all_ops)}")
+    else:
+        all_ops = sorted(get_files(save_path, "ops.npy", 2))
+        print(f"No mROI data detected, planes found: {len(all_ops)}")
 
     try:
         zstats_file = get_volume_stats(all_ops, overwrite=True)
@@ -221,7 +222,7 @@ def run_volume(
             zstats_file, os.path.join(save_path, "mean_volume_signal.png")
         )
         # todo: why is suite2p not saving timings to ops.npy?
-        plot_execution_time(zstats_file, os.path.join(save_path, "execution_time.png"))
+        # plot_execution_time(zstats_file, os.path.join(save_path, "execution_time.png"))
 
         res_z = [
             load_planar_results(ops_path, z_plane=i)
@@ -317,6 +318,8 @@ def _should_write_bin(ops_path: Path, force: bool = False) -> bool:
 
 
 def run_plane_bin(ops) -> bool:
+    from suite2p.io.binary import BinaryFile
+    from suite2p.run_s2p import pipeline
     ops = load_ops(ops)
     if "nframes" in ops and "n_frames" not in ops:
         ops["n_frames"] = ops["nframes"]
@@ -333,18 +336,19 @@ def run_plane_bin(ops) -> bool:
         print("Warning: diameter was not set, defaulting to 8."
               "Cellpose-SAM currently does not estimate diameter.")
     with (
-        suite2p.io.BinaryFile(
+
+        BinaryFile(
             Ly=Ly, Lx=Lx, filename=ops["reg_file"], n_frames=n_frames
         ) as f_reg,
         (
-            suite2p.io.BinaryFile(
+            BinaryFile(
                 Ly=Ly, Lx=Lx, filename=ops["raw_file"], n_frames=n_frames
             )
             if "raw_file" in ops and ops["raw_file"] is not None
             else nullcontext()
         ) as f_raw,
     ):
-        ops = suite2p.pipeline(
+        ops = pipeline(
             f_reg, f_raw, None, None, ops["do_registration"], ops, stat=None
         )
 
@@ -460,7 +464,7 @@ def run_plane(
             )
         save_path.mkdir(exist_ok=True)
 
-    ops_default = suite2p.default_ops()
+    ops_default = default_ops()
     ops_user = load_ops(ops) if ops else {}
     ops = {**ops_default, **ops_user, "data_path": str(input_path.resolve())}
 
