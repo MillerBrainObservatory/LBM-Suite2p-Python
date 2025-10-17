@@ -13,6 +13,7 @@ def _normalize_iscell(iscell):
         iscell = iscell[:, 0]
     return iscell.astype(bool)
 
+
 def filter_by_diameter(iscell, stat, ops, min_mult=0.3, max_mult=3.0):
     """
     Set iscell=False for ROIs whose radius is out of range relative to ops['diameter'].
