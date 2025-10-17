@@ -97,6 +97,7 @@ def mode_robust(x):
             j = i
     return mode_robust(x[j:j+N+1])
 
+
 def compute_event_exceptionality(traces, N=5, robust_std=False):
     """
     traces: ndarray (n_cells x T)
@@ -429,4 +430,44 @@ def load_ops(ops_input: str | Path | list[str | Path]) -> dict:
     print("Warning: No valid ops file provided, returning empty dict.")
     return {}
 
+
+def load_traces(ops):
+    """
+    Load fluorescence traces and related data from an ops file directory and return valid cells.
+
+    This function loads the raw fluorescence traces, neuropil traces, and spike data from the directory
+    specified in the ops dictionary. It also loads the 'iscell' file and returns only the traces corresponding
+    to valid cells (i.e. where iscell is True).
+
+    Parameters
+    ----------
+    ops : dict
+        Dictionary containing at least the key 'save_path', which specifies the directory where the following
+        files are stored: 'F.npy', 'Fneu.npy', 'spks.npy', and 'iscell.npy'.
+
+    Returns
+    -------
+    F_valid : ndarray
+        Array of fluorescence traces for valid cells (n_valid x n_timepoints).
+    Fneu_valid : ndarray
+        Array of neuropil fluorescence traces for valid cells (n_valid x n_timepoints).
+    spks_valid : ndarray
+        Array of spike data for valid cells (n_valid x n_timepoints).
+
+    Notes
+    -----
+    The 'iscell.npy' file is expected to be an array where the first column (iscell[:, 0]) contains
+    boolean values indicating valid cells.
+    """
+    save_path = Path(ops['save_path'])
+    F = np.load(save_path.joinpath('F.npy'))
+    Fneu = np.load(save_path.joinpath('Fneu.npy'))
+    spks = np.load(save_path.joinpath('spks.npy'))
+    iscell = np.load(save_path.joinpath('iscell.npy'), allow_pickle=True)[:, 0].astype(bool)
+
+    F_valid = F[iscell]
+    Fneu_valid = Fneu[iscell]
+    spks_valid = spks[iscell]
+
+    return F_valid, Fneu_valid, spks_valid
 
