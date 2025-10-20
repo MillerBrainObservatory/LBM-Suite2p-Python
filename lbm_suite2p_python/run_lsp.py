@@ -319,7 +319,6 @@ def _should_write_bin(ops_path: Path, force: bool = False) -> bool:
 
 def run_plane_bin(ops) -> bool:
     from mbo_utilities._binary import BinaryFile
-    from mbo_utilities import load_ops
     from suite2p.run_s2p import pipeline
     from contextlib import nullcontext
 
@@ -345,6 +344,7 @@ def run_plane_bin(ops) -> bool:
 
     reg_file = ops_parent / "data.bin"
     ops["reg_file"] = str(reg_file)
+    ops["align_structural"] = align_structural
 
     # sanity fix for diameter
     if "diameter" in ops:
