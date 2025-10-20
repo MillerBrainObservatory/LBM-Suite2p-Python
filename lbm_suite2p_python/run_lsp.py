@@ -31,7 +31,7 @@ from lbm_suite2p_python.volume import (
     plot_volume_neuron_counts,
     get_volume_stats,
 )
-from mbo_utilities.file_io import get_plane_from_filename, get_files # derive_tag_from_filename, PIPELINE_TAGS
+from mbo_utilities.file_io import get_plane_from_filename # derive_tag_from_filename, PIPELINE_TAGS
 
 PIPELINE_TAGS = ("plane", "roi", "z", "plane_", "roi_", "z_")
 
@@ -319,12 +319,11 @@ def _should_write_bin(ops_path: Path, force: bool = False) -> bool:
 
 def run_plane_bin(ops) -> bool:
     from mbo_utilities._binary import BinaryFile
+    from mbo_utilities import load_ops
     from suite2p.run_s2p import pipeline
     from contextlib import nullcontext
-    import numpy as np
-    from pathlib import Path
 
-    ops = lsp.load_ops(ops)
+    ops = load_ops(ops)
     Ly, Lx = ops["Ly"], ops["Lx"]
 
     # input functional channel (unregistered)
@@ -336,10 +335,11 @@ def run_plane_bin(ops) -> bool:
     # optional structural channel
     chan2_file = ops.get("chan2_file", "")
     nframes_chan2 = ops.get("nframes_chan2", 0)
-    if chan2_file and nframes_chan2 > 0:
-        ops["align_by_chan"] = 2
+    if ops.get("align_by_chan", 1) == 2 and chan2_file and nframes_chan2 > 0:
+        align_structural = True
+    else:
+        align_structural = False
 
-    # define registered output file for Suite2p GUI
     ops_parent = Path(ops.get("ops_path")).parent
     ops["save_path"] = ops_parent
 
@@ -358,18 +358,17 @@ def run_plane_bin(ops) -> bool:
         BinaryFile(Ly=Ly, Lx=Lx, filename=str(reg_file), n_frames=nframes_chan1) as f_reg,
         BinaryFile(Ly=Ly, Lx=Lx, filename=raw_file, n_frames=nframes_chan1) as f_raw,
         (BinaryFile(Ly=Ly, Lx=Lx, filename=chan2_file, n_frames=nframes_chan2)
-        if chan2_file and nframes_chan2 else nullcontext()) as f_reg_chan2
+        if align_structural else nullcontext()) as f_reg_chan2
     ):
         ops = pipeline(
             f_reg=f_reg,
             f_raw=f_raw,
             f_reg_chan2=f_reg_chan2,
-            f_raw_chan2=f_reg_chan2,  # critical fix
+            f_raw_chan2=f_reg_chan2 if align_structural else None,
             run_registration=ops.get("do_registration", True),
             ops=ops,
             stat=None,
         )
-
     np.save(ops["ops_path"], ops)
     return True
 
