@@ -364,17 +364,15 @@ def run_plane_bin(ops) -> bool:
     # optional structural channel
     chan2_file = ops.get("chan2_file", "")
     nframes_chan2 = ops.get("nframes_chan2", 0)
-    if ops.get("align_by_chan", 1) == 2 and chan2_file and nframes_chan2 > 0:
-        align_structural = True
-    else:
-        align_structural = False
 
     ops_parent = Path(ops.get("ops_path")).parent
     ops["save_path"] = ops_parent
 
+    align_structural = ops.get("align_by_chan", 1) == 2
+    ops["align_structural"] = align_structural
+
     reg_file = ops_parent / "data.bin"
     ops["reg_file"] = str(reg_file)
-    ops["align_structural"] = align_structural
 
     # sanity fix for diameter
     if "diameter" in ops:
