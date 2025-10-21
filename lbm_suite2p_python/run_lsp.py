@@ -329,7 +329,6 @@ def _should_register(ops_path: str | Path) -> bool:
       - A reference image (refImg) exists and is a valid ndarray
       - meanImg exists (Suite2p always produces it post-registration)
       - Valid registration offsets (xoff/yoff) are present
-      - Registration metrics have already been computed (regDX, regPC, etc.)
 
     Returns True if registration *should* be run, False otherwise.
     """
@@ -342,7 +341,11 @@ def _should_register(ops_path: str | Path) -> bool:
         ("yoff" in ops and np.any(np.isfinite(ops["yoff"])))
     )
     has_metrics = any(k in ops for k in ("regDX", "regPC", "regPC1", "regDX1"))
-    return not has_ref or has_mean or has_offsets or has_metrics
+
+    # registration done if any of these are true
+    registration_done = has_ref or has_mean or has_offsets or has_metrics
+    return not registration_done
+
 
 def run_plane_bin(ops) -> bool:
     from mbo_utilities._binary import BinaryFile
