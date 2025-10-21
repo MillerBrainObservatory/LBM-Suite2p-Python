@@ -271,14 +271,14 @@ def run_volume(
 
 def _should_write_bin(ops_path: Path, force: bool = False) -> bool:
     """
-    Decide whether a data_raw.bin should be re-written.
+    Decide whether raw binary export should be performed before registration.
 
     Conditions that trigger re-write:
       - force=True
-      - bin file missing
+      - bin file missing (data.bin or data_chan2.bin)
       - ops.npy missing
       - mismatch between ops metadata (Ly, Lx, nframes) and bin file size
-      - bin file cannot be read or has wrong shape
+      - bin file unreadable or truncated
     """
     if force:
         return True
@@ -286,55 +286,100 @@ def _should_write_bin(ops_path: Path, force: bool = False) -> bool:
     if not ops_path.is_file():
         return True
 
-    bin_path = ops_path.parent / "data.bin"
-    tiff_path = ops_path.parent / "reg_tif"
+    ops = np.load(ops_path, allow_pickle=True).item()
 
-    if not bin_path.is_file() and not tiff_path.is_dir():
-        return True
+    # Check both functional and optional structural binaries
+    bin_candidates = []
+    if "raw_file" in ops:
+        bin_candidates.append(Path(ops["raw_file"]))
+    if "chan2_file" in ops:
+        bin_candidates.append(Path(ops["chan2_file"]))
 
-    try:
-        ops = np.load(ops_path, allow_pickle=True).item()
-        Ly, Lx = ops.get("Ly"), ops.get("Lx")
-        nframes = ops.get("nframes", ops.get("n_frames"))
-
-        if None in (Ly, Lx, nframes):
+    for bin_path in bin_candidates:
+        if not bin_path.is_file():
             return True
+        try:
+            Ly, Lx = ops.get("Ly"), ops.get("Lx")
+            nframes = (
+                ops.get("nframes_chan2")
+                if "chan2" in bin_path.name
+                else ops.get("nframes_chan1", ops.get("nframes"))
+            )
+            if None in (Ly, Lx, nframes):
+                return True
 
-        expected_size = nframes * Ly * Lx * np.dtype(np.int16).itemsize
-        actual_size = bin_path.stat().st_size
+            expected_size = nframes * Ly * Lx * np.dtype(np.int16).itemsize
+            actual_size = bin_path.stat().st_size
+            if actual_size != expected_size:
+                return True
 
-        if actual_size != expected_size:
+            arr = np.memmap(bin_path, dtype=np.int16, mode="r", shape=(nframes, Ly, Lx))
+            _ = arr[0, 0, 0]
+            del arr
+        except Exception as e:
+            print(f"Bin validation failed for {bin_path}: {e}")
             return True
+    return False  # all checks passed
 
-        # Try opening first few frames to verify integrity
-        arr = np.memmap(bin_path, dtype=np.int16, mode="r", shape=(nframes, Ly, Lx))
-        _ = arr[0].sum()  # touch data
-        del arr
+def _should_register(ops_path: str | Path) -> bool:
+    """
+    Determine whether Suite2p registration still needs to be performed.
 
-        return False  # all checks passed
-    except Exception as e:
-        print(f"Bin validation failed: {e}")
-        return True
+    Registration is considered complete if any of the following hold:
+      - A reference image (refImg) exists and is a valid ndarray
+      - meanImg exists (Suite2p always produces it post-registration)
+      - Valid registration offsets (xoff/yoff) are present
+
+    Returns True if registration *should* be run, False otherwise.
+    """
+    ops = load_ops(ops_path)
+
+    has_ref = isinstance(ops.get("refImg"), np.ndarray)
+    has_mean = isinstance(ops.get("meanImg"), np.ndarray)
+    has_offsets = (
+        ("xoff" in ops and np.any(np.isfinite(ops["xoff"]))) or
+        ("yoff" in ops and np.any(np.isfinite(ops["yoff"])))
+    )
+    has_metrics = any(k in ops for k in ("regDX", "regPC", "regPC1", "regDX1"))
+
+    # registration done if any of these are true
+    registration_done = has_ref or has_mean or has_offsets or has_metrics
+    return not registration_done
 
 
 def run_plane_bin(ops) -> bool:
     from suite2p.io.binary import BinaryFile
     from suite2p.run_s2p import pipeline
     ops = load_ops(ops)
-    if "nframes" in ops and "n_frames" not in ops:
-        ops["n_frames"] = ops["nframes"]
-    if "n_frames" not in ops:
-        raise KeyError("run_plane_bin: missing frame count (nframes or n_frames)")
-    n_frames = ops["n_frames"]
     Ly, Lx = ops["Ly"], ops["Lx"]
 
-    # make sure diam is not nan
-    if ops["diameter"] is not None and np.isnan(ops["diameter"]):
-        ops["diameter"] = 8
-    if ops["diameter"] is None or ops["diameter"] == 0 and ops["anatomical_only"] > 0:
-        ops["diameter"] = 8
-        print("Warning: diameter was not set, defaulting to 8."
-              "Cellpose-SAM currently does not estimate diameter.")
+    # input functional channel (unregistered)
+    raw_file = ops.get("raw_file")
+    nframes_chan1 = ops.get("nframes_chan1") or ops.get("nframes") or ops.get("n_frames")
+    if raw_file is None or nframes_chan1 is None:
+        raise KeyError("Missing raw_file or nframes_chan1")
+
+    # optional structural channel
+    chan2_file = ops.get("chan2_file", "")
+    nframes_chan2 = ops.get("nframes_chan2", 0)
+
+    ops_parent = Path(ops.get("ops_path")).parent
+    ops["save_path"] = ops_parent
+
+    align_structural = ops.get("align_by_chan", 1) == 2
+    ops["align_structural"] = align_structural
+
+    reg_file = ops_parent / "data.bin"
+    ops["reg_file"] = str(reg_file)
+
+    # sanity fix for diameter
+    if "diameter" in ops:
+        if ops["diameter"] is not None and np.isnan(ops["diameter"]):
+            ops["diameter"] = 8
+        if (ops["diameter"] is None or ops["diameter"] == 0) and ops.get("anatomical_only", 0) > 0:
+            ops["diameter"] = 8
+            print("Warning: diameter was not set, defaulting to 8.")
+
     with (
 
         BinaryFile(
@@ -351,10 +396,7 @@ def run_plane_bin(ops) -> bool:
         ops = pipeline(
             f_reg, f_raw, None, None, ops["do_registration"], ops, stat=None
         )
-
     np.save(ops["ops_path"], ops)
-    del f_reg, f_raw, ops
-
     return True
 
 
@@ -532,8 +574,6 @@ def run_plane(
             needs_detect = True
 
     ops_file = plane_dir / "ops.npy"
-    reg_data_file = plane_dir / "data.bin"
-    reg_data_file_tiff = plane_dir / "reg_tif"
 
     if _should_write_bin(ops_file, force=kwargs.get("force_save", False)):
         md_combined = {**metadata, **ops}
@@ -549,17 +589,13 @@ def run_plane(
         else {}
     )
 
-    exists = False
-    if reg_data_file.exists():
-        exists = True
-    if reg_data_file_tiff.exists():
-        exists = True
     if force_reg:
         needs_reg = True
     else:
-        # if either reg data file exists, we assume registration is done
-        needs_reg = not exists
-
+        if not ops_file.exists():
+            needs_reg = True
+        else:
+            needs_reg = _should_register(ops_file)
     ops = {
         **ops_default,
         **ops_outpath,
@@ -598,11 +634,13 @@ def run_plane(
         print(f"Skipping {ops_file.name}, processing was not completed.")
         return ops_file
 
-    # cleanup ourselves
-    if not keep_raw:
-        (plane_dir / "data_raw.bin").unlink(missing_ok=True)
-    if not keep_reg:
-        (plane_dir / "data.bin").unlink(missing_ok=True)
+    raw_file = Path(ops.get("raw_file", plane_dir / "data_raw.bin"))
+    reg_file = Path(ops.get("reg_file", plane_dir / "data.bin"))
+
+    if not keep_raw and raw_file.exists():
+        raw_file.unlink(missing_ok=True)
+    if not keep_reg and reg_file.exists():
+        reg_file.unlink(missing_ok=True)
 
     save_pc_panels_and_metrics(ops_file, plane_dir / "pc_metrics")
 
@@ -623,6 +661,8 @@ def run_grid_search(
     grid_search_dict: dict,
     input_file: Path | str,
     save_root: Path | str,
+    force_reg: bool,
+    force_detect: bool,
 ):
     """
     Run a grid search over all combinations of the input suite2p parameters.
@@ -642,6 +682,12 @@ def run_grid_search(
     save_root : str or Path
         Root directory where each parameter combination's output will be saved.
         A subdirectory will be created for each run using a short parameter tag.
+
+    force_reg : bool
+        Whether to force suite2p registration.
+
+    force_detect : bool
+        Whether to force suite2p detection.
 
     Notes
     -----
@@ -695,16 +741,22 @@ def run_grid_search(
             for k, v in combo_dict.items()
         ]
         tag = "_".join(tag_parts)
-
-        print(f"Running grid search in: {save_root.joinpath(tag)}")
-
         save_path = save_root / tag
+        print(f"\nRunning grid search combination: {tag}")
+
+        ops_file = save_path / "ops.npy"
+
+        # Skip runs that are already registered
+        if ops_file.exists() and not force_reg and not _should_register(ops_file):
+            print(f"Skipping {tag}: registration already complete.")
+            continue
+
         run_plane(
             input_path=input_file,
             save_path=save_path,
             ops=ops,
             keep_reg=True,
             keep_raw=True,
-            force_reg=True,
-            force_detect=True,
+            force_reg=force_reg,
+            force_detect=force_detect,
         )
