@@ -321,13 +321,28 @@ def _should_write_bin(ops_path: Path, force: bool = False) -> bool:
             return True
     return False  # all checks passed
 
-def _should_register(ops_path):
-    ops = load_ops(ops_path)
-    has_ref = isinstance(ops.get("refImg"), np.ndarray)
-    has_xoff = np.any(ops.get("xoff")) if "xoff" in ops else False
-    has_yoff = np.any(ops.get("yoff")) if "yoff" in ops else False
-    return not (has_ref or has_xoff or has_yoff)
+def _should_register(ops_path: str | Path) -> bool:
+    """
+    Determine whether Suite2p registration still needs to be performed.
 
+    Registration is considered complete if any of the following hold:
+      - A reference image (refImg) exists and is a valid ndarray
+      - meanImg exists (Suite2p always produces it post-registration)
+      - Valid registration offsets (xoff/yoff) are present
+      - Registration metrics have already been computed (regDX, regPC, etc.)
+
+    Returns True if registration *should* be run, False otherwise.
+    """
+    ops = load_ops(ops_path)
+
+    has_ref = isinstance(ops.get("refImg"), np.ndarray)
+    has_mean = isinstance(ops.get("meanImg"), np.ndarray)
+    has_offsets = (
+        ("xoff" in ops and np.any(np.isfinite(ops["xoff"]))) or
+        ("yoff" in ops and np.any(np.isfinite(ops["yoff"])))
+    )
+    has_metrics = any(k in ops for k in ("regDX", "regPC", "regPC1", "regDX1"))
+    return not has_ref or has_mean or has_offsets or has_metrics
 
 def run_plane_bin(ops) -> bool:
     from mbo_utilities._binary import BinaryFile
