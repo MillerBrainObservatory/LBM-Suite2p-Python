@@ -2,6 +2,7 @@
 bibliography:
   - references.bib
 ---
+
 # Quantifying Cell Activity
 
 The gold-standard formula for measuring cellular activity is "Delta F over F₀", or the change in fluorescence intensity normalized by the baseline activity:
@@ -21,28 +22,27 @@ This guide assumes you've read [this scientifica article](https://www.scientific
 :::{grid-item-card} Blog-Post Takeaways
 :columns: 12
 
-- $\Delta F/F$ reflects intracellular calcium levels, but often in a nonlinear way  
-- $\Delta F/F$ was initially introduced for organic dye calcium indicators in the 1930s  
-- GCaMP behaves differently due to its low baseline brightness and its nonlinearity  
-- There is no single recipe on how to compute $\Delta F/F$  
-- Computation of $\Delta F/F$ must be adapted to cell types, activity patterns, and noise  
-- Interpretation of $\Delta F/F$ requires knowledge about indicators, cell types, and confounds
+- $\Delta F/F$ reflects intracellular calcium levels, but often in a nonlinear way
+- GCaMP behaves differently due to its low baseline brightness and its nonlinearity
+- There is no single recipe on how to compute $\Delta F/F$
+- Computation of $\Delta F/F$ must be adapted to cell types, activity patterns, and noise
+
 :::
 ::::
 
-```{figure} ./_images/cell_activity.png
+```{figure} ../_images/plot_traces_dff_50n.png
 :alt: Cell Activity (DF/F)
 :figclass: full-width
 :name: fig-dff-activity
 
-ΔF/F traces for 30 cells, sorted by similarity using the [Rastermap](https://github.com/MouseLand/rastermap) algorithm.
+ΔF/F traces for 50 cells, sorted by similarity using the [Rastermap](https://github.com/MouseLand/rastermap) algorithm.
 ```
 
 ## Baseline F₀ Strategies
 
 Choosing the correct baseline strategy depends on many factors:
 
-- Cell type 
+- Cell type
 - Brain location
 - Frame-rate
 - Virus Kinetics
@@ -58,23 +58,25 @@ This table summarizes Calcium Activity detection strategies used in embryoinic d
 | **Standard Deviation (SD) Masking**| Define active frames/regions where ΔF exceeds N×SD of baseline.                        | Objective thresholding for event detection.                    | Threshold choice heavily affects results.                            |
 | **Image Subtraction (Frame-to-Frame)**| Compute ΔF = Fₙ − Fₙ₋₁ or F − background to detect sudden changes.                   | Simple, fast; used for wave detection.                         | Sensitive to noise; misses gradual changes.                          |
 
-```{figure} ./_images/dff_baseline_strategies2.png
+```{figure} ../_images/dff_baseline_strategies2.png
 :alt: Comparison of dF/F baseline strategies
 :figclass: full-width
 :name: fig-dff-strategies
 
 Comparison of different ΔF/F₀ baseline correction methods across selected cells.
+
 ```
 
-```{figure} ./_images/dff_baseline_strategies_dff.png
+```{figure} ../_images/dff_baseline_strategies_dff.png
 :alt: Resulting DFF values from baseline strategies
 :figclass: full-width
 :name: fig-dff-dff
 
 The resulting ΔF/F₀ traces can look different depending on the chosen baseline strategy.
+
 ```
 
-```{figure} ./_images/dff_baseline_strategies_events.png
+```{figure} ../_images/dff_baseline_strategies_events.png
 :alt: Resulting DFF values from baseline strategies with Events
 :figclass: full-width
 :name: fig-dff-dff-ev
@@ -99,7 +101,7 @@ The resulting units, `% for dF/F, divided by the square root of seconds`, is str
 
 This metric should be used relative to other datasets.
 
-```{figure} ./_images/noise_comp.png
+```{figure} ../_images/noise_comp.png
 :alt: High vs Low Noise Levels
 :figclass: full-width
 :name: fig-noise-high-low
@@ -139,7 +141,7 @@ Background and neuropil are explicitly separated into distinct spatial/temporal 
 
 There is a strong argument to be made that a matrix factorization `CNMF` is not complex enough to model the true background and neuropil.
 
-```{figure} ./_images/dff_baseline_strategies_caiman.png
+```{figure} ../_images/dff_baseline_strategies_caiman.png
 :alt: CaImAn default DF/F strategy
 :figclass: full-width
 :name: fig-dff-caiman
@@ -171,7 +173,7 @@ To compute ΔF/F₀, you divide trace, be that neuropil-corrected or not, by an 
 Internally, when running spike deconvolution, suite2p will convert your data into DF/F0 internally.
 For this, the default F₀ estimate comes from a **"maximin"** filter: smooth the trace with a Gaussian (default \~10 s), take a rolling **min**, then a **max** over a 60 s window.
 
-```{figure} ./_images/dff_oasis.png
+```{figure} ../_images/dff_oasis.png
 Raw, neuropil, ΔF/F₀ and resulting deconvolved spikes as output by [Suite2p](https://github.com/MouseLand/suite2p)
 ```
 
@@ -195,7 +197,7 @@ EXTRACT outputs raw fluorescence signals without built-in ΔF/F₀ calculation. 
 
 The most important consideration you must consider is how you calculate your baseline activity, which depends on your experimental question.
 
-```{figure} ./_images/dff_1.png
+```{figure} ../_images/dff_1.png
 :name: fig-dff-example
 :width: 600px
 :alt: Example ΔF/F trace baseline comparisons
