@@ -646,6 +646,8 @@ def run_grid_search(
     grid_search_dict: dict,
     input_file: Path | str,
     save_root: Path | str,
+    force_reg: bool,
+    force_detect: bool,
 ):
     """
     Run a grid search over all combinations of the input suite2p parameters.
@@ -665,6 +667,12 @@ def run_grid_search(
     save_root : str or Path
         Root directory where each parameter combination's output will be saved.
         A subdirectory will be created for each run using a short parameter tag.
+
+    force_reg : bool
+        Whether to force suite2p registration.
+
+    force_detect : bool
+        Whether to force suite2p detection.
 
     Notes
     -----
@@ -718,16 +726,22 @@ def run_grid_search(
             for k, v in combo_dict.items()
         ]
         tag = "_".join(tag_parts)
-
-        print(f"Running grid search in: {save_root.joinpath(tag)}")
-
         save_path = save_root / tag
+        print(f"\nRunning grid search combination: {tag}")
+
+        ops_file = save_path / "ops.npy"
+
+        # Skip runs that are already registered
+        if ops_file.exists() and not force_reg and not _should_register(ops_file):
+            print(f"Skipping {tag}: registration already complete.")
+            continue
+
         run_plane(
             input_path=input_file,
             save_path=save_path,
             ops=ops,
             keep_reg=True,
             keep_raw=True,
-            force_reg=True,
-            force_detect=True,
+            force_reg=force_reg,
+            force_detect=force_detect,
         )
