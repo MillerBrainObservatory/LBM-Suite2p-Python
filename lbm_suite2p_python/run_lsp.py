@@ -270,56 +270,43 @@ def run_volume(
 
 
 def _should_write_bin(ops_path: Path, force: bool = False) -> bool:
-    """
-    Decide whether raw binary export should be performed before registration.
-
-    Conditions that trigger re-write:
-      - force=True
-      - bin file missing (data.bin or data_chan2.bin)
-      - ops.npy missing
-      - mismatch between ops metadata (Ly, Lx, nframes) and bin file size
-      - bin file unreadable or truncated
-    """
     if force:
         return True
     ops_path = Path(ops_path)
     if not ops_path.is_file():
         return True
 
-    ops = np.load(ops_path, allow_pickle=True).item()
+    raw_path = ops_path.parent / "data_raw.bin"
+    reg_path = ops_path.parent / "data.bin"
+    tiff_path = ops_path.parent / "reg_tif"
 
-    # Check both functional and optional structural binaries
-    bin_candidates = []
-    if "raw_file" in ops:
-        bin_candidates.append(Path(ops["raw_file"]))
-    if "chan2_file" in ops:
-        bin_candidates.append(Path(ops["chan2_file"]))
+    # must have raw data available
+    if not raw_path.is_file():
+        return True
 
-    for bin_path in bin_candidates:
-        if not bin_path.is_file():
+    try:
+        ops = np.load(ops_path, allow_pickle=True).item()
+        Ly, Lx = ops.get("Ly"), ops.get("Lx")
+        nframes = ops.get("nframes") or ops.get("n_frames") or ops.get("num_frames")
+
+        if None in (Ly, Lx, nframes):
             return True
-        try:
-            Ly, Lx = ops.get("Ly"), ops.get("Lx")
-            nframes = (
-                ops.get("nframes_chan2")
-                if "chan2" in bin_path.name
-                else ops.get("nframes_chan1", ops.get("nframes"))
-            )
-            if None in (Ly, Lx, nframes):
-                return True
 
-            expected_size = nframes * Ly * Lx * np.dtype(np.int16).itemsize
-            actual_size = bin_path.stat().st_size
-            if actual_size != expected_size:
-                return True
+        expected_size = nframes * Ly * Lx * np.dtype(np.int16).itemsize
+        actual_size = raw_path.stat().st_size
 
-            arr = np.memmap(bin_path, dtype=np.int16, mode="r", shape=(nframes, Ly, Lx))
-            _ = arr[0, 0, 0]
-            del arr
-        except Exception as e:
-            print(f"Bin validation failed for {bin_path}: {e}")
+        if actual_size != expected_size:
             return True
-    return False  # all checks passed
+
+        arr = np.memmap(raw_path, dtype=np.int16, mode="r", shape=(nframes, Ly, Lx))
+        _ = arr[0].sum()
+        del arr
+
+        # all checks passed
+        return False
+    except Exception as e:
+        print(f"Bin validation failed: {e}")
+        return True
 
 def _should_register(ops_path: str | Path) -> bool:
     """
