@@ -309,10 +309,8 @@ def _should_write_bin(ops_path: Path, force: bool = False) -> bool:
             if None in (Ly, Lx, nframes):
                 return True
 
-            expected_size = nframes * Ly * Lx * np.dtype(np.int16).itemsize
-            actual_size = bin_path.stat().st_size
-            if actual_size != expected_size:
-                return True
+        expected_size = nframes * Ly * Lx * np.dtype(np.int16).itemsize
+        actual_size = raw_path.stat().st_size
 
             # lightweight validation read
             arr = np.memmap(bin_path, dtype=np.int16, mode="r", shape=(nframes, Ly, Lx))
@@ -325,6 +323,16 @@ def _should_write_bin(ops_path: Path, force: bool = False) -> bool:
         print(f"Bin validation failed for {ops_path.parent}: {e}")
         return True
 
+
+        arr = np.memmap(raw_path, dtype=np.int16, mode="r", shape=(nframes, Ly, Lx))
+        _ = arr[0].sum()
+        del arr
+
+        # all checks passed
+        return False
+    except Exception as e:
+        print(f"Bin validation failed: {e}")
+        return True
 
 def _should_register(ops_path: str | Path) -> bool:
     """
