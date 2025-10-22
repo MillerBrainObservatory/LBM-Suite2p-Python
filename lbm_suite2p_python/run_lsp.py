@@ -18,10 +18,7 @@ from lbm_suite2p_python.postprocessing import (
 )
 from mbo_utilities.log import get as get_logger
 
-from lbm_suite2p_python.zplane import (
-    save_pc_panels_and_metrics,
-    plot_zplane_figures
-)
+from lbm_suite2p_python.zplane import save_pc_panels_and_metrics, plot_zplane_figures
 
 logger = get_logger("run_lsp")
 
@@ -31,7 +28,9 @@ from lbm_suite2p_python.volume import (
     plot_volume_neuron_counts,
     get_volume_stats,
 )
-from mbo_utilities.file_io import get_plane_from_filename # derive_tag_from_filename, PIPELINE_TAGS
+from mbo_utilities.file_io import (
+    get_plane_from_filename,
+)  # derive_tag_from_filename, PIPELINE_TAGS
 
 PIPELINE_TAGS = ("plane", "roi", "z", "plane_", "roi_", "z_")
 
@@ -160,6 +159,7 @@ def run_volume(
     - Optional rastermap clustering results
     """
     from mbo_utilities.file_io import get_files, get_plane_from_filename
+
     start = time.time()
     if save_path is None:
         save_path = Path(input_files[0]).parent
@@ -204,6 +204,7 @@ def run_volume(
     if "roi" in Path(input_files[0]).stem.lower():
         print("Detected mROI data, merging ROIs for each z-plane...")
         from .merging import merge_mrois
+
         merged_savepath = save_path.joinpath("merged_mrois")
         merge_mrois(save_path, merged_savepath)
         save_path = merged_savepath
@@ -270,57 +271,60 @@ def run_volume(
 
 
 def _should_write_bin(ops_path: Path, force: bool = False) -> bool:
+    """
+    Return True if data_raw.bin should be re-written.
+    """
     if force:
         return True
+
     ops_path = Path(ops_path)
     if not ops_path.is_file():
         return True
 
     raw_path = ops_path.parent / "data_raw.bin"
-    reg_path = ops_path.parent / "data.bin"
+    chan2_path = ops_path.parent / "data_chan2.bin"
     tiff_path = ops_path.parent / "reg_tif"
 
-    # must have raw data available
-    if not raw_path.is_file():
+    # no raw data at all
+    if not raw_path.is_file() and not chan2_path.is_file():
         return True
 
     try:
         ops = np.load(ops_path, allow_pickle=True).item()
-        Ly, Lx = ops.get("Ly"), ops.get("Lx")
-        nframes = ops.get("nframes") or ops.get("n_frames") or ops.get("num_frames")
 
-        if None in (Ly, Lx, nframes):
-            return True
-        try:
+        for bin_path in (raw_path, chan2_path):
+            if not bin_path.is_file():
+                continue
+
+            if "chan2" in bin_path.name:
+                nframes = ops.get("nframes_chan2")
+            else:
+                nframes = (
+                    ops.get("nframes_chan1")
+                    or ops.get("nframes")
+                    or ops.get("num_frames")
+                )
+
             Ly, Lx = ops.get("Ly"), ops.get("Lx")
-            nframes = (
-                ops.get("nframes_chan2")
-                if "chan2" in bin_path.name
-                else ops.get("nframes_chan1", ops.get("nframes"))
-            )
             if None in (Ly, Lx, nframes):
                 return True
 
-        expected_size = nframes * Ly * Lx * np.dtype(np.int16).itemsize
-        actual_size = raw_path.stat().st_size
+            expected_size = nframes * Ly * Lx * np.dtype(np.int16).itemsize
+            actual_size = bin_path.stat().st_size
+            if actual_size != expected_size:
+                return True
 
+            # lightweight validation read
             arr = np.memmap(bin_path, dtype=np.int16, mode="r", shape=(nframes, Ly, Lx))
             _ = arr[0, 0, 0]
             del arr
-        except Exception as e:
-            print(f"Bin validation failed for {bin_path}: {e}")
-            return True
-    return False  # all checks passed
 
-        arr = np.memmap(raw_path, dtype=np.int16, mode="r", shape=(nframes, Ly, Lx))
-        _ = arr[0].sum()
-        del arr
+        return False  # all checks passed
 
-        # all checks passed
-        return False
     except Exception as e:
-        print(f"Bin validation failed: {e}")
+        print(f"Bin validation failed for {ops_path.parent}: {e}")
         return True
+
 
 def _should_register(ops_path: str | Path) -> bool:
     """
@@ -337,9 +341,8 @@ def _should_register(ops_path: str | Path) -> bool:
 
     has_ref = isinstance(ops.get("refImg"), np.ndarray)
     has_mean = isinstance(ops.get("meanImg"), np.ndarray)
-    has_offsets = (
-        ("xoff" in ops and np.any(np.isfinite(ops["xoff"]))) or
-        ("yoff" in ops and np.any(np.isfinite(ops["yoff"])))
+    has_offsets = ("xoff" in ops and np.any(np.isfinite(ops["xoff"]))) or (
+        "yoff" in ops and np.any(np.isfinite(ops["yoff"]))
     )
     has_metrics = any(k in ops for k in ("regDX", "regPC", "regPC1", "regDX1"))
 
@@ -358,7 +361,9 @@ def run_plane_bin(ops) -> bool:
 
     # input functional channel (unregistered)
     raw_file = ops.get("raw_file")
-    nframes_chan1 = ops.get("nframes_chan1") or ops.get("nframes") or ops.get("n_frames")
+    nframes_chan1 = (
+        ops.get("nframes_chan1") or ops.get("nframes") or ops.get("n_frames")
+    )
     if raw_file is None or nframes_chan1 is None:
         raise KeyError("Missing raw_file or nframes_chan1")
 
@@ -379,15 +384,22 @@ def run_plane_bin(ops) -> bool:
     if "diameter" in ops:
         if ops["diameter"] is not None and np.isnan(ops["diameter"]):
             ops["diameter"] = 8
-        if (ops["diameter"] is None or ops["diameter"] == 0) and ops.get("anatomical_only", 0) > 0:
+        if (ops["diameter"] is None or ops["diameter"] == 0) and ops.get(
+            "anatomical_only", 0
+        ) > 0:
             ops["diameter"] = 8
             print("Warning: diameter was not set, defaulting to 8.")
 
     with (
-        BinaryFile(Ly=Ly, Lx=Lx, filename=str(reg_file), n_frames=nframes_chan1) as f_reg,
+        BinaryFile(
+            Ly=Ly, Lx=Lx, filename=str(reg_file), n_frames=nframes_chan1
+        ) as f_reg,
         BinaryFile(Ly=Ly, Lx=Lx, filename=raw_file, n_frames=nframes_chan1) as f_raw,
-        (BinaryFile(Ly=Ly, Lx=Lx, filename=chan2_file, n_frames=nframes_chan2)
-        if align_structural else nullcontext()) as f_reg_chan2
+        (
+            BinaryFile(Ly=Ly, Lx=Lx, filename=chan2_file, n_frames=nframes_chan2)
+            if align_structural
+            else nullcontext()
+        ) as f_reg_chan2,
     ):
         ops = pipeline(
             f_reg=f_reg,
@@ -485,18 +497,18 @@ def run_plane(
         logger.setLevel(logging.DEBUG)
         logger.info("Debug mode enabled.")
 
-    assert isinstance(input_path, (Path, str)), (
-        f"input_path should be a pathlib.Path or string, not: {type(input_path)}"
-    )
+    assert isinstance(
+        input_path, (Path, str)
+    ), f"input_path should be a pathlib.Path or string, not: {type(input_path)}"
     input_path = Path(input_path)
     if not input_path.is_file():
         if input_path.suffix != ".zarr":
             raise ValueError(f"Input file does not exist: {input_path}")
     input_parent = input_path.parent
 
-    assert isinstance(save_path, (Path, str, type(None))), (
-        f"save_path should be a pathlib.Path or string, not: {type(save_path)}"
-    )
+    assert isinstance(
+        save_path, (Path, str, type(None))
+    ), f"save_path should be a pathlib.Path or string, not: {type(save_path)}"
     if save_path is None:
         logger.debug(f"save_path is None, using parent of input file: {input_parent}")
         save_path = input_parent
@@ -513,8 +525,11 @@ def run_plane(
     ops = {**ops_default, **ops_user, "data_path": str(input_path.resolve())}
 
     # suite2p diameter handling
-    if isinstance(ops["diameter"], list) and len(
-            ops["diameter"]) > 1 and ops["aspect"] == 1.0:
+    if (
+        isinstance(ops["diameter"], list)
+        and len(ops["diameter"]) > 1
+        and ops["aspect"] == 1.0
+    ):
         ops["aspect"] = ops["diameter"][0] / ops["diameter"][1]  # noqa
 
     file = imread(input_path)
@@ -563,7 +578,8 @@ def run_plane(
         else:
             print(
                 f"ops['roidetect'] is True with no stat.npy file present, "
-                f"proceeding with segmentation/detection for plane {plane}.")
+                f"proceeding with segmentation/detection for plane {plane}."
+            )
             needs_detect = True
     elif (plane_dir / "stat.npy").is_file():
         # check contents of stat.npy
@@ -762,3 +778,4 @@ def run_grid_search(
             force_reg=force_reg,
             force_detect=force_detect,
         )
+
