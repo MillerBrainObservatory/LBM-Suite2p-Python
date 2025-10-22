@@ -283,7 +283,6 @@ def _should_write_bin(ops_path: Path, force: bool = False) -> bool:
 
     raw_path = ops_path.parent / "data_raw.bin"
     chan2_path = ops_path.parent / "data_chan2.bin"
-    tiff_path = ops_path.parent / "reg_tif"
 
     # no raw data at all
     if not raw_path.is_file() and not chan2_path.is_file():
@@ -309,8 +308,10 @@ def _should_write_bin(ops_path: Path, force: bool = False) -> bool:
             if None in (Ly, Lx, nframes):
                 return True
 
-        expected_size = nframes * Ly * Lx * np.dtype(np.int16).itemsize
-        actual_size = raw_path.stat().st_size
+            expected_size = nframes * Ly * Lx * np.dtype(np.int16).itemsize
+            actual_size = bin_path.stat().st_size
+            if actual_size != expected_size:
+                return True
 
             # lightweight validation read
             arr = np.memmap(bin_path, dtype=np.int16, mode="r", shape=(nframes, Ly, Lx))
@@ -323,16 +324,6 @@ def _should_write_bin(ops_path: Path, force: bool = False) -> bool:
         print(f"Bin validation failed for {ops_path.parent}: {e}")
         return True
 
-
-        arr = np.memmap(raw_path, dtype=np.int16, mode="r", shape=(nframes, Ly, Lx))
-        _ = arr[0].sum()
-        del arr
-
-        # all checks passed
-        return False
-    except Exception as e:
-        print(f"Bin validation failed: {e}")
-        return True
 
 def _should_register(ops_path: str | Path) -> bool:
     """
@@ -786,4 +777,3 @@ def run_grid_search(
             force_reg=force_reg,
             force_detect=force_detect,
         )
-
