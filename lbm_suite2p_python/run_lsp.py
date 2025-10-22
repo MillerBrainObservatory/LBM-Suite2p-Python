@@ -291,12 +291,26 @@ def _should_write_bin(ops_path: Path, force: bool = False) -> bool:
 
         if None in (Ly, Lx, nframes):
             return True
+        try:
+            Ly, Lx = ops.get("Ly"), ops.get("Lx")
+            nframes = (
+                ops.get("nframes_chan2")
+                if "chan2" in bin_path.name
+                else ops.get("nframes_chan1", ops.get("nframes"))
+            )
+            if None in (Ly, Lx, nframes):
+                return True
 
         expected_size = nframes * Ly * Lx * np.dtype(np.int16).itemsize
         actual_size = raw_path.stat().st_size
 
-        if actual_size != expected_size:
+            arr = np.memmap(bin_path, dtype=np.int16, mode="r", shape=(nframes, Ly, Lx))
+            _ = arr[0, 0, 0]
+            del arr
+        except Exception as e:
+            print(f"Bin validation failed for {bin_path}: {e}")
             return True
+    return False  # all checks passed
 
         arr = np.memmap(raw_path, dtype=np.int16, mode="r", shape=(nframes, Ly, Lx))
         _ = arr[0].sum()
