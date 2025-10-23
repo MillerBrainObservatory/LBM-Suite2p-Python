@@ -1,7 +1,5 @@
 import time
 
-from suite2p import pipeline
-
 from pathlib import Path
 from mbo_utilities import get_files, imread, imwrite
 
@@ -9,6 +7,7 @@ if __name__ == "__main__":
     import lbm_suite2p_python as lsp
 
     base_path = Path(r"D:\demo\multichannel")
+
     structural = get_files(base_path / "structural")
     functional = get_files(base_path / "functional")
 
@@ -19,13 +18,14 @@ if __name__ == "__main__":
     print(f"{end - start} seconds")
 
     outpath = structural[0].parent.joinpath("out")
-    # imwrite(f_data, outpath, ext=".bin", structural=False)
-    #
-    # ops = {
-    #     "nchannels": 1,
-    #     "functional_channel": 2,  # not used but set to avoid warnings}
-    #     "align_by_chan": 2,
-    # }
+    imwrite(f_data, outpath, ext=".bin", structural=False)
+    imwrite(s_data, outpath, ext=".bin", structural=True) # names the file data_chan2.bin
+
+    ops = {
+        "nchannels": 1,
+        "align_by_chan": 2,
+    }
+
     ops_files = get_files(outpath, "ops.npy", 3)
     ops1 = lsp.load_ops(ops_files[0])
     lsp.run_plane(outpath)
