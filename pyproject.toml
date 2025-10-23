@@ -21,51 +21,6 @@ dependencies = [
 	"mbo_utilities>=2.0.4",
 ]
 
-[project.optional-dependencies]
-cpsam = ["cellpose==4.0.6", "pytorch", "torchaudio"]
-cpu = [
-  "torch>=2.7.0",
-  "torchvision>=0.22.0",
-]
-cu126 = [
-  "torch>=2.7.0",
-  "torchvision>=0.22.0",
-]
-
-[tool.uv.sources]
-torch = [
-  { index = "pytorch-cu126", extra = "cu126" }, # default
-  { index = "pytorch-cpu", extra = "cpu" },
-]
-torchvision = [
-  { index = "pytorch-cu126", extra = "cu126" }, # default
-  { index = "pytorch-cpu", extra = "cpu" },
-]
-
-[[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-explicit = true
-
-[[tool.uv.index]]
-name = "pytorch-cu126"
-url = "https://download.pytorch.org/whl/cu126"
-explicit = true
-
-[[tool.uv.index]]
-name = "pytorch-cu128"
-url = "https://download.pytorch.org/whl/cu128"
-explicit = true
-
-[tool.uv]
-default-groups = ["all"]
-conflicts = [
-  [
-    { extra = "cpu" },
-    { extra = "cu126" },
-  ],
-]
-
 [dependency-groups]
 all = [
 	"rastermap",
@@ -94,6 +49,20 @@ docs = [
 	"pandas",
 	"suite2p_mbo",
 ]
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cu126", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+]
+torchvision = [
+  { index = "pytorch-cu126", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+]
+
 
 # https://github.com/charliermarsh/ruff
 [tool.ruff]
