@@ -270,56 +270,50 @@ def run_volume(
     return all_ops
 
 
-def _should_write_bin(ops_path: Path, force: bool = False) -> bool:
-    """
-    Return True if data_raw.bin should be re-written.
-    """
+def _should_write_bin(ops_path: Path, force: bool = False, *, validate_chan2: bool | None = None, expected_dtype: np.dtype = np.int16) -> bool:
     if force:
         return True
-
     ops_path = Path(ops_path)
     if not ops_path.is_file():
         return True
-
     raw_path = ops_path.parent / "data_raw.bin"
     chan2_path = ops_path.parent / "data_chan2.bin"
-
-    # no raw data at all
-    if not raw_path.is_file() and not chan2_path.is_file():
+    if not raw_path.is_file():
         return True
-
     try:
         ops = np.load(ops_path, allow_pickle=True).item()
-
-        for bin_path in (raw_path, chan2_path):
-            if not bin_path.is_file():
-                continue
-
-            if "chan2" in bin_path.name:
-                nframes = ops.get("nframes_chan2")
-            else:
-                nframes = (
-                    ops.get("nframes_chan1")
-                    or ops.get("nframes")
-                    or ops.get("num_frames")
-                )
-
-            Ly, Lx = ops.get("Ly"), ops.get("Lx")
-            if None in (Ly, Lx, nframes):
-                return True
-
-            expected_size = nframes * Ly * Lx * np.dtype(np.int16).itemsize
-            actual_size = bin_path.stat().st_size
-            if actual_size != expected_size:
-                return True
-
-            # lightweight validation read
-            arr = np.memmap(bin_path, dtype=np.int16, mode="r", shape=(nframes, Ly, Lx))
+        if validate_chan2 is None:
+            validate_chan2 = (ops.get("align_by_chan", 1) == 2)
+        Ly = ops.get("Ly")
+        Lx = ops.get("Lx")
+        nframes_raw = ops.get("nframes_chan1") or ops.get("nframes") or ops.get("num_frames")
+        if (not raw_path.is_file()) or (None in (nframes_raw, Ly, Lx)) or (nframes_raw <= 0 or Ly <= 0 or Lx <= 0):
+            return True
+        expected_size_raw = int(nframes_raw) * int(Ly) * int(Lx) * np.dtype(expected_dtype).itemsize
+        actual_size_raw = raw_path.stat().st_size
+        if actual_size_raw != expected_size_raw or actual_size_raw == 0:
+            return True
+        try:
+            arr = np.memmap(raw_path, dtype=expected_dtype, mode="r", shape=(int(nframes_raw), int(Ly), int(Lx)))
             _ = arr[0, 0, 0]
             del arr
-
-        return False  # all checks passed
-
+        except Exception:
+            return True
+        if validate_chan2:
+            nframes_chan2 = ops.get("nframes_chan2")
+            if (not chan2_path.is_file()) or (nframes_chan2 is None) or (nframes_chan2 <= 0):
+                return True
+            expected_size_chan2 = int(nframes_chan2) * int(Ly) * int(Lx) * np.dtype(expected_dtype).itemsize
+            actual_size_chan2 = chan2_path.stat().st_size
+            if actual_size_chan2 != expected_size_chan2 or actual_size_chan2 == 0:
+                return True
+            try:
+                arr2 = np.memmap(chan2_path, dtype=expected_dtype, mode="r", shape=(int(nframes_chan2), int(Ly), int(Lx)))
+                _ = arr2[0, 0, 0]
+                del arr2
+            except Exception:
+                return True
+        return False
     except Exception as e:
         print(f"Bin validation failed for {ops_path.parent}: {e}")
         return True
@@ -351,59 +345,73 @@ def _should_register(ops_path: str | Path) -> bool:
 
 
 def run_plane_bin(ops) -> bool:
+    from contextlib import nullcontext
     from suite2p.io.binary import BinaryFile
     from suite2p.run_s2p import pipeline
+
     ops = load_ops(ops)
-    Ly, Lx = ops["Ly"], ops["Lx"]
+    Ly, Lx = int(ops["Ly"]), int(ops["Lx"])
 
-    # input functional channel (unregistered)
     raw_file = ops.get("raw_file")
-    nframes_chan1 = (
-        ops.get("nframes_chan1") or ops.get("nframes") or ops.get("n_frames")
-    )
-    if raw_file is None or nframes_chan1 is None:
+    n_func = ops.get("nframes_chan1") or ops.get("nframes") or ops.get("n_frames")
+    if raw_file is None or n_func is None:
         raise KeyError("Missing raw_file or nframes_chan1")
+    n_func = int(n_func)
 
-    # optional structural channel
-    chan2_file = ops.get("chan2_file", "")
-    nframes_chan2 = ops.get("nframes_chan2", 0)
-
-    ops_parent = Path(ops.get("ops_path")).parent
+    ops_parent = Path(ops["ops_path"]).parent
     ops["save_path"] = ops_parent
-
-    align_structural = ops.get("align_by_chan", 1) == 2
-    ops["align_structural"] = align_structural
 
     reg_file = ops_parent / "data.bin"
     ops["reg_file"] = str(reg_file)
 
-    # sanity fix for diameter
+    chan2_file = ops.get("chan2_file", "")
+    use_chan2 = bool(chan2_file) and Path(chan2_file).exists()
+    n_chan2 = int(ops.get("nframes_chan2", 0)) if use_chan2 else 0
+
+    n_align = n_func if not use_chan2 else min(n_func, n_chan2)
+    if n_align <= 0:
+        raise ValueError("Non-positive frame count after alignment selection.")
+    if use_chan2 and (n_func != n_chan2):
+        print(f"[run_plane_bin] Trimming to {n_align} frames (func={n_func}, chan2={n_chan2}).")
+
+    ops["functional_chan"] = 1
+    ops["align_by_chan"] = 2 if use_chan2 else 1
+    ops["nchannels"] = 2 if use_chan2 else 1
+    ops["nframes"] = n_align
+    ops["nframes_chan1"] = n_align
+    if use_chan2:
+        ops["nframes_chan2"] = n_align
+
     if "diameter" in ops:
         if ops["diameter"] is not None and np.isnan(ops["diameter"]):
             ops["diameter"] = 8
-        if (ops["diameter"] is None or ops["diameter"] == 0) and ops.get(
-            "anatomical_only", 0
-        ) > 0:
+        if (ops["diameter"] in (None, 0)) and ops.get("anatomical_only", 0) > 0:
             ops["diameter"] = 8
             print("Warning: diameter was not set, defaulting to 8.")
 
+    reg_file_chan2 = ops_parent / "data_chan2_reg.bin" if use_chan2 else None
+
+    ops["anatomical_red"] = False
+    ops["chan2_thres"] = 0.1
+
     with (
-        BinaryFile(Ly=Ly, Lx=Lx, filename=str(reg_file), n_frames=nframes_chan1) as f_reg,
-        BinaryFile(Ly=Ly, Lx=Lx, filename=raw_file, n_frames=nframes_chan1) as f_raw,
-        (
-            BinaryFile(Ly=Ly, Lx=Lx, filename=chan2_file, n_frames=nframes_chan2)
-            if align_structural else nullcontext()
-            ) as f_reg_chan2,
-        ):
+        BinaryFile(Ly=Ly, Lx=Lx, filename=str(reg_file), n_frames=n_align) as f_reg,
+        BinaryFile(Ly=Ly, Lx=Lx, filename=str(raw_file), n_frames=n_align) as f_raw,
+        (BinaryFile(Ly=Ly, Lx=Lx, filename=str(reg_file_chan2), n_frames=n_align) if use_chan2 else nullcontext()) as f_reg_chan2,
+        (BinaryFile(Ly=Ly, Lx=Lx, filename=str(chan2_file), n_frames=n_align) if use_chan2 else nullcontext()) as f_raw_chan2,
+    ):
         ops = pipeline(
-                f_reg=f_reg,
-                f_raw=f_raw,
-                f_reg_chan2=f_reg_chan2,
-                f_raw_chan2=f_reg_chan2 if align_structural else None,
-                run_registration=ops.get("do_registration", True),
-                ops=ops,
-                stat=None,
-                )
+            f_reg=f_reg,
+            f_raw=f_raw,
+            f_reg_chan2=f_reg_chan2 if use_chan2 else None,
+            f_raw_chan2=f_raw_chan2 if use_chan2 else None,
+            run_registration=bool(ops.get("do_registration", True)),
+            ops=ops,
+            stat=None,
+        )
+
+    if use_chan2:
+        ops["reg_file_chan2"] = str(reg_file_chan2)
     np.save(ops["ops_path"], ops)
     return True
 
@@ -412,6 +420,7 @@ def run_plane(
     input_path: str | Path,
     save_path: str | Path | None = None,
     ops: dict | str | Path = None,
+    chan2_file: str | Path | None = None,
     keep_raw: bool = False,
     keep_reg: bool = True,
     force_reg: bool = False,
@@ -433,6 +442,8 @@ def run_plane(
         Directory to save the results.
     ops : dict, str or Path, optional
         Path to or dict of user‐supplied ops.npy. If given, it overrides any existing or generated ops.
+    chan2_file : str, optional
+        Path to structural / anatomical data used for registration.
     keep_raw : bool, default false
         if true, do not delete the raw binary (`data_raw.bin`) after processing.
     keep_reg : bool, default false
@@ -495,9 +506,6 @@ def run_plane(
         input_path, (Path, str)
     ), f"input_path should be a pathlib.Path or string, not: {type(input_path)}"
     input_path = Path(input_path)
-    if not input_path.is_file():
-        if input_path.suffix != ".zarr":
-            raise ValueError(f"Input file does not exist: {input_path}")
     input_parent = input_path.parent
 
     assert isinstance(
@@ -587,7 +595,7 @@ def run_plane(
 
     ops_file = plane_dir / "ops.npy"
 
-    if _should_write_bin(ops_file, force=kwargs.get("force_save", False)):
+    if _should_write_bin(ops_file, force=force_reg):
         md_combined = {**metadata, **ops}
         imwrite(file, plane_dir, ext=".bin", metadata=md_combined, register_z=False)
     else:
@@ -620,6 +628,23 @@ def run_plane(
         "reg_file": str((plane_dir / "data.bin").resolve()),
     }
 
+    # optional structural (channel 2) input
+    if chan2_file is not None:
+        chan2_file = Path(chan2_file)
+        if not chan2_file.exists():
+            raise FileNotFoundError(f"chan2_path not found: {chan2_file}")
+
+        chan2_data = imread(chan2_file)
+        chan2_md = chan2_data.metadata if hasattr(chan2_data, "metadata") else {}
+        chan2_frames = chan2_md.get("num_frames") or chan2_md.get("nframes") or chan2_data.shape[0]
+
+        # write channel 2 binary automatically
+        imwrite(chan2_data, plane_dir, ext=".bin", metadata=chan2_md, register_z=False, structural=True)
+        ops["chan2_file"] = str((plane_dir / "data_chan2.bin").resolve())
+        ops["nframes_chan2"] = int(chan2_frames)
+        ops["nchannels"] = 2
+        ops["align_by_chan"] = 2
+
     if "nframes" not in ops:
         if "metadata" in ops and "shape" in ops["metadata"]:
             ops["nframes"] = ops["metadata"]["shape"][0]
@@ -636,23 +661,30 @@ def run_plane(
                 "missing frame count (nframes) in ops or metadata, and cannot infer from data"
             )
 
-    processed = run_plane_bin(ops)
-
-    if save_json:
-        # convert ops dict to JSON serializable and save as ops.json
-        ops_to_json(ops_file)
+    try:
+        processed = run_plane_bin(ops)
+    except Exception as e:
+        print(e)
+        processed = False
 
     if not processed:
         print(f"Skipping {ops_file.name}, processing was not completed.")
         return ops_file
 
+    if save_json:
+        # convert ops dict to JSON serializable and save as ops.json
+        ops_to_json(ops_file)
+
     raw_file = Path(ops.get("raw_file", plane_dir / "data_raw.bin"))
     reg_file = Path(ops.get("reg_file", plane_dir / "data.bin"))
 
-    if not keep_raw and raw_file.exists():
-        raw_file.unlink(missing_ok=True)
-    if not keep_reg and reg_file.exists():
-        reg_file.unlink(missing_ok=True)
+    try:
+        if not keep_raw and raw_file.exists():
+            raw_file.unlink(missing_ok=True)
+        if not keep_reg and reg_file.exists():
+            reg_file.unlink(missing_ok=True)
+    except Exception as e:
+        print(e)
 
     save_pc_panels_and_metrics(ops_file, plane_dir / "pc_metrics")
 
