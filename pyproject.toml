@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lbm_suite2p_python"
-version = "2.0.4"
+version = "2.0.5"
 description = "Light Beads Microscopy Pipeline using Suite2p"
 readme = "README.md"
 license = "BSD-3-Clause"
