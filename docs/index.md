@@ -9,7 +9,7 @@ See the {doc}`suite2p documentation <suite2p:index>` for more details.
 
 ```{toctree}
 ---
-maxdepth: 1
+maxdepth: 2
 ---
 install
 Usage <usage/index>
