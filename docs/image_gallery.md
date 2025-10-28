@@ -6,17 +6,21 @@
 
 [Back to Guide](https://cerodell.github.io/sphinx-quickstart-guide/build/html/addtoindx.html)
 
+<!-- TODO: Add missing figure
 ```{figure} ./_images/ex_scanphase.svg
 :alt: ex_scanphase
 :name: ex_scanphase
 
 Scan-phase diagram
 ```
+-->
 
+<!-- TODO: Add missing figure
 ```{figure} ./_images/ex_phase.png
 :alt: ex_phase
 :name: ex_phase
 ```
+-->
 
 ```{figure} ./_images/ex_offset.svg
 :alt: ex_offset
@@ -33,15 +37,19 @@ Scan-phase diagram
 :name: ex_diagram
 ```
 
+<!-- TODO: Add missing figure
 ```{figure} ./_images/ex_meanimage.svg
 :alt: ex_meanimage
 :name: ex_meanimage
 ```
+-->
 
+<!-- TODO: Add missing figure
 ```{figure} ./_images/ex_cropped_raw.gif
 :alt: ex_cropped_gif
 :name: ex_cropped_gif
 ```
+-->
 
 ```{figure} ./_images/ex_deinterleave.svg
 :alt: ex_deinterleave

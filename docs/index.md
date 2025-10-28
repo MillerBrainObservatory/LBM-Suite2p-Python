@@ -1,52 +1,130 @@
 ---
 bibliography: refs.bib
 ---
-# LBM-Suite2p-Python
 
-See the {doc}`suite2p documentation <suite2p:index>` for more details.
+# LBM-Suite2p-Python Documentation
 
-## Documentation Contents
+A volumetric 2-photon calcium imaging processing pipeline for Light Beads Microscopy (LBM) datasets.
+
+## What is LBM-Suite2p-Python?
+
+This package processes multi-plane calcium imaging data through a three-step workflow:
+
+1. **Convert** raw TIFF files to binary format for Suite2p
+2. **Process** each z-plane independently (registration → segmentation → extraction)
+3. **Aggregate** planar results into volumetric outputs with visualization
+
+**Key capabilities:**
+- Planar-by-planar Suite2p processing optimized for volumetric datasets
+- Automatic detection and merging of ScanImage multi-ROI acquisitions
+- Robust binary validation to avoid redundant reprocessing
+- Post-processing filters for cell quality (area, eccentricity, event exceptionality)
+- ΔF/F calculation with multiple baseline methods
+- Volumetric statistics and Rastermap clustering
+
+## Quick Navigation
 
 ```{toctree}
 ---
 maxdepth: 2
 ---
 install
-Usage <usage/index>
-Discussions <discussions/index>
-function_demos
-API <api>
-Manual Curation (WIP) <manual_curation>
-Notebooks (deprecated) <examples/index>
-Glossary <glossary>
-Image Gallery <image_gallery>
+user_guide
+API Reference <api>
+glossary
 ```
 
-## Helpful Suite2p Issues
+```{toctree}
+---
+caption: Legacy Pages (Deprecated)
+hidden: true
+maxdepth: 1
+---
+usage/index
+discussions/index
+manual_curation
+function_demos
+image_gallery
+examples/index
+```
 
-| Issue | Topic | Summary |
-|-------|-------|---------|
-| [#129](https://github.com/MouseLand/suite2p/issues/921) | Critical Detection Parameters | All about tau, threshold_scaling, diameter, and many other parameters. |
-| [#921](https://github.com/MouseLand/suite2p/issues/921) | Registration Artifacts | Try **smaller `block_size`** and **larger `spatial_taper`** to reduce wobbliness caused by black background inclusion in registration. |
-| [#880](https://github.com/MouseLand/suite2p/issues/880) | Running on a Cluster | Discussion on **running Suite2p on a cluster**. |
-| [#851](https://github.com/MouseLand/suite2p/issues/851) | ROI Overlap | ROIs will overlap if signals overlap, but if an ROI overlaps more than `ops['max_overlap']`, it gets discarded. Set `ops['max_overlap'] = 1` to keep all ROIs. `ops['allow_overlap'] = 0` (default) ignores overlapping pixels when computing signals. |
-| [#837](https://github.com/MouseLand/suite2p/issues/837) | ROI Binning | `tau` determines data binning before ROI detection: **Bin size** = `ops['tau'] * ops['fs']`. More binning helps with noisy data. [ROI Detection Overview](https://youtu.be/NcC0YxQ9o3A). |
-| [#787](https://github.com/MouseLand/suite2p/issues/787) | Thresholding | `ops['threshold_scaling']` affects dim regions. |
-| [#690](https://github.com/MouseLand/suite2p/issues/690) | Channel Registration | Discussion on **registering one channel to another**. |
-| [#627](https://github.com/MouseLand/suite2p/issues/627) | Fluorescence & Neuropil Signals | Explanation of `F` (Fluorescence) and `Fneu` (Neuropil Fluorescence) in Suite2p output. |
-| [#758](https://github.com/MouseLand/suite2p/issues/758#issuecomment-956588935) | Running on a Cluster | More discussion on **looping over databases (`dbs`)** when running Suite2p on a cluster. |
+## Getting Started
 
-## Links / Resources
+**New users:** Start with the {doc}`installation guide <install>`, then follow the {doc}`user guide <user_guide>`.
 
-- [suite2p github](https://github.com/MouseLand/suite2p/tree/main)
-- [suite2p docs](https://suite2p.readthedocs.io/en/latest/index.html)
-- [suite2p paper](https://www.biorxiv.org/content/10.1101/061507v2)
-- [marius deconv paper](https://www.jneurosci.org/content/38/37/7976)
-- [How to compute ΔF/F from calcium imaging data](https://www.scientifica.uk.com/learning-zone/how-to-compute-%CE%B4f-f-from-calcium-imaging-data)
+**Returning users:** Jump to the {doc}`user guide <user_guide>` for parameter tuning and advanced usage.
+
+**Developers:** See [CLAUDE.md](https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/blob/master/CLAUDE.md) for technical deep-dive into data flow and architecture.
+
+---
+
+## Quick Example
+
+```python
+import mbo_utilities as mbo
+import lbm_suite2p_python as lsp
+
+# Get assembled planar TIFF files (T, Y, X format)
+files = mbo.get_files(data_dir, "tiff", max_depth=3)
+
+# Extract metadata and create ops
+metadata = mbo.get_metadata(files[0])
+ops = mbo.params_from_metadata(metadata)
+
+# Process entire volume
+output_ops = lsp.run_volume(
+    input_files=files,
+    save_path=save_dir,
+    ops=ops
+)
+```
+
+See the {doc}`user guide <user_guide>` for complete examples and parameter tuning.
+
+---
+
+## Helpful Suite2p Resources
+
+| Topic | Resource | Description |
+|-------|----------|-------------|
+| **Parameters** | [Suite2p Settings](https://suite2p.readthedocs.io/en/latest/settings.html) | Complete parameter reference |
+| **Detection** | [ROI Detection](https://youtu.be/NcC0YxQ9o3A) | Video overview of detection algorithm |
+| **Registration** | [Issue #921](https://github.com/MouseLand/suite2p/issues/921) | Troubleshooting registration artifacts |
+| **Critical Parameters** | [Issue #129](https://github.com/MouseLand/suite2p/issues/129) | Discussion of tau, threshold_scaling, diameter |
+| **ROI Overlap** | [Issue #851](https://github.com/MouseLand/suite2p/issues/851) | Understanding max_overlap and allow_overlap |
+| **Fluorescence Signals** | [Issue #627](https://github.com/MouseLand/suite2p/issues/627) | Explanation of F and Fneu outputs |
+
+---
+
+## External Links
+
+- [Suite2p Documentation](https://suite2p.readthedocs.io/) - Core pipeline documentation
+- [Cellpose Documentation](https://cellpose.readthedocs.io/) - Anatomical segmentation
+- [mbo_utilities Documentation](https://millerbrainobservatory.github.io/mbo_utilities/) - ScanImage I/O and assembly
+- [GitHub Repository](https://github.com/MillerBrainObservatory/LBM-Suite2p-Python) - Source code and issue tracker
+
+---
+
+## Citation
+
+If you use this pipeline, please cite Suite2p and LBM:
+
+```{bibliography}
+:filter: docname in docnames
+:style: plain
+```
 
 
-## References
+---
 
-This pipeline uses several core tools for calcium imaging processing and analysis.
+## Acknowledgements
 
-```{bibliography}```
+This pipeline is built on excellent open-source tools:
+
+- **[Suite2p](https://github.com/MouseLand/suite2p)** - Registration and segmentation (Pachitariu, Stringer, et al.)
+- **[Cellpose](https://github.com/MouseLand/cellpose)** - Anatomical segmentation (Stringer, Pachitariu, et al.)
+- **[Rastermap](https://github.com/MouseLand/rastermap)** - Activity clustering (Stringer, Pachitariu)
+- **[scanreader](https://github.com/atlab/scanreader)** - ScanImage metadata parsing (atlab)
+- **[Suite3D](https://github.com/alihaydaroglu/suite3d)** - Volumetric processing inspiration (Haydaroglu)
+
+Special thanks to the Miller Brain Observatory team and all contributors for testing and feedback.
