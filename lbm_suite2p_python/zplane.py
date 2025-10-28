@@ -403,10 +403,14 @@ def plot_traces(
 
     ax.add_artist(hsb)
 
-    # how much signal change corresponds to 10% of the y-axis span
-    vertical_bar_height = 0.1 * (y_max - y_min)
+    # Calculate scale bar from actual signal amplitude, not stacked display range
+    # Use median amplitude across displayed neurons (p90 - p10)
+    p10_per_neuron = np.percentile(f[indices, : current_frame + 1], 10, axis=1)
+    p90_per_neuron = np.percentile(f[indices, : current_frame + 1], 90, axis=1)
+    median_amplitude = np.median(p90_per_neuron - p10_per_neuron)
 
-    # express it directly in the same units as f (no offset normalization)
+    # Scale bar represents 10% of typical signal amplitude
+    vertical_bar_height = 0.1 * median_amplitude
     rounded_signal_units = np.round(vertical_bar_height, 2)
 
     if signal_units == "raw":
