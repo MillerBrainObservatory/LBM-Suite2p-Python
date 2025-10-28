@@ -5,6 +5,7 @@ from lbm_suite2p_python.run_lsp import *
 from lbm_suite2p_python.utils import *
 from lbm_suite2p_python.volume import *
 from lbm_suite2p_python.zplane import *
+from lbm_suite2p_python.postprocessing import *
 
 try:
     __version__ = version("lbm_suite2p_python")
@@ -15,6 +16,7 @@ except PackageNotFoundError:
 __all__ = [
     "run_volume",
     "run_plane",
+    "run_grid_search",
     "plot_traces",
     "plot_masks",
     "plot_rastermap",
@@ -24,6 +26,8 @@ __all__ = [
     "plot_execution_time",
     "plot_noise_distribution",
     "dff_rolling_percentile",
+    "dff_median_filter",
+    "dff_shot_noise",
     "load_ops",
     "load_planar_results",
     "default_ops",

@@ -736,6 +736,7 @@ def run_grid_search(
     Notes
     -----
     - Subfolder names for each parameter are abbreviated to 3-character keys and truncated/rounded values.
+    - For available Suite2p parameters, see: http://suite2p.readthedocs.io/en/latest/parameters.html
 
     Examples
     --------
@@ -759,10 +760,6 @@ def run_grid_search(
         ├── thr1.00_tau0.15/
         ├── thr1.20_tau0.10/
         └── thr1.20_tau0.15/
-
-    See Also
-    --------
-    [suite2p parameters](http://suite2p.readthedocs.io/en/latest/parameters.html)
 
     """
 
