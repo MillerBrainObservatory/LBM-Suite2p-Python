@@ -1174,9 +1174,6 @@ def save_pc_panels_and_metrics(ops, savepath, pcs=(0, 1, 2, 3)):
     )
     print(f"Saved panel TIFF to {panel_tiff}")
 
-    # ----------------
-    # 3. CSV metrics
-    # ----------------
     df = pd.DataFrame(regDX, columns=["Rigid", "Avg_NR", "Max_NR"])
     metrics = {
         "Avg_Rigid": df["Rigid"].mean(),
