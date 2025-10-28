@@ -1141,18 +1141,6 @@ def save_pc_panels_and_metrics(ops, savepath, pcs=(0, 1, 2, 3)):
         alt_frames.append(combined.astype(np.float32))
         alt_labels.append(f"PC{pcs[2] + 1}/{pcs[3] + 1} {view_name}")
 
-    alt_tiff = savepath.with_name(savepath.stem + "_alternating.tif")
-    tifffile.imwrite(
-        alt_tiff,
-        np.stack(alt_frames, axis=0),
-        imagej=True,
-        metadata={"Labels": alt_labels},
-    )
-    print(f"Saved alternating TIFF to {alt_tiff}")
-
-    # ----------------
-    # 2. Panel TIFF
-    # ----------------
     panel_frames = []
     panel_labels = []
     for left, right in [(pcs[0], pcs[1]), (pcs[2], pcs[3])]:
@@ -1200,7 +1188,6 @@ def save_pc_panels_and_metrics(ops, savepath, pcs=(0, 1, 2, 3)):
     print(df.head())
 
     return {
-        "alternating_tiff": alt_tiff,
         "panel_tiff": panel_tiff,
         "metrics_csv": csv_path,
     }
