@@ -19,7 +19,7 @@ author = ""
 copyright = "2024, Elizabeth R. Miller Brain Observatory | The Rockefeller University. All Rights Reserved"
 release = __version__
 
-exclude_patterns = ["Thumbs.db", ".DS_Store"]
+exclude_patterns = ["Thumbs.db", ".DS_Store", "_build*"]
 
 myst_enable_extensions = [
     "colon_fence",
