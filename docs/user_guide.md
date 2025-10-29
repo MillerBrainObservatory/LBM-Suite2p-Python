@@ -97,6 +97,62 @@ After `run_volume()` completes:
 └── mean_volume_signal.png  # Signal strength vs z-plane
 ```
 
+### Registration Quality Metrics
+
+**Requires at least 1500 frames per plane**
+
+Each plane directory contains PC-based registration quality metrics in `pc_metrics/`:
+
+```
+{plane_dir}/pc_metrics/
+├── pc_metrics.csv              # Summary statistics
+├── pc_metrics_panels.tif       # PC spatial patterns (Low/High)
+└── pc_metrics_raw.npy          # Raw regDX array (5, 3)
+```
+
+**Example PC metrics table** (`pc_metrics.csv`):
+
+```
+   Rigid    Avg_NR    Max_NR
+0    0.0  0.072801  0.316228   ← PC1 (strongest spatial pattern)
+1    0.0  0.027177  0.141421   ← PC2
+2    0.0  0.039081  0.200000   ← PC3
+3    0.0  0.020034  0.141421   ← PC4
+4    0.0  0.018639  0.141421   ← PC5 (weakest pattern)
+```
+
+**What this means:**
+
+- **Rows 0-4**: First 5 Principal Components of the registered movie
+- **Rigid**: Global shift between temporal halves (pixels)
+- **Avg_NR**: Average non-rigid shift across blocks (pixels)
+- **Max_NR**: Maximum non-rigid shift across blocks (pixels)
+
+**Lower values = Better registration quality**
+
+**Quality Benchmarks:**
+
+| Metric | Excellent | Good | Fair | Poor |
+|--------|-----------|------|------|------|
+| **Rigid** | < 0.1 | 0.1-0.3 | 0.3-0.5 | > 0.5 |
+| **Avg_NR** | < 0.1 | 0.1-0.2 | 0.2-0.4 | > 0.4 |
+| **Max_NR** | < 0.5 | 0.5-1.0 | 1.0-2.0 | > 2.0 |
+
+*All values in pixels*
+
+**Interpreting the example above:**
+- **Rigid = 0.0**: ✅ Excellent! No global shifts detected
+- **Avg_NR = 0.02-0.07**: ✅ Excellent! Very small local motion
+- **Max_NR = 0.14-0.32**: ✅ Good! Maximum block shifts well-controlled
+
+**Common questions:**
+
+- **Why is Rigid=0 for all PCs?** All PCs have negligible global shifts (< 0.001 pixels, rounded to 0.0)
+- **Why do PC3 and PC4 have similar values?** Later PCs capture weaker spatial patterns and often have similar residual motion characteristics
+- **Why do I see non-rigid metrics when `nonrigid=False`?** PC metrics always measure potential non-rigid motion to assess registration quality, even if non-rigid registration wasn't performed
+
+**For detailed explanation**, see [Registration Metrics Guide](https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/blob/master/docs/REGISTRATION_METRICS_EXPLAINED.md).
+
 ### Loading Results
 
 ```python
@@ -125,6 +181,48 @@ spks_cells = results['spks'][results['iscell']]
 
 Understanding key Suite2p parameters is essential for good segmentation results.
 
+```{admonition} Example Dataset
+:class: dropdown
+
+Example dataset collected by Will Snyder with Dr. Charles Gilbert @ Rockefeller University.
+
+| Field        | Value                   |
+|--------------|-------------------------|
+| Date         | 2025-03-06              |
+| Virus        | jGCaMP8s                |
+| Framerate    | 17 Hz                   |
+| FOV (Per ROI)| 448 µm × 896 µm         |
+| Resolution   | 2 µm × 2 µm × 16 µm     |
+| Num-Planes   | 14                      |
+```
+
+### Visual Parameter Comparisons
+
+To see the effect of each parameter on segmentation results, it's helpful to start with default parameters as a baseline.
+
+```{figure} _images/default_parameters.png
+:name: fig-default-params
+:alt: Default parameter segmentation results
+
+Default parameters yield **324** accepted and **737** rejected neurons.
+```
+
+Visually it may be evident that we're missing a few obvious cells:
+
+```{figure} _images/default_parameters_subset.png
+:name: fig-default-params-subset
+:alt: Zoomed view showing missed cells
+
+Zoomed view showing several obvious cells that were not detected with default parameters.
+```
+
+There are generally 2 approaches toward curating a final dataset:
+
+1. **Approach 1**: Tune parameters, thresholds and scaling factors to properly model your dataset
+2. **Approach 2**: Use thresholds that maximize the number of cells detected, and use post-hoc correlation/spatial measures to curate cells
+
+We will discuss both approaches.
+
 ### Detection Parameters
 
 #### `diameter` (default: 0)
@@ -148,8 +246,18 @@ Multiplier for detection threshold. **Lower values detect more ROIs.**
 ops["threshold_scaling"] = 0.9
 ```
 
+```{figure} _images/default_params_thr.png
+:name: fig-threshold-scaling
+:alt: Effect of threshold_scaling on detected cells
+
+Effect of varying `threshold_scaling` on detected cells. Notably, increasing this threshold actually led to several cells being detected that were not otherwise detected, and vice-versa.
+```
+
 #### `tau` (default: 1.0)
 Calcium indicator decay time constant in seconds. **Critical for binning and deconvolution.**
+
+GCaMP expression is slow, often taking between 100 ms to over 1 second for the signal to rise and decay. This is the timescale of the sensor, in seconds. We need this value because one of the main performance optimizations is [binning](https://en.wikipedia.org/wiki/Data_binning). We can bin our data **because of this slow timescale** - we set the bin-size to our sensor's timescale because we expect all frames in this window to be the same (on average).
+
 - **GCaMP6f**: 0.7-1.0 s
 - **GCaMP6s**: 1.5-2.0 s
 - **GCaMP8s/m/f**: ~1.0 s
@@ -161,8 +269,40 @@ Determines bin size: `bin_size = tau * fs`
 ops["tau"] = 1.0  # For GCaMP6f/8 at 17 Hz → ~17 frames/bin
 ```
 
+```{figure} _images/default_parameters_tau.png
+:name: fig-tau-effect
+:alt: Effect of tau on detected cells
+
+Effect of varying `tau` on segmentation results. Changing tau has a dramatic influence on detection.
+```
+
+```{admonition} Preview Binned Movie using Tau and Framerate
+:class: dropdown
+
+You can preview the movie as it will be binned like so:
+
+\`\`\`python
+import numpy as np
+import suite2p
+
+nframes = metadata["num_frames"]
+bin_size = int(max(1, nframes // ops["nbinned"], np.round(ops["tau"] * ops["fs"])))
+
+ops = lsp.load_ops(r"./grid_search/registration/two0/plane0/ops.npy")
+bin_path = r"./grid_search/registration/two0/plane0/data.bin"
+
+with suite2p.io.BinaryFile(filename=bin_path, Ly=ops["Ly"], Lx=ops["Lx"]) as f:
+    binned_data = f.bin_movie(
+        bin_size=bin_size,
+        bad_frames=ops.get("badframes"),
+        y_range=ops["yrange"],
+        x_range=ops["xrange"],
+    )
+\`\`\`
+```
+
 #### `max_overlap` (default: 0.75)
-Maximum allowed spatial overlap between ROIs (0-1).
+Maximum allowed spatial overlap between ROIs (0-1). If two masks overlap by a fraction >max_overlap, they will be discarded/rejected.
 - **0.75**: Default, reject ROIs with >75% overlap
 - **1.0**: Keep all overlapping ROIs
 - **0.5**: More stringent overlap rejection
@@ -171,7 +311,53 @@ Maximum allowed spatial overlap between ROIs (0-1).
 ops["max_overlap"] = 0.85  # Allow more overlap for dense regions
 ```
 
+```{figure} _images/default_parameters_max_overlap.png
+:name: fig-max-overlap
+:alt: Effect of max_overlap on detected cells
+
+Effect of varying `max_overlap` on detected cells.
+```
+
+#### `spatial_hp_detect` (default: 25)
+There are several steps in the pipeline in which a `gaussian filter` is applied to the image before a downstream processing step. `spatial_hp_detect` is the gaussian filter applied immediately to each mean-subtracted image during cell detection and acts to decrease the background noise.
+
+A good value for `spatial_hp_detect` will decrease the brightness of the background while increasing the contrast between background and neuron.
+
+```{figure} _images/default_parameters_spatial_hp_detect.png
+:name: fig-spatial-hp
+:alt: Effect of spatial_hp_detect on detected cells
+
+Effect of varying `spatial_hp_detect` on detected cells.
+```
+
+```{warning}
+Physiologically relevant values for spatial high-pass filters are one of the biggest factors in quality detection.
+It is additionally very easy to set this value in such a way that 0 cells will be detected.
+A grid search is likely the most efficient way to test for the best spatial filter size.
+```
+
 ### Registration Parameters
+
+```{note}
+The terms motion-correction and registration are often used interchangeably.
+Similarly, non-rigid and piecewise-rigid are often used interchangeably.
+Here, piecewise-rigid registration is the **method** used to correct for non-rigid motion.
+```
+
+We use [Suite2p Registration](https://suite2p.readthedocs.io/en/latest/registration.html) to ensure spatial alignment across all frames in a movie. This means a neuron that appears in one location in frame 0 remains in the same spot in frame N.
+
+Suite2p first runs rigid registration (frame-wide shifts using phase correlation), followed by optional non-rigid registration (local shifts in blocks).
+
+```{admonition} Recommended tuning
+:class: tip
+- Increase `nimg_init` if your template looks noisy or blurry
+- If there is remaining motion after rigid, try `nonrigid = True`
+- If registration looks unstable, try decreasing `maxregshift` or `maxregshiftNR`
+```
+
+```{important}
+Visual inspection trumps all. Even if registration metrics look good, double check the video. And if it looks good but metrics are high, trust your eyes.
+```
 
 #### `do_registration` (default: 1)
 Controls whether to run registration:
@@ -251,12 +437,15 @@ Inner radius (pixels) of neuropil annulus around each ROI.
 Set `anatomical_only` to use Cellpose instead of functional detection:
 
 #### `anatomical_only` (default: 0)
-Which image to use for Cellpose segmentation:
-- **0 or False**: Disabled, use Suite2p functional detection
-- **1**: `max_proj / mean_img` ratio (highlights active regions)
-- **2**: `mean_img` (average intensity)
-- **3**: `meanImgE` (enhanced/sharpened mean image)
-- **4**: `max_proj` (maximum projection)
+Enables anatomical segmentation using [Cellpose](https://www.cellpose.org/), bypassing Suite2p's functional ROI detection. The value determines which image is used:
+
+| Value | Image Used         | Description                                                                 |
+|-------|--------------------|-----------------------------------------------------------------------------|
+| `1`   | `max_proj / mean_img` | Ratio of the max projection to the mean image; highlights active areas relative to baseline. |
+| `2`   | `mean_img`         | The average image over all frames; provides baseline structural contrast. |
+| `3`   | `meanImgE`         | An enhanced version of the mean image using Suite2p's sharpening/filtering; highlights edges and features. |
+| `4`   | `max_proj`         | Maximum projection across all frames. |
+| `0` or False | Disabled   | Anatomical detection is off; functional detection (correlation-based) is used instead. |
 
 ```python
 ops["anatomical_only"] = 3  # Use enhanced mean image
@@ -265,20 +454,38 @@ ops["sparse_mode"] = False  # Turn off sparse detection
 ```
 
 #### `cellprob_threshold` (default: 0.0)
-Cellpose cell probability threshold. More negative = more inclusive.
+Probability threshold from Cellpose's output to determine whether a pixel belongs to a cell. More negative values include more pixels.
 - **0.0**: Standard
 - **-2.0**: More permissive
 
 #### `flow_threshold` (default: 1.5)
-Cellpose flow error threshold. Lower = more ROIs.
+Minimum Cellpose flow error to consider a region valid. Lower values include more ROIs.
 - **1.5**: Standard
 - **0.4**: More permissive
+
+#### `spatial_hp_cp` (default: 0.0)
+Amount of high-pass filtering applied to the image before Cellpose segmentation. A float between `0` and `1`.
 
 ---
 
 ## Parameter Grid Search
 
-Test multiple parameter combinations systematically:
+```{admonition} Example Dataset
+:class: dropdown
+
+Example dataset collected by Kevin Barber with Dr. Alipasha Vaziri @ Rockefeller University.
+
+| Field        | Value                   |
+|--------------|-------------------------|
+| Animal       | mk301                   |
+| Date         | 2025-03-01              |
+| Virus        | jGCaMP8s                |
+| Framerate    | 17 Hz                   |
+| FOV          | 900 µm × 900 µm         |
+| Resolution   | 2 µm × 2 µm × 16 µm     |
+```
+
+Test multiple parameter combinations systematically. When tuning segmentation parameters, the easiest knobs to turn are `threshold_scaling` and `max_overlap`. Lower `threshold_scaling` → more candidate ROIs. Higher `max_overlap` → more overlapping ROIs are kept. But their effects aren't linear or always intuitive, so it's often best to **grid search** them.
 
 ```python
 import lbm_suite2p_python as lsp
@@ -309,6 +516,41 @@ lsp.run_grid_search(
 ```
 
 Each combination gets its own folder with full Suite2p outputs.
+
+```{tip}
+Some values (like `spatial_hp_cp`, `tau`, or `high_pass`) can interact in non-obvious ways.
+
+Grid searching more than 2 parameters is really the only way to evaluate these interactions, though this can take up a lot of memory and disk space. We encourage making sure `ops['keep_movie_raw']=False` (default) and `ops['reg_tif'] = False` (default).
+```
+
+### Visualizing Grid Search Results
+
+You can loop through the results using the saved `ops.npy` files:
+
+```python
+ops = lsp.load_ops("./grid_search/spatial/max0.75_thr1.00/plane0/ops.npy")
+print("Accepted ROIs:", ops['iscell'].sum())
+```
+
+### Registration Grid Search
+
+To evaluate what registration parameters you should use, you can try both enabling two-step registration and lowering the block-size for rigid registration.
+
+```python
+base_ops["roidetect"] = False  # Skip detection, only register
+
+search_dict = {
+    "two_step_registration": [False, True],
+    "block_size": [[128, 128], [64, 64]]
+}
+
+lsp.run_grid_search(
+    base_ops,
+    search_dict,
+    input_file=input_tiff,
+    save_root=save_path.joinpath("registration")
+)
+```
 
 ---
 
@@ -393,9 +635,148 @@ Images are stitched horizontally, stat arrays concatenated.
 
 ## ΔF/F Calculation
 
-Multiple methods for computing ΔF/F:
+The gold-standard formula for measuring cellular activity is "Delta F over F₀", or the change in fluorescence intensity normalized by the baseline activity:
 
-### Rolling Percentile Baseline (Recommended)
+```{math}
+:class: center large
+
+\Delta F/F_0 = \frac{F - F_0}{F_0}
+```
+
+Here, F₀ is a user-defined baseline that may be static (e.g., median over all frames) or dynamically estimated using a rolling window.
+
+::::{grid}
+:::{grid-item-card} Key Takeaways
+:columns: 12
+
+- $\Delta F/F$ reflects intracellular calcium levels, but often in a nonlinear way
+- GCaMP behaves differently due to its low baseline brightness and its nonlinearity
+- There is no single recipe on how to compute $\Delta F/F$
+- Computation of $\Delta F/F$ must be adapted to cell types, activity patterns, and noise
+
+:::
+::::
+
+```{figure} _images/plot_traces_dff_50n.png
+:alt: Cell Activity (ΔF/F)
+:name: ug-fig-dff-activity
+:width: 100%
+
+ΔF/F traces for 50 cells, sorted by similarity using the [Rastermap](https://github.com/MouseLand/rastermap) algorithm.
+```
+
+### Baseline F₀ Strategies
+
+Choosing the correct baseline strategy depends on many factors:
+
+- Cell type
+- Brain location
+- Frame-rate
+- Virus Kinetics
+- Scientific question
+
+| **Method**                         | **How It's Performed**                                                                 | **Pros**                                                      | **Cons**                                                             |
+|-----------------------------------|-----------------------------------------------------------------------------------------|----------------------------------------------------------------|------------------------------------------------------------------------|
+| **Percentile Baseline Subtraction**| Use a moving window to define F₀ as low percentile (e.g., 10–20th) of the trace.       | Adaptive baseline; handles long-term drift.                    | Choice of window size/percentile affects sensitivity.                |
+| **Z-Score Thresholding**          | Normalize trace by mean/SD, define events above N standard deviations.                | Removes baseline drift; good for noisy data.                   | Sensitive to noise if SD is low; assumes Gaussian distribution.      |
+| **dF/F Thresholding**             | Compute (F − F₀)/F₀ and define a fixed or adaptive threshold for events.              | Widely used; compatible with GCaMP, Fluo dyes.                | Sensitive to F₀ definition; arbitrary thresholds can bias results.  |
+| **Standard Deviation (SD) Masking**| Define active frames/regions where ΔF exceeds N×SD of baseline.                        | Objective thresholding for event detection.                    | Threshold choice heavily affects results.                            |
+| **Image Subtraction (Frame-to-Frame)**| Compute ΔF = Fₙ − Fₙ₋₁ or F − background to detect sudden changes.                   | Simple, fast; used for wave detection.                         | Sensitive to noise; misses gradual changes.                          |
+
+```{figure} _images/dff_baseline_strategies2.png
+:alt: Comparison of dF/F baseline strategies
+:name: ug-fig-dff-strategies
+:width: 100%
+
+Comparison of different ΔF/F₀ baseline correction methods across selected cells.
+```
+
+```{figure} _images/dff_baseline_strategies_dff.png
+:alt: Resulting DFF values from baseline strategies
+:name: ug-fig-dff-dff
+:width: 100%
+
+The resulting ΔF/F₀ traces can look different depending on the chosen baseline strategy.
+```
+
+```{figure} _images/dff_baseline_strategies_events.png
+:alt: Resulting DFF values from baseline strategies with Events
+:name: ug-fig-dff-dff-ev
+:width: 100%
+
+The resulting ΔF/F₀ traces with detected events overlaid.
+```
+
+### Standardized Noise Levels
+
+```{math}
+:class: center large
+
+\nu = \frac{\mathrm{median}_t\left( \left| \frac{\Delta F_t}{F_0} - \frac{\Delta F_{t+1}}{F_0} \right| \right)}{\sqrt{f_r}}
+```
+
+- Compare shot-noise levels across datasets, recordings, experiments
+- Takes advantage of the slow calcium signal, which is typically similar between adjacent frames
+- Median to exclude outliers stemming from fast onset
+- Norm by sqrt(framerate) makes metric comparable across datasets with different framerates
+- Shot-noise decreases with #samples with a square root dependency
+
+The resulting units, `% for dF/F, divided by the square root of seconds`, is strange but should be used relative to other datasets.
+
+```{figure} _images/noise_comp.png
+:alt: High vs Low Noise Levels
+:name: ug-fig-noise-high-low
+:width: 100%
+
+Top N neurons with highest and lowest standardized noise levels.
+```
+
+### Pipeline Comparison
+
+Different pipelines handle ΔF/F₀ differently:
+
+| **Pipeline** | **F₀ Method**                       | **ΔF/F₀**                 | **Neuropil**                            |
+| ------------ | ----------------------------------- | ------------------------- | ------------------------------------------------ |
+| **CaImAn**   | 8th percentile, 500-frame window    | Yes, in pipeline          | Modeled via CNMF, no manual subtraction          |
+| **Suite2p**  | Maximin (default) or 8th percentile | No, user divides post hoc | 0.7 × F<sub>neu</sub> subtracted before baseline |
+| **EXTRACT**  | User-defined (e.g. 10th percentile) | No, user computes         | Implicitly handled via robust model              |
+
+#### CaImAn
+
+CaImAn computes ΔF/F₀ using a **running low-percentile baseline**. By default, it uses the **8th percentile** over a **500 frame** window. The idea is to track the lower envelope of the signal to get F₀ without being biased by transients.
+
+**Neuropil/background:** CaImAn handles this as part of its CNMF model. Background and neuropil are explicitly separated into distinct spatial/temporal components, so the output traces are background subtracted during this factorization.
+
+```{figure} _images/dff_baseline_strategies_caiman.png
+:alt: CaImAn default DF/F strategy
+:name: ug-fig-dff-caiman
+:width: 100%
+
+[CaImAn](https://github.com/flatironinstitute/CaImAn) uses a default baseline of the `lower 8th percentile` and a moving window of `200 frames`.
+```
+
+#### Suite2p
+
+Suite2p does **not** output traces in ΔF/F₀ format directly. Instead, it gives you the raw trace and the neuropil, along with spike estimates if you ran deconvolution. The neuropil represents fluorescence from the surrounding non-somatic tissue. As an optional step, many experimenters apply a fixed subtraction:
+
+```python
+# F is an [n_neurons x time] array of raw signal
+# Fneu is an [n_neurons x time] array of neuropil
+F_corrected = F - 0.7 * Fneu
+```
+
+The 0.7 is an empirically chosen scalar to account for the partial contamination. Essentially you subtract 70% of the signal contained in the surrounding neuropil.
+
+```{figure} _images/dff_oasis.png
+:name: fig-dff-oasis
+:width: 100%
+
+Raw, neuropil, ΔF/F₀ and resulting deconvolved spikes as output by [Suite2p](https://github.com/MouseLand/suite2p).
+```
+
+### Using LBM-Suite2p-Python ΔF/F Functions
+
+#### Rolling Percentile Baseline (Recommended)
 
 ```python
 from lbm_suite2p_python import dff_rolling_percentile
@@ -410,7 +791,7 @@ dff = dff_rolling_percentile(
 
 **When to use:** Most datasets, handles slow baseline drifts.
 
-### Median Filter Baseline
+#### Median Filter Baseline
 
 ```python
 from lbm_suite2p_python import dff_median_filter
@@ -421,7 +802,7 @@ dff = dff_median_filter(F)
 
 **When to use:** Quick baseline for stable recordings.
 
-### Shot Noise Estimation
+#### Shot Noise Estimation
 
 ```python
 from lbm_suite2p_python import dff_shot_noise
@@ -431,6 +812,75 @@ noise_levels = dff_shot_noise(dff, fr=17.0)  # Frame rate in Hz
 ```
 
 Quantifies SNR for comparing across datasets.
+
+---
+
+## Spike Deconvolution & Tau
+
+Most calcium imaging pipelines model neural activity as an exponential decay process following each spike, making τ (tau) a key hyperparameter.
+
+### Indicator Dynamics
+
+| **GCaMP Variant**     | **Optimal Tau (s)** | **Notes / Sources** |
+|-----------------------|---------------------|----------------------|
+| **GCaMP6f (fast)**    | ~0.5–0.7 s          | Suite2p: ~0.7 s. OASIS/CNMF: ~0.5–0.7 s. CaImAn: ~0.4 s. |
+| **GCaMP6m (medium)**  | ~1.0–1.25 s         | Suite2p: ~1.0 s. OASIS: ~1.25 s. CaImAn: ~1.0 s. |
+| **GCaMP6s (slow)**    | ~1.5–2.0 s          | Suite2p: 1.25–1.5 s. OASIS/Suite2p: ~2.0 s. CaImAn: ~1.5–2.0 s. |
+| **GCaMP7f (fast)**    | ~0.5 s              | Similar to GCaMP6f. |
+| **GCaMP7m (medium)**  | ~1.0 s (est.)       | Estimated by analogy to GCaMP6m. |
+| **GCaMP7s (slow)**    | ~1.0–1.5 s          | In vivo half-decay ~0.7 s. Tau ≈ 1.0 s. |
+| **GCaMP8f (fast)**    | ~0.3 s              | Fastest decay; tenfold faster than 6f/7f. |
+| **GCaMP8m (medium)**  | ~0.3 s              | Slightly slower than 8f, still ~0.3 s. |
+| **GCaMP8s (slow)**    | ~0.7 s              | Faster than 6s. |
+
+::::{grid}
+:::{grid-item-card} GCaMP6 Family
+:columns: 4
+Fast (6f): 0.5 s
+Medium (6m): 1.1 s
+Slow (6s): 1.8 s
+:::
+:::{grid-item-card} GCaMP7 Family
+:columns: 4
+7f: 0.45 s
+7s: 1.0 s
+7c: 0.8 s
+:::
+:::{grid-item-card} GCaMP8 Family
+:columns: 4
+8f: 0.25 s
+8m: 0.3 s
+8s: 0.5 s
+:::
+::::
+
+### Pipeline Comparison
+
+| **Pipeline** | **Uses τ?** | **Range (s)** | **Method** |
+|---------------|-------------|----------------|-------------|
+| **FOOPSI** | Yes | ~1.0 | Fixed exponential |
+| **OASIS / CNMF** | Yes | 0.3 – 2.0 | AR(1/2) model |
+| **Suite2p** | Yes | 0.7 – 1.5 | OASIS internal |
+| **CaImAn** | Yes | 0.4 – 2.0 | CNMF-E fit |
+| **CASCADE** | Implicit | 0.3 – 2.0 | Learned dynamics |
+
+::::{grid}
+:::{grid-item-card} Key Takeaways
+:columns: 12
+
+- τ defines calcium transient decay and sets temporal resolution of spike inference
+- Optimal τ depends on both **indicator kinetics** and **frame rate**
+- Pipelines like Suite2p and CaImAn require τ tuning per GECI
+- CASCADE bypasses explicit τ by learning it implicitly
+- GCaMP8 series are ~3× faster than GCaMP6
+:::
+::::
+
+```{note}
+All τ values summarized here reflect *in vivo* mammalian calcium imaging (typically ~30 Hz frame rate).
+In vitro or temperature-controlled decay times (e.g., 37 °C) can be >10× shorter.
+Choosing an incorrect τ biases both spike amplitude and inferred firing rate.
+```
 
 ---
 
