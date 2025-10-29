@@ -174,6 +174,9 @@ def run_volume(
         file_path = Path(file)
         start_file = time.time()
 
+        # Create a fresh kwargs dict for each iteration to avoid cross-contamination
+        call_kwargs = dict(kwargs)
+
         # Determine save_path based on input type
         # For binary inputs with ops.npy, use the parent directory (in-place processing)
         # For TIFF/ZARR/other formats, create subdirectory based on filename tag
@@ -196,30 +199,37 @@ def run_volume(
             plane_save_path = Path(save_path).joinpath(tag)
             plane_save_path.mkdir(exist_ok=True)
             input_to_process = file_path
-            # Set plane number in kwargs for non-binary inputs
-            kwargs["plane"] = plane_num
+            # Set plane number for non-binary inputs
+            call_kwargs["plane"] = plane_num
 
         # Always call run_plane - it has all the logic to determine what needs processing
-        ops_file = run_plane(
-            input_path=input_to_process,
-            save_path=plane_save_path,
-            ops=ops,
-            keep_reg=keep_reg,
-            keep_raw=keep_raw,
-            force_reg=force_reg,
-            force_detect=force_detect,
-            dff_window_size=dff_window_size,
-            dff_percentile=dff_percentile,
-            save_json=save_json,
-            **kwargs,
-        )
-
-        end_file = time.time()
-        print(f"Time for {file}: {(end_file - start_file) / 60:0.1f} min")
-        print(f"CPU {get_cpu_percent():4.1f}% | RAM {get_ram_used() / 1024:5.2f} GB")
-        all_ops.append(ops_file)
-        del ops_file
-        gc.collect()
+        try:
+            ops_file = run_plane(
+                input_path=input_to_process,
+                save_path=plane_save_path,
+                ops=ops,
+                keep_reg=keep_reg,
+                keep_raw=keep_raw,
+                force_reg=force_reg,
+                force_detect=force_detect,
+                dff_window_size=dff_window_size,
+                dff_percentile=dff_percentile,
+                save_json=save_json,
+                **call_kwargs,
+            )
+            all_ops.append(ops_file)
+            print(f"✓ Completed {file_path.name} -> {ops_file}")
+        except Exception as e:
+            print(f"✗ Error processing {file_path}: {e}")
+            import traceback
+            traceback.print_exc()
+            # Continue with next file rather than failing entire volume
+            continue
+        finally:
+            end_file = time.time()
+            print(f"Time for {file}: {(end_file - start_file) / 60:0.1f} min")
+            print(f"CPU {get_cpu_percent():4.1f}% | RAM {get_ram_used() / 1024:5.2f} GB")
+            gc.collect()
 
     end = time.time()
     print(f"Total time for volume: {(end - start) / 60:0.1f} min")
