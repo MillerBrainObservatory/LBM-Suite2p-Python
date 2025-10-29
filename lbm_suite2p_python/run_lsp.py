@@ -218,9 +218,9 @@ def run_volume(
                 **call_kwargs,
             )
             all_ops.append(ops_file)
-            print(f"✓ Completed {file_path.name} -> {ops_file}")
+            print(f"Completed {file_path.name} -> {ops_file}")
         except Exception as e:
-            print(f"✗ Error processing {file_path}: {e}")
+            print(f"Error processing {file_path}: {e}")
             import traceback
             traceback.print_exc()
             # Continue with next file rather than failing entire volume
