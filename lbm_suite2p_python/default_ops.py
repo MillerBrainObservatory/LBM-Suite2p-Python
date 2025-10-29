@@ -28,7 +28,9 @@ def default_ops(metadata=None, ops=None):
     >>> )
     """
     if ops is None:
+        print("Importing suite2p packages...")
         from suite2p import default_ops as s2p_default_ops
+        print("Completed suite2p package imports...")
         ops = s2p_default_ops()
 
     if metadata is not None:

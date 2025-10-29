@@ -24,6 +24,8 @@ This package processes multi-plane calcium imaging data through a three-step wor
 
 ## Quick Navigation
 
+See the {doc}`user guide <user_guide>` for complete examples and parameter tuning.
+
 ```{toctree}
 ---
 maxdepth: 2
@@ -48,28 +50,17 @@ image_gallery
 examples/index
 ```
 
-## Getting Started
-
-**New users:** Start with the {doc}`installation guide <install>`, then follow the {doc}`user guide <user_guide>`.
-
-**Returning users:** Jump to the {doc}`user guide <user_guide>` for parameter tuning and advanced usage.
-
-**Developers:** See [CLAUDE.md](https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/blob/master/CLAUDE.md) for technical deep-dive into data flow and architecture.
-
----
-
 ## Quick Example
 
 ```python
 import mbo_utilities as mbo
 import lbm_suite2p_python as lsp
 
-# Get assembled planar TIFF files (T, Y, X format)
+data_dir = r"path/to/data"
 files = mbo.get_files(data_dir, "tiff", max_depth=3)
 
 # Extract metadata and create ops
 metadata = mbo.get_metadata(files[0])
-ops = mbo.params_from_metadata(metadata)
 
 # Process entire volume
 output_ops = lsp.run_volume(
@@ -78,8 +69,6 @@ output_ops = lsp.run_volume(
     ops=ops
 )
 ```
-
-See the {doc}`user guide <user_guide>` for complete examples and parameter tuning.
 
 ---
 
