@@ -172,63 +172,47 @@ def run_volume(
     all_ops = []
     for z, file in enumerate(input_files):
         file_path = Path(file)
+        start_file = time.time()
 
-        # Check if input is already a binary in a Suite2p output directory
+        # Determine save_path based on input type
+        # For binary inputs with ops.npy, use the parent directory (in-place processing)
+        # For TIFF/ZARR/other formats, create subdirectory based on filename tag
         if file_path.suffix == ".bin" and file_path.parent.joinpath("ops.npy").exists():
-            # Input is already processed binary - use parent directory
-            print(f"Detected existing Suite2p binary: {file_path}")
+            # Input is a binary from mbo.imwrite or previous processing
+            # Process in-place (parent directory contains ops.npy and data_raw.bin)
+            print(f"Detected existing binary with ops.npy: {file_path}")
             tag = file_path.parent.name
             plane_save_path = file_path.parent
-            ops_file = plane_save_path / "ops.npy"
 
-            # If user provided a different save_path, we should still process
-            # but we'll skip the binary write step
-            if save_path != file_path.parent.parent:
-                print(f"Warning: Binary exists at {file_path.parent}, but save_path is {save_path}")
-                print(f"Processing will continue using existing binaries.")
-
-            start_file = time.time()
-
-            # Only run processing if force_reg or force_detect are set
-            if force_reg or force_detect:
-                ops_file = run_plane(
-                    input_path=file_path.parent / "data_raw.bin" if (file_path.parent / "data_raw.bin").exists() else file,
-                    save_path=plane_save_path,
-                    ops=ops,
-                    keep_reg=keep_reg,
-                    keep_raw=keep_raw,
-                    force_reg=force_reg,
-                    force_detect=force_detect,
-                    dff_window_size=dff_window_size,
-                    dff_percentile=dff_percentile,
-                    save_json=save_json,
-                    **kwargs,
-                )
+            # Prefer data_raw.bin if it exists, otherwise use whatever binary was provided
+            if (file_path.parent / "data_raw.bin").exists():
+                input_to_process = file_path.parent / "data_raw.bin"
             else:
-                print(f"Using existing ops.npy at {ops_file}")
-                # ops_file already set on line 182, so just use it
+                input_to_process = file_path
         else:
-            # Original TIFF processing
+            # Input is TIFF, ZARR, or other format - derive tag from filename
             tag = derive_tag_from_filename(file_path.name)
             plane_num = get_plane_from_filename(tag, fallback=len(all_ops))
             plane_save_path = Path(save_path).joinpath(tag)
             plane_save_path.mkdir(exist_ok=True)
+            input_to_process = file_path
+            # Set plane number in kwargs for non-binary inputs
+            kwargs["plane"] = plane_num
 
-            start_file = time.time()
-            ops_file = run_plane(
-                input_path=file,
-                save_path=plane_save_path,
-                ops=ops,
-                keep_reg=keep_reg,
-                keep_raw=keep_raw,
-                force_reg=force_reg,
-                force_detect=force_detect,
-                dff_window_size=dff_window_size,
-                dff_percentile=dff_percentile,
-                save_json=save_json,
-                plane=plane_num,
-                **kwargs,
-            )
+        # Always call run_plane - it has all the logic to determine what needs processing
+        ops_file = run_plane(
+            input_path=input_to_process,
+            save_path=plane_save_path,
+            ops=ops,
+            keep_reg=keep_reg,
+            keep_raw=keep_raw,
+            force_reg=force_reg,
+            force_detect=force_detect,
+            dff_window_size=dff_window_size,
+            dff_percentile=dff_percentile,
+            save_json=save_json,
+            **kwargs,
+        )
 
         end_file = time.time()
         print(f"Time for {file}: {(end_file - start_file) / 60:0.1f} min")

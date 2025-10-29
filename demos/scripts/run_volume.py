@@ -2,9 +2,9 @@ from pathlib import Path
 import lbm_suite2p_python as lsp
 
 base_dir = r"D:\demo\local_nvme"
-extension = ".bin"
+filename = "data_raw.bin"
 
-input_files = list(Path(base_dir).rglob(f"*{extension}*"))
+input_files = list(Path(base_dir).rglob(f"*{filename}*"))
 
 new_ops = {
     "anatomical_only": 3,
