@@ -136,7 +136,6 @@ def run_volume(
     Example
     -------
     >> input_files = mbo.get_files(assembled_path, str_contains='tif', max_depth=3)
-    >> ops = mbo.params_from_metadata(mbo.get_metadata(input_files[0]), suite2p.default_ops())
 
     Run volume
     >> output_ops_list = lsp.run_volume(ops, input_files, save_path)
@@ -597,7 +596,15 @@ def run_plane(
 
     if _should_write_bin(ops_file, force=force_reg):
         md_combined = {**metadata, **ops}
-        imwrite(file, plane_dir, ext=".bin", metadata=md_combined, register_z=False)
+        imwrite(
+            file,
+            plane_dir,
+            ext=".bin",
+            metadata=md_combined,
+            register_z=False,
+            output_name="data_raw.bin",
+            overwrite=True
+        )
     else:
         print(
             f"Skipping data_raw.bin write, already exists and passes data validation checks."
