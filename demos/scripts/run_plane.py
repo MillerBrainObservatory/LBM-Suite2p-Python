@@ -9,8 +9,8 @@ new_ops = {
     "two_step_registration": True,
 }
 
-input_file = r"D:\demo\local_staging\plane06_stitched\data_raw.bin"
-save_path = Path(r"D://demo//local_staging//suite2p")  # will be created if it doesn't exist
+input_file = Path(r"D:\demo\local_nvme\plane06_stitched\data_raw.bin")
+# save_path = Path(r"D://demo////suite2p")  # will be created if it doesn't exist
 
 output_ops = lsp.run_plane(
     input_path=input_file,  # run_plane takes a single input fileppath

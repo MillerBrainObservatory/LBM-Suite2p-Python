@@ -159,6 +159,9 @@ def run_volume(
     """
     from mbo_utilities.file_io import get_files, get_plane_from_filename
 
+    if not input_files:
+        raise Exception("No input files given.")
+
     start = time.time()
     if save_path is None:
         save_path = Path(input_files[0]).parent
@@ -168,27 +171,64 @@ def run_volume(
 
     all_ops = []
     for z, file in enumerate(input_files):
-        tag = derive_tag_from_filename(Path(file).name)
-        plane_num = get_plane_from_filename(tag, fallback=len(all_ops))
-        # subdir = f"plane{tag:02d}"
-        plane_save_path = Path(save_path).joinpath(tag)
-        plane_save_path.mkdir(exist_ok=True)
+        file_path = Path(file)
 
-        start_file = time.time()
-        ops_file = run_plane(
-            input_path=file,
-            save_path=plane_save_path,
-            ops=ops,
-            keep_reg=keep_reg,
-            keep_raw=keep_raw,
-            force_reg=force_reg,
-            force_detect=force_detect,
-            dff_window_size=dff_window_size,
-            dff_percentile=dff_percentile,
-            save_json=save_json,
-            plane=plane_num,
-            **kwargs,
-        )
+        # Check if input is already a binary in a Suite2p output directory
+        if file_path.suffix == ".bin" and file_path.parent.joinpath("ops.npy").exists():
+            # Input is already processed binary - use parent directory
+            print(f"Detected existing Suite2p binary: {file_path}")
+            tag = file_path.parent.name
+            plane_save_path = file_path.parent
+            ops_file = plane_save_path / "ops.npy"
+
+            # If user provided a different save_path, we should still process
+            # but we'll skip the binary write step
+            if save_path != file_path.parent.parent:
+                print(f"Warning: Binary exists at {file_path.parent}, but save_path is {save_path}")
+                print(f"Processing will continue using existing binaries.")
+
+            start_file = time.time()
+
+            # Only run processing if force_reg or force_detect are set
+            if force_reg or force_detect:
+                ops_file = run_plane(
+                    input_path=file_path.parent / "data_raw.bin" if (file_path.parent / "data_raw.bin").exists() else file,
+                    save_path=plane_save_path,
+                    ops=ops,
+                    keep_reg=keep_reg,
+                    keep_raw=keep_raw,
+                    force_reg=force_reg,
+                    force_detect=force_detect,
+                    dff_window_size=dff_window_size,
+                    dff_percentile=dff_percentile,
+                    save_json=save_json,
+                    **kwargs,
+                )
+            else:
+                print(f"Using existing ops.npy at {ops_file}")
+                # ops_file already set on line 182, so just use it
+        else:
+            # Original TIFF processing
+            tag = derive_tag_from_filename(file_path.name)
+            plane_num = get_plane_from_filename(tag, fallback=len(all_ops))
+            plane_save_path = Path(save_path).joinpath(tag)
+            plane_save_path.mkdir(exist_ok=True)
+
+            start_file = time.time()
+            ops_file = run_plane(
+                input_path=file,
+                save_path=plane_save_path,
+                ops=ops,
+                keep_reg=keep_reg,
+                keep_raw=keep_raw,
+                force_reg=force_reg,
+                force_detect=force_detect,
+                dff_window_size=dff_window_size,
+                dff_percentile=dff_percentile,
+                save_json=save_json,
+                plane=plane_num,
+                **kwargs,
+            )
 
         end_file = time.time()
         print(f"Time for {file}: {(end_file - start_file) / 60:0.1f} min")
@@ -229,10 +269,11 @@ def run_volume(
             for i, ops_path in enumerate(all_ops)
         ]
         all_spks = np.concatenate([res["spks"] for res in res_z], axis=0)
-        print(type(all_spks))
         try:
+            print("Importing rastermap...")
             from rastermap import Rastermap
             from lbm_suite2p_python.zplane import plot_rastermap
+            print("Rastermap import complete...")
 
             HAS_RASTERMAP = True
         except ImportError:
@@ -276,9 +317,15 @@ def _should_write_bin(ops_path: Path, force: bool = False, *, validate_chan2: bo
     if not ops_path.is_file():
         return True
     raw_path = ops_path.parent / "data_raw.bin"
+    reg_path = ops_path.parent / "data.bin"
     chan2_path = ops_path.parent / "data_chan2.bin"
-    if not raw_path.is_file():
+
+    # If neither raw nor registered binary exists, need to write
+    if not raw_path.is_file() and not reg_path.is_file():
         return True
+
+    # Use whichever binary exists for validation (prefer raw)
+    binary_to_validate = raw_path if raw_path.is_file() else reg_path
     try:
         ops = np.load(ops_path, allow_pickle=True).item()
         if validate_chan2 is None:
@@ -286,14 +333,14 @@ def _should_write_bin(ops_path: Path, force: bool = False, *, validate_chan2: bo
         Ly = ops.get("Ly")
         Lx = ops.get("Lx")
         nframes_raw = ops.get("nframes_chan1") or ops.get("nframes") or ops.get("num_frames")
-        if (not raw_path.is_file()) or (None in (nframes_raw, Ly, Lx)) or (nframes_raw <= 0 or Ly <= 0 or Lx <= 0):
+        if (None in (nframes_raw, Ly, Lx)) or (nframes_raw <= 0 or Ly <= 0 or Lx <= 0):
             return True
         expected_size_raw = int(nframes_raw) * int(Ly) * int(Lx) * np.dtype(expected_dtype).itemsize
-        actual_size_raw = raw_path.stat().st_size
+        actual_size_raw = binary_to_validate.stat().st_size
         if actual_size_raw != expected_size_raw or actual_size_raw == 0:
             return True
         try:
-            arr = np.memmap(raw_path, dtype=expected_dtype, mode="r", shape=(int(nframes_raw), int(Ly), int(Lx)))
+            arr = np.memmap(binary_to_validate, dtype=expected_dtype, mode="r", shape=(int(nframes_raw), int(Ly), int(Lx)))
             _ = arr[0, 0, 0]
             del arr
         except Exception:
@@ -521,6 +568,20 @@ def run_plane(
             )
         save_path.mkdir(exist_ok=True)
 
+    # Check if input is already a binary at the target location
+    is_binary_input = input_path.suffix == ".bin"
+    binary_at_target = is_binary_input and input_path.parent == save_path
+    skip_imwrite = False
+
+    if binary_at_target:
+        print(f"Input is already a binary at target location: {input_path}")
+        # Check if ops.npy exists
+        if not (save_path / "ops.npy").exists():
+            raise FileNotFoundError(
+                f"ops.npy not found at {save_path}. Cannot process binary without ops file."
+            )
+        skip_imwrite = True
+
     ops_default = default_ops()
     ops_user = load_ops(ops) if ops else {}
     ops = {**ops_default, **ops_user, "data_path": str(input_path.resolve())}
@@ -533,15 +594,22 @@ def run_plane(
     ):
         ops["aspect"] = ops["diameter"][0] / ops["diameter"][1]  # noqa
 
-    file = imread(input_path)
-    if isinstance(file, MboRawArray):
-        raise TypeError(
-            "Input file appears to be a raw array. Please provide a planar input file."
-        )
-    if hasattr(file, "metadata"):
-        metadata = file.metadata  # noqa
+    # Skip imread if we're using existing binary
+    if skip_imwrite:
+        file = None
+        # Load metadata from existing ops.npy
+        existing_ops = np.load(save_path / "ops.npy", allow_pickle=True).item()
+        metadata = {k: v for k, v in existing_ops.items() if k in ("plane", "fs", "dx", "dy", "Ly", "Lx", "nframes")}
     else:
-        metadata = get_metadata(input_path)
+        file = imread(input_path)
+        if isinstance(file, MboRawArray):
+            raise TypeError(
+                "Input file appears to be a raw array. Please provide a planar input file."
+            )
+        if hasattr(file, "metadata"):
+            metadata = file.metadata  # noqa
+        else:
+            metadata = get_metadata(input_path)
 
     if "plane" in ops:
         plane = ops["plane"]
@@ -594,7 +662,9 @@ def run_plane(
 
     ops_file = plane_dir / "ops.npy"
 
-    if _should_write_bin(ops_file, force=force_reg):
+    if skip_imwrite:
+        print(f"Skipping binary write, using existing binary at {input_path}")
+    elif _should_write_bin(ops_file, force=force_reg):
         md_combined = {**metadata, **ops}
         imwrite(
             file,
