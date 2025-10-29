@@ -97,65 +97,130 @@ def run_volume(
     Processes a full volumetric imaging dataset using Suite2p, handling plane-wise registration,
     segmentation, plotting, and aggregation of volumetric statistics and visualizations.
 
+    Supports planar, contiguous .zarr, tiff, suite2p .bin and automatically merges multi-ROI datasets
+    acquired with ScanImage's multi-ROI mode.
+
     Parameters
     ----------
     input_files : list of str or Path
-        List of TIFF file paths, each representing a single imaging plane.
+        List of file paths, each representing a single imaging plane. Supported formats:
+        - .tif files (e.g., "plane01.tif", "plane02.tif")
+        - .bin files from mbo.imwrite (e.g., "plane01_stitched/data_raw.bin")
+        - .zarr files (e.g., "plane01_roi01.zarr", "plane01_roi02.zarr")
+        For binary inputs, must have accompanying ops.npy in parent directory.
     save_path : str or Path, optional
         Base directory to save all outputs.
-        If none, will create a "volume" directory in the parent of the first input file.
-    ops : dict or list, optional
-        Dictionary of Suite2p parameters to use for each imaging plane.
-    save_path : str, optional
-        Subdirectory name within `save_path` for saving results (default: None).
-    keep_raw : bool, default false
-        if true, do not delete the raw binary (`data_raw.bin`) after processing.
-    keep_reg : bool, default false
-        if true, do not delete the registered binary (`data.bin`) after processing.
-    force_reg : bool, default false
-        if true, force a new registration even if existing shifts are found in ops.npy.
-    force_detect : bool, default false
-        if true, force roi detection even if an existing stat.npy is present.
+        If None, creates a "volume" directory in the parent of the first input file.
+        For binary inputs with ops.npy, processing occurs in-place at the parent directory.
+    ops : dict or str or Path, optional
+        Suite2p parameters to use for each imaging plane. Can be:
+        - Dictionary of parameters
+        - Path to ops.npy file
+        - None (uses defaults from default_ops())
+    keep_raw : bool, default False
+        If True, do not delete the raw binary (data_raw.bin) after processing.
+    keep_reg : bool, default True
+        If True, keep the registered binary (data.bin) after processing.
+    force_reg : bool, default False
+        If True, force re-registration even if refImg/meanImg/xoff exist in ops.npy.
+    force_detect : bool, default False
+        If True, force ROI detection even if stat.npy exists and is non-empty.
     dff_window_size : int, default 500
-        Number of frames to use for windowed dF/F₀ calculations.
+        Number of frames to use for rolling percentile baseline in ΔF/F₀ calculations.
     dff_percentile : int, default 20
-        Percentile to use for baseline F₀ estimation in dF/F₀ calculations.
+        Percentile to use for baseline F₀ estimation (e.g., 20 = 20th percentile).
     save_json : bool, default False
-        If true, saves ops as a JSON file in addition to npy.
+        If True, saves ops as JSON in addition to .npy format.
+    **kwargs
+        Additional keyword arguments passed to run_plane().
 
     Returns
     -------
-    list of str
-        List of paths to `ops.npy` files for each plane.
-
-    Raises
-    ------
-    Exception
-        If volumetric summary statistics or any visualization fails to generate.
-
-    Example
-    -------
-    >> input_files = mbo.get_files(assembled_path, str_contains='tif', max_depth=3)
-
-    Run volume
-    >> output_ops_list = lsp.run_volume(ops, input_files, save_path)
+    list of Path
+        List of paths to ops.npy files for each plane (or merged plane if mROI).
 
     Notes
     -----
-    At the root of `save_path` will be a folder for each z-plane with all suite2p results, as well as
-    volumetric outputs at the base of this folder.
+    **Directory Structure:**
 
-    Each z-plane folder contains:
-    - Registration, Segmentation and Extraction results (ops, spks, iscell)
-    - Summary statistics: execution time, signal strength, acceptance rates
-    - Optional rastermap model for visualization of activity across the volume
+    For standard single-ROI data::
 
-    Each save_path root contains:
-    - Accepted/Rejected histogram, neuron-count x z-plane (acc_rej_bar.png)
-    - Execution time for each step in each z-plane (execution_time.png)
-    - Mean/Max images, with and without segmentation masks, in GIF/MP4
-    - Traces animation over time and neurons
-    - Optional rastermap clustering results
+        save_path/
+        ├── plane01/
+        │   ├── ops.npy, stat.npy, F.npy, Fneu.npy, spks.npy, iscell.npy
+        │   ├── data.bin (registered binary, if keep_reg=True)
+        │   └── [visualization PNGs]
+        ├── plane02/
+        │   └── ...
+        ├── volume_stats.npy          # Per-plane statistics
+        ├── mean_volume_signal.png    # Signal strength across planes
+        └── rastermap.png             # Clustered activity (if rastermap installed)
+
+    **Multi-ROI Merging:**
+
+    When input filenames contain "roi" (case-insensitive), e.g., "plane01_roi01.tif",
+    "plane01_roi02.tif", the pipeline automatically detects multi-ROI acquisition and
+    performs horizontal stitching after planar processing::
+
+        save_path/
+        ├── plane01_roi01/           # Individual ROI results
+        │   └── [Suite2p outputs]
+        ├── plane01_roi02/
+        │   └── [Suite2p outputs]
+        ├── merged_mrois/            # Merged results (used for volumetric stats)
+        │   ├── plane01/
+        │   │   ├── ops.npy          # Merged ops with Lx = sum of ROI widths
+        │   │   ├── stat.npy         # Concatenated ROIs with xpix offsets applied
+        │   │   ├── F.npy, spks.npy  # Concatenated traces
+        │   │   ├── data.bin         # Horizontally stitched binary
+        │   │   └── [merged visualizations]
+        │   └── plane02/
+        │       └── ...
+        └── [volumetric outputs as above]
+
+    The merging process:
+    - Groups directories by plane number (e.g., "plane01_roi01", "plane01_roi02" → "plane01")
+    - Horizontally concatenates images (refImg, meanImg, meanImgE, max_proj)
+    - Adjusts stat["xpix"] and stat["med"] coordinates to account for horizontal offset
+    - Concatenates fluorescence traces (F, Fneu, spks) and cell classifications (iscell)
+    - Creates stitched binary files by horizontally stacking frames
+
+    **Supported Input Scenarios:**
+
+    1. TIFF files (standard workflow)::
+
+        input_files = ["plane01.tif", "plane02.tif", "plane03.tif"]
+        lsp.run_volume(input_files, save_path="outputs")
+
+    2. Binary files from interrupted processing::
+
+        input_files = [
+            "plane01_stitched/data_raw.bin",
+            "plane02_stitched/data_raw.bin",
+        ]
+        lsp.run_volume(input_files)  # Processes in-place
+
+    3. Multi-ROI TIFF files (automatic merging)::
+
+        input_files = [
+            "plane01_roi01.tif", "plane01_roi02.tif",
+            "plane02_roi01.tif", "plane02_roi02.tif",
+        ]
+        lsp.run_volume(input_files, save_path="outputs")
+
+    4. Mixed input types::
+
+        input_files = [
+            "plane01.tif",                      # New TIFF
+            "plane02_stitched/data_raw.bin",    # Existing binary
+        ]
+        lsp.run_volume(input_files, save_path="outputs")
+
+    See Also
+    --------
+    run_plane : Process a single imaging plane
+    run_plane_bin : Process an existing binary file through Suite2p pipeline
+    merge_mrois : Manual multi-ROI merging function
     """
     from mbo_utilities.file_io import get_files, get_plane_from_filename
 
