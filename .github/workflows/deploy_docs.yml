@@ -2,15 +2,14 @@ name: Deploy Docs
 
 on:
   push:
-    branches: [dev]
+    branches: [master]
   workflow_dispatch:
 
 jobs:
   docs:
     if: |
       github.event_name != 'push' ||
-      contains(github.event.head_commit.message, 'doc') ||
-      contains(github.event.head_commit.message, 'docs')
+      contains(github.event.head_commit.message, 'bump')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -22,6 +21,12 @@ jobs:
         with:
           python-version: "3.11"
           enable-cache: true
+
+      - name: Lint and format with ruff
+        run: |
+          uv tool install ruff
+          uv tool run ruff check --fix .
+          uv tool run ruff format .
 
       - name: Sync and build docs
         run: |
