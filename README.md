@@ -1,7 +1,10 @@
 # LBM-Suite2p-Python
 
-[![PyPI - Version](https://img.shields.io/pypi/v/lbm-suite2p-python)](https://pypi.org/project/lbm-suite2p-python/)
+> **Status:** Late-beta stage of development
+
 [![Documentation](https://img.shields.io/badge/Documentation-blue?style=for-the-badge&logo=readthedocs&logoColor=white)](https://millerbrainobservatory.github.io/LBM-Suite2p-Python/index.html)
+
+[![PyPI - Version](https://img.shields.io/pypi/v/lbm-suite2p-python)](https://pypi.org/project/lbm-suite2p-python/)
 [![DOI](https://zenodo.org/badge/DOI/10.1007/978-3-319-76207-4_15.svg)](https://doi.org/10.1038/s41592-021-01239-8)
 
 A volumetric 2-photon calcium imaging processing pipeline for Light Beads Microscopy (LBM) datasets, built on Suite2p.
@@ -9,8 +12,6 @@ A volumetric 2-photon calcium imaging processing pipeline for Light Beads Micros
 A GUI is available via [mbo_utilities](https://millerbrainobservatory.github.io/mbo_utilities/index.html#gui).
 
 GUI functionality will lag behind this pipeline.
-
-> **Status:** Late-beta stage of development
 
 ## Quick Start
 
