@@ -1,14 +1,15 @@
 name: Deploy Docs
 
 on:
-  push:
+  pull_request:
     branches: [master]
   workflow_dispatch:
 
 jobs:
   docs:
     if: |
-      github.event_name != 'push' ||
+      github.event_name != 'pull_request' ||
+      contains(github.event.pull_request.title, 'bump') ||
       contains(github.event.head_commit.message, 'bump')
     runs-on: ubuntu-latest
     permissions:
