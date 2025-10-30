@@ -4,6 +4,7 @@ Most calcium imaging pipelines model neural activity as an exponential decay pro
 
 This guide summarizes *in vivo* τ values used or recommended by leading spike inference algorithms — **FOOPSI**, **OASIS**, **Suite2p**, **CaImAn**, and **CASCADE** — as reported in peer-reviewed literature and official documentation:contentReference[oaicite:0]{index=0}.
 
+<!-- TODO: Add missing figure
 ```{figure} ../_images/tau_comparison_overview.png
 :alt: Comparison of GCaMP decay constants
 :figclass: full-width
@@ -11,6 +12,7 @@ This guide summarizes *in vivo* τ values used or recommended by leading spike i
 
 Decay time constants (τ) for commonly used GCaMP variants in *in vivo* spike inference pipelines.
 ```
+-->
 
 ---
 
@@ -25,6 +27,7 @@ where \( \gamma = e^{-\Delta t / \tau} \) defines the decay rate.
 In *in vivo* work, FOOPSI typically assumes **τ ≈ 1.0 s** for GCaMP3–GCaMP5 indicators:contentReference[oaicite:1]{index=1}, which display relatively slow kinetics.  
 This constant was fixed across datasets and used to calibrate spike likelihood.
 
+<!-- TODO: Add missing figure
 ```{figure} ../_images/foopsi_model.png
 :alt: FOOPSI calcium model
 :figclass: full-width
@@ -32,6 +35,7 @@ This constant was fixed across datasets and used to calibrate spike likelihood.
 
 Illustration of FOOPSI’s exponential decay model, where τ defines calcium transient length.
 ```
+-->
 
 ---
 
@@ -64,6 +68,7 @@ Fast (6f): 0.5 s Medium (6m): 1.1 s Slow (6s): 1.8 s
 :::
 ::::
 
+<!-- TODO: Add missing figure
 ```{figure} ../_images/tau_families.png
 :alt: Decay constants across GCaMP families
 :figclass: full-width
@@ -71,6 +76,7 @@ Fast (6f): 0.5 s Medium (6m): 1.1 s Slow (6s): 1.8 s
 
 Approximate *in vivo* decay constants (τ) across GCaMP6–8 families from Pnevmatikakis 2016 and Rupprecht 2025.
 ```
+-->
 
 ---
 
@@ -88,6 +94,7 @@ Default values in Suite2p documentation are:
 In *in vivo* datasets from [Dana 2019](https://pmc.ncbi.nlm.nih.gov/articles/PMC6609268/), these τ values accurately reproduce spike rates for PbN and cortical neurons.  
 Suite2p applies the same τ≈0.7 s default for red indicators like **jRGECO1a** ([GitHub #233](https://github.com/MouseLand/suite2p/issues/233)).
 
+<!-- TODO: Add missing figure
 ```{figure} ../_images/suite2p_tau_deconv.png
 :alt: Suite2p spike deconvolution and τ parameter
 :figclass: full-width
@@ -95,6 +102,7 @@ Suite2p applies the same τ≈0.7 s default for red indicators like **jRGECO1a**
 
 Suite2p spike deconvolution showing effect of τ parameter on inferred spike rates.
 ```
+-->
 
 ---
 
@@ -110,6 +118,7 @@ Suite2p spike deconvolution showing effect of τ parameter on inferred spike rat
 
 In most datasets, **τ=0.4 s** captures fast transients well, while slower indicators require τ > 1 s for stability ([Friedrich 2017](https://pubmed.ncbi.nlm.nih.gov/28291787/)).
 
+<!-- TODO: Add missing figure
 ```{figure} ../_images/caiman_tau_fit.png
 :alt: CaImAn CNMF-E τ fitting
 :figclass: full-width
@@ -117,6 +126,7 @@ In most datasets, **τ=0.4 s** captures fast transients well, while slower indic
 
 CaImAn CNMF-E fitting showing decay component corresponding to τ for different indicators.
 ```
+-->
 
 ---
 
@@ -128,6 +138,7 @@ CaImAn CNMF-E fitting showing decay component corresponding to τ for different 
 - Original 2021 models were trained on GCaMP6 data (τ≈1–2 s).  
 - Updated 2025 versions retrained on **GCaMP8f/m/s** achieved optimal inference with **effective τ ≈ 0.3–0.5 s**:contentReference[oaicite:6]{index=6}.
 
+<!-- TODO: Add missing figure
 ```{figure} ../_images/cascade_tau_learned.png
 :alt: CASCADE learned decay constants
 :figclass: full-width
@@ -135,6 +146,7 @@ CaImAn CNMF-E fitting showing decay component corresponding to τ for different 
 
 CASCADE’s neural network implicitly learns τ during training, adapting to GCaMP family kinetics.
 ```
+-->
 
 ---
 
@@ -168,6 +180,7 @@ All τ values summarized here reflect *in vivo* mammalian calcium imaging (typic
 In vitro or temperature-controlled decay times (e.g., 37 °C) can be >10× shorter.  
 Choosing an incorrect τ biases both spike amplitude and inferred firing rate:contentReference[oaicite:7]{index=7}.
 
+<!-- TODO: Add missing figure
 ```{figure} ../_images/tau_effect_on_spikes.png
 :alt: Effect of τ choice on inferred spikes
 :figclass: full-width
@@ -175,6 +188,7 @@ Choosing an incorrect τ biases both spike amplitude and inferred firing rate:co
 
 Effect of τ selection on inferred spike amplitude and frequency.
 ```
+-->
 
 ---
 

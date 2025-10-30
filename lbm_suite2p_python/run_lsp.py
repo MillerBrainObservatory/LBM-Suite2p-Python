@@ -97,68 +97,135 @@ def run_volume(
     Processes a full volumetric imaging dataset using Suite2p, handling plane-wise registration,
     segmentation, plotting, and aggregation of volumetric statistics and visualizations.
 
+    Supports planar, contiguous .zarr, tiff, suite2p .bin and automatically merges multi-ROI datasets
+    acquired with ScanImage's multi-ROI mode.
+
     Parameters
     ----------
     input_files : list of str or Path
-        List of TIFF file paths, each representing a single imaging plane.
+        List of file paths, each representing a single imaging plane. Supported formats:
+        - .tif files (e.g., "plane01.tif", "plane02.tif")
+        - .bin files from mbo.imwrite (e.g., "plane01_stitched/data_raw.bin")
+        - .zarr files (e.g., "plane01_roi01.zarr", "plane01_roi02.zarr")
+        For binary inputs, must have accompanying ops.npy in parent directory.
     save_path : str or Path, optional
         Base directory to save all outputs.
-        If none, will create a "volume" directory in the parent of the first input file.
-    ops : dict or list, optional
-        Dictionary of Suite2p parameters to use for each imaging plane.
-    save_path : str, optional
-        Subdirectory name within `save_path` for saving results (default: None).
-    keep_raw : bool, default false
-        if true, do not delete the raw binary (`data_raw.bin`) after processing.
-    keep_reg : bool, default false
-        if true, do not delete the registered binary (`data.bin`) after processing.
-    force_reg : bool, default false
-        if true, force a new registration even if existing shifts are found in ops.npy.
-    force_detect : bool, default false
-        if true, force roi detection even if an existing stat.npy is present.
+        If None, creates a "volume" directory in the parent of the first input file.
+        For binary inputs with ops.npy, processing occurs in-place at the parent directory.
+    ops : dict or str or Path, optional
+        Suite2p parameters to use for each imaging plane. Can be:
+        - Dictionary of parameters
+        - Path to ops.npy file
+        - None (uses defaults from default_ops())
+    keep_raw : bool, default False
+        If True, do not delete the raw binary (data_raw.bin) after processing.
+    keep_reg : bool, default True
+        If True, keep the registered binary (data.bin) after processing.
+    force_reg : bool, default False
+        If True, force re-registration even if refImg/meanImg/xoff exist in ops.npy.
+    force_detect : bool, default False
+        If True, force ROI detection even if stat.npy exists and is non-empty.
     dff_window_size : int, default 500
-        Number of frames to use for windowed dF/F₀ calculations.
+        Number of frames to use for rolling percentile baseline in ΔF/F₀ calculations.
     dff_percentile : int, default 20
-        Percentile to use for baseline F₀ estimation in dF/F₀ calculations.
+        Percentile to use for baseline F₀ estimation (e.g., 20 = 20th percentile).
     save_json : bool, default False
-        If true, saves ops as a JSON file in addition to npy.
+        If True, saves ops as JSON in addition to .npy format.
+    **kwargs
+        Additional keyword arguments passed to run_plane().
 
     Returns
     -------
-    list of str
-        List of paths to `ops.npy` files for each plane.
-
-    Raises
-    ------
-    Exception
-        If volumetric summary statistics or any visualization fails to generate.
-
-    Example
-    -------
-    >> input_files = mbo.get_files(assembled_path, str_contains='tif', max_depth=3)
-    >> ops = mbo.params_from_metadata(mbo.get_metadata(input_files[0]), suite2p.default_ops())
-
-    Run volume
-    >> output_ops_list = lsp.run_volume(ops, input_files, save_path)
+    list of Path
+        List of paths to ops.npy files for each plane (or merged plane if mROI).
 
     Notes
     -----
-    At the root of `save_path` will be a folder for each z-plane with all suite2p results, as well as
-    volumetric outputs at the base of this folder.
+    **Directory Structure:**
 
-    Each z-plane folder contains:
-    - Registration, Segmentation and Extraction results (ops, spks, iscell)
-    - Summary statistics: execution time, signal strength, acceptance rates
-    - Optional rastermap model for visualization of activity across the volume
+    For standard single-ROI data::
 
-    Each save_path root contains:
-    - Accepted/Rejected histogram, neuron-count x z-plane (acc_rej_bar.png)
-    - Execution time for each step in each z-plane (execution_time.png)
-    - Mean/Max images, with and without segmentation masks, in GIF/MP4
-    - Traces animation over time and neurons
-    - Optional rastermap clustering results
+        save_path/
+        ├── plane01/
+        │   ├── ops.npy, stat.npy, F.npy, Fneu.npy, spks.npy, iscell.npy
+        │   ├── data.bin (registered binary, if keep_reg=True)
+        │   └── [visualization PNGs]
+        ├── plane02/
+        │   └── ...
+        ├── volume_stats.npy          # Per-plane statistics
+        ├── mean_volume_signal.png    # Signal strength across planes
+        └── rastermap.png             # Clustered activity (if rastermap installed)
+
+    **Multi-ROI Merging:**
+
+    When input filenames contain "roi" (case-insensitive), e.g., "plane01_roi01.tif",
+    "plane01_roi02.tif", the pipeline automatically detects multi-ROI acquisition and
+    performs horizontal stitching after planar processing::
+
+        save_path/
+        ├── plane01_roi01/           # Individual ROI results
+        │   └── [Suite2p outputs]
+        ├── plane01_roi02/
+        │   └── [Suite2p outputs]
+        ├── merged_mrois/            # Merged results (used for volumetric stats)
+        │   ├── plane01/
+        │   │   ├── ops.npy          # Merged ops with Lx = sum of ROI widths
+        │   │   ├── stat.npy         # Concatenated ROIs with xpix offsets applied
+        │   │   ├── F.npy, spks.npy  # Concatenated traces
+        │   │   ├── data.bin         # Horizontally stitched binary
+        │   │   └── [merged visualizations]
+        │   └── plane02/
+        │       └── ...
+        └── [volumetric outputs as above]
+
+    The merging process:
+    - Groups directories by plane number (e.g., "plane01_roi01", "plane01_roi02" → "plane01")
+    - Horizontally concatenates images (refImg, meanImg, meanImgE, max_proj)
+    - Adjusts stat["xpix"] and stat["med"] coordinates to account for horizontal offset
+    - Concatenates fluorescence traces (F, Fneu, spks) and cell classifications (iscell)
+    - Creates stitched binary files by horizontally stacking frames
+
+    **Supported Input Scenarios:**
+
+    1. TIFF files (standard workflow)::
+
+        input_files = ["plane01.tif", "plane02.tif", "plane03.tif"]
+        lsp.run_volume(input_files, save_path="outputs")
+
+    2. Binary files from interrupted processing::
+
+        input_files = [
+            "plane01_stitched/data_raw.bin",
+            "plane02_stitched/data_raw.bin",
+        ]
+        lsp.run_volume(input_files)  # Processes in-place
+
+    3. Multi-ROI TIFF files (automatic merging)::
+
+        input_files = [
+            "plane01_roi01.tif", "plane01_roi02.tif",
+            "plane02_roi01.tif", "plane02_roi02.tif",
+        ]
+        lsp.run_volume(input_files, save_path="outputs")
+
+    4. Mixed input types::
+
+        input_files = [
+            "plane01.tif",                      # New TIFF
+            "plane02_stitched/data_raw.bin",    # Existing binary
+        ]
+        lsp.run_volume(input_files, save_path="outputs")
+
+    See Also
+    --------
+    run_plane : Process a single imaging plane
+    run_plane_bin : Process an existing binary file through Suite2p pipeline
+    merge_mrois : Manual multi-ROI merging function
     """
     from mbo_utilities.file_io import get_files, get_plane_from_filename
+
+    if not input_files:
+        raise Exception("No input files given.")
 
     start = time.time()
     if save_path is None:
@@ -169,34 +236,65 @@ def run_volume(
 
     all_ops = []
     for z, file in enumerate(input_files):
-        tag = derive_tag_from_filename(Path(file).name)
-        plane_num = get_plane_from_filename(tag, fallback=len(all_ops))
-        # subdir = f"plane{tag:02d}"
-        plane_save_path = Path(save_path).joinpath(tag)
-        plane_save_path.mkdir(exist_ok=True)
-
+        file_path = Path(file)
         start_file = time.time()
-        ops_file = run_plane(
-            input_path=file,
-            save_path=plane_save_path,
-            ops=ops,
-            keep_reg=keep_reg,
-            keep_raw=keep_raw,
-            force_reg=force_reg,
-            force_detect=force_detect,
-            dff_window_size=dff_window_size,
-            dff_percentile=dff_percentile,
-            save_json=save_json,
-            plane=plane_num,
-            **kwargs,
-        )
 
-        end_file = time.time()
-        print(f"Time for {file}: {(end_file - start_file) / 60:0.1f} min")
-        print(f"CPU {get_cpu_percent():4.1f}% | RAM {get_ram_used() / 1024:5.2f} GB")
-        all_ops.append(ops_file)
-        del ops_file
-        gc.collect()
+        # Create a fresh kwargs dict for each iteration to avoid cross-contamination
+        call_kwargs = dict(kwargs)
+
+        # Determine save_path based on input type
+        # For binary inputs with ops.npy, use the parent directory (in-place processing)
+        # For TIFF/ZARR/other formats, create subdirectory based on filename tag
+        if file_path.suffix == ".bin" and file_path.parent.joinpath("ops.npy").exists():
+            # Input is a binary from mbo.imwrite or previous processing
+            # Process in-place (parent directory contains ops.npy and data_raw.bin)
+            print(f"Detected existing binary with ops.npy: {file_path}")
+            tag = file_path.parent.name
+            plane_save_path = file_path.parent
+
+            # Prefer data_raw.bin if it exists, otherwise use whatever binary was provided
+            if (file_path.parent / "data_raw.bin").exists():
+                input_to_process = file_path.parent / "data_raw.bin"
+            else:
+                input_to_process = file_path
+        else:
+            # Input is TIFF, ZARR, or other format - derive tag from filename
+            tag = derive_tag_from_filename(file_path.name)
+            plane_num = get_plane_from_filename(tag, fallback=len(all_ops))
+            plane_save_path = Path(save_path).joinpath(tag)
+            plane_save_path.mkdir(exist_ok=True)
+            input_to_process = file_path
+            # Set plane number for non-binary inputs
+            call_kwargs["plane"] = plane_num
+
+        # Always call run_plane - it has all the logic to determine what needs processing
+        try:
+            ops_file = run_plane(
+                input_path=input_to_process,
+                save_path=plane_save_path,
+                ops=ops,
+                keep_reg=keep_reg,
+                keep_raw=keep_raw,
+                force_reg=force_reg,
+                force_detect=force_detect,
+                dff_window_size=dff_window_size,
+                dff_percentile=dff_percentile,
+                save_json=save_json,
+                **call_kwargs,
+            )
+            all_ops.append(ops_file)
+            print(f"Completed {file_path.name} -> {ops_file}")
+        except Exception as e:
+            print(f"Error processing {file_path}: {e}")
+            import traceback
+            traceback.print_exc()
+            # Continue with next file rather than failing entire volume
+            continue
+        finally:
+            end_file = time.time()
+            print(f"Time for {file}: {(end_file - start_file) / 60:0.1f} min")
+            print(f"CPU {get_cpu_percent():4.1f}% | RAM {get_ram_used() / 1024:5.2f} GB")
+            gc.collect()
 
     end = time.time()
     print(f"Total time for volume: {(end - start) / 60:0.1f} min")
@@ -230,10 +328,11 @@ def run_volume(
             for i, ops_path in enumerate(all_ops)
         ]
         all_spks = np.concatenate([res["spks"] for res in res_z], axis=0)
-        print(type(all_spks))
         try:
+            print("Importing rastermap...")
             from rastermap import Rastermap
             from lbm_suite2p_python.zplane import plot_rastermap
+            print("Rastermap import complete...")
 
             HAS_RASTERMAP = True
         except ImportError:
@@ -277,9 +376,15 @@ def _should_write_bin(ops_path: Path, force: bool = False, *, validate_chan2: bo
     if not ops_path.is_file():
         return True
     raw_path = ops_path.parent / "data_raw.bin"
+    reg_path = ops_path.parent / "data.bin"
     chan2_path = ops_path.parent / "data_chan2.bin"
-    if not raw_path.is_file():
+
+    # If neither raw nor registered binary exists, need to write
+    if not raw_path.is_file() and not reg_path.is_file():
         return True
+
+    # Use whichever binary exists for validation (prefer raw)
+    binary_to_validate = raw_path if raw_path.is_file() else reg_path
     try:
         ops = np.load(ops_path, allow_pickle=True).item()
         if validate_chan2 is None:
@@ -287,14 +392,14 @@ def _should_write_bin(ops_path: Path, force: bool = False, *, validate_chan2: bo
         Ly = ops.get("Ly")
         Lx = ops.get("Lx")
         nframes_raw = ops.get("nframes_chan1") or ops.get("nframes") or ops.get("num_frames")
-        if (not raw_path.is_file()) or (None in (nframes_raw, Ly, Lx)) or (nframes_raw <= 0 or Ly <= 0 or Lx <= 0):
+        if (None in (nframes_raw, Ly, Lx)) or (nframes_raw <= 0 or Ly <= 0 or Lx <= 0):
             return True
         expected_size_raw = int(nframes_raw) * int(Ly) * int(Lx) * np.dtype(expected_dtype).itemsize
-        actual_size_raw = raw_path.stat().st_size
+        actual_size_raw = binary_to_validate.stat().st_size
         if actual_size_raw != expected_size_raw or actual_size_raw == 0:
             return True
         try:
-            arr = np.memmap(raw_path, dtype=expected_dtype, mode="r", shape=(int(nframes_raw), int(Ly), int(Lx)))
+            arr = np.memmap(binary_to_validate, dtype=expected_dtype, mode="r", shape=(int(nframes_raw), int(Ly), int(Lx)))
             _ = arr[0, 0, 0]
             del arr
         except Exception:
@@ -522,6 +627,20 @@ def run_plane(
             )
         save_path.mkdir(exist_ok=True)
 
+    # Check if input is already a binary at the target location
+    is_binary_input = input_path.suffix == ".bin"
+    binary_at_target = is_binary_input and input_path.parent == save_path
+    skip_imwrite = False
+
+    if binary_at_target:
+        print(f"Input is already a binary at target location: {input_path}")
+        # Check if ops.npy exists
+        if not (save_path / "ops.npy").exists():
+            raise FileNotFoundError(
+                f"ops.npy not found at {save_path}. Cannot process binary without ops file."
+            )
+        skip_imwrite = True
+
     ops_default = default_ops()
     ops_user = load_ops(ops) if ops else {}
     ops = {**ops_default, **ops_user, "data_path": str(input_path.resolve())}
@@ -534,15 +653,22 @@ def run_plane(
     ):
         ops["aspect"] = ops["diameter"][0] / ops["diameter"][1]  # noqa
 
-    file = imread(input_path)
-    if isinstance(file, MboRawArray):
-        raise TypeError(
-            "Input file appears to be a raw array. Please provide a planar input file."
-        )
-    if hasattr(file, "metadata"):
-        metadata = file.metadata  # noqa
+    # Skip imread if we're using existing binary
+    if skip_imwrite:
+        file = None
+        # Load metadata from existing ops.npy
+        existing_ops = np.load(save_path / "ops.npy", allow_pickle=True).item()
+        metadata = {k: v for k, v in existing_ops.items() if k in ("plane", "fs", "dx", "dy", "Ly", "Lx", "nframes")}
     else:
-        metadata = get_metadata(input_path)
+        file = imread(input_path)
+        if isinstance(file, MboRawArray):
+            raise TypeError(
+                "Input file appears to be a raw array. Please provide a planar input file."
+            )
+        if hasattr(file, "metadata"):
+            metadata = file.metadata  # noqa
+        else:
+            metadata = get_metadata(input_path)
 
     if "plane" in ops:
         plane = ops["plane"]
@@ -595,9 +721,19 @@ def run_plane(
 
     ops_file = plane_dir / "ops.npy"
 
-    if _should_write_bin(ops_file, force=force_reg):
+    if skip_imwrite:
+        print(f"Skipping binary write, using existing binary at {input_path}")
+    elif _should_write_bin(ops_file, force=force_reg):
         md_combined = {**metadata, **ops}
-        imwrite(file, plane_dir, ext=".bin", metadata=md_combined, register_z=False)
+        imwrite(
+            file,
+            plane_dir,
+            ext=".bin",
+            metadata=md_combined,
+            register_z=False,
+            output_name="data_raw.bin",
+            overwrite=True
+        )
     else:
         print(
             f"Skipping data_raw.bin write, already exists and passes data validation checks."
@@ -736,6 +872,7 @@ def run_grid_search(
     Notes
     -----
     - Subfolder names for each parameter are abbreviated to 3-character keys and truncated/rounded values.
+    - For available Suite2p parameters, see: http://suite2p.readthedocs.io/en/latest/parameters.html
 
     Examples
     --------
@@ -759,10 +896,6 @@ def run_grid_search(
         ├── thr1.00_tau0.15/
         ├── thr1.20_tau0.10/
         └── thr1.20_tau0.15/
-
-    See Also
-    --------
-    [suite2p parameters](http://suite2p.readthedocs.io/en/latest/parameters.html)
 
     """
 

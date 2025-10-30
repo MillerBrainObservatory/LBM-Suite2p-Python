@@ -33,7 +33,7 @@ lsp.plot_traces(ops_file)
 
 By default, `plot_traces` will plot 2 minutes of the $\Delta F / F_0$ (%) for the first 20 neurons.
 
-The $\Delta F / F_0$ is calculated by calling {ref}`lbm_suite2p_python.dff_percentile`.
+The $\Delta F / F_0$ is calculated by calling {func}`~lbm_suite2p_python.dff_rolling_percentile`.
 
 The main features of this function:
 

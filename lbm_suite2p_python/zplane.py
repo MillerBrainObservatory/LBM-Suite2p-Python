@@ -403,10 +403,14 @@ def plot_traces(
 
     ax.add_artist(hsb)
 
-    # how much signal change corresponds to 10% of the y-axis span
-    vertical_bar_height = 0.1 * (y_max - y_min)
+    # Calculate scale bar from actual signal amplitude, not stacked display range
+    # Use median amplitude across displayed neurons (p90 - p10)
+    p10_per_neuron = np.percentile(f[indices, : current_frame + 1], 10, axis=1)
+    p90_per_neuron = np.percentile(f[indices, : current_frame + 1], 90, axis=1)
+    median_amplitude = np.median(p90_per_neuron - p10_per_neuron)
 
-    # express it directly in the same units as f (no offset normalization)
+    # Scale bar represents 10% of typical signal amplitude
+    vertical_bar_height = 0.1 * median_amplitude
     rounded_signal_units = np.round(vertical_bar_height, 2)
 
     if signal_units == "raw":
@@ -1141,18 +1145,6 @@ def save_pc_panels_and_metrics(ops, savepath, pcs=(0, 1, 2, 3)):
         alt_frames.append(combined.astype(np.float32))
         alt_labels.append(f"PC{pcs[2] + 1}/{pcs[3] + 1} {view_name}")
 
-    alt_tiff = savepath.with_name(savepath.stem + "_alternating.tif")
-    tifffile.imwrite(
-        alt_tiff,
-        np.stack(alt_frames, axis=0),
-        imagej=True,
-        metadata={"Labels": alt_labels},
-    )
-    print(f"Saved alternating TIFF to {alt_tiff}")
-
-    # ----------------
-    # 2. Panel TIFF
-    # ----------------
     panel_frames = []
     panel_labels = []
     for left, right in [(pcs[0], pcs[1]), (pcs[2], pcs[3])]:
@@ -1182,9 +1174,6 @@ def save_pc_panels_and_metrics(ops, savepath, pcs=(0, 1, 2, 3)):
     )
     print(f"Saved panel TIFF to {panel_tiff}")
 
-    # ----------------
-    # 3. CSV metrics
-    # ----------------
     df = pd.DataFrame(regDX, columns=["Rigid", "Avg_NR", "Max_NR"])
     metrics = {
         "Avg_Rigid": df["Rigid"].mean(),
@@ -1200,7 +1189,6 @@ def save_pc_panels_and_metrics(ops, savepath, pcs=(0, 1, 2, 3)):
     print(df.head())
 
     return {
-        "alternating_tiff": alt_tiff,
         "panel_tiff": panel_tiff,
         "metrics_csv": csv_path,
     }

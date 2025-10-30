@@ -117,6 +117,7 @@ Even worse, the *inputs* to downstream pipelines pipelines require data to have 
 
 (bg_sub_example)=
 ```{admonition} Example
+
 :class: dropdown
 
 [This discussion](https://gcamp6f.com/2021/10/04/large-scale-calcium-imaging-noise-levels/), which details how to calculate noise for a variety of datasets, used traces that had [the background signal subtracted](https://github.com/cajal/microns_phase3_nda/issues/21).
@@ -137,7 +138,7 @@ The idea is to track the lower envelope of the signal to get F₀ without being 
 
 **Neuropil/background:** CaImAn handles this as part of its CNMF model {cite:p}`cnmf`.
 
-Background and neuropil are explicitly separated into distinct spatial/temporal components, so the output traces are background subtracted during this [factorization](https://en.wikipedia.org/wiki/Matrix_decomposition) (as was the issue in the above {ref}`example <bg_sub_example>`).
+Background and neuropil are explicitly separated into distinct spatial/temporal components, so the output traces are background subtracted during this factorization (as was the issue in the above {ref}`example <bg_sub_example>`).
 
 There is a strong argument to be made that a matrix factorization `CNMF` is not complex enough to model the true background and neuropil.
 

@@ -87,8 +87,89 @@ def _merge_images(
 
 def merge_mrois(input_dir, output_dir, overwrite=True):
     """
-    Merge Suite2p outputs from multiple ROIs into per-plane outputs.
-    Will attempt to merge everything available; skips missing files gracefully.
+    Merge Suite2p outputs from multiple ROIs per plane into unified per-plane outputs.
+
+    This function is called automatically by run_volume() when multi-ROI data is detected
+    (filenames containing "roi"). It performs horizontal stitching of images and concatenation
+    of ROI statistics and traces.
+
+    Parameters
+    ----------
+    input_dir : str or Path
+        Directory containing per-ROI subdirectories with naming pattern "planeXX_roiYY/".
+        Each subdirectory should contain Suite2p outputs (ops.npy, stat.npy, F.npy, etc.).
+    output_dir : str or Path
+        Directory where merged outputs will be saved. Creates subdirectories named "planeXX/"
+        for each unique plane number found in input_dir.
+    overwrite : bool, default True
+        If True, overwrites existing merged outputs. If False, skips planes that already
+        have merged ops.npy files.
+
+    Notes
+    -----
+    **Merging Process:**
+
+    1. **ROI Grouping**: Groups directories by plane number
+       - Input: "plane01_roi01/", "plane01_roi02/", "plane02_roi01/"
+       - Groups: {"plane01": [roi01, roi02], "plane02": [roi01]}
+
+    2. **Image Stitching**: Horizontally concatenates images
+       - Full-FOV images (refImg, meanImg, meanImgE): Simple horizontal stacking
+       - Cropped images (max_proj, Vcorr): Placed at yrange/xrange with horizontal offset
+       - Final dimensions: Ly = max(ROI heights), Lx = sum(ROI widths)
+
+    3. **ROI Coordinate Adjustment**: Updates stat array pixel coordinates
+       - Adds horizontal offset to stat["xpix"] for each ROI
+       - Updates stat["med"] centroid positions
+       - Recalculates stat["ipix_neuropil"] linear indices
+
+    4. **Trace Concatenation**: Vertically stacks fluorescence traces
+       - Concatenates F, Fneu, spks arrays along axis 0 (ROI dimension)
+       - Preserves temporal dimension (axis 1)
+       - Result shape: (total_neurons, nframes)
+
+    5. **Binary Stitching**: Creates horizontally stitched binary files
+       - Reads frame-by-frame from each ROI binary
+       - Horizontally stacks frames using np.hstack()
+       - Writes to merged data.bin
+       - Handles frame count mismatches by using minimum nframes
+
+    6. **Metadata Merging**: Combines ops dictionaries
+       - Uses first ROI's ops as base
+       - Updates Lx to sum of ROI widths
+       - Updates xrange to [0, total_Lx]
+       - Preserves registration offsets if identical across ROIs
+
+    **Output Structure:**
+
+    For input::
+
+        input_dir/
+        ├── plane01_roi01/
+        │   ├── ops.npy (Lx=512)
+        │   ├── stat.npy (100 neurons)
+        │   ├── F.npy (100, 5000)
+        │   └── data_raw.bin
+        └── plane01_roi02/
+            ├── ops.npy (Lx=512)
+            ├── stat.npy (120 neurons)
+            ├── F.npy (120, 5000)
+            └── data_raw.bin
+
+    Creates output::
+
+        output_dir/
+        └── plane01/
+            ├── ops.npy (Lx=1024, nrois=2)
+            ├── stat.npy (220 neurons with adjusted xpix)
+            ├── F.npy (220, 5000)
+            ├── data.bin (horizontally stitched, shape: nframes × Ly × 1024)
+            └── [merged visualization PNGs]
+
+    See Also
+    --------
+    merge_zarr_rois : Similar merging for ZARR format
+    run_volume : Automatically calls this function when multi-ROI data detected
     """
     input_dir = Path(input_dir)
     output_dir = Path(output_dir)

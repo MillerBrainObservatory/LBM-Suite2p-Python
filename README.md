@@ -1,68 +1,83 @@
-# Light Beads Microscopy (LBM) Pipeline: Suite2p
+# LBM-Suite2p-Python
 
 [![PyPI - Version](https://img.shields.io/pypi/v/lbm-suite2p-python)](https://pypi.org/project/lbm-suite2p-python/)
-
 [![Documentation](https://img.shields.io/badge/Documentation-blue?style=for-the-badge&logo=readthedocs&logoColor=white)](https://millerbrainobservatory.github.io/LBM-Suite2p-Python/index.html)
+[![DOI](https://zenodo.org/badge/DOI/10.1007/978-3-319-76207-4_15.svg)](https://doi.org/10.1038/s41592-021-01239-8)
 
-This package is still in a *late-beta* stage of development.
+A volumetric 2-photon calcium imaging processing pipeline for Light Beads Microscopy (LBM) datasets, built on Suite2p.
 
-A pipeline for processing volumetric 2-photon Light Beads Microscopy (LBM) datasets.
+A GUI is available via [mbo_utilities](https://millerbrainobservatory.github.io/mbo_utilities/index.html#gui).
 
-This pipeline uses the following open-source software:
+GUI functionality will lag behind this pipeline.
 
-- [suite2p](https://github.com/MouseLand/suite2p)
-- [cellpose](https://github.com/MouseLand/cellpose)
-- [rastermap](https://github.com/MouseLand/rastermap)
-- [mbo_utilities](https://github.com/MillerBrainObservatory/mbo_utilities)
-- [scanreader](https://github.com/atlab/scanreader)
+> **Status:** Late-beta stage of development
 
+## Quick Start
 
-[![LBM](https://zenodo.org/badge/DOI/10.1007/978-3-319-76207-4_15.svg)](https://doi.org/10.1038/s41592-021-01239-8)
-
----
-
-## Installation
-
-This pipeline is installable with `pip`:
+See the [installation documentation](https://millerbrainobservatory.github.io/LBM-Suite2p-Python/install.html) for GUI dependencies and troubleshooting.
 
 ```bash
-pip install lbm_suite2p_python
-# with uv: uv pip install lbm_suite2p_python
+uv pip install lbm_suite2p_python
 ```
 
-We highly encourage the use of a virtual environment. If you are unfamiliar with virtual environments, see our documentation [here](https://millerbrainobservatory.github.io/mbo_utilities/venvs.html).
+### Basic Usage
 
-You may also use git to clone and install locally for updates not yet released to pypi:
+```python
+import lbm_suite2p_python as lsp
 
-```bash
-git clone https://github.com/MillerBrainObservatory/LBM-Suite2p-Python.git
-cd LBM-Suite2p-Python
+ops = {"two_step_registration": 1}
+files = [
+    r"D://demo//plane05_stitched.zarr",
+    r"D://demo//plane06_stitched.zarr",
+]
 
-# make sure your virtual environment is active
-pip install "." 
+# Process entire volume
+output_ops = lsp.run_volume(
+    input_files=files,
+    save_path=None,     # save next to tiffs
+    ops=ops,
+    keep_reg=True,      # Keep registered binaries
+    force_reg=False,    # Skip if already registered
+    force_detect=False  # Skip if stat.npy exists
+)
 ```
 
-## Features
+**Process a single plane:**
+```python
+ops_file = lsp.run_plane(
+    input_path=files[0],
+    save_path=None,
+    ops=ops,
+    keep_raw=False,  # Delete data_raw.bin after processing
+    keep_reg=True    # Keep data.bin (registered binary)
+)
+```
 
-### 2.0.0
+## Documentation
 
-- Process ScanImage multi-ROI as separate datasets
-- Post-processing cell filters for area, exceptional events and eccentricity
+- **[Installation Guide](https://millerbrainobservatory.github.io/LBM-Suite2p-Python/install.html)**
+- **[User Guide](https://millerbrainobservatory.github.io/LBM-Suite2p-Python/user_guide.html)** - Complete usage examples
+- **[API Reference](https://millerbrainobservatory.github.io/LBM-Suite2p-Python/api.html)**
 
-### 1.0.0
+## Built With
 
-- Suite2p planar segmentation
-- DF/F, baseline calculation and documentation
-- Aggregate planar outputs into volumetric dataset
+This pipeline integrates several open-source tools:
 
-## Issues
+- **[Suite2p](https://github.com/MouseLand/suite2p)** - Core registration and segmentation
+- **[Cellpose](https://github.com/MouseLand/cellpose)** - Anatomical segmentation (optional)
+- **[Rastermap](https://github.com/MouseLand/rastermap)** - Activity clustering (optional)
+- **[mbo_utilities](https://github.com/MillerBrainObservatory/mbo_utilities)** - ScanImage I/O and metadata
+- **[scanreader](https://github.com/atlab/scanreader)** - ScanImage metadata parsing
 
-Widgets may throw "Invalid Rect" errors. This can be safely ignored until it is [resolved](https://github.com/pygfx/wgpu-py/issues/716#issuecomment-2880853089).
+## Issues & Support
 
----
+- **Bug reports:** [GitHub Issues](https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/issues)
+- **Questions:** See [Suite2p documentation](https://suite2p.readthedocs.io/) for Suite2p-specific questions
+- **Known issues:** Widgets may throw "Invalid Rect" errors ([upstream issue](https://github.com/pygfx/wgpu-py/issues/716#issuecomment-2880853089))
 
-## Acknowledgements
+## Contributing
 
-This pipeline is mostly a volumetric wrapper around [suite2p](https://github.com/MouseLand/suite2p), [cellpose](https://github.com/MouseLand/cellpose) and [Suite3D](https://github.com/alihaydaroglu/suite3d). We thank the contributors to those projects.
-
-Thank you to the developers of [scanreader](https://github.com/atlab/scanreader), which provides a clean interface to ScanImage metadata using only tifffile and numpy.
+Contributions are welcome! This project follows Suite2p's conventions and uses:
+- **Ruff** for linting and formatting (line length: 88, numpy docstring style)
+- **pytest** for testing
+- **Sphinx** for documentation

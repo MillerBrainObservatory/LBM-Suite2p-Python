@@ -9,7 +9,7 @@ Here, piecewise-rigid registration is the **method** used to correct for non-rig
 
 ## Overview
 
-We use {ref}`suite2p:Registration` to ensure spatial alignment across all frames in a movie. This means a neuron that appears in one location in frame 0 remains in the same spot in frame N.
+We use [Suite2p Registration](https://suite2p.readthedocs.io/en/latest/registration.html) to ensure spatial alignment across all frames in a movie. This means a neuron that appears in one location in frame 0 remains in the same spot in frame N.
 
 Registration uses either a single-channel movie (default: channel 1), or an alternate channel if `ops['align_by_chan'] = 2`.
 
@@ -58,7 +58,7 @@ Set `ops['nonrigid'] = True` to enable block-based correction.
 
 ## Metrics
 
-Suite2p computes PC-based registration metrics via {ref}`registration`:
+Suite2p computes PC-based registration metrics via [registration metrics](https://suite2p.readthedocs.io/en/latest/registration.html):
 
 ```python
 from suite2p.registration import metrics
