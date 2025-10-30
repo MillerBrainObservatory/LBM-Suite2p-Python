@@ -18,14 +18,19 @@ import mbo_utilities as mbo
 import lbm_suite2p_python as lsp
 from pathlib import Path
 
-# 1. Get assembled planar TIFF files
-files = mbo.get_files(data_dir, "tiff", max_depth=3)
+# 1. Get planar outputs from mbo.imwrite
+data_dir = Path(r"D://demo//local_nvme")
 
-# 2. Extract metadata and create ops
-metadata = mbo.get_metadata(files[0])
-ops = mbo.params_from_metadata(metadata)  # Auto-fills fs, dx, dy, Ly, Lx
+files = mbo.get_files(data_dir, "tiff", max_depth=3) # tiff
+files = list(data_dir.glob("*.zarr*"))               # zarr
+files = list(data_dir.glob("*data_raw.bin*"))        # suite2p binary
 
 # 3. Process entire volume
+save_dir = Path(r"D://demo//local_nvme//suite2p")
+ops = {
+    "two_step_registration": True # default is False
+}
+
 output_ops = lsp.run_volume(
     input_files=files,
     save_path=save_dir,
@@ -43,8 +48,8 @@ For testing parameters or processing individual planes:
 
 ```python
 ops_file = lsp.run_plane(
-    input_path=plane_file,
-    save_path=plane_dir,
+    input_path=files[0],
+    save_path=save_dir,
     ops=ops,
     chan2_file=None,     # Optional: structural channel for registration
     keep_raw=False,
@@ -78,6 +83,50 @@ Each plane gets its own directory with Suite2p outputs:
 └── *.png                # Visualization plots
 ```
 
+```{figure} _images/planar_output_files.png
+:name: fig-planar-files
+:alt: Planar output files structure
+:width: 80%
+
+Example plane directory showing Suite2p outputs and visualization files.
+```
+
+#### Visualization Outputs
+
+Processing generates several diagnostic plots automatically:
+
+```{figure} _images/segmentation.png
+:name: fig-segmentation
+:alt: Cell segmentation results
+:width: 100%
+
+**Cell segmentation**: Detected ROI masks overlaid on mean image. Green = accepted cells, red = rejected.
+```
+
+```{figure} _images/max_projection_image.png
+:name: fig-max-proj
+:alt: Maximum projection
+:width: 100%
+
+**Maximum projection**: Brightest pixel values across all frames, revealing anatomical structure.
+```
+
+```{figure} _images/traces.png
+:name: fig-traces
+:alt: Fluorescence traces
+:width: 100%
+
+**Activity traces**: Raw fluorescence (F) and neuropil (Fneu) traces for detected cells.
+```
+
+```{figure} _images/rastermap.png
+:name: fig-rastermap-plane
+:alt: Rastermap clustering
+:width: 100%
+
+**Rastermap clustering**: Cells sorted by activity similarity, revealing functional structure.
+```
+
 **Conditional outputs (if `chan2_file` provided):**
 ```
 ├── data_chan2.bin       # Raw structural channel
@@ -109,6 +158,13 @@ Each plane directory contains PC-based registration quality metrics in `pc_metri
 ├── pc_metrics_panels.tif       # PC spatial patterns (Low/High)
 └── pc_metrics_raw.npy          # Raw regDX array (5, 3)
 ```
+
+<video width="100%" controls>
+  <source src="../_images/pc_metrics.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+
+**PC metrics visualization**: Top and bottom temporal halves for each principal component, showing spatial patterns used to assess registration quality.
 
 **Example PC metrics table** (`pc_metrics.csv`):
 
