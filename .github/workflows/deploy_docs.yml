@@ -23,12 +23,6 @@ jobs:
           python-version: "3.11"
           enable-cache: true
 
-      - name: Lint and format with ruff
-        run: |
-          uv tool install ruff
-          uv tool run ruff check --fix .
-          uv tool run ruff format .
-
       - name: Sync and build docs
         run: |
           GIT_LFS_SKIP_SMUDGE=1 uv lock --upgrade --prerelease=allow
