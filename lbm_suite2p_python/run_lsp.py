@@ -286,7 +286,6 @@ def run_volume(
             print(f"Completed {file_path.name} -> {ops_file}")
         except Exception as e:
             print(f"Error processing {file_path}: {e}")
-            import traceback
             traceback.print_exc()
             # Continue with next file rather than failing entire volume
             continue
@@ -819,7 +818,6 @@ def run_plane(
     try:
         processed = run_plane_bin(ops)
     except Exception as e:
-        import traceback
         print(f"Error in run_plane_bin for plane {plane}: {e}")
         traceback.print_exc()
         processed = False
