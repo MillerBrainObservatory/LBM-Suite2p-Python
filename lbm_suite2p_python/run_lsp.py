@@ -499,6 +499,20 @@ def run_plane_bin(ops) -> bool:
     ops["anatomical_red"] = False
     ops["chan2_thres"] = 0.1
 
+    # Memory estimation warning for large datasets
+    if ops.get("roidetect", True) and ops.get("anatomical_only", 0) > 0:
+        # Estimate memory usage for Cellpose detection
+        estimated_gb = (Ly * Lx * n_align * 2) / 1e9  # Rough estimate
+        spatial_scale = ops.get("spatial_scale", 0)
+        if spatial_scale > 0:
+            estimated_gb /= (spatial_scale ** 2)
+
+        if estimated_gb > 50:  # Warn for datasets > 50GB
+            print(f"⚠ Large dataset warning: {estimated_gb:.1f} GB estimated for detection")
+            if spatial_scale == 0:
+                print(f"  Consider adding 'spatial_scale': 2 to reduce memory usage by 4x")
+            print(f"  Or reduce 'batch_size' (current: {ops.get('batch_size', 500)})")
+
     with (
         BinaryFile(Ly=Ly, Lx=Lx, filename=str(reg_file), n_frames=n_align) as f_reg,
         BinaryFile(Ly=Ly, Lx=Lx, filename=str(raw_file), n_frames=n_align) as f_raw,
@@ -653,13 +667,17 @@ def run_plane(
     ):
         ops["aspect"] = ops["diameter"][0] / ops["diameter"][1]  # noqa
 
-    # Skip imread if we're using existing binary
-    if skip_imwrite:
+    # Skip imread if we're using existing binary OR if binary exists and passes validation
+    ops_file = save_path / "ops.npy"
+    should_write = skip_imwrite is False and _should_write_bin(ops_file, force=force_reg)
+
+    if skip_imwrite or not should_write:
         file = None
         # Load metadata from existing ops.npy
-        existing_ops = np.load(save_path / "ops.npy", allow_pickle=True).item()
+        existing_ops = np.load(ops_file, allow_pickle=True).item() if ops_file.exists() else {}
         metadata = {k: v for k, v in existing_ops.items() if k in ("plane", "fs", "dx", "dy", "Ly", "Lx", "nframes")}
     else:
+        # Only call imread if we're actually going to write the binary
         file = imread(input_path)
         if isinstance(file, MboRawArray):
             raise TypeError(
@@ -719,11 +737,10 @@ def run_plane(
             print(f"Roi detection skipped, stat.npy already exists for plane {plane}.")
             needs_detect = True
 
-    ops_file = plane_dir / "ops.npy"
-
+    # Write binary if needed (already determined should_write above)
     if skip_imwrite:
         print(f"Skipping binary write, using existing binary at {input_path}")
-    elif _should_write_bin(ops_file, force=force_reg):
+    elif should_write:
         md_combined = {**metadata, **ops}
         imwrite(
             file,
@@ -788,10 +805,12 @@ def run_plane(
             ops["nframes"] = metadata["num_frames"]
         elif "nframes" in metadata:
             ops["nframes"] = metadata["nframes"]
-        elif file is not None and hasattr(file, "shape") and len(file.shape) >= 1:
-            ops["nframes"] = file.shape[0]
         elif "shape" in metadata:
             ops["nframes"] = metadata["shape"][0]
+        elif file is not None and hasattr(file, "shape") and len(file.shape) >= 1:
+            # WARNING: This may trigger lazy loading of the entire file!
+            print(f"Warning: nframes not found in metadata, loading file to determine shape (plane {plane})...")
+            ops["nframes"] = file.shape[0]
         else:
             raise KeyError(
                 "missing frame count (nframes) in ops or metadata, and cannot infer from data"
@@ -800,7 +819,9 @@ def run_plane(
     try:
         processed = run_plane_bin(ops)
     except Exception as e:
-        print(e)
+        import traceback
+        print(f"Error in run_plane_bin for plane {plane}: {e}")
+        traceback.print_exc()
         processed = False
 
     if not processed:
