@@ -330,6 +330,9 @@ def plot_traces(
         p10 = np.percentile(f[indices, : current_frame + 1], 10, axis=1)
         p90 = np.percentile(f[indices, : current_frame + 1], 90, axis=1)
         offset = np.median(p90 - p10) * 1.2
+        # Ensure minimum offset to prevent trace overlap
+        min_offset = np.percentile(p90 - p10, 75) * 0.8
+        offset = max(offset, min_offset, 1e-6)  # Absolute minimum to prevent divide-by-zero
 
     cmap_inst = plt.get_cmap(cmap)
     colors = cmap_inst(np.linspace(0, 1, displayed_neurons))
@@ -372,7 +375,7 @@ def plot_traces(
         )
 
     all_shifted = [
-        (f[i, : current_frame + 1] - np.percentile(f[i, : current_frame + 1], 10))
+        (f[indices[i], : current_frame + 1] - np.percentile(f[indices[i], : current_frame + 1], 10))
         + i * offset
         for i in range(displayed_neurons)
     ]
