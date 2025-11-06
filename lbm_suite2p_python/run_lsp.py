@@ -768,17 +768,23 @@ def run_plane(
             needs_reg = True
         else:
             needs_reg = _should_register(ops_file)
+
+    # Build ops dict - user settings should not be overwritten
     ops = {
         **ops_default,
         **ops_outpath,
         **ops_user,
         "ops_path": str(ops_file),
-        "do_registration": int(needs_reg),
-        "roidetect": int(needs_detect),
         "save_path": str(plane_dir),
         "raw_file": str((plane_dir / "data_raw.bin").resolve()),
         "reg_file": str((plane_dir / "data.bin").resolve()),
     }
+
+    # Only set do_registration/roidetect if user hasn't explicitly provided them
+    if "do_registration" not in ops_user:
+        ops["do_registration"] = int(needs_reg)
+    if "roidetect" not in ops_user:
+        ops["roidetect"] = int(needs_detect)
 
     # optional structural (channel 2) input
     if chan2_file is not None:
