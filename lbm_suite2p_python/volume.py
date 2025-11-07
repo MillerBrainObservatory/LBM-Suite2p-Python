@@ -332,15 +332,33 @@ def get_volume_stats(ops_files: list[str | Path], overwrite: bool = True):
                 zplane_num = int(digits) if digits else i
 
         save_path = Path(output_ops["save_path"])
-        iscell = np.load(save_path / "iscell.npy", allow_pickle=True)[:, 0].astype(bool)
-        traces = np.load(save_path / "F.npy", allow_pickle=True)
         timing = output_ops.get("timing", {})
 
+        # Check if required files exist
+        iscell_file = save_path / "iscell.npy"
+        traces_file = save_path / "F.npy"
+
+        if not iscell_file.exists():
+            print(f"Skipping plane {zplane_num}: iscell.npy not found at {save_path}")
+            continue
+
+        if not traces_file.exists():
+            print(f"Skipping plane {zplane_num}: F.npy not found at {save_path}")
+            continue
+
+        # Load files
+        try:
+            iscell = np.load(iscell_file, allow_pickle=True)[:, 0].astype(bool)
+            traces = np.load(traces_file, allow_pickle=True)
+        except Exception as e:
+            print(f"Skipping plane {zplane_num}: Error loading files - {e}")
+            continue
+
         plane_stats[zplane_num] = {
-            "accepted": iscell.sum(),
-            "rejected": (~iscell).sum(),
-            "mean": traces.mean(),
-            "std": traces.std(),
+            "accepted": int(iscell.sum()),
+            "rejected": int((~iscell).sum()),
+            "mean": float(traces.mean()),
+            "std": float(traces.std()),
             "registration": timing.get("registration", np.nan),
             "detection": timing.get("detection", timing.get("detect", np.nan)),
             "extraction": timing.get("extraction", np.nan),
@@ -350,6 +368,11 @@ def get_volume_stats(ops_files: list[str | Path], overwrite: bool = True):
             "filepath": str(file),
             "zplane": zplane_num,
         }
+
+    # Check if any planes had valid statistics
+    if not plane_stats:
+        print("No valid plane statistics collected - all planes skipped or missing files")
+        return None
 
     common = get_common_path(ops_files)
     out = []
