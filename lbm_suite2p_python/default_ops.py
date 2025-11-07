@@ -131,7 +131,7 @@ def s2p_ops():
         "flow_threshold": 0,  # flow_threshold for cellpose
         "spatial_hp_cp": 0.5,  # high-pass image spatially by a multiple of the diameter
         "pretrained_model":
-            "cyto",  # path to pretrained model or model type string in Cellpose (can be user model)
+            "cpsam",  # path to pretrained model or model type string in Cellpose (can be user model)
 
         # classification parameters
         "soma_crop":
