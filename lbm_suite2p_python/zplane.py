@@ -1281,6 +1281,10 @@ def plot_zplane_figures(
         F_rejected = F[~iscell_mask]
         spks_cells = spks[iscell_mask]
 
+        n_accepted = F_accepted.shape[0]
+        n_rejected = F_rejected.shape[0]
+        print(f"Plotting results for {n_accepted} accepted / {n_rejected} rejected ROIs")
+
         model = None
         if run_rastermap:
             try:
@@ -1345,36 +1349,87 @@ def plot_zplane_figures(
             * 100
         )
 
-        if n_neurons >= 30:
+        # Plot traces for accepted cells (if any exist)
+        if n_accepted > 0:
             plot_traces(
                 dffp_acc,
                 save_path=expected_files["traces_dff"],
-                num_neurons=output_ops.get("plot_n_traces", 30),
+                num_neurons=min(output_ops.get("plot_n_traces", 30), n_accepted),
                 signal_units="dffp",
+                title=f"Accepted Cells (n={n_accepted})",
             )
             plot_traces(
                 f_norm_acc,
                 save_path=expected_files["traces_raw"],
-                num_neurons=output_ops.get("plot_n_traces", 30),
+                num_neurons=min(output_ops.get("plot_n_traces", 30), n_accepted),
                 signal_units="raw",
+                title=f"Accepted Cells (n={n_accepted})",
             )
+        else:
+            print(f"No accepted cells to plot traces for")
+
+        # Plot traces for rejected cells (if any exist)
+        if n_rejected > 0:
+            plot_traces(
+                dffp_rej,
+                save_path=expected_files["traces_noise"],
+                num_neurons=min(output_ops.get("plot_n_traces", 30), n_rejected),
+                signal_units="dffp",
+                title=f"Rejected Cells (n={n_rejected})",
+            )
+        else:
+            print(f"No rejected cells to plot traces for")
 
         fs = output_ops.get("fs", 1.0)
-        dff_noise_acc = dff_shot_noise(dffp_acc, fs)
-        dff_noise_rej = dff_shot_noise(dffp_rej, fs)
-        plot_noise_distribution(
-            dff_noise_acc, output_filename=expected_files["noise_acc"]
-        )
-        plot_noise_distribution(
-            dff_noise_rej, output_filename=expected_files["noise_rej"]
-        )
-        plot_masks(
-            img=output_ops.get("meanImgE"),
-            stat=res["stat"],
-            mask_idx=iscell_mask,
-            savepath=expected_files["segmentation_accepted"],
-            title="Accepted ROIs"
-        )
+        dff_noise_acc = dff_shot_noise(dffp_acc, fs) if n_accepted > 0 else np.array([])
+        dff_noise_rej = dff_shot_noise(dffp_rej, fs) if n_rejected > 0 else np.array([])
+
+        if n_accepted > 0:
+            plot_noise_distribution(
+                dff_noise_acc, output_filename=expected_files["noise_acc"]
+            )
+        if n_rejected > 0:
+            plot_noise_distribution(
+                dff_noise_rej, output_filename=expected_files["noise_rej"]
+            )
+        # Use the image that was actually used for detection
+        # For anatomical: ops["Vcorr"] contains the detection image (in CROPPED space)
+        # stat coordinates are in FULL image space (after yrange/xrange adjustment in detect.py)
+        # So we need to adjust coordinates back to cropped space to match Vcorr
+
+        # Prefer Vcorr (actual detection image) when available
+        detection_img = output_ops.get("Vcorr")
+        stat_to_plot = res["stat"]
+
+        # Check if Vcorr is valid and not a placeholder
+        if detection_img is None or (isinstance(detection_img, (int, float)) and detection_img == 0):
+            # Fallback to full images that match stat coordinate space
+            detection_img = output_ops.get("meanImgE")
+            if detection_img is None:
+                detection_img = output_ops.get("meanImg")
+        else:
+            # Vcorr is in cropped space - need to offset stat coordinates
+            ymin = int(output_ops.get("yrange", [0])[0])
+            xmin = int(output_ops.get("xrange", [0])[0])
+
+            # Create temporary stat with adjusted coordinates for cropped space
+            stat_to_plot = []
+            for s in res["stat"]:
+                s_adj = s.copy()
+                s_adj["ypix"] = s["ypix"] - ymin
+                s_adj["xpix"] = s["xpix"] - xmin
+                stat_to_plot.append(s_adj)
+
+        if detection_img is not None:
+            plot_masks(
+                img=detection_img,
+                stat=stat_to_plot,
+                mask_idx=iscell_mask,
+                savepath=expected_files["segmentation_accepted"],
+                title="Accepted ROIs"
+            )
+        else:
+            print("WARNING: No valid background image found for mask overlay")
 
         # iscell_area = filter_by_area(iscell_mask, res["stat"])
         # eliminated_area = iscell_mask & ~iscell_area
