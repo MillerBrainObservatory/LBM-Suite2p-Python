@@ -703,10 +703,13 @@ def plot_masks(
         Title string to place on the figure.
     """
 
-    # Normalize background image
-    canvas = np.tile(
-        (img - img.min()) / (np.ptp(img) + 1e-6), (3, 1, 1)
-    ).transpose(1, 2, 0)
+    # Normalize background image (handle NaN values from dead zone masking)
+    img_min = np.nanmin(img)
+    img_ptp = np.nanmax(img) - img_min
+    normalized = (img - img_min) / (img_ptp + 1e-6)
+    # Set NaN regions to 0 (black background)
+    normalized = np.nan_to_num(normalized, nan=0.0)
+    canvas = np.tile(normalized, (3, 1, 1)).transpose(1, 2, 0)
 
     # Assign colors if not provided
     n_masks = mask_idx.sum()
@@ -1197,6 +1200,47 @@ def save_pc_panels_and_metrics(ops, savepath, pcs=(0, 1, 2, 3)):
     }
 
 
+def mask_dead_zones_in_ops(ops, threshold=0.01):
+    """
+    Mask out dead zones from registration shifts in ops image arrays.
+
+    Dead zones appear as very dark regions (near zero intensity) at the edges
+    of images after suite3D alignment shifts are applied.
+
+    Parameters
+    ----------
+    ops : dict
+        Suite2p ops dictionary containing image arrays
+    threshold : float
+        Fraction of max intensity to use as cutoff (default 0.01 = 1%)
+
+    Returns
+    -------
+    ops : dict
+        Modified ops with dead zones set to NaN in image arrays
+    """
+    if "meanImg" not in ops:
+        return ops
+
+    # Use meanImg to identify valid regions
+    mean_img = ops["meanImg"]
+    valid_mask = mean_img > (mean_img.max() * threshold)
+    n_invalid = (~valid_mask).sum()
+
+    if n_invalid > 0:
+        pct_invalid = 100 * n_invalid / valid_mask.size
+        print(f"[mask_dead_zones] Masking {n_invalid} ({pct_invalid:.1f}%) dead zone pixels")
+
+        # Mask all image arrays in ops
+        for key in ["meanImg", "meanImgE", "max_proj", "Vcorr"]:
+            if key in ops and isinstance(ops[key], np.ndarray):
+                # Convert to float and set invalid regions to NaN
+                ops[key] = ops[key].astype(float)
+                ops[key][~valid_mask] = np.nan
+
+    return ops
+
+
 def plot_zplane_figures(
     plane_dir, dff_percentile=8, dff_window_size=101, run_rastermap=False, **kwargs
 ):
@@ -1241,6 +1285,9 @@ def plot_zplane_figures(
     }
 
     output_ops = load_ops(expected_files["ops"])
+
+    # Mask out dead zones from registration shifts
+    output_ops = mask_dead_zones_in_ops(output_ops)
 
     # force remake of the heavy figures
     for key in [
