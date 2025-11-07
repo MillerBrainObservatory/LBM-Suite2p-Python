@@ -849,6 +849,8 @@ def run_plane(
             needs_reg = _should_register(ops_file)
 
     # Build ops dict - user settings should not be overwritten
+    # Preserve the plane number that was determined earlier (line 769-779)
+    correct_plane = plane
     ops = {
         **ops_default,
         **ops_outpath,
@@ -857,11 +859,23 @@ def run_plane(
         "save_path": str(plane_dir),
         "raw_file": str((plane_dir / "data_raw.bin").resolve()),
         "reg_file": str((plane_dir / "data.bin").resolve()),
+        "plane": correct_plane,  # Override with correct plane number
     }
 
-    # Only set do_registration/roidetect if user hasn't explicitly provided them
+    # Set do_registration/roidetect based on needs analysis
+    # Even if user provides these values, respect the needs_reg/needs_detect logic
+    # unless force_reg/force_detect are True
     if "do_registration" not in ops_user:
         ops["do_registration"] = int(needs_reg)
+    else:
+        # User provided do_registration, but check if we should override
+        # If force_reg=False and registration is already done (needs_reg=False),
+        # skip registration even if user said do_registration=1
+        if not force_reg and not needs_reg:
+            ops["do_registration"] = 0
+            if ops_user.get("do_registration", 0) == 1:
+                print(f"Registration already complete, skipping despite do_registration=1 in ops")
+
     if "roidetect" not in ops_user:
         ops["roidetect"] = int(needs_detect)
 

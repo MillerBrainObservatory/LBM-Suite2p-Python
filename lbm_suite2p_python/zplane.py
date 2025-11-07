@@ -1234,9 +1234,14 @@ def mask_dead_zones_in_ops(ops, threshold=0.01):
         # Mask all image arrays in ops
         for key in ["meanImg", "meanImgE", "max_proj", "Vcorr"]:
             if key in ops and isinstance(ops[key], np.ndarray):
-                # Convert to float and set invalid regions to NaN
-                ops[key] = ops[key].astype(float)
-                ops[key][~valid_mask] = np.nan
+                img = ops[key]
+                # Only apply mask if shapes match
+                if img.shape == valid_mask.shape:
+                    # Convert to float and set invalid regions to NaN
+                    ops[key] = img.astype(float)
+                    ops[key][~valid_mask] = np.nan
+                else:
+                    print(f"[mask_dead_zones] Skipping {key}: shape {img.shape} != meanImg shape {valid_mask.shape}")
 
     return ops
 
@@ -1286,8 +1291,9 @@ def plot_zplane_figures(
 
     output_ops = load_ops(expected_files["ops"])
 
-    # Mask out dead zones from registration shifts
-    output_ops = mask_dead_zones_in_ops(output_ops)
+    # Dead zones are now handled via yrange/xrange cropping in run_lsp.py
+    # so we don't need to mask them here anymore
+    # output_ops = mask_dead_zones_in_ops(output_ops)
 
     # force remake of the heavy figures
     for key in [
