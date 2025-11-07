@@ -395,14 +395,29 @@ def load_planar_results(ops: dict | str | Path, z_plane: list | int = None) -> d
 
     save_path = Path(output_ops["save_path"])
 
-    F = np.load(save_path.joinpath("F.npy"))
-    Fneu = np.load(save_path.joinpath("Fneu.npy"))
-    spks = np.load(save_path.joinpath("spks.npy"))
-    stat = np.load(save_path.joinpath("stat.npy"), allow_pickle=True)
-    iscell = np.load(save_path.joinpath("iscell.npy"), allow_pickle=True)[:, 0].astype(
+    # Check all required files exist
+    required_files = {
+        "F.npy": save_path / "F.npy",
+        "Fneu.npy": save_path / "Fneu.npy",
+        "spks.npy": save_path / "spks.npy",
+        "stat.npy": save_path / "stat.npy",
+        "iscell.npy": save_path / "iscell.npy",
+    }
+
+    missing_files = [name for name, path in required_files.items() if not path.exists()]
+    if missing_files:
+        raise FileNotFoundError(
+            f"Missing required files in {save_path}: {', '.join(missing_files)}"
+        )
+
+    F = np.load(required_files["F.npy"])
+    Fneu = np.load(required_files["Fneu.npy"])
+    spks = np.load(required_files["spks.npy"])
+    stat = np.load(required_files["stat.npy"], allow_pickle=True)
+    iscell = np.load(required_files["iscell.npy"], allow_pickle=True)[:, 0].astype(
         bool
     )
-    cellprob = np.load(save_path.joinpath("iscell.npy"), allow_pickle=True)[:, 1]
+    cellprob = np.load(required_files["iscell.npy"], allow_pickle=True)[:, 1]
     # model = np.load(save_path.joinpath("model.npy"), allow_pickle=True).item()
 
     n_neurons = spks.shape[0]
