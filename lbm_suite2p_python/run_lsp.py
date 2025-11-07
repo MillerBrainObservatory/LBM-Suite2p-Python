@@ -226,6 +226,8 @@ def run_volume(
 
     if not input_files:
         raise Exception("No input files given.")
+    if isinstance(input_files, (str, Path)):
+        input_files = [input_files]
 
     start = time.time()
     if save_path is None:
@@ -315,17 +317,31 @@ def run_volume(
     try:
         zstats_file = get_volume_stats(all_ops, overwrite=True)
 
-        plot_volume_neuron_counts(zstats_file, save_path)
-        plot_volume_signal(
-            zstats_file, os.path.join(save_path, "mean_volume_signal.png")
-        )
-        # todo: why is suite2p not saving timings to ops.npy?
-        # plot_execution_time(zstats_file, os.path.join(save_path, "execution_time.png"))
+        if zstats_file is not None:
+            plot_volume_neuron_counts(zstats_file, save_path)
+            plot_volume_signal(
+                zstats_file, os.path.join(save_path, "mean_volume_signal.png")
+            )
+            # todo: why is suite2p not saving timings to ops.npy?
+            # plot_execution_time(zstats_file, os.path.join(save_path, "execution_time.png"))
+        else:
+            print("  Skipping volume plots due to missing statistics")
 
-        res_z = [
-            load_planar_results(ops_path, z_plane=i)
-            for i, ops_path in enumerate(all_ops)
-        ]
+        # Load planar results with error handling
+        res_z = []
+        for i, ops_path in enumerate(all_ops):
+            try:
+                res = load_planar_results(ops_path, z_plane=i)
+                res_z.append(res)
+            except FileNotFoundError as e:
+                print(f"Skipping plane {i}: {e}")
+            except Exception as e:
+                print(f"Error loading plane {i}: {e}")
+
+        if not res_z:
+            print("No valid planar results - skipping rastermap")
+            raise ValueError("No valid planar results available for rastermap")
+
         all_spks = np.concatenate([res["spks"] for res in res_z], axis=0)
         try:
             print("Importing rastermap...")
