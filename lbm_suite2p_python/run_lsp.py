@@ -523,10 +523,73 @@ def run_plane_bin(ops) -> bool:
             estimated_gb /= (spatial_scale ** 2)
 
         if estimated_gb > 50:  # Warn for datasets > 50GB
-            print(f"⚠ Large dataset warning: {estimated_gb:.1f} GB estimated for detection")
+            print(f"Large dataset warning: {estimated_gb:.1f} GB estimated for detection")
             if spatial_scale == 0:
                 print(f"  Consider adding 'spatial_scale': 2 to reduce memory usage by 4x")
             print(f"  Or reduce 'batch_size' (current: {ops.get('batch_size', 500)})")
+
+    # When skipping registration, copy data_raw.bin to data.bin and detect valid region
+    run_registration = bool(ops.get("do_registration", True))
+    if not run_registration:
+        print("Registration skipped - copying data_raw.bin to data.bin...")
+        import shutil
+        raw_file_path = Path(raw_file)
+        reg_file_path = Path(reg_file)
+
+        # Copy data_raw.bin to data.bin if it doesn't exist or is empty
+        if raw_file_path.exists():
+            if not reg_file_path.exists() or reg_file_path.stat().st_size == 0:
+                print(f"  Copying {raw_file_path.name} -> {reg_file_path.name}")
+                shutil.copy2(raw_file_path, reg_file_path)
+            else:
+                print(f"  {reg_file_path.name} already exists, skipping copy")
+
+            # Detect valid region (exclude dead zones from Suite3D shifts)
+            # This replicates what Suite2p's registration does via compute_crop()
+            if "yrange" not in ops or "xrange" not in ops:
+                print("  Detecting valid region to exclude dead zones...")
+                with BinaryFile(Ly=Ly, Lx=Lx, filename=str(raw_file_path)) as f:
+                    meanImg_full = f.sampled_mean().astype(np.float32)
+
+                    # Find regions with valid data (threshold at 1% of max)
+                    threshold = meanImg_full.max() * 0.01
+                    valid_mask = meanImg_full > threshold
+                    valid_rows = np.any(valid_mask, axis=1)
+                    valid_cols = np.any(valid_mask, axis=0)
+
+                    if valid_rows.sum() > 0 and valid_cols.sum() > 0:
+                        y_indices = np.where(valid_rows)[0]
+                        x_indices = np.where(valid_cols)[0]
+                        yrange = [int(y_indices[0]), int(y_indices[-1] + 1)]
+                        xrange = [int(x_indices[0]), int(x_indices[-1] + 1)]
+                    else:
+                        yrange = [0, Ly]
+                        xrange = [0, Lx]
+
+                    ops["yrange"] = yrange
+                    ops["xrange"] = xrange
+                    print(f"  Valid region: yrange={yrange}, xrange={xrange}")
+
+            # Set registration outputs that detection expects
+            if "badframes" not in ops:
+                ops["badframes"] = np.zeros(n_align, dtype=bool)
+            if "xoff" not in ops:
+                ops["xoff"] = np.zeros(n_align, dtype=np.float32)
+            if "yoff" not in ops:
+                ops["yoff"] = np.zeros(n_align, dtype=np.float32)
+            if "corrXY" not in ops:
+                ops["corrXY"] = np.ones(n_align, dtype=np.float32)
+
+        # Also copy channel 2 if it exists
+        if use_chan2:
+            chan2_path = Path(chan2_file)
+            reg_chan2_path = Path(reg_file_chan2)
+            if chan2_path.exists():
+                if not reg_chan2_path.exists() or reg_chan2_path.stat().st_size == 0:
+                    print(f"  Copying {chan2_path.name} -> {reg_chan2_path.name}")
+                    shutil.copy2(chan2_path, reg_chan2_path)
+                else:
+                    print(f"  {reg_chan2_path.name} already exists, skipping copy")
 
     with (
         BinaryFile(Ly=Ly, Lx=Lx, filename=str(reg_file), n_frames=n_align) as f_reg,
@@ -539,7 +602,7 @@ def run_plane_bin(ops) -> bool:
             f_raw=f_raw,
             f_reg_chan2=f_reg_chan2 if use_chan2 else None,
             f_raw_chan2=f_raw_chan2 if use_chan2 else None,
-            run_registration=bool(ops.get("do_registration", True)),
+            run_registration=run_registration,
             ops=ops,
             stat=None,
         )
