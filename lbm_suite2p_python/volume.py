@@ -524,3 +524,163 @@ def save_images_to_movie(image_input, savepath, duration=None, format=".mp4"):
         ]
         subprocess.run(ffmpeg_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         temp_video.unlink()
+
+
+def consolidate_volume(suite2p_path, merged_dir="merged", overwrite=False):
+    """
+    Consolidate all plane results into a single merged directory.
+
+    Combines ops.npy, stat.npy, iscell.npy, F.npy, Fneu.npy, and spks.npy
+    from all planeXX_stitched folders into a single merged/ folder with
+    plane-indexed arrays.
+
+    Parameters
+    ----------
+    suite2p_path : str or Path
+        Path to suite2p directory containing planeXX_stitched folders
+    merged_dir : str, optional
+        Name of merged directory to create (default: "merged")
+    overwrite : bool, optional
+        Whether to overwrite existing merged directory (default: False)
+
+    Returns
+    -------
+    merged_path : Path
+        Path to the created merged directory
+
+    Examples
+    --------
+    >>> import lbm_suite2p_python as lsp
+    >>> merged = lsp.consolidate_volume("path/to/suite2p")
+    >>> # Load consolidated results
+    >>> ops = np.load(merged / "ops.npy", allow_pickle=True).item()
+    >>> stat = np.load(merged / "stat.npy", allow_pickle=True)
+    >>> iscell = np.load(merged / "iscell.npy")
+    """
+    suite2p_path = Path(suite2p_path)
+    merged_path = suite2p_path / merged_dir
+
+    # Find all plane directories
+    plane_dirs = sorted(suite2p_path.glob("plane*_stitched"))
+    if not plane_dirs:
+        raise ValueError(f"No plane*_stitched directories found in {suite2p_path}")
+
+    print(f"Found {len(plane_dirs)} planes to consolidate")
+
+    # Check if merged directory exists
+    if merged_path.exists() and not overwrite:
+        print(f"Merged directory already exists: {merged_path}")
+        print("Use overwrite=True to recreate")
+        return merged_path
+
+    # Create merged directory
+    merged_path.mkdir(exist_ok=True)
+
+    # Initialize lists for consolidation
+    all_stats = []
+    all_iscell = []
+    all_F = []
+    all_Fneu = []
+    all_spks = []
+    all_ops = []
+
+    # Track ROI offsets for each plane
+    n_cells_per_plane = []
+
+    for plane_dir in plane_dirs:
+        plane_num = int(''.join(filter(str.isdigit, plane_dir.name)))
+        print(f"  Processing plane {plane_num}: {plane_dir.name}")
+
+        # Load required files
+        stat_file = plane_dir / "stat.npy"
+        iscell_file = plane_dir / "iscell.npy"
+        ops_file = plane_dir / "ops.npy"
+
+        if not all([stat_file.exists(), iscell_file.exists(), ops_file.exists()]):
+            print(f"    WARNING: Missing required files, skipping plane {plane_num}")
+            continue
+
+        # Load data
+        stat = np.load(stat_file, allow_pickle=True)
+        iscell = np.load(iscell_file)
+        ops = np.load(ops_file, allow_pickle=True).item()
+
+        # Add plane number to each stat entry
+        for s in stat:
+            s['iplane'] = plane_num
+
+        all_stats.extend(stat)
+        all_iscell.append(iscell)
+        all_ops.append(ops)
+        n_cells_per_plane.append(len(stat))
+
+        # Load optional trace files
+        F_file = plane_dir / "F.npy"
+        Fneu_file = plane_dir / "Fneu.npy"
+        spks_file = plane_dir / "spks.npy"
+
+        if F_file.exists():
+            F = np.load(F_file)
+            all_F.append(F)
+        else:
+            print(f"    WARNING: F.npy not found for plane {plane_num}")
+
+        if Fneu_file.exists():
+            Fneu = np.load(Fneu_file)
+            all_Fneu.append(Fneu)
+        else:
+            print(f"    WARNING: Fneu.npy not found for plane {plane_num}")
+
+        if spks_file.exists():
+            spks = np.load(spks_file)
+            all_spks.append(spks)
+        else:
+            print(f"    WARNING: spks.npy not found for plane {plane_num}")
+
+    # Save consolidated files
+    print(f"\nSaving consolidated results to {merged_path}")
+
+    # Save stat.npy
+    stat_array = np.array(all_stats, dtype=object)
+    np.save(merged_path / "stat.npy", stat_array)
+    print(f"  Saved stat.npy: {len(stat_array)} total ROIs")
+
+    # Save iscell.npy
+    if all_iscell:
+        iscell_array = np.vstack(all_iscell)
+        np.save(merged_path / "iscell.npy", iscell_array)
+        n_accepted = (iscell_array[:, 0] == 1).sum()
+        print(f"  Saved iscell.npy: {n_accepted} accepted, {len(iscell_array) - n_accepted} rejected")
+
+    # Save trace files
+    if all_F:
+        F_array = np.vstack(all_F)
+        np.save(merged_path / "F.npy", F_array)
+        print(f"  Saved F.npy: shape {F_array.shape}")
+
+    if all_Fneu:
+        Fneu_array = np.vstack(all_Fneu)
+        np.save(merged_path / "Fneu.npy", Fneu_array)
+        print(f"  Saved Fneu.npy: shape {Fneu_array.shape}")
+
+    if all_spks:
+        spks_array = np.vstack(all_spks)
+        np.save(merged_path / "spks.npy", spks_array)
+        print(f"  Saved spks.npy: shape {spks_array.shape}")
+
+    # Save consolidated ops
+    # Use first plane's ops as template and add plane-specific info
+    consolidated_ops = all_ops[0].copy() if all_ops else {}
+    consolidated_ops['nplanes'] = len(plane_dirs)
+    consolidated_ops['n_cells_per_plane'] = n_cells_per_plane
+    consolidated_ops['plane_dirs'] = [str(d) for d in plane_dirs]
+    consolidated_ops['save_path'] = str(merged_path)
+
+    np.save(merged_path / "ops.npy", consolidated_ops)
+    print(f"  Saved ops.npy: {len(plane_dirs)} planes consolidated")
+
+    print(f"\nConsolidation complete!")
+    print(f"Total ROIs: {len(stat_array)}")
+    print(f"Planes: {len(plane_dirs)}")
+
+    return merged_path

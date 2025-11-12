@@ -17,6 +17,7 @@ __all__ = [
     "run_volume",
     "run_plane",
     "run_grid_search",
+    "consolidate_volume",
     "plot_traces",
     "plot_masks",
     "plot_rastermap",
