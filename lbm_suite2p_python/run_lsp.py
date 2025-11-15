@@ -851,9 +851,20 @@ def run_plane(
     # Build ops dict - user settings should not be overwritten
     # Preserve the plane number that was determined earlier (line 769-779)
     correct_plane = plane
+
+    # Only preserve processing results from existing ops, not file paths
+    # This prevents cross-contamination when re-running with different parameters
+    preserved_keys = {
+        'refImg', 'meanImg', 'meanImgE', 'max_proj', 'Vcorr', 'Vmap',
+        'xoff', 'yoff', 'corrXY', 'badframes', 'yrange', 'xrange',
+        'regDX', 'regPC', 'regPC1', 'regDX1', 'tPC', 'tPC1',
+        'Ly', 'Lx', 'nframes', 'nframes_chan1', 'nframes_chan2'
+    }
+    ops_preserved = {k: v for k, v in ops_outpath.items() if k in preserved_keys}
+
     ops = {
         **ops_default,
-        **ops_outpath,
+        **ops_preserved,  # Only preserved results, not paths
         **ops_user,
         "ops_path": str(ops_file),
         "save_path": str(plane_dir),
