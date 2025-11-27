@@ -2,9 +2,9 @@ from pathlib import Path
 import lbm_suite2p_python as lsp
 
 base_dir = r"D:\W2_DATA\wsynder"
-query_str = ".zarr"
+query_str = ".tiff"
 
-input_files = list(Path(base_dir).rglob(f"*{query_str}*"))
+input_files = list(Path(base_dir).glob(f"*{query_str}*"))
 
 new_ops = {
     "do_registration": 0,

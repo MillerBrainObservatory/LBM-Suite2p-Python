@@ -56,7 +56,7 @@ ops_file = lsp.run_plane(
     keep_reg=True,
     force_reg=False,
     force_detect=False,
-    dff_window_size=300, # Rolling window for ΔF/F calculation
+    dff_window_size=300, # ~10× tau × fs ensures window spans multiple transients
     dff_percentile=20    # Percentile for baseline F₀
 )
 ```
@@ -845,6 +845,11 @@ dff = dff_rolling_percentile(
 )
 ```
 
+**Window size rule of thumb:** Use ~10× the indicator decay time constant (tau) × frame rate.
+For example, with jGCaMP7s (tau≈1.0s) at 30Hz: 10 × 1.0 × 30 = 300 frames.
+This ensures the window spans multiple calcium transients so the percentile filter
+can find the baseline between events. See [Suite2p Cell Detection](https://suite2p.readthedocs.io/en/latest/celldetection.html) for related binning logic.
+
 **When to use:** Most datasets, handles slow baseline drifts.
 
 #### Median Filter Baseline
@@ -982,17 +987,6 @@ for file in files:
 # Or: delete binaries immediately
 ops_file = lsp.run_plane(keep_raw=False, keep_reg=False, ...)
 ```
-
-### Known Issues
-
-**Docstring inconsistencies:** The `run_plane()` docstring has incorrect default values. Trust the function signature:
-- `dff_window_size`: 300 (not 10)
-- `dff_percentile`: 20 (not 8)
-- `save_json`: False (not True)
-- `keep_reg`: True (not false)
-- Return type: Path (not dict)
-
-See [CLAUDE.md](https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/blob/master/CLAUDE.md#known-issues-and-source-code-discrepancies) for complete list.
 
 ---
 

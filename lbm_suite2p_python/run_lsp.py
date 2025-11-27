@@ -126,7 +126,11 @@ def run_volume(
     force_detect : bool, default False
         If True, force ROI detection even if stat.npy exists and is non-empty.
     dff_window_size : int, default 500
-        Number of frames to use for rolling percentile baseline in ΔF/F₀ calculations.
+        Number of frames for rolling percentile baseline in ΔF/F₀ calculation.
+        A good rule of thumb is ~10× the indicator decay time constant (tau) × frame rate.
+        For example, with tau=1.0s and fs=30Hz: 10 × 1.0 × 30 = 300 frames.
+        This ensures the window spans multiple calcium transients so the percentile
+        filter can find the baseline between events.
     dff_percentile : int, default 20
         Percentile to use for baseline F₀ estimation (e.g., 20 = 20th percentile).
     save_json : bool, default False
@@ -376,6 +380,76 @@ def run_volume(
         else:
             print("No rastermap is available.")
 
+        # Generate volumetric quality figures
+        print("Generating quality diagnostic figures...")
+        from lbm_suite2p_python.zplane import (
+            plot_multiplane_masks,
+            plot_plane_quality_metrics,
+            plot_trace_analysis,
+            create_volume_summary_table,
+        )
+
+        # Consolidate data from all planes
+        all_stat = np.concatenate([res["stat"] for res in res_z])
+        all_iscell = np.vstack([res["iscell"] for res in res_z])
+        all_F = np.concatenate([res["F"] for res in res_z], axis=0)
+        all_Fneu = np.concatenate([res["Fneu"] for res in res_z], axis=0)
+
+        # Get ops from first plane for frame rate
+        first_ops = load_ops(all_ops[0])
+
+        # Multi-plane masks overview (only if multiple planes)
+        if len(res_z) > 1:
+            try:
+                plot_multiplane_masks(
+                    suite2p_path=save_path,
+                    stat=all_stat,
+                    iscell=all_iscell,
+                    save_path=save_path / "all_planes_masks.png",
+                )
+                print(f"  Saved: all_planes_masks.png")
+            except Exception as e:
+                print(f"  Failed to generate multiplane masks: {e}")
+
+        try:
+            # Quality metrics summary
+            plot_plane_quality_metrics(
+                stat=all_stat,
+                iscell=all_iscell,
+                save_path=save_path / "volume_quality_metrics.png",
+            )
+            print(f"  Saved: volume_quality_metrics.png")
+        except Exception as e:
+            print(f"  Failed to generate quality metrics: {e}")
+
+        try:
+            # Trace analysis
+            plot_trace_analysis(
+                F=all_F,
+                Fneu=all_Fneu,
+                stat=all_stat,
+                iscell=all_iscell,
+                ops=first_ops,
+                save_path=save_path / "volume_trace_analysis.png",
+            )
+            print(f"  Saved: volume_trace_analysis.png")
+        except Exception as e:
+            print(f"  Failed to generate trace analysis: {e}")
+
+        try:
+            # Summary table
+            create_volume_summary_table(
+                stat=all_stat,
+                iscell=all_iscell,
+                F=all_F,
+                Fneu=all_Fneu,
+                ops=first_ops,
+                save_path=save_path / "volume_summary.csv",
+            )
+            print(f"  Saved: volume_summary.csv")
+        except Exception as e:
+            print(f"  Failed to generate summary table: {e}")
+
     except Exception:
         print("Volume statistics failed.")
         print("Traceback: ", traceback.format_exc())
@@ -546,29 +620,38 @@ def run_plane_bin(ops) -> bool:
 
             # Detect valid region (exclude dead zones from Suite3D shifts)
             # This replicates what Suite2p's registration does via compute_crop()
+            # IMPORTANT: Skip auto-detection for anatomical_only mode since Cellpose
+            # returns masks in full image coordinates, not cropped coordinates
+            use_anatomical = ops.get("anatomical_only", 0) > 0
             if "yrange" not in ops or "xrange" not in ops:
-                print("  Detecting valid region to exclude dead zones...")
-                with BinaryFile(Ly=Ly, Lx=Lx, filename=str(raw_file_path)) as f:
-                    meanImg_full = f.sampled_mean().astype(np.float32)
+                if use_anatomical:
+                    # For anatomical detection, always use full image to avoid coordinate mismatch
+                    print("  Using full image dimensions for anatomical detection (avoids cropping issues)")
+                    ops["yrange"] = [0, Ly]
+                    ops["xrange"] = [0, Lx]
+                else:
+                    print("  Detecting valid region to exclude dead zones...")
+                    with BinaryFile(Ly=Ly, Lx=Lx, filename=str(raw_file_path)) as f:
+                        meanImg_full = f.sampled_mean().astype(np.float32)
 
-                    # Find regions with valid data (threshold at 1% of max)
-                    threshold = meanImg_full.max() * 0.01
-                    valid_mask = meanImg_full > threshold
-                    valid_rows = np.any(valid_mask, axis=1)
-                    valid_cols = np.any(valid_mask, axis=0)
+                        # Find regions with valid data (threshold at 1% of max)
+                        threshold = meanImg_full.max() * 0.01
+                        valid_mask = meanImg_full > threshold
+                        valid_rows = np.any(valid_mask, axis=1)
+                        valid_cols = np.any(valid_mask, axis=0)
 
-                    if valid_rows.sum() > 0 and valid_cols.sum() > 0:
-                        y_indices = np.where(valid_rows)[0]
-                        x_indices = np.where(valid_cols)[0]
-                        yrange = [int(y_indices[0]), int(y_indices[-1] + 1)]
-                        xrange = [int(x_indices[0]), int(x_indices[-1] + 1)]
-                    else:
-                        yrange = [0, Ly]
-                        xrange = [0, Lx]
+                        if valid_rows.sum() > 0 and valid_cols.sum() > 0:
+                            y_indices = np.where(valid_rows)[0]
+                            x_indices = np.where(valid_cols)[0]
+                            yrange = [int(y_indices[0]), int(y_indices[-1] + 1)]
+                            xrange = [int(x_indices[0]), int(x_indices[-1] + 1)]
+                        else:
+                            yrange = [0, Ly]
+                            xrange = [0, Lx]
 
-                    ops["yrange"] = yrange
-                    ops["xrange"] = xrange
-                    print(f"  Valid region: yrange={yrange}, xrange={xrange}")
+                        ops["yrange"] = yrange
+                        ops["xrange"] = xrange
+                        print(f"  Valid region: yrange={yrange}, xrange={xrange}")
 
             # Set registration outputs that detection expects
             if "badframes" not in ops:
@@ -641,26 +724,30 @@ def run_plane(
         Path to or dict of user‐supplied ops.npy. If given, it overrides any existing or generated ops.
     chan2_file : str, optional
         Path to structural / anatomical data used for registration.
-    keep_raw : bool, default false
-        if true, do not delete the raw binary (`data_raw.bin`) after processing.
-    keep_reg : bool, default false
-        if true, do not delete the registered binary (`data.bin`) after processing.
-    force_reg : bool, default false
-        if true, force a new registration even if existing shifts are found in ops.npy.
-    force_detect : bool, default false
-        if true, force roi detection even if an existing stat.npy is present.
-    dff_window_size : int, default 10
-        Size of the window for calculating dF/F traces.
-    dff_percentile : int, default 8
+    keep_raw : bool, default False
+        If True, do not delete the raw binary (`data_raw.bin`) after processing.
+    keep_reg : bool, default True
+        If True, keep the registered binary (`data.bin`) after processing.
+    force_reg : bool, default False
+        If True, force a new registration even if existing shifts are found in ops.npy.
+    force_detect : bool, default False
+        If True, force ROI detection even if an existing stat.npy is present.
+    dff_window_size : int, default 300
+        Number of frames for rolling percentile baseline in ΔF/F₀ calculation.
+        A good rule of thumb is ~10× the indicator decay time constant (tau) × frame rate.
+        For example, with tau=1.0s and fs=30Hz: 10 × 1.0 × 30 = 300 frames.
+        This ensures the window spans multiple calcium transients so the percentile
+        filter can find the baseline between events.
+    dff_percentile : int, default 20
         Percentile to use for baseline F₀ estimation in dF/F calculation.
-    save_json : bool, default True
-        If true, saves ops as a JSON file in addition to npy.
+    save_json : bool, default False
+        If True, saves ops as a JSON file in addition to npy.
     **kwargs : dict, optional
 
     Returns
     -------
-    dict
-        Processed ops dictionary containing results.
+    Path
+        Path to the saved ops.npy file.
 
     Raises
     ------
@@ -813,7 +900,7 @@ def run_plane(
             needs_detect = True
         else:
             print(f"Roi detection skipped, stat.npy already exists for plane {plane}.")
-            needs_detect = True
+            needs_detect = False
 
     # Write binary if needed (already determined should_write above)
     if skip_imwrite:
