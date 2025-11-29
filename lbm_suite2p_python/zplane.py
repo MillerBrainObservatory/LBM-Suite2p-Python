@@ -1912,18 +1912,21 @@ def create_volume_summary_table(
 def plot_plane_diagnostics(
     plane_dir: str | Path,
     save_path: str | Path = None,
-    figsize: tuple = (16, 12),
+    figsize: tuple = (16, 14),
+    n_examples: int = 4,
 ) -> plt.Figure:
     """
     Generate a single-figure diagnostic summary for a processed plane.
 
-    Creates a publication-quality 6-panel figure showing:
-    - Mean image with ROI outlines
+    Creates a publication-quality figure showing:
     - ROI size distribution (accepted vs rejected)
     - SNR distribution with quality threshold
-    - Example traces (top SNR cells)
     - Compactness vs SNR scatter
     - Summary statistics text
+    - Zoomed ROI examples: N highest SNR and N lowest SNR cells
+
+    Robust to low/zero cell counts - will display informative messages
+    when data is insufficient for certain visualizations.
 
     Parameters
     ----------
@@ -1931,8 +1934,10 @@ def plot_plane_diagnostics(
         Path to the plane directory containing ops.npy, stat.npy, etc.
     save_path : str or Path, optional
         If provided, save figure to this path.
-    figsize : tuple, default (16, 12)
+    figsize : tuple, default (16, 14)
         Figure size in inches.
+    n_examples : int, default 4
+        Number of high/low SNR ROI examples to show.
 
     Returns
     -------
@@ -1950,18 +1955,36 @@ def plot_plane_diagnostics(
     F = res["F"]
     Fneu = res["Fneu"]
 
-    accepted = iscell[:, 0] == 1
+    # Handle edge case: no ROIs at all
     n_total = len(stat)
-    n_accepted = accepted.sum()
-    n_rejected = (~accepted).sum()
+    if n_total == 0:
+        fig = plt.figure(figsize=figsize, facecolor="white")
+        fig.text(0.5, 0.5, "No ROIs detected\n\nCheck detection parameters:\n- threshold_scaling\n- cellprob_threshold\n- diameter",
+                ha="center", va="center", fontsize=16, fontweight="bold")
+        plane_name = plane_dir.name
+        fig.suptitle(f"Quality Diagnostics: {plane_name}", fontsize=14, fontweight="bold", y=0.98)
+        if save_path:
+            save_path = Path(save_path)
+            save_path.parent.mkdir(parents=True, exist_ok=True)
+            plt.savefig(save_path, dpi=150, bbox_inches="tight", facecolor="white")
+            plt.close(fig)
+        return fig
 
-    # Compute metrics
+    # iscell from load_planar_results is already 1D boolean
+    if iscell.ndim == 2:
+        accepted = iscell[:, 0].astype(bool)
+    else:
+        accepted = iscell.astype(bool)
+    n_accepted = int(accepted.sum())
+    n_rejected = int((~accepted).sum())
+
+    # Compute metrics for ALL ROIs (not just accepted)
     F_corr = F - 0.7 * Fneu
     baseline = np.percentile(F_corr, 20, axis=1, keepdims=True)
     baseline = np.maximum(baseline, 1e-6)
     dff = (F_corr - baseline) / baseline
 
-    # SNR calculation
+    # SNR calculation for all ROIs
     signal = np.std(dff, axis=1)
     noise = np.median(np.abs(np.diff(dff, axis=1)), axis=1) / 0.6745
     snr = signal / (noise + 1e-6)
@@ -1971,136 +1994,271 @@ def plot_plane_diagnostics(
     compactness = np.array([s.get("compact", np.nan) for s in stat])
     fs = ops.get("fs", 30.0)
 
-    # Create figure
-    fig = plt.figure(figsize=figsize, facecolor="white")
-    gs = gridspec.GridSpec(3, 3, figure=fig, hspace=0.3, wspace=0.3)
+    # Compute stats with safe defaults
+    snr_acc = snr[accepted] if n_accepted > 0 else np.array([np.nan])
+    npix_acc = npix[accepted] if n_accepted > 0 else np.array([0])
+    mean_snr = np.nanmean(snr_acc) if n_accepted > 0 else 0.0
+    median_snr = np.nanmedian(snr_acc) if n_accepted > 0 else 0.0
+    high_snr_pct = 100 * np.sum(snr_acc > 2) / max(1, len(snr_acc)) if n_accepted > 0 else 0.0
+    mean_size = np.mean(npix_acc) if n_accepted > 0 else 0.0
 
-    # Panel 1: Mean image with ROI outlines (spans 2 columns)
-    ax1 = fig.add_subplot(gs[0, :2])
+    # Get mean image for ROI zoom panels
     mean_img = ops.get("meanImgE", ops.get("meanImg"))
-    if mean_img is not None:
-        vmin, vmax = np.nanpercentile(mean_img, [1, 99])
-        ax1.imshow(mean_img, cmap="gray", vmin=vmin, vmax=vmax, aspect="equal")
 
-        # Draw accepted ROIs
-        for s in stat[accepted]:
-            ypix, xpix = s["ypix"], s["xpix"]
-            ax1.scatter(xpix, ypix, c="lime", s=0.2, alpha=0.5, linewidths=0)
+    # Create figure with custom layout
+    # Row 0: Summary stats, Size dist, SNR dist, Compactness scatter
+    # Row 1: High SNR ROI zooms (n_examples panels)
+    # Row 2: Low SNR ROI zooms (n_examples panels)
+    fig = plt.figure(figsize=figsize, facecolor="white")
+    gs = gridspec.GridSpec(3, max(4, n_examples), figure=fig, hspace=0.35, wspace=0.3,
+                           height_ratios=[1, 1, 1])
 
-    ax1.set_title(f"ROI Detection: {n_accepted} accepted / {n_rejected} rejected",
-                  fontweight="bold", fontsize=11)
-    ax1.axis("off")
+    # Panel 1: Summary statistics
+    ax_summary = fig.add_subplot(gs[0, 0])
+    ax_summary.axis("off")
 
-    # Panel 2: Summary statistics
-    ax2 = fig.add_subplot(gs[0, 2])
-    ax2.axis("off")
+    # Build summary with appropriate warnings
+    summary_lines = [
+        f"{'Plane Summary':^28}",
+        f"{'─' * 28}",
+        f"{'Total ROIs:':<18}{n_total:>10,}",
+        f"{'Accepted:':<18}{n_accepted:>10,}",
+        f"{'Rejected:':<18}{n_rejected:>10,}",
+        f"{'Accept Rate:':<18}{100*n_accepted/max(1,n_total):>9.1f}%",
+        f"{'─' * 28}",
+    ]
 
-    snr_acc = snr[accepted] if n_accepted > 0 else np.array([0])
-    high_snr_pct = 100 * np.sum(snr_acc > 2) / max(1, len(snr_acc))
+    if n_accepted > 0:
+        summary_lines.extend([
+            f"{'Mean SNR:':<18}{mean_snr:>10.2f}",
+            f"{'Median SNR:':<18}{median_snr:>10.2f}",
+            f"{'SNR > 2:':<18}{high_snr_pct:>9.1f}%",
+            f"{'─' * 28}",
+            f"{'Mean Size:':<18}{mean_size:>8.0f} px",
+        ])
+    else:
+        summary_lines.extend([
+            f"{'SNR:':<18}{'N/A':>10}",
+            f"{'(no accepted cells)':^28}",
+            f"{'─' * 28}",
+        ])
 
-    summary_text = (
-        f"{'Plane Summary':^28}\n"
-        f"{'─' * 28}\n"
-        f"{'Total ROIs:':<18}{n_total:>10,}\n"
-        f"{'Accepted:':<18}{n_accepted:>10,}\n"
-        f"{'Rejected:':<18}{n_rejected:>10,}\n"
-        f"{'Accept Rate:':<18}{100*n_accepted/max(1,n_total):>9.1f}%\n"
-        f"{'─' * 28}\n"
-        f"{'Mean SNR:':<18}{np.mean(snr_acc):>10.2f}\n"
-        f"{'Median SNR:':<18}{np.median(snr_acc):>10.2f}\n"
-        f"{'SNR > 2:':<18}{high_snr_pct:>9.1f}%\n"
-        f"{'─' * 28}\n"
-        f"{'Mean Size:':<18}{np.mean(npix[accepted]):>8.0f} px\n"
-        f"{'Frame Rate:':<18}{fs:>9.1f} Hz\n"
-        f"{'Frames:':<18}{F.shape[1]:>10,}\n"
-    )
+    summary_lines.extend([
+        f"{'Frame Rate:':<18}{fs:>9.1f} Hz",
+        f"{'Frames:':<18}{F.shape[1]:>10,}",
+    ])
 
-    ax2.text(
-        0.5, 0.5, summary_text, transform=ax2.transAxes,
-        fontsize=10, verticalalignment="center", horizontalalignment="center",
+    # Add warning if low acceptance
+    if n_accepted == 0:
+        summary_lines.append(f"{'─' * 28}")
+        summary_lines.append("WARNING: No cells accepted!")
+        summary_lines.append("Try: lower cellprob_threshold")
+    elif n_accepted < 10:
+        summary_lines.append(f"{'─' * 28}")
+        summary_lines.append(f"LOW CELL COUNT: {n_accepted}")
+
+    summary_text = "\n".join(summary_lines)
+
+    ax_summary.text(
+        0.5, 0.5, summary_text, transform=ax_summary.transAxes,
+        fontsize=9, verticalalignment="center", horizontalalignment="center",
         family="monospace",
         bbox=dict(boxstyle="round,pad=0.5", facecolor="white", edgecolor="black", alpha=0.9)
     )
 
-    # Panel 3: ROI size distribution
-    ax3 = fig.add_subplot(gs[1, 0])
+    # Panel 2: ROI size distribution
+    ax_size = fig.add_subplot(gs[0, 1])
+    has_size_data = False
     if n_accepted > 0:
-        ax3.hist(npix[accepted], bins=30, alpha=0.7, color="#2ecc71", label="Accepted", edgecolor="white")
+        ax_size.hist(npix[accepted], bins=min(30, n_accepted), alpha=0.7, color="#2ecc71", label="Accepted", edgecolor="white")
+        has_size_data = True
     if n_rejected > 0:
-        ax3.hist(npix[~accepted], bins=30, alpha=0.5, color="#e74c3c", label="Rejected", edgecolor="white")
-    ax3.set_xlabel("ROI Size (pixels)", fontweight="bold")
-    ax3.set_ylabel("Count", fontweight="bold")
-    ax3.set_title("ROI Size Distribution", fontweight="bold", fontsize=11)
-    ax3.legend(fontsize=9)
-    ax3.spines["top"].set_visible(False)
-    ax3.spines["right"].set_visible(False)
+        ax_size.hist(npix[~accepted], bins=min(30, n_rejected), alpha=0.5, color="#e74c3c", label="Rejected", edgecolor="white")
+        has_size_data = True
 
-    # Panel 4: SNR distribution
-    ax4 = fig.add_subplot(gs[1, 1])
+    if has_size_data:
+        ax_size.legend(fontsize=8)
+    else:
+        ax_size.text(0.5, 0.5, "No ROI data", ha="center", va="center", fontsize=12)
+
+    ax_size.set_xlabel("ROI Size (pixels)", fontweight="bold", fontsize=9)
+    ax_size.set_ylabel("Count", fontweight="bold", fontsize=9)
+    ax_size.set_title("ROI Size Distribution", fontweight="bold", fontsize=10)
+    ax_size.spines["top"].set_visible(False)
+    ax_size.spines["right"].set_visible(False)
+
+    # Panel 3: SNR distribution
+    ax_snr = fig.add_subplot(gs[0, 2])
     if n_accepted > 0:
-        ax4.hist(snr[accepted], bins=30, alpha=0.7, color="#3498db", label="Accepted", edgecolor="white")
-    ax4.axvline(2, color="#e74c3c", linestyle="--", linewidth=2, label="SNR=2 threshold")
-    ax4.axvline(np.median(snr_acc), color="#2ecc71", linestyle="-", linewidth=2,
-                label=f"Median={np.median(snr_acc):.1f}")
-    ax4.set_xlabel("Signal-to-Noise Ratio", fontweight="bold")
-    ax4.set_ylabel("Count", fontweight="bold")
-    ax4.set_title("SNR Distribution (Accepted)", fontweight="bold", fontsize=11)
-    ax4.legend(fontsize=9)
-    ax4.spines["top"].set_visible(False)
-    ax4.spines["right"].set_visible(False)
+        ax_snr.hist(snr[accepted], bins=min(30, n_accepted), alpha=0.7, color="#3498db", label="Accepted", edgecolor="white")
+        ax_snr.axvline(2, color="#e74c3c", linestyle="--", linewidth=2, label="SNR=2")
+        ax_snr.axvline(median_snr, color="#2ecc71", linestyle="-", linewidth=2,
+                    label=f"Median={median_snr:.1f}")
+        ax_snr.legend(fontsize=8)
+    elif n_rejected > 0:
+        ax_snr.hist(snr[~accepted], bins=min(30, n_rejected), alpha=0.5, color="#e74c3c", label="Rejected", edgecolor="white")
+        ax_snr.axvline(2, color="#e74c3c", linestyle="--", linewidth=2, label="SNR=2")
+        ax_snr.legend(fontsize=8)
+        ax_snr.set_title("SNR (Rejected)", fontweight="bold", fontsize=10)
+    else:
+        ax_snr.text(0.5, 0.5, "No SNR data", ha="center", va="center", fontsize=12)
 
-    # Panel 5: Compactness vs SNR scatter
-    ax5 = fig.add_subplot(gs[1, 2])
+    ax_snr.set_xlabel("Signal-to-Noise Ratio", fontweight="bold", fontsize=9)
+    ax_snr.set_ylabel("Count", fontweight="bold", fontsize=9)
+    if n_accepted > 0:
+        ax_snr.set_title("SNR Distribution", fontweight="bold", fontsize=10)
+    ax_snr.spines["top"].set_visible(False)
+    ax_snr.spines["right"].set_visible(False)
+
+    # Panel 4: Compactness vs SNR scatter
+    ax_scatter = fig.add_subplot(gs[0, 3])
+    has_scatter_data = False
     if n_accepted > 0:
         valid_mask = accepted & ~np.isnan(compactness)
         if valid_mask.sum() > 0:
-            sc = ax5.scatter(compactness[valid_mask], snr[valid_mask],
+            sc = ax_scatter.scatter(compactness[valid_mask], snr[valid_mask],
                            c=npix[valid_mask], cmap="viridis", alpha=0.6, s=20)
-            cbar = plt.colorbar(sc, ax=ax5, shrink=0.8)
-            cbar.set_label("ROI Size (px)", fontsize=9)
-    ax5.axhline(2, color="#e74c3c", linestyle="--", linewidth=1.5, alpha=0.7)
-    ax5.set_xlabel("Compactness", fontweight="bold")
-    ax5.set_ylabel("SNR", fontweight="bold")
-    ax5.set_title("Quality Metrics (Accepted)", fontweight="bold", fontsize=11)
-    ax5.spines["top"].set_visible(False)
-    ax5.spines["right"].set_visible(False)
+            cbar = plt.colorbar(sc, ax=ax_scatter, shrink=0.8)
+            cbar.set_label("Size (px)", fontsize=8)
+            has_scatter_data = True
+    elif n_rejected > 0:
+        valid_mask = (~accepted) & ~np.isnan(compactness)
+        if valid_mask.sum() > 0:
+            ax_scatter.scatter(compactness[valid_mask], snr[valid_mask],
+                           c="red", alpha=0.4, s=20, label="Rejected")
+            ax_scatter.legend(fontsize=8)
+            has_scatter_data = True
 
-    # Panel 6: Example traces (spans bottom row)
-    ax6 = fig.add_subplot(gs[2, :])
-
-    if n_accepted > 0:
-        # Get top 10 SNR cells
-        n_traces = min(10, n_accepted)
-        top_snr_idx = np.argsort(snr[accepted])[::-1][:n_traces]
-        accepted_idx = np.where(accepted)[0]
-        cells_to_plot = accepted_idx[top_snr_idx]
-
-        time = np.arange(min(3000, dff.shape[1])) / fs
-        colors = plt.cm.tab10(np.linspace(0, 1, n_traces))
-
-        offset = 0
-        for i, cell_idx in enumerate(cells_to_plot):
-            trace = dff[cell_idx, :len(time)]
-            ax6.plot(time, trace + offset, color=colors[i], linewidth=0.8,
-                    label=f"Cell {cell_idx} (SNR={snr[cell_idx]:.1f})")
-            offset += np.percentile(np.abs(trace), 99) * 1.5
-
-        ax6.set_xlabel("Time (s)", fontweight="bold")
-        ax6.set_ylabel("ΔF/F (offset)", fontweight="bold")
-        ax6.set_title(f"Top {n_traces} Cells by SNR", fontweight="bold", fontsize=11)
-        ax6.legend(loc="upper right", fontsize=8, ncol=2)
+    if has_scatter_data:
+        ax_scatter.axhline(2, color="#e74c3c", linestyle="--", linewidth=1.5, alpha=0.7)
     else:
-        ax6.text(0.5, 0.5, "No accepted cells", transform=ax6.transAxes,
-                ha="center", va="center", fontsize=14)
+        ax_scatter.text(0.5, 0.5, "No data", ha="center", va="center", fontsize=12)
 
-    ax6.spines["top"].set_visible(False)
-    ax6.spines["right"].set_visible(False)
+    ax_scatter.set_xlabel("Compactness", fontweight="bold", fontsize=9)
+    ax_scatter.set_ylabel("SNR", fontweight="bold", fontsize=9)
+    ax_scatter.set_title("Quality Metrics", fontweight="bold", fontsize=10)
+    ax_scatter.spines["top"].set_visible(False)
+    ax_scatter.spines["right"].set_visible(False)
+
+    # Helper function to plot zoomed ROI
+    def plot_roi_zoom(ax, roi_idx, img, stat_entry, snr_val, title_prefix, color):
+        """Plot a zoomed view of a single ROI."""
+        ypix = stat_entry["ypix"]
+        xpix = stat_entry["xpix"]
+
+        # Calculate bounding box with padding
+        pad = 15
+        y_min, y_max = max(0, ypix.min() - pad), min(img.shape[0], ypix.max() + pad)
+        x_min, x_max = max(0, xpix.min() - pad), min(img.shape[1], xpix.max() + pad)
+
+        # Extract ROI region
+        roi_img = img[y_min:y_max, x_min:x_max]
+
+        if roi_img.size == 0:
+            ax.text(0.5, 0.5, "No image", ha="center", va="center", fontsize=10)
+            ax.axis("off")
+            return
+
+        vmin, vmax = np.nanpercentile(roi_img, [1, 99])
+        ax.imshow(roi_img, cmap="gray", vmin=vmin, vmax=vmax, aspect="equal")
+
+        # Draw ROI outline (shifted to local coordinates)
+        local_y = ypix - y_min
+        local_x = xpix - x_min
+        ax.scatter(local_x, local_y, c=color, s=3, alpha=0.7, linewidths=0)
+
+        ax.set_title(f"{title_prefix} #{roi_idx}\nSNR={snr_val:.2f}", fontsize=9, fontweight="bold")
+        ax.axis("off")
+
+    # Row 1: High SNR ROI examples
+    if n_accepted > 0 and mean_img is not None:
+        accepted_idx = np.where(accepted)[0]
+        snr_accepted = snr[accepted]
+        n_show = min(n_examples, n_accepted)
+
+        # Get indices of highest SNR cells
+        top_snr_order = np.argsort(snr_accepted)[::-1][:n_show]
+
+        for i in range(n_examples):
+            ax = fig.add_subplot(gs[1, i])
+            if i < n_show:
+                local_idx = top_snr_order[i]
+                global_idx = accepted_idx[local_idx]
+                plot_roi_zoom(ax, global_idx, mean_img, stat[global_idx],
+                             snr[global_idx], "High SNR", "#2ecc71")
+            else:
+                ax.axis("off")
+
+        # Add row label
+        fig.text(0.02, 0.55, "Highest\nSNR", fontsize=11, fontweight="bold",
+                 ha="center", va="center", rotation=90, color="#2ecc71")
+
+        # Row 2: Low SNR ROI examples
+        # Get indices of lowest SNR cells (from accepted)
+        bottom_snr_order = np.argsort(snr_accepted)[:n_show]
+
+        for i in range(n_examples):
+            ax = fig.add_subplot(gs[2, i])
+            if i < n_show:
+                local_idx = bottom_snr_order[i]
+                global_idx = accepted_idx[local_idx]
+                plot_roi_zoom(ax, global_idx, mean_img, stat[global_idx],
+                             snr[global_idx], "Low SNR", "#e74c3c")
+            else:
+                ax.axis("off")
+
+        # Add row label
+        fig.text(0.02, 0.22, "Lowest\nSNR", fontsize=11, fontweight="bold",
+                 ha="center", va="center", rotation=90, color="#e74c3c")
+
+    elif n_rejected > 0 and mean_img is not None:
+        # Show rejected ROIs for diagnostics
+        rejected_idx = np.where(~accepted)[0]
+        snr_rejected = snr[~accepted]
+        n_show = min(n_examples, n_rejected)
+
+        # High SNR rejected
+        top_snr_order = np.argsort(snr_rejected)[::-1][:n_show]
+        for i in range(n_examples):
+            ax = fig.add_subplot(gs[1, i])
+            if i < n_show:
+                local_idx = top_snr_order[i]
+                global_idx = rejected_idx[local_idx]
+                plot_roi_zoom(ax, global_idx, mean_img, stat[global_idx],
+                             snr[global_idx], "Rejected", "#e74c3c")
+            else:
+                ax.axis("off")
+
+        fig.text(0.02, 0.55, "Rejected\n(High SNR)", fontsize=10, fontweight="bold",
+                 ha="center", va="center", rotation=90, color="#e74c3c")
+
+        # Low SNR rejected
+        bottom_snr_order = np.argsort(snr_rejected)[:n_show]
+        for i in range(n_examples):
+            ax = fig.add_subplot(gs[2, i])
+            if i < n_show:
+                local_idx = bottom_snr_order[i]
+                global_idx = rejected_idx[local_idx]
+                plot_roi_zoom(ax, global_idx, mean_img, stat[global_idx],
+                             snr[global_idx], "Rejected", "#e74c3c")
+            else:
+                ax.axis("off")
+
+        fig.text(0.02, 0.22, "Rejected\n(Low SNR)", fontsize=10, fontweight="bold",
+                 ha="center", va="center", rotation=90, color="#e74c3c")
+    else:
+        # No image available
+        for row in [1, 2]:
+            for i in range(n_examples):
+                ax = fig.add_subplot(gs[row, i])
+                ax.text(0.5, 0.5, "No image\navailable", ha="center", va="center", fontsize=10)
+                ax.axis("off")
 
     # Main title
     plane_name = plane_dir.name
     fig.suptitle(f"Quality Diagnostics: {plane_name}", fontsize=14, fontweight="bold", y=0.98)
 
-    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    plt.tight_layout(rect=[0.04, 0, 1, 0.96])
 
     if save_path:
         save_path = Path(save_path)
@@ -2239,17 +2397,39 @@ def plot_zplane_figures(
         F = res["F"]
 
         n_neurons = F.shape[0]
-        if n_neurons < 10:
-            return output_ops
 
         # rastermap model
-        F_accepted = F[iscell_mask]
-        F_rejected = F[~iscell_mask]
-        spks_cells = spks[iscell_mask]
+        F_accepted = F[iscell_mask] if iscell_mask.sum() > 0 else np.zeros((0, F.shape[1]))
+        F_rejected = F[~iscell_mask] if (~iscell_mask).sum() > 0 else np.zeros((0, F.shape[1]))
+        spks_cells = spks[iscell_mask] if iscell_mask.sum() > 0 else np.zeros((0, spks.shape[1]))
 
         n_accepted = F_accepted.shape[0]
         n_rejected = F_rejected.shape[0]
         print(f"Plotting results for {n_accepted} accepted / {n_rejected} rejected ROIs")
+
+        # Skip detailed trace plots if very few neurons, but still generate diagnostics
+        if n_neurons < 10:
+            print(f"  Low neuron count ({n_neurons}), generating diagnostics only...")
+            try:
+                diagnostics_path = plane_dir / "quality_diagnostics.png"
+                plot_plane_diagnostics(plane_dir, save_path=diagnostics_path)
+                print(f"  Saved: quality_diagnostics.png")
+            except Exception as e:
+                print(f"  Failed to generate quality diagnostics: {e}")
+
+            # Still generate projection images
+            fig_label = kwargs.get("fig_label", plane_dir.stem)
+            for key in ["meanImg", "max_proj", "meanImgE"]:
+                if key in output_ops:
+                    plot_projection(
+                        output_ops,
+                        expected_files[key],
+                        fig_label=fig_label,
+                        display_masks=False,
+                        add_scalebar=True,
+                        proj=key,
+                    )
+            return output_ops
 
         model = None
         if run_rastermap:

@@ -30,6 +30,7 @@ __all__ = [
     "plot_plane_quality_metrics",
     "plot_plane_diagnostics",
     "plot_trace_analysis",
+    "plot_zplane_figures",
     "create_volume_summary_table",
     "dff_rolling_percentile",
     "dff_median_filter",
