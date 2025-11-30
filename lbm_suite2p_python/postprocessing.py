@@ -357,8 +357,8 @@ def dff_shot_noise(dff, fr):
 
 def load_planar_results(ops: dict | str | Path, z_plane: list | int = None) -> dict:
     """
-    Load stat, iscell, spks files and return as a dict. Does NOT filter by valid cells, array contain both
-    accepted and rejected neurons. Filter for accepted-only via f[iscell] or fneue[iscell] if needed.
+    Load stat, iscell, spks files and return as a dict. Does NOT filter by valid cells, arrays contain both
+    accepted and rejected neurons. Filter for accepted-only via ``iscell_mask = iscell[:, 0].astype(bool)``.
 
     Parameters
     ----------
@@ -371,13 +371,14 @@ def load_planar_results(ops: dict | str | Path, z_plane: list | int = None) -> d
     -------
     dict
         dictionary with keys:
-        - 'F': fluorescence traces loaded from F.npy,
-        - 'Fneu': neuropil fluorescence traces loaded from Fneu.npy,
-        - 'spks': spike traces loaded from spks.npy,
-        - 'stat': stats loaded from stat.npy,
-        - 'iscell': boolean array from iscell.npy,
-        - 'cellprob': cell probability from classifier.
-        - 'z_plane': an array (of shape [n_neurons,]) with the provided z_plane index.
+        - 'F': fluorescence traces (n_rois, n_frames)
+        - 'Fneu': neuropil fluorescence traces (n_rois, n_frames)
+        - 'spks': deconvolved spike traces (n_rois, n_frames)
+        - 'stat': ROI statistics array (n_rois,)
+        - 'iscell': classification array (n_rois, 2) where:
+            - [:, 0] is 0/1 indicating rejected/accepted
+            - [:, 1] is classifier probability
+        - 'z_plane': z-plane index array (n_rois,)
 
     See Also
     --------
@@ -414,11 +415,9 @@ def load_planar_results(ops: dict | str | Path, z_plane: list | int = None) -> d
     Fneu = np.load(required_files["Fneu.npy"])
     spks = np.load(required_files["spks.npy"])
     stat = np.load(required_files["stat.npy"], allow_pickle=True)
-    iscell = np.load(required_files["iscell.npy"], allow_pickle=True)[:, 0].astype(
-        bool
-    )
-    cellprob = np.load(required_files["iscell.npy"], allow_pickle=True)[:, 1]
-    # model = np.load(save_path.joinpath("model.npy"), allow_pickle=True).item()
+
+    # iscell is (n_rois, 2): column 0 is is_cell (0/1), column 1 is probability
+    iscell = np.load(required_files["iscell.npy"], allow_pickle=True)
 
     n_neurons = spks.shape[0]
     if z_plane is None:
@@ -430,10 +429,8 @@ def load_planar_results(ops: dict | str | Path, z_plane: list | int = None) -> d
         "Fneu": Fneu,
         "spks": spks,
         "stat": stat,
-        "iscell": iscell,
-        "cellprob": cellprob,
+        "iscell": iscell,  # Full (n_rois, 2) array: [:, 0] is bool, [:, 1] is probability
         "z_plane": z_plane_arr,
-        # "rastermap_model": model,
     }
 
 

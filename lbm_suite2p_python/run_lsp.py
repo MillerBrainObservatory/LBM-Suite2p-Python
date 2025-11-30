@@ -26,6 +26,9 @@ from lbm_suite2p_python._benchmarking import get_cpu_percent, get_ram_used
 from lbm_suite2p_python.volume import (
     plot_volume_signal,
     plot_volume_neuron_counts,
+    plot_volume_diagnostics,
+    plot_orthoslices,
+    plot_3d_roi_map,
     get_volume_stats,
 )
 from mbo_utilities.file_io import (
@@ -248,32 +251,31 @@ def run_volume(
         # Create a fresh kwargs dict for each iteration to avoid cross-contamination
         call_kwargs = dict(kwargs)
 
-        # Determine save_path based on input type
-        # For binary inputs with ops.npy, use the parent directory (in-place processing)
-        # For TIFF/ZARR/other formats, create subdirectory based on filename tag
+        # determine plane name and input file based on input type
+        # for binary inputs with ops.npy, run_plane will process in-place
+        # for other formats, run_plane creates subdirectory based on plane_name
         if file_path.suffix == ".bin" and file_path.parent.joinpath("ops.npy").exists():
-            # Input is a binary from mbo.imwrite or previous processing
-            # Process in-place (parent directory contains ops.npy and data_raw.bin)
+            # binary from mbo.imwrite or previous processing - process in-place
             print(f"Detected existing binary with ops.npy: {file_path}")
-            tag = file_path.parent.name
-            plane_save_path = file_path.parent
+            plane_name = file_path.parent.name
 
-            # Prefer data_raw.bin if it exists, otherwise use whatever binary was provided
+            # prefer data_raw.bin if it exists
             if (file_path.parent / "data_raw.bin").exists():
                 input_to_process = file_path.parent / "data_raw.bin"
             else:
                 input_to_process = file_path
+
+            # for binary inputs, pass the parent as save_path so run_plane processes in-place
+            plane_save_path = file_path.parent
         else:
-            # Input is TIFF, ZARR, or other format - derive tag from filename
-            tag = derive_tag_from_filename(file_path.name)
-            plane_num = get_plane_from_filename(tag, fallback=len(all_ops))
-            plane_save_path = Path(save_path).joinpath(tag)
-            plane_save_path.mkdir(exist_ok=True)
+            # tiff, zarr, or other format - derive plane_name from filename
+            plane_name = derive_tag_from_filename(file_path.name)
+            plane_num = get_plane_from_filename(plane_name, fallback=len(all_ops))
             input_to_process = file_path
-            # Set plane number for non-binary inputs
+            plane_save_path = save_path
             call_kwargs["plane"] = plane_num
 
-        # Always call run_plane - it has all the logic to determine what needs processing
+        # run_plane handles subdirectory creation via plane_name
         try:
             ops_file = run_plane(
                 input_path=input_to_process,
@@ -286,6 +288,7 @@ def run_volume(
                 dff_window_size=dff_window_size,
                 dff_percentile=dff_percentile,
                 save_json=save_json,
+                plane_name=plane_name,
                 **call_kwargs,
             )
             all_ops.append(ops_file)
@@ -322,12 +325,20 @@ def run_volume(
         zstats_file = get_volume_stats(all_ops, overwrite=True)
 
         if zstats_file is not None:
-            plot_volume_neuron_counts(zstats_file, save_path)
-            plot_volume_signal(
-                zstats_file, os.path.join(save_path, "mean_volume_signal.png")
+            # Generate comprehensive volume diagnostics figure (replaces individual plots)
+            plot_volume_diagnostics(
+                all_ops, os.path.join(save_path, "volume_quality_diagnostics.png")
             )
-            # todo: why is suite2p not saving timings to ops.npy?
-            # plot_execution_time(zstats_file, os.path.join(save_path, "execution_time.png"))
+            # Generate 3D visualizations
+            plot_orthoslices(
+                all_ops, os.path.join(save_path, "orthoslices.png")
+            )
+            plot_3d_roi_map(
+                all_ops, os.path.join(save_path, "roi_map_3d.png"), color_by="plane"
+            )
+            plot_3d_roi_map(
+                all_ops, os.path.join(save_path, "roi_map_3d_snr.png"), color_by="snr"
+            )
         else:
             print("  Skipping volume plots due to missing statistics")
 
@@ -346,18 +357,45 @@ def run_volume(
             print("No valid planar results - skipping rastermap")
             raise ValueError("No valid planar results available for rastermap")
 
+        # Check for frame count mismatches across planes
+        frame_counts = [res["spks"].shape[1] for res in res_z]
+        min_frames = min(frame_counts)
+        max_frames = max(frame_counts)
+
+        frames_cropped = 0
+        if min_frames != max_frames:
+            frames_cropped = max_frames - min_frames
+            print(f"WARNING: Frame count mismatch across planes!")
+            print(f"  Frame counts range from {min_frames} to {max_frames}")
+            print(f"  Cropping all planes to {min_frames} frames ({frames_cropped} frames dropped)")
+
+            # Crop all arrays to minimum frame count
+            for res in res_z:
+                res["spks"] = res["spks"][:, :min_frames]
+                res["F"] = res["F"][:, :min_frames]
+                res["Fneu"] = res["Fneu"][:, :min_frames]
+
         all_spks = np.concatenate([res["spks"] for res in res_z], axis=0)
+
+        # Save frame cropping metadata
+        volume_meta = {
+            "n_planes": len(res_z),
+            "n_frames": min_frames,
+            "frames_cropped": frames_cropped,
+            "original_frame_counts": frame_counts,
+        }
+        np.save(os.path.join(save_path, "volume_meta.npy"), volume_meta)
+
         try:
-            print("Importing rastermap...")
             from rastermap import Rastermap
             from lbm_suite2p_python.zplane import plot_rastermap
-            print("Rastermap import complete...")
-
             HAS_RASTERMAP = True
         except ImportError:
             Rastermap = None
             HAS_RASTERMAP = False
             plot_rastermap = None
+            print("rastermap not found. Install via: pip install rastermap")
+            print("  or: pip install mbo_utilities[rastermap]")
         if HAS_RASTERMAP:
             model = Rastermap(
                 n_clusters=100,
@@ -390,8 +428,18 @@ def run_volume(
         )
 
         # Consolidate data from all planes
-        all_stat = np.concatenate([res["stat"] for res in res_z])
-        all_iscell = np.vstack([res["iscell"] for res in res_z])
+        # iscell is (n_rois, 2): [:, 0] is 0/1, [:, 1] is classifier probability
+        # Ensure each stat dict has 'iplane' set from the z_plane array
+        all_stat_list = []
+        for res in res_z:
+            z_plane_arr = res["z_plane"]
+            for i, s in enumerate(res["stat"]):
+                # Add iplane to stat dict if not present
+                if "iplane" not in s:
+                    s["iplane"] = int(z_plane_arr[i]) if i < len(z_plane_arr) else 0
+                all_stat_list.append(s)
+        all_stat = np.array(all_stat_list, dtype=object)
+        all_iscell = np.vstack([res["iscell"] for res in res_z])  # (total_rois, 2)
         all_F = np.concatenate([res["F"] for res in res_z], axis=0)
         all_Fneu = np.concatenate([res["Fneu"] for res in res_z], axis=0)
 
@@ -528,9 +576,18 @@ def _should_register(ops_path: str | Path) -> bool:
 
     has_ref = isinstance(ops.get("refImg"), np.ndarray)
     has_mean = isinstance(ops.get("meanImg"), np.ndarray)
-    has_offsets = ("xoff" in ops and np.any(np.isfinite(ops["xoff"]))) or (
-        "yoff" in ops and np.any(np.isfinite(ops["yoff"]))
-    )
+
+    # Check for valid offsets - ensure they are actual arrays, not _NoValue or other sentinels
+    def _has_valid_offsets(key):
+        val = ops.get(key)
+        if val is None or not isinstance(val, np.ndarray):
+            return False
+        try:
+            return np.any(np.isfinite(val))
+        except (TypeError, ValueError):
+            return False
+
+    has_offsets = _has_valid_offsets("xoff") or _has_valid_offsets("yoff")
     has_metrics = any(k in ops for k in ("regDX", "regPC", "regPC1", "regDX1"))
 
     # registration done if any of these are true
@@ -708,6 +765,7 @@ def run_plane(
     dff_window_size: int = 300,
     dff_percentile: int = 20,
     save_json: bool = False,
+    plane_name: str | None = None,
     **kwargs,
 ) -> Path:
     """
@@ -719,7 +777,8 @@ def run_plane(
     input_path : str or Path
         Full path to the file to process, with the file extension.
     save_path : str or Path, optional
-        Directory to save the results.
+        Root directory to save the results. A subdirectory will be created based on
+        the input filename or `plane_name` parameter.
     ops : dict, str or Path, optional
         Path to or dict of user‐supplied ops.npy. If given, it overrides any existing or generated ops.
     chan2_file : str, optional
@@ -742,6 +801,9 @@ def run_plane(
         Percentile to use for baseline F₀ estimation in dF/F calculation.
     save_json : bool, default False
         If True, saves ops as a JSON file in addition to npy.
+    plane_name : str, optional
+        Custom name for the plane subdirectory. If None, derived from input filename.
+        Used by run_volume() to control output directory naming.
     **kwargs : dict, optional
 
     Returns
@@ -761,6 +823,7 @@ def run_plane(
     Notes
     -----
     - ops supplied to the function via `ops_file` will take precendence over previously saved ops.npy files.
+    - Results are saved to `save_path/{plane_name}/` subdirectory to keep outputs organized.
 
     Example
     -------
@@ -795,9 +858,19 @@ def run_plane(
     assert isinstance(
         save_path, (Path, str, type(None))
     ), f"save_path should be a pathlib.Path or string, not: {type(save_path)}"
+
+    # determine if input is a binary that should be processed in-place
+    is_binary_input = input_path.suffix == ".bin"
+    binary_with_ops = is_binary_input and (input_path.parent / "ops.npy").exists()
+
     if save_path is None:
-        logger.debug(f"save_path is None, using parent of input file: {input_parent}")
-        save_path = input_parent
+        # no save_path provided - use input's parent directory
+        if binary_with_ops:
+            # binary inputs with ops.npy are processed in-place
+            save_path = input_parent
+        else:
+            # for other inputs, create subdirectory next to input
+            save_path = input_parent
     else:
         save_path = Path(save_path)
         if not save_path.parent.is_dir():
@@ -806,19 +879,25 @@ def run_plane(
             )
         save_path.mkdir(exist_ok=True)
 
-    # Check if input is already a binary at the target location
-    is_binary_input = input_path.suffix == ".bin"
-    binary_at_target = is_binary_input and input_path.parent == save_path
+    # create plane subdirectory unless processing binary in-place
+    # this keeps planar outputs separate from volumetric outputs
     skip_imwrite = False
-
-    if binary_at_target:
+    if binary_with_ops and input_path.parent == save_path:
+        # binary at target location - process in-place
         print(f"Input is already a binary at target location: {input_path}")
-        # Check if ops.npy exists
-        if not (save_path / "ops.npy").exists():
-            raise FileNotFoundError(
-                f"ops.npy not found at {save_path}. Cannot process binary without ops file."
-            )
+        plane_dir = save_path
         skip_imwrite = True
+    else:
+        # create subdirectory for this plane's outputs
+        if plane_name is not None:
+            subdir_name = plane_name
+        else:
+            subdir_name = derive_tag_from_filename(input_path.name)
+        plane_dir = save_path / subdir_name
+        plane_dir.mkdir(exist_ok=True)
+
+    # check for existing ops.npy in the target directory
+    ops_file = plane_dir / "ops.npy"
 
     ops_default = default_ops()
     ops_user = load_ops(ops) if ops else {}
@@ -833,7 +912,6 @@ def run_plane(
         ops["aspect"] = ops["diameter"][0] / ops["diameter"][1]  # noqa
 
     # Skip imread if we're using existing binary OR if binary exists and passes validation
-    ops_file = save_path / "ops.npy"
     should_write = skip_imwrite is False and _should_write_bin(ops_file, force=force_reg)
 
     if skip_imwrite or not should_write:
@@ -865,7 +943,6 @@ def run_plane(
         ops["plane"] = plane
         metadata["plane"] = plane
 
-    plane_dir = save_path
     ops["save_path"] = str(plane_dir.resolve())
 
     needs_detect = False
