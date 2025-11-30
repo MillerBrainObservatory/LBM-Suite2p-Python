@@ -2,54 +2,112 @@
 # User Guide
 
 ```{toctree}
-:hidden:
 :maxdepth: 2
 ```
 
 This guide covers everything you need to process volumetric calcium imaging data with LBM-Suite2p-Python.
 
 ```{tip}
-For interactive examples, see the [Quickstart Notebook](https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/blob/master/demos/notebooks/quickstart.ipynb) and [Anatomical Grid Search Notebook](https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/blob/master/demos/notebooks/anatomical_grid_search.ipynb).
+For interactive examples, see the [Quickstart Notebook](https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/blob/master/demos/notebooks/quickstart.ipynb) and [Grid Search Notebook](https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/blob/master/demos/notebooks/grid_search.ipynb).
 ```
 
-## Prerequisites
+## Input formats
 
-- Python 3.12.7 to <3.12.10
-- Planar timeseries TIFF files (T, Y, X format)
-- Raw ScanImage TIFFs must be assembled first using [mbo_utilities](https://millerbrainobservatory.github.io/mbo_utilities/assembly.html)
+The pipeline accepts all filetypes at [mbo_utilities imread()](https://millerbrainobservatory.github.io/mbo_utilities/array_types.html) accepts.
 
-## Basic Workflow
+```bash
+uv run mbo formats
+
+Supported input formats:
+  .tif, .tiff  - TIFF files (BigTIFF, OME-TIFF, ScanImage)
+  .zarr        - Zarr v3 arrays
+  .bin         - Suite2p binary format (with ops.npy)
+  .h5, .hdf5   - HDF5 files
+  .npy         - NumPy arrays
+  .json        - Zarr array metadata (loads parent .zarr)
+
+Supported output formats:
+  .tiff        - Multi-page BigTIFF
+  .zarr        - Zarr v3 with optional OME-NGFF metadata
+  .bin         - Suite2p binary format
+  .h5          - HDF5 format
+  .npy         - NumPy array (with .json metadata)
+
+```
+
+## Unified Pipeline
+
+The `lsp.pipeline()` function is the recommended entry point for all processing. It automatically handles:
+
+- **Any input type**: Files, directories, or pre-loaded arrays from `mbo_utilities`
+- **Multi-plane data**: Processes each z-plane independently
+- **Multi-ROI data**: Stitches or splits ScanImage multi-ROI acquisitions
+- **Metadata extraction**: Auto-populates frame rate, pixel resolution, etc.
 
 ```python
-import mbo_utilities as mbo
 import lbm_suite2p_python as lsp
-from pathlib import Path
 
-# 1. Get planar outputs from mbo.imwrite
-data_dir = Path(r"D://demo//local_nvme")
+# Process a directory of raw ScanImage TIFFs
+results = lsp.pipeline(
+    input_data="D:/data/raw_tiffs",
+    save_path="D:/results",
+)
 
-files = mbo.get_files(data_dir, "tiff", max_depth=3) # tiff
-files = list(data_dir.glob("*.zarr*"))               # zarr
-files = list(data_dir.glob("*data_raw.bin*"))        # suite2p binary
+# Process specific planes from a volume
+results = lsp.pipeline(
+    input_data="D:/data/volume.zarr",
+    save_path="D:/results",
+    planes=[1, 5, 10],  # 1-indexed
+)
 
-# 3. Process entire volume
-save_dir = Path(r"D://demo//local_nvme//suite2p")
-ops = {
-    "two_step_registration": True # default is False
-}
+# Process a pre-loaded array (e.g., from mbo_utilities GUI)
+import mbo_utilities as mbo
+arr = mbo.imread("D:/data/raw")
+results = lsp.pipeline(
+    input_data=arr,
+    save_path="D:/results",
+    roi=0,  # Split all ROIs into separate outputs
+)
 
-output_ops = lsp.run_volume(
-    input_files=files,
-    save_path=save_dir,
-    ops=ops,
-    keep_reg=True,      # Keep registered binaries (default: True)
-    keep_raw=False,     # Delete raw binaries to save space (default: False)
-    force_reg=False,    # Skip registration if already done (default: False)
-    force_detect=False  # Skip detection if stat.npy exists (default: False)
+# Custom Suite2p parameters
+results = lsp.pipeline(
+    input_data="D:/data",
+    ops={"diameter": 8, "threshold_scaling": 0.8},
 )
 ```
 
-## Processing a Single Plane
+### Pipeline Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input_data` | path, list, array | required | File, directory, list of files, or lazy array |
+| `save_path` | path | None | Output directory (auto-detected if None) |
+| `ops` | dict | None | Suite2p parameters (uses defaults if None) |
+| `planes` | int, list | None | Which planes to process (1-indexed, None=all) |
+| `roi` | int | None | ROI handling: None=stitch, 0=split, N=specific ROI |
+| `keep_reg` | bool | True | Keep registered binary after processing |
+| `keep_raw` | bool | False | Keep raw binary after processing |
+| `force_reg` | bool | False | Force re-registration |
+| `force_detect` | bool | False | Force ROI detection |
+| `dff_window_size` | int | 300 | Window for ΔF/F baseline |
+| `dff_percentile` | int | 20 | Percentile for baseline F₀ |
+
+### ROI Handling
+
+For multi-ROI ScanImage data:
+
+```python
+# Stitch all ROIs into single FOV (default)
+lsp.pipeline(data, roi=None)
+
+# Split each ROI into separate outputs
+lsp.pipeline(data, roi=0)
+
+# Process only ROI 2
+lsp.pipeline(data, roi=2)
+```
+
+## Planar Pipeline
 
 For testing parameters or processing individual planes:
 
@@ -67,10 +125,6 @@ ops_file = lsp.run_plane(
     dff_percentile=20    # Percentile for baseline F₀
 )
 ```
-
----
-
-## Understanding Outputs
 
 ### Planar Outputs
 
@@ -114,7 +168,8 @@ Files are numbered to ensure proper ordering when viewing in file browsers.
 | `pc_metrics.csv` | Registration quality metrics |
 | `pc_metrics_panels.tif` | PC metric visualization panels |
 
-#### Understanding ΔF/F Traces
+(understanding-δff-traces)=
+#### Activity ΔF/F Traces
 
 The ΔF/F (delta F over F) traces in `08_traces_dff.png` show the change in fluorescence normalized by baseline. This is the standard metric for comparing neural activity across cells and experiments.
 
@@ -149,7 +204,8 @@ window_size = int(10 * tau * fs)  # = 170 frames
 dff = lsp.dff_rolling_percentile(F, window_size=window_size, percentile=20)
 ```
 
-#### Understanding Shot Noise Levels
+(understanding-shot-noise-levels)=
+#### Shot Noise Levels
 
 The noise histograms (`10_noise_accepted.png`, `11_noise_rejected.png`) show **standardized shot noise levels** for each ROI. This metric helps you:
 
@@ -193,6 +249,25 @@ Top N neurons with highest and lowest standardized noise levels. Use this to ide
 | `F_chan2.npy` | Channel 2 fluorescence |
 | `Fneu_chan2.npy` | Channel 2 neuropil |
 
+## Volumetric Pipeline
+
+Instead of a single file, provide a list of z-planes:
+
+```python
+ops_file = lsp.run_volume(
+    input_path=files,
+    save_path=save_dir,
+    ops=ops,
+    chan2_file=None,     # Optional: structural channel for registration
+    keep_raw=False,
+    keep_reg=True,
+    force_reg=False,
+    force_detect=False,
+    dff_window_size=300, # ~10× tau × fs ensures window spans multiple transients
+    dff_percentile=20    # Percentile for baseline F₀
+)
+```
+
 ### Volumetric Outputs
 
 When processing multiple planes with `run_volume()`, additional files are generated in the root save directory:
@@ -219,11 +294,6 @@ Each plane directory contains PC-based registration quality metrics in `pc_metri
 ├── pc_metrics_panels.tif       # PC spatial patterns (Low/High)
 └── pc_metrics_raw.npy          # Raw regDX array (5, 3)
 ```
-
-<video width="100%" controls>
-  <source src="../_images/pc_metrics.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
 
 **PC metrics visualization**: Top and bottom temporal halves for each principal component, showing spatial patterns used to assess registration quality.
 
