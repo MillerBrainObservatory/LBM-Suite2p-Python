@@ -38,16 +38,12 @@ glossary
 
 ```{toctree}
 ---
-caption: Legacy Pages (Deprecated)
+caption: Additional Resources
 hidden: true
 maxdepth: 1
 ---
-usage/index
 discussions/index
-manual_curation
-function_demos
 image_gallery
-examples/index
 ```
 
 ## Quick Example
