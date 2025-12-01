@@ -89,40 +89,30 @@ results = lsp.pipeline(
 | `keep_raw` | bool | False | Keep raw binary after processing |
 | `force_reg` | bool | False | Force re-registration |
 | `force_detect` | bool | False | Force ROI detection |
-| `dff_window_size` | int | 300 | Window for ΔF/F baseline |
+| `dff_window_size` | int | None | Window for ΔF/F baseline (auto-calculated from tau and framerate) |
 | `dff_percentile` | int | 20 | Percentile for baseline F₀ |
-
-### ROI Handling
-
-For multi-ROI ScanImage data:
-
-```python
-# Stitch all ROIs into single FOV (default)
-lsp.pipeline(data, roi=None)
-
-# Split each ROI into separate outputs
-lsp.pipeline(data, roi=0)
-
-# Process only ROI 2
-lsp.pipeline(data, roi=2)
-```
+| `dff_smooth_window` | int | None | Temporal smoothing for dF/F traces (auto-calculated) |
+| `save_json` | bool | False | Save ops as JSON in addition to .npy |
 
 ## Planar Pipeline
 
 For testing parameters or processing individual planes:
 
 ```python
-ops_file = lsp.run_plane(
-    input_path=files[0],
-    save_path=save_dir,
-    ops=ops,
-    chan2_file=None,     # Optional: structural channel for registration
-    keep_raw=False,
-    keep_reg=True,
-    force_reg=False,
-    force_detect=False,
-    dff_window_size=300, # ~10× tau × fs ensures window spans multiple transients
-    dff_percentile=20    # Percentile for baseline F₀
+results = lsp.pipeline(
+    input_data=files[0],        # path to .zarr, .tiff, or .bin file
+    save_path=None,             # default: save next to input file
+    ops=None,                   # default: use MBO-optimized parameters
+    planes=1,                   # process single plane (1-indexed)
+    roi=None,                   # default: stitch multi-ROI data
+    keep_reg=True,              # default: keep data.bin (registered binary)
+    keep_raw=False,             # default: delete data_raw.bin after processing
+    force_reg=False,            # default: skip if already registered
+    force_detect=False,         # default: skip if stat.npy exists
+    dff_window_size=None,       # default: auto-calculate from tau and framerate
+    dff_percentile=20,          # default: 20th percentile for baseline
+    dff_smooth_window=None,     # default: auto-calculate from tau and framerate
+    save_json=False,            # default: only save ops.npy
 )
 ```
 
@@ -386,26 +376,29 @@ Top N neurons with highest and lowest standardized noise levels. Use this to ide
 
 ## Volumetric Pipeline
 
-Instead of a single file, provide a list of z-planes:
+Instead of a single file, provide a list of z-planes or a directory:
 
 ```python
-ops_file = lsp.run_volume(
-    input_path=files,
-    save_path=save_dir,
-    ops=ops,
-    chan2_file=None,     # Optional: structural channel for registration
-    keep_raw=False,
-    keep_reg=True,
-    force_reg=False,
-    force_detect=False,
-    dff_window_size=300, # ~10× tau × fs ensures window spans multiple transients
-    dff_percentile=20    # Percentile for baseline F₀
+results = lsp.pipeline(
+    input_data="D:/data/volume",    # directory or list of plane files
+    save_path=None,                 # default: save next to input
+    ops=None,                       # default: use MBO-optimized parameters
+    planes=None,                    # default: process all planes
+    roi=None,                       # default: stitch multi-ROI data
+    keep_reg=True,                  # default: keep data.bin (registered binary)
+    keep_raw=False,                 # default: delete data_raw.bin after processing
+    force_reg=False,                # default: skip if already registered
+    force_detect=False,             # default: skip if stat.npy exists
+    dff_window_size=None,           # default: auto-calculate from tau and framerate
+    dff_percentile=20,              # default: 20th percentile for baseline
+    dff_smooth_window=None,         # default: auto-calculate from tau and framerate
+    save_json=False,                # default: only save ops.npy
 )
 ```
 
 ### Volumetric Outputs
 
-When processing multiple planes with `run_volume()`, additional files are generated in the root save directory:
+When processing multiple planes with `lsp.pipeline()`, additional files are generated in the root save directory:
 
 | File | Description |
 |------|-------------|
@@ -1169,10 +1162,6 @@ The resulting ΔF/F₀ traces can look different depending on the chosen baselin
 The resulting ΔF/F₀ traces with detected events overlaid.
 ```
 
-### Standardized Noise Levels
-
-See [Understanding Shot Noise Levels](#understanding-shot-noise-levels) in the Planar Outputs section for detailed interpretation of noise metrics and quality benchmarks.
-
 ### Pipeline Comparison
 
 Different pipelines handle ΔF/F₀ differently:
@@ -1370,88 +1359,6 @@ with suite2p.io.BinaryFile(filename=data_bin, Ly=ops["Ly"], Lx=ops["Lx"]) as f:
 **Large drift not corrected:**
 - Increase `maxregshift` (default 0.1 → 0.15-0.2)
 - Check `refImg` quality
-
-### Memory Issues
-
-**Processing large volumes:**
-```python
-# Process planes individually
-for file in files:
-    ops_file = lsp.run_plane(input_path=file, ...)
-    gc.collect()  # Force garbage collection
-
-# Or: delete binaries immediately
-ops_file = lsp.run_plane(keep_raw=False, keep_reg=False, ...)
-```
-
----
-
-## Advanced Usage
-
-### Custom Ops Overrides
-
-```python
-# Start with defaults
-ops = lsp.default_ops()
-
-# Override specific parameters
-ops.update({
-    "threshold_scaling": 0.9,
-    "tau": 1.2,
-    "nonrigid": True,
-    "block_size": [96, 96],
-    "max_overlap": 0.85,
-    "allow_overlap": True
-})
-
-# Run with custom ops
-output_ops = lsp.run_volume(input_files, save_path, ops)
-```
-
-### Bypassing Binary Validation
-
-Force recreation of binaries even if they exist:
-
-```python
-ops_file = lsp.run_plane(
-    input_path=file,
-    force_reg=True,  # Force binary rewrite and registration
-    ops=ops
-)
-```
-
-### Processing Pre-Registered Data
-
-If you have `data.bin` already:
-
-```python
-from lbm_suite2p_python import run_plane_bin
-
-# Directly process existing binary
-ops["raw_file"] = str(plane_dir / "data_raw.bin")
-ops["ops_path"] = str(plane_dir / "ops.npy")
-ops["do_registration"] = 0  # Skip registration
-ops["roidetect"] = True
-
-run_plane_bin(ops)
-```
-
----
-
-## Best Practices
-
-1. **Start small:** Test parameters on 1-2 representative planes before processing full volumes
-2. **Use grid search:** Systematically explore parameter space
-3. **Save registered binaries:** Set `keep_reg=True` for re-analysis without re-registration
-4. **Delete raw binaries:** Set `keep_raw=False` to save ~50% disk space
-5. **Monitor registration quality:** Check `ops["corrXY"]` and `meanImg` for artifacts
-6. **Validate diameter:** Measure actual cell sizes in your max projection
-7. **Document parameters:** Save `ops.json` alongside results for reproducibility
-
-```python
-from lbm_suite2p_python import ops_to_json
-ops_to_json(ops_file, outpath="ops.json")
-```
 
 ---
 

@@ -15,7 +15,7 @@ A GUI is available via [mbo_utilities](https://millerbrainobservatory.github.io/
 
 See the [installation documentation](https://millerbrainobservatory.github.io/LBM-Suite2p-Python/install.html) for detailed instructions.
 
-### Base Installation (Suite2p only)
+### Base Installation
 
 ```bash
 pip install lbm_suite2p_python
@@ -34,45 +34,24 @@ pip install "lbm_suite2p_python[cellpose]"
 pip install "lbm_suite2p_python[all]"
 ```
 
-### Installation Options
-
-| Extra | Description | Use Case |
-|-------|-------------|----------|
-| (none) | Base pipeline with Suite2p | Registration, ROI detection, trace extraction |
-| `[rastermap]` | Activity clustering | Visualize neural activity patterns sorted by similarity |
-| `[cellpose]` | Anatomical detection | GPU-accelerated cell detection using deep learning |
-| `[all]` | Everything | Full feature set |
-
 ## Quick Start
 
 ```python
 import lbm_suite2p_python as lsp
 
-ops = {"two_step_registration": 1}
-files = [
-    r"D://demo//plane05_stitched.zarr",
-    r"D://demo//plane06_stitched.zarr",
-]
-
-# Process entire volume
-output_ops = lsp.run_volume(
-    input_files=files,
-    save_path=None,     # save next to tiffs
-    ops=ops,
-    keep_reg=True,      # Keep registered binaries
-    force_reg=False,    # Skip if already registered
-    force_detect=False  # Skip if stat.npy exists
-)
-```
-
-**Process a single plane:**
-```python
-ops_file = lsp.run_plane(
-    input_path=files[0],
-    save_path=None,
-    ops=ops,
-    keep_raw=False,  # Delete data_raw.bin after processing
-    keep_reg=True    # Keep data.bin (registered binary)
+results = lsp.pipeline(
+    input_data="D:/data/raw",   # path to file, directory, or list of files
+    save_path=None,             # default: save next to input
+    ops=None,                   # default: use MBO-optimized parameters
+    planes=None,                # default: process all planes
+    roi=None,                   # default: stitch multi-ROI data
+    keep_reg=True,              # default: keep data.bin (registered binary)
+    keep_raw=False,             # default: delete data_raw.bin after processing
+    force_reg=False,            # default: skip if already registered
+    force_detect=False,         # default: skip if stat.npy exists
+    dff_window_size=None,       # default: auto-calculate from tau and framerate
+    dff_percentile=20,          # default: 20th percentile for baseline
+    dff_smooth_window=None,     # default: auto-calculate from tau and framerate
 )
 ```
 
@@ -130,11 +109,6 @@ Volume-level visualizations combine data across all z-planes.
 <br><em>Traces: Highest/Lowest SNR, Shot-Noise, and Skewness (activity) </em>
 </p>
 
-## Documentation
-
-- **[Installation Guide](https://millerbrainobservatory.github.io/LBM-Suite2p-Python/install.html)**
-- **[User Guide](https://millerbrainobservatory.github.io/LBM-Suite2p-Python/user_guide.html)** - Complete usage examples
-- **[API Reference](https://millerbrainobservatory.github.io/LBM-Suite2p-Python/api.html)**
 
 ## Built With
 
