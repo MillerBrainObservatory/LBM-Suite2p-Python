@@ -76,6 +76,70 @@ ops_file = lsp.run_plane(
 )
 ```
 
+## Planar Results
+
+Each z-plane produces a set of diagnostic images automatically saved during processing.
+
+<table>
+<tr>
+<td><img src="docs/_images/02_max_projection.png" alt="Max Projection" width="200"/></td>
+<td><img src="docs/_images/04_mean_enhanced.png" alt="Enhanced Mean" width="200"/></td>
+<td><img src="docs/_images/04_mean_enhanced_segmentation.png" alt="Segmentation" width="200"/></td>
+</tr>
+<tr>
+<td align="center"><em>Max Projection</em></td>
+<td align="center"><em>Enhanced Mean</em></td>
+<td align="center"><em>Segmentation Overlay</em></td>
+</tr>
+</table>
+
+<p align="center">
+<img src="docs/_images/05_quality_diagnostics.png" alt="Quality Diagnostics" width="700"/>
+<br><em>ROI quality diagnostics: size distribution, SNR, and compactness metrics</em>
+</p>
+
+<table>
+<tr>
+<td><img src="docs/_images/07_traces_raw.png" alt="Raw Traces" width="400"/></td>
+<td><img src="docs/_images/08_traces_dff.png" alt="ΔF/F Traces" width="400"/></td>
+</tr>
+<tr>
+<td align="center"><em>Raw fluorescence traces</em></td>
+<td align="center"><em>ΔF/F traces (top 20 by quality)</em></td>
+</tr>
+</table>
+
+## Volumetric Results
+
+Volume-level visualizations combine data across all z-planes.
+
+<table>
+<tr>
+<td><img src="docs/_images/all_planes_masks.png" alt="All Planes Masks" width="400"/></td>
+<td><img src="docs/_images/orthoslices.png" alt="Orthoslices" width="400"/></td>
+</tr>
+<tr>
+<td align="center"><em>ROI masks across all planes</em></td>
+<td align="center"><em>Orthogonal volume slices</em></td>
+</tr>
+</table>
+
+<table>
+<tr>
+<td><img src="docs/_images/roi_map_3d_snr.png" alt="3D ROI Map" width="400"/></td>
+<td><img src="docs/_images/rastermap.png" alt="Rastermap" width="400"/></td>
+</tr>
+<tr>
+<td align="center"><em>3D ROI map colored by SNR</em></td>
+<td align="center"><em>Activity sorted by similarity</em></td>
+</tr>
+</table>
+
+<p align="center">
+<img src="docs/_images/volume_trace_analysis.png" alt="Volume Trace Analysis" width="700"/>
+<br><em>Volume-wide trace analysis: example traces, SNR per plane, and activity heatmap</em>
+</p>
+
 ## Documentation
 
 - **[Installation Guide](https://millerbrainobservatory.github.io/LBM-Suite2p-Python/install.html)**
