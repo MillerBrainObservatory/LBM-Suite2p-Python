@@ -2692,4 +2692,12 @@ def plot_zplane_figures(
     except Exception as e:
         print(f"  Failed to generate quality diagnostics: {e}")
 
+    # Generate single-figure diagnostic summary
+    try:
+        diagnostics_path = plane_dir / "quality_diagnostics.png"
+        plot_plane_diagnostics(plane_dir, save_path=diagnostics_path)
+        print(f"  Saved: quality_diagnostics.png")
+    except Exception as e:
+        print(f"  Failed to generate quality diagnostics: {e}")
+
     return output_ops

@@ -1235,6 +1235,11 @@ dff = dff_rolling_percentile(
 )
 ```
 
+**Window size rule of thumb:** Use ~10× the indicator decay time constant (tau) × frame rate.
+For example, with jGCaMP7s (tau≈1.0s) at 30Hz: 10 × 1.0 × 30 = 300 frames.
+This ensures the window spans multiple calcium transients so the percentile filter
+can find the baseline between events. See [Suite2p Cell Detection](https://suite2p.readthedocs.io/en/latest/celldetection.html) for related binning logic.
+
 **When to use:** Most datasets, handles slow baseline drifts.
 
 #### Median Filter Baseline
