@@ -11,15 +11,39 @@ A volumetric 2-photon calcium imaging processing pipeline for Light Beads Micros
 
 A GUI is available via [mbo_utilities](https://millerbrainobservatory.github.io/mbo_utilities/index.html#gui) (GUI functionality will lag behind this pipeline).
 
-## Quick Start
+## Installation
 
-See the [installation documentation](https://millerbrainobservatory.github.io/LBM-Suite2p-Python/install.html) for GUI dependencies and troubleshooting.
+See the [installation documentation](https://millerbrainobservatory.github.io/LBM-Suite2p-Python/install.html) for detailed instructions.
+
+### Base Installation (Suite2p only)
 
 ```bash
-uv pip install lbm_suite2p_python
+pip install lbm_suite2p_python
 ```
 
-### Basic Usage
+### With Optional Dependencies
+
+```bash
+# With rastermap for activity clustering visualization
+pip install "lbm_suite2p_python[rastermap]"
+
+# With cellpose for anatomical cell detection (includes PyTorch)
+pip install "lbm_suite2p_python[cellpose]"
+
+# All optional dependencies
+pip install "lbm_suite2p_python[all]"
+```
+
+### Installation Options
+
+| Extra | Description | Use Case |
+|-------|-------------|----------|
+| (none) | Base pipeline with Suite2p | Registration, ROI detection, trace extraction |
+| `[rastermap]` | Activity clustering | Visualize neural activity patterns sorted by similarity |
+| `[cellpose]` | Anatomical detection | GPU-accelerated cell detection using deep learning |
+| `[all]` | Everything | Full feature set |
+
+## Quick Start
 
 ```python
 import lbm_suite2p_python as lsp
