@@ -14,9 +14,10 @@ except PackageNotFoundError:
     __version__ = "0.0.0"
 
 __all__ = [
+    "pipeline",
     "run_volume",
     "run_plane",
-    "run_grid_search",
+    "grid_search",
     "consolidate_volume",
     "plot_traces",
     "plot_masks",
@@ -39,6 +40,8 @@ __all__ = [
     "dff_rolling_percentile",
     "dff_median_filter",
     "dff_shot_noise",
+    "compute_trace_quality_score",
+    "sort_traces_by_quality",
     "load_ops",
     "load_planar_results",
     "default_ops",
