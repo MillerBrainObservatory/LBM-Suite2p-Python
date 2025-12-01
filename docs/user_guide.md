@@ -168,6 +168,74 @@ Files are numbered to ensure proper ordering when viewing in file browsers.
 | `pc_metrics.csv` | Registration quality metrics |
 | `pc_metrics_panels.tif` | PC metric visualization panels |
 
+#### Reference Images
+
+The pipeline generates several reference images that serve as both quality checks and visualization aids:
+
+```{figure} _images/02_max_projection.png
+:alt: Maximum Intensity Projection
+:name: ug-fig-max-proj
+:width: 50%
+
+**Maximum intensity projection** across all frames. Highlights the brightest pixels over time, useful for identifying highly active regions and checking for motion artifacts.
+```
+
+```{figure} _images/04_mean_enhanced.png
+:alt: Enhanced Mean Image
+:name: ug-fig-mean-enhanced
+:width: 50%
+
+**Enhanced mean image** (meanImgE) with edge sharpening applied. This is the recommended image for Cellpose anatomical detection (`anatomical_only=3`). Cell boundaries are more defined than the standard mean image.
+```
+
+#### Segmentation Overlays
+
+Each reference image has a corresponding segmentation overlay showing detected ROIs:
+
+```{figure} _images/04_mean_enhanced_segmentation.png
+:alt: Segmentation Overlay
+:name: ug-fig-segmentation
+:width: 50%
+
+**Segmentation overlay** on the enhanced mean image. Accepted ROIs are shown as colored outlines. Use this to visually verify that detected cells match actual cell bodies.
+```
+
+#### Quality Diagnostics
+
+The quality diagnostics panel provides a multi-metric view of ROI quality:
+
+```{figure} _images/05_quality_diagnostics.png
+:alt: Quality Diagnostics
+:name: ug-fig-quality-diag
+:width: 100%
+
+**ROI quality diagnostics** showing:
+- **Size distribution**: Histogram of ROI areas (pixels) for accepted vs rejected cells
+- **SNR distribution**: Signal-to-noise ratio for each ROI
+- **Compactness**: How circular each ROI is (1.0 = perfect circle)
+- **Skewness**: Positive skew indicates calcium transients
+
+Use these metrics to tune parameters like `max_overlap`, `threshold_scaling`, and post-hoc filters.
+```
+
+#### Fluorescence Traces
+
+```{figure} _images/07_traces_raw.png
+:alt: Raw Fluorescence Traces
+:name: ug-fig-traces-raw
+:width: 100%
+
+**Raw fluorescence traces** for the top 20 neurons sorted by quality score. The y-axis shows fluorescence intensity (arbitrary units), x-axis shows time in seconds.
+```
+
+```{figure} _images/08_traces_dff.png
+:alt: ΔF/F Traces
+:name: ug-fig-traces-dff
+:width: 100%
+
+**ΔF/F traces** computed using rolling percentile baseline. These normalized traces are directly comparable across cells and experiments. The quality-sorted display surfaces the most reliable signals first.
+```
+
 (understanding-trace-quality-sorting)=
 #### Trace Quality Sorting
 
@@ -347,7 +415,64 @@ When processing multiple planes with `run_volume()`, additional files are genera
 | `volume_summary.csv` | Per-plane statistics table (ROIs, SNR, acceptance rate) |
 | `mean_volume_signal.png` | Mean signal intensity across z-depth |
 | `rastermap.png` | Activity sorted by similarity across all planes |
+| `orthoslices.png` | Orthogonal slices through the volume (XY, XZ, YZ) |
+| `roi_map_3d_snr.png` | 3D scatter plot of ROI centroids colored by SNR |
 | `volume_stats.npy` | Per-plane statistics dictionary |
+
+#### All Planes Masks
+
+```{figure} _images/all_planes_masks.png
+:alt: All Planes Masks
+:name: ug-fig-all-planes
+:width: 100%
+
+**ROI masks across all z-planes** arranged in a grid. Each panel shows the enhanced mean image with segmentation overlay for one plane. Use this to quickly assess segmentation quality across the entire volume and identify planes with poor detection.
+```
+
+#### Orthogonal Slices
+
+```{figure} _images/orthoslices.png
+:alt: Orthoslices
+:name: ug-fig-orthoslices
+:width: 80%
+
+**Orthogonal slices** through the mean intensity volume. Shows XY (axial), XZ (coronal), and YZ (sagittal) views with crosshairs indicating the slice positions. Useful for verifying volume alignment and identifying depth-dependent signal changes.
+```
+
+#### 3D ROI Map
+
+```{figure} _images/roi_map_3d_snr.png
+:alt: 3D ROI Map
+:name: ug-fig-roi-3d
+:width: 80%
+
+**3D scatter plot of ROI centroids** with each point representing a detected cell. Points are colored by SNR (signal-to-noise ratio), revealing the spatial distribution of signal quality through the volume. Brighter colors indicate higher quality cells.
+```
+
+#### Volume Trace Analysis
+
+```{figure} _images/volume_trace_analysis.png
+:alt: Volume Trace Analysis
+:name: ug-fig-vol-trace
+:width: 100%
+
+**Volume-wide trace analysis** combining multiple views:
+- **Left**: Example ΔF/F traces from representative cells across planes
+- **Middle**: SNR and mean fluorescence as a function of z-depth
+- **Right**: Activity heatmap showing temporal patterns across all cells
+
+This visualization helps identify depth-dependent signal quality and synchronized activity patterns.
+```
+
+#### Rastermap (Volume-wide)
+
+```{figure} _images/rastermap.png
+:alt: Rastermap
+:name: ug-fig-rastermap-vol
+:width: 100%
+
+**Activity sorted by similarity** using the [Rastermap](https://github.com/MouseLand/rastermap) algorithm. Cells from all planes are combined and reordered so that neurons with similar activity patterns appear adjacent. This reveals functional clusters and population dynamics that may span multiple z-planes.
+```
 
 ### Registration Quality Metrics
 
