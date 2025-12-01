@@ -18,15 +18,30 @@ classifiers=[
 	"Programming Language :: Python :: 3 :: Only",
 ]
 dependencies = [
-	"mbo_utilities[suite2p]>=2.2.2",
+	"mbo_utilities>=2.2.2",
+	"suite2p_mbo>=1.1.2",
 ]
 
-[dependency-groups]
-all = [
+[project.optional-dependencies]
+# Rastermap for activity clustering and visualization
+rastermap = [
 	"rastermap",
+]
+# Cellpose for anatomical cell detection (requires PyTorch)
+cellpose = [
 	"cellpose==4.0.6",
 	"torch>=2.7.0",
 	"torchvision>=0.22.0",
+]
+# All optional dependencies
+all = [
+	"lbm_suite2p_python[rastermap,cellpose]",
+]
+
+[dependency-groups]
+dev = [
+	"lbm_suite2p_python[all]",
+	"pytest>=8.0.0",
 ]
 docs = [
 	"docutils>=0.21.2",
