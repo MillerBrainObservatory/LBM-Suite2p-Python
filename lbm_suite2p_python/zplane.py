@@ -21,6 +21,7 @@ from lbm_suite2p_python.postprocessing import (
     load_planar_results,
     dff_rolling_percentile,
     dff_shot_noise,
+    compute_trace_quality_score,
 )
 from lbm_suite2p_python.utils import (
     _resize_masks_fit_crop,
@@ -276,7 +277,8 @@ def plot_traces(
         offset=None,
         lw=0.5,
         cmap="tab10",
-        scale_bar_label: str = r"50% $\Delta$F/F$_0$",
+        scale_bar_label: str = None,
+        mask_overlap: bool = False,
 ) -> None:
     """
     Plot stacked fluorescence traces with automatic offset and scale bars.
@@ -301,14 +303,30 @@ def plot_traces(
         Line width for data points.
     cmap : str
         Matplotlib colormap string.
-    scale_bar_label : str, default "50% ΔF/F₀"
-        User-supplied label for the vertical scale bar. The scale bar is always
-        10% of the figure height; this label describes what that height represents.
+    scale_bar_label : str, optional
+        Label for the vertical scale bar. The scale bar is always 10% of
+        the figure height; this label describes what that height represents.
+        Examples: "50% ΔF/F₀", "100 a.u.", "Raw F".
+        If None, defaults to "10% height" with a warning.
     cell_indices : array-like or None
         Specific cell indices to plot. If provided, overrides num_neurons.
+    mask_overlap : bool, default False
+        If True, lower traces mask (occlude) traces above them, creating
+        a layered effect where each trace has a black background.
     """
+    import warnings
+
     if isinstance(f, dict):
         raise ValueError("f must be a numpy array, not a dictionary")
+
+    if scale_bar_label is None:
+        warnings.warn(
+            "No scale_bar_label provided. Use scale_bar_label to specify units "
+            "(e.g., '50% ΔF/F₀' for dF/F, '100 a.u.' for raw fluorescence).",
+            UserWarning,
+            stacklevel=2,
+        )
+        scale_bar_label = "10% height"
 
     n_timepoints = f.shape[-1]
     data_time = np.arange(n_timepoints) / fps
@@ -358,13 +376,24 @@ def plot_traces(
         spine.set_visible(False)
 
     # Plot from top to bottom so lower-indexed traces appear on top
+    time_slice = data_time[: current_frame + 1]
     for i in range(displayed_neurons - 1, -1, -1):
+        z = displayed_neurons - i  # Lower index = higher zorder = on top
+        if mask_overlap:
+            # Fill below trace with black to mask traces above
+            ax.fill_between(
+                time_slice,
+                shifted_traces[i],
+                y2=shifted_traces[i].min() - offset,
+                color="black",
+                zorder=z - 0.5,
+            )
         ax.plot(
-            data_time[: current_frame + 1],
+            time_slice,
             shifted_traces[i],
             color=colors[i],
             lw=lw,
-            zorder=displayed_neurons - i,  # Lower index = higher zorder = on top
+            zorder=z,
         )
 
     # Set y-limits based on shifted traces with minimal padding
@@ -651,7 +680,7 @@ def plot_masks(
         img: np.ndarray,
         stat: list[dict] | dict,
         mask_idx: np.ndarray,
-        savepath: str | Path,
+        savepath: str | Path = None,
         colors=None,
         title=None,
 ):
@@ -660,14 +689,14 @@ def plot_masks(
 
     Parameters
     ----------
-    stat : list[dict]
-        Suite2p ROI stat dictionaries (with "ypix", "xpix", "lam").
     img : ndarray (Ly x Lx)
         Background image to overlay on.
+    stat : list[dict]
+        Suite2p ROI stat dictionaries (with "ypix", "xpix", "lam").
     mask_idx : ndarray[bool]
         Boolean array selecting which ROIs to plot.
-    savepath : str or Path
-        Fully qualified path to save the figure.
+    savepath : str or Path, optional
+        Path to save the figure. If None, displays with plt.show().
     colors : ndarray or list, optional
         Array/list of RGB tuples for each ROI selected.
         If None, colors are assigned via HSV colormap.
@@ -2279,7 +2308,8 @@ def mask_dead_zones_in_ops(ops, threshold=0.01):
 
 
 def plot_zplane_figures(
-    plane_dir, dff_percentile=8, dff_window_size=101, run_rastermap=False, **kwargs
+    plane_dir, dff_percentile=8, dff_window_size=None, dff_smooth_window=None,
+    run_rastermap=False, **kwargs
 ):
     """
     Re-generate Suite2p figures for a merged plane.
@@ -2291,7 +2321,12 @@ def plot_zplane_figures(
     dff_percentile : int, optional
         Percentile used for ΔF/F baseline.
     dff_window_size : int, optional
-        Window size for ΔF/F rolling baseline.
+        Window size for ΔF/F rolling baseline. If None, auto-calculated
+        as ~10 × tau × fs based on ops values.
+    dff_smooth_window : int, optional
+        Temporal smoothing window for dF/F traces (in frames).
+        If None, auto-calculated as ~0.5 × tau × fs to emphasize
+        transients while reducing noise. Set to 1 to disable.
     run_rastermap : bool, optional
         If True, compute and plot rastermap sorting of cells.
     kwargs : dict
@@ -2438,38 +2473,68 @@ def plot_zplane_figures(
 
         # --- COMPUTE ΔF/F ---
         fs = output_ops.get("fs", 1.0)
+        tau = output_ops.get("tau", 1.0)
 
         if n_accepted > 0:
             dffp_acc = dff_rolling_percentile(
-                F_accepted, percentile=dff_percentile, window_size=dff_window_size
+                F_accepted,
+                percentile=dff_percentile,
+                window_size=dff_window_size,
+                smooth_window=dff_smooth_window,
+                fs=fs,
+                tau=tau,
             ) * 100
         else:
             dffp_acc = np.zeros((0, F.shape[1]))
 
         if n_rejected > 0:
             dffp_rej = dff_rolling_percentile(
-                F_rejected, percentile=dff_percentile, window_size=dff_window_size
+                F_rejected,
+                percentile=dff_percentile,
+                window_size=dff_window_size,
+                smooth_window=dff_smooth_window,
+                fs=fs,
+                tau=tau,
             ) * 100
         else:
             dffp_rej = np.zeros((0, F.shape[1]))
 
         # --- TRACE PLOTS (robust to any cell count >= 1) ---
-        plot_n_traces = output_ops.get("plot_n_traces", 30)
+        # Sort traces by quality score (SNR, skewness, shot noise) for visualization
+        plot_n_traces = output_ops.get("plot_n_traces", 20)
 
         if n_accepted > 0:
+            # Get accepted cell stat for skewness
+            stat_accepted = [s for s, m in zip(res["stat"], iscell_mask) if m]
+
+            # Compute quality scores and sort
+            quality = compute_trace_quality_score(
+                F_accepted,
+                Fneu=res["Fneu"][iscell_mask] if "Fneu" in res else None,
+                stat=stat_accepted,
+                fs=fs,
+            )
+            quality_sort_idx = quality["sort_idx"]
+
+            # Sort traces by quality (best first)
+            dffp_acc_sorted = dffp_acc[quality_sort_idx]
+            F_accepted_sorted = F_accepted[quality_sort_idx]
+
             plot_traces(
-                dffp_acc,
+                dffp_acc_sorted,
                 save_path=expected_files["traces_dff"],
                 num_neurons=min(plot_n_traces, n_accepted),
                 scale_bar_label=r"50% $\Delta$F/F$_0$",
-                title=r"$\Delta$F/F Traces - Accepted Cells (n={})".format(n_accepted),
+                title=r"Top {} $\Delta$F/F Traces by Quality (n={} total)".format(
+                    min(plot_n_traces, n_accepted), n_accepted
+                ),
             )
             plot_traces(
-                F_accepted,
+                F_accepted_sorted,
                 save_path=expected_files["traces_raw"],
                 num_neurons=min(plot_n_traces, n_accepted),
                 scale_bar_label="a.u.",
-                title=f"Raw Traces - Accepted Cells (n={n_accepted})",
+                title=f"Top {min(plot_n_traces, n_accepted)} Raw Traces by Quality (n={n_accepted} total)",
             )
         else:
             print("  No accepted cells - skipping accepted trace plots")

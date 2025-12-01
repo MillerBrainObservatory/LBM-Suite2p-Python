@@ -1211,14 +1211,14 @@ def plot_3d_roi_map(
     ops_files: list[str | Path],
     save_path: str | Path = None,
     figsize: tuple = (14, 10),
-    color_by: str = "plane",
+    color_by: str = "snr",
     show_rejected: bool = False,
 ) -> plt.Figure:
     """
     Generate a 3D scatter plot of ROI centroids across the volume.
 
     Creates a 3D visualization showing the spatial distribution of detected
-    cells, which helps assess coverage and identify potential issues.
+    cells colored by SNR, with axes in microns based on pixel resolution.
 
     Parameters
     ----------
@@ -1228,8 +1228,8 @@ def plot_3d_roi_map(
         If provided, save figure to this path.
     figsize : tuple, default (14, 10)
         Figure size in inches.
-    color_by : str, default "plane"
-        How to color the ROIs: "plane", "snr", "size", or "activity".
+    color_by : str, default "snr"
+        How to color the ROIs: "snr", "plane", "size", or "activity".
     show_rejected : bool, default False
         If True, also show rejected ROIs in gray.
 
@@ -1245,6 +1245,18 @@ def plot_3d_roi_map(
         fig.text(0.5, 0.5, "No ops files provided", ha="center", va="center",
                 fontsize=16, fontweight="bold", color="white")
         return fig
+
+    # Get pixel resolution from first ops file
+    first_ops = load_ops(ops_files[0])
+    # pixel_resolution is [dx, dy] in microns/pixel, default to 1.0 if not found
+    pixel_res = first_ops.get("pixel_resolution", [1.0, 1.0])
+    if isinstance(pixel_res, (int, float)):
+        dx_um, dy_um = pixel_res, pixel_res
+    else:
+        dx_um = pixel_res[0] if len(pixel_res) > 0 else 1.0
+        dy_um = pixel_res[1] if len(pixel_res) > 1 else dx_um
+    # z-spacing in microns (default 15 um for LBM)
+    dz_um = first_ops.get("z_spacing", first_ops.get("dz", 15.0))
 
     # Collect ROI data from all planes
     all_x = []
@@ -1314,21 +1326,25 @@ def plot_3d_roi_map(
         else:  # plane
             color_vals = np.ones(len(stat)) * plane_num
 
-        # Extract centroids
+        # Extract centroids and convert to microns
         for i, s in enumerate(stat):
             med = s.get("med", [0, 0])
-            y, x = med[0], med[1]
+            y_px, x_px = med[0], med[1]
+            # Convert pixels to microns
+            x_um = x_px * dx_um
+            y_um = y_px * dy_um
+            z_um = plane_num * dz_um
 
             if iscell[i]:
-                all_x.append(x)
-                all_y.append(y)
-                all_z.append(plane_num)
+                all_x.append(x_um)
+                all_y.append(y_um)
+                all_z.append(z_um)
                 all_colors.append(color_vals[i])
                 all_accepted.append(True)
             elif show_rejected:
-                rej_x.append(x)
-                rej_y.append(y)
-                rej_z.append(plane_num)
+                rej_x.append(x_um)
+                rej_y.append(y_um)
+                rej_z.append(z_um)
 
     if not all_x:
         fig = plt.figure(figsize=figsize, facecolor="black")
@@ -1389,10 +1405,10 @@ def plot_3d_roi_map(
     cbar.ax.tick_params(colors="white")
     cbar.outline.set_edgecolor("white")
 
-    # Style axes
-    ax.set_xlabel("X (pixels)", fontsize=10, fontweight="bold", color="white", labelpad=10)
-    ax.set_ylabel("Y (pixels)", fontsize=10, fontweight="bold", color="white", labelpad=10)
-    ax.set_zlabel("Z (plane)", fontsize=10, fontweight="bold", color="white", labelpad=10)
+    # Style axes with micron units
+    ax.set_xlabel("X (μm)", fontsize=10, fontweight="bold", color="white", labelpad=10)
+    ax.set_ylabel("Y (μm)", fontsize=10, fontweight="bold", color="white", labelpad=10)
+    ax.set_zlabel("Z (μm)", fontsize=10, fontweight="bold", color="white", labelpad=10)
 
     ax.tick_params(colors="white", labelsize=8)
     ax.xaxis.label.set_color("white")
@@ -1404,11 +1420,17 @@ def plot_3d_roi_map(
     ax.yaxis._axinfo["grid"]["color"] = (1, 1, 1, 0.2)
     ax.zaxis._axinfo["grid"]["color"] = (1, 1, 1, 0.2)
 
-    # Title
+    # Title with volume dimensions
     n_cells = len(all_x)
     n_planes = len(np.unique(all_z))
-    fig.suptitle(f"3D ROI Distribution: {n_cells} cells across {n_planes} planes",
-                fontsize=12, fontweight="bold", color="white", y=0.95)
+    x_range = all_x.max() - all_x.min()
+    y_range = all_y.max() - all_y.min()
+    z_range = all_z.max() - all_z.min()
+    fig.suptitle(
+        f"3D ROI Distribution: {n_cells} cells across {n_planes} planes\n"
+        f"Volume: {x_range:.0f} × {y_range:.0f} × {z_range:.0f} μm",
+        fontsize=12, fontweight="bold", color="white", y=0.95
+    )
 
     if show_rejected and rej_x:
         ax.legend(fontsize=9, facecolor="#1a1a1a", edgecolor="white", labelcolor="white")
