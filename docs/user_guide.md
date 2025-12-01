@@ -168,6 +168,73 @@ Files are numbered to ensure proper ordering when viewing in file browsers.
 | `pc_metrics.csv` | Registration quality metrics |
 | `pc_metrics_panels.tif` | PC metric visualization panels |
 
+(understanding-trace-quality-sorting)=
+#### Trace Quality Sorting
+
+The trace plots (`07_traces_raw.png`, `08_traces_dff.png`) display the **top 20 neurons sorted by quality score**.
+This weighted score combines three metrics to surface the best traces:
+
+| Metric | Weight | Description |
+|--------|--------|-------------|
+| **SNR** | 1.0 | Signal-to-noise ratio (higher = better) |
+| **Skewness** | 0.8 | Positive skew indicates calcium transients |
+| **Shot Noise** | 0.5 | Frame-to-frame variability (lower = better) |
+
+**Using Quality Sorting in Your Analysis:**
+
+```python
+import lbm_suite2p_python as lsp
+
+# Load planar results
+results = lsp.load_planar_results("path/to/plane01")
+F = results["F"]
+Fneu = results["Fneu"]
+stat = results["stat"]
+iscell = results["iscell"]
+
+# Filter for accepted cells
+iscell_mask = iscell[:, 0].astype(bool)
+F_acc = F[iscell_mask]
+Fneu_acc = Fneu[iscell_mask]
+stat_acc = [s for s, m in zip(stat, iscell_mask) if m]
+
+# Compute quality scores
+quality = lsp.compute_trace_quality_score(
+    F_acc, Fneu_acc, stat_acc,
+    fs=30.0,  # Your frame rate
+    weights={'snr': 1.0, 'skewness': 0.8, 'shot_noise': 0.5}  # Default weights
+)
+
+# Sort traces by quality (best first)
+sort_idx = quality['sort_idx']
+F_sorted = F_acc[sort_idx]
+
+# View individual metrics
+print(f"SNR range: {quality['snr'].min():.2f} - {quality['snr'].max():.2f}")
+print(f"Best neuron score: {quality['score'][sort_idx[0]]:.2f}")
+
+# Plot top 50 neurons
+lsp.plot_traces(
+    F_sorted,
+    num_neurons=50,
+    fps=30.0,
+    scale_bar_label="Raw F",
+    title="Top 50 Neurons by Quality Score"
+)
+```
+
+**Custom Weights:**
+
+Adjust weights based on your priorities:
+
+```python
+# Prioritize low noise over skewness
+quality = lsp.compute_trace_quality_score(
+    F, Fneu, stat, fs=30.0,
+    weights={'snr': 1.0, 'skewness': 0.3, 'shot_noise': 1.0}
+)
+```
+
 (understanding-δff-traces)=
 #### Activity ΔF/F Traces
 
