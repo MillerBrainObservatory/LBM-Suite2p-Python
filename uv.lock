@@ -1063,6 +1063,15 @@ wheels = [
 ]
 
 [[package]]
+name = "iniconfig"
+version = "2.3.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/72/34/14ca021ce8e5dfedc35312d08ba8bf51fdd999c576889fc2c24cb97f4f10/iniconfig-2.3.0.tar.gz", hash = "sha256:c76315c77db068650d49c5b56314774a7804df16fee4402c1f19d6d15d8c4730", size = 20503, upload-time = "2025-10-18T21:55:43.219Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cb/b1/3846dd7f199d53cb17f49cba7e651e9ce294d8497c8c150530ed11865bb8/iniconfig-2.3.0-py3-none-any.whl", hash = "sha256:f631c04d2c48c52b84d0d0549c99ff3859c98df65b3101406327ecc7d53fbf12", size = 7484, upload-time = "2025-10-18T21:55:41.639Z" },
+]
+
+[[package]]
 name = "intel-cmplr-lib-ur"
 version = "2025.3.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1538,9 +1547,10 @@ version = "2.2.1"
 source = { editable = "." }
 dependencies = [
     { name = "mbo-utilities" },
+    { name = "suite2p-mbo" },
 ]
 
-[package.dev-dependencies]
+[package.optional-dependencies]
 all = [
     { name = "cellpose" },
     { name = "rastermap" },
@@ -1549,6 +1559,23 @@ all = [
     { name = "torchvision", version = "0.24.0", source = { registry = "https://download.pytorch.org/whl/cu126" }, marker = "platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'" },
     { name = "torchvision", version = "0.24.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'linux' and sys_platform != 'win32'" },
     { name = "torchvision", version = "0.24.0+cu126", source = { registry = "https://download.pytorch.org/whl/cu126" }, marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (platform_python_implementation != 'CPython' and sys_platform == 'linux') or sys_platform == 'win32'" },
+]
+cellpose = [
+    { name = "cellpose" },
+    { name = "torch", version = "2.9.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'linux' and sys_platform != 'win32'" },
+    { name = "torch", version = "2.9.0+cu126", source = { registry = "https://download.pytorch.org/whl/cu126" }, marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+    { name = "torchvision", version = "0.24.0", source = { registry = "https://download.pytorch.org/whl/cu126" }, marker = "platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'" },
+    { name = "torchvision", version = "0.24.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'linux' and sys_platform != 'win32'" },
+    { name = "torchvision", version = "0.24.0+cu126", source = { registry = "https://download.pytorch.org/whl/cu126" }, marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (platform_python_implementation != 'CPython' and sys_platform == 'linux') or sys_platform == 'win32'" },
+]
+rastermap = [
+    { name = "rastermap" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "lbm-suite2p-python", extra = ["all"] },
+    { name = "pytest" },
 ]
 docs = [
     { name = "docutils" },
@@ -1573,16 +1600,23 @@ docs = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "mbo-utilities", specifier = ">=2.1.1" }]
+requires-dist = [
+    { name = "cellpose", marker = "extra == 'cellpose'", specifier = "==4.0.6" },
+    { name = "lbm-suite2p-python", extras = ["rastermap", "cellpose"], marker = "extra == 'all'" },
+    { name = "mbo-utilities", specifier = ">=2.2.2" },
+    { name = "rastermap", marker = "extra == 'rastermap'" },
+    { name = "suite2p-mbo", specifier = ">=1.1.2" },
+    { name = "torch", marker = "(sys_platform == 'linux' and extra == 'cellpose') or (sys_platform == 'win32' and extra == 'cellpose')", specifier = ">=2.7.0", index = "https://download.pytorch.org/whl/cu126" },
+    { name = "torch", marker = "sys_platform != 'linux' and sys_platform != 'win32' and extra == 'cellpose'", specifier = ">=2.7.0" },
+    { name = "torchvision", marker = "(sys_platform == 'linux' and extra == 'cellpose') or (sys_platform == 'win32' and extra == 'cellpose')", specifier = ">=0.22.0", index = "https://download.pytorch.org/whl/cu126" },
+    { name = "torchvision", marker = "sys_platform != 'linux' and sys_platform != 'win32' and extra == 'cellpose'", specifier = ">=0.22.0" },
+]
+provides-extras = ["rastermap", "cellpose", "all"]
 
 [package.metadata.requires-dev]
-all = [
-    { name = "cellpose", specifier = "==4.0.6" },
-    { name = "rastermap" },
-    { name = "torch", marker = "sys_platform != 'linux' and sys_platform != 'win32'", specifier = ">=2.7.0" },
-    { name = "torch", marker = "sys_platform == 'linux' or sys_platform == 'win32'", specifier = ">=2.7.0", index = "https://download.pytorch.org/whl/cu126" },
-    { name = "torchvision", marker = "sys_platform != 'linux' and sys_platform != 'win32'", specifier = ">=0.22.0" },
-    { name = "torchvision", marker = "sys_platform == 'linux' or sys_platform == 'win32'", specifier = ">=0.22.0", index = "https://download.pytorch.org/whl/cu126" },
+dev = [
+    { name = "lbm-suite2p-python", extras = ["all"] },
+    { name = "pytest", specifier = ">=8.0.0" },
 ]
 docs = [
     { name = "docutils", specifier = ">=0.21.2" },
@@ -1767,7 +1801,7 @@ wheels = [
 
 [[package]]
 name = "mbo-utilities"
-version = "2.2.0"
+version = "2.2.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cupy-cuda12x" },
@@ -1805,9 +1839,9 @@ dependencies = [
     { name = "wgpu", extra = ["imgui"] },
     { name = "zarr" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/49/a7/82779fcb44208740fd88377cae9bf2b429ceb0dfb4c59f51f34f16167e8c/mbo_utilities-2.2.0.tar.gz", hash = "sha256:dfcc91251c570b1ccc8dbb7f0b1460495b4b944d154ec2c1fe3974870c28a4e9", size = 123353, upload-time = "2025-11-06T18:54:31.397Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/2f/49/c4870830d0c824bbde4451472700646338d8258bd1c4e1acfdc0d38e9775/mbo_utilities-2.2.2.tar.gz", hash = "sha256:ff6bee155b62b1c9b854a92bfe27fcc20ea9ef7f899946234d929ddf5e08f98a", size = 139693, upload-time = "2025-11-18T18:41:54.915Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/99/19/4a5eb9d6509191c3b9ba561b87d59aad81d4f5c8359fddb28b0eec208dcb/mbo_utilities-2.2.0-py3-none-any.whl", hash = "sha256:bf40bf78241804374689b28e23d5260e22d17b455bfee6e31c206efc2a35b9f5", size = 121584, upload-time = "2025-11-06T18:54:29.852Z" },
+    { url = "https://files.pythonhosted.org/packages/05/3d/f452d07bf0d3ed5feaba5537d9bc1a17a632d2af562fb9bbbfd35fb0addc/mbo_utilities-2.2.2-py3-none-any.whl", hash = "sha256:b85c2306a7691f93284f0874932b0e424cb9585cc0266d97b1ac6062eb02be4e", size = 134495, upload-time = "2025-11-18T18:41:53.943Z" },
 ]
 
 [[package]]
@@ -2247,7 +2281,7 @@ name = "nvidia-cudnn-cu12"
 version = "9.10.2.21"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-cublas-cu12", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+    { name = "nvidia-cublas-cu12", marker = "sys_platform == 'linux'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/fa/41/e79269ce215c857c935fd86bcfe91a451a584dfc27f1e068f568b9ad1ab7/nvidia_cudnn_cu12-9.10.2.21-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:c9132cc3f8958447b4910a1720036d9eff5928cc3179b0a51fb6d167c6cc87d8", size = 705026878, upload-time = "2025-06-06T21:52:51.348Z" },
@@ -2259,7 +2293,7 @@ name = "nvidia-cufft-cu12"
 version = "11.3.0.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-nvjitlink-cu12", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+    { name = "nvidia-nvjitlink-cu12", marker = "sys_platform == 'linux'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/1f/37/c50d2b2f2c07e146776389e3080f4faf70bcc4fa6e19d65bb54ca174ebc3/nvidia_cufft_cu12-11.3.0.4-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:d16079550df460376455cba121db6564089176d9bac9e4f360493ca4741b22a6", size = 200164144, upload-time = "2024-11-20T17:40:58.288Z" },
@@ -2293,9 +2327,9 @@ name = "nvidia-cusolver-cu12"
 version = "11.7.1.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-cublas-cu12", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
-    { name = "nvidia-cusparse-cu12", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
-    { name = "nvidia-nvjitlink-cu12", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+    { name = "nvidia-cublas-cu12", marker = "sys_platform == 'linux'" },
+    { name = "nvidia-cusparse-cu12", marker = "sys_platform == 'linux'" },
+    { name = "nvidia-nvjitlink-cu12", marker = "sys_platform == 'linux'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/93/17/dbe1aa865e4fdc7b6d4d0dd308fdd5aaab60f939abfc0ea1954eac4fb113/nvidia_cusolver_cu12-11.7.1.2-py3-none-manylinux2014_aarch64.whl", hash = "sha256:0ce237ef60acde1efc457335a2ddadfd7610b892d94efee7b776c64bb1cac9e0", size = 157833628, upload-time = "2024-10-01T17:05:05.591Z" },
@@ -2309,7 +2343,7 @@ name = "nvidia-cusparse-cu12"
 version = "12.5.4.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-nvjitlink-cu12", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+    { name = "nvidia-nvjitlink-cu12", marker = "sys_platform == 'linux'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/eb/eb/6681efd0aa7df96b4f8067b3ce7246833dd36830bb4cec8896182773db7d/nvidia_cusparse_cu12-12.5.4.2-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:d25b62fb18751758fe3c93a4a08eff08effedfe4edf1c6bb5afd0890fe88f887", size = 216451147, upload-time = "2024-11-20T17:44:18.055Z" },
@@ -2533,6 +2567,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/61/33/9611380c2bdb1225fdef633e2a9610622310fed35ab11dac9620972ee088/platformdirs-4.5.0.tar.gz", hash = "sha256:70ddccdd7c99fc5942e9fc25636a8b34d04c24b335100223152c2803e4063312", size = 21632, upload-time = "2025-10-08T17:44:48.791Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/73/cb/ac7874b3e5d58441674fb70742e6c374b28b0c7cb988d37d991cde47166c/platformdirs-4.5.0-py3-none-any.whl", hash = "sha256:e578a81bb873cbb89a41fcc904c7ef523cc18284b7e3b3ccf06aca1403b7ebd3", size = 18651, upload-time = "2025-10-08T17:44:47.223Z" },
+]
+
+[[package]]
+name = "pluggy"
+version = "1.6.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f9/e2/3e91f31a7d2b083fe6ef3fa267035b518369d9511ffab804f839851d2779/pluggy-1.6.0.tar.gz", hash = "sha256:7dcc130b76258d33b90f61b658791dede3486c3e6bfb003ee5c9bfb396dd22f3", size = 69412, upload-time = "2025-05-15T12:30:07.975Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/54/20/4d324d65cc6d9205fabedc306948156824eb9f0ee1633355a8f7ec5c66bf/pluggy-1.6.0-py3-none-any.whl", hash = "sha256:e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746", size = 20538, upload-time = "2025-05-15T12:30:06.134Z" },
 ]
 
 [[package]]
@@ -2976,6 +3019,22 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/33/d9/b62d5cddb3caa6e5145664bee5ed90223dee23ca887ed3ee479f2609e40a/pyqtgraph-0.13.7.tar.gz", hash = "sha256:64f84f1935c6996d0e09b1ee66fe478a7771e3ca6f3aaa05f00f6e068321d9e3", size = 2343380, upload-time = "2024-04-29T02:18:58.467Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7b/34/5702b3b7cafe99be1d94b42f100e8cc5e6957b761fcb1cf5f72d492851da/pyqtgraph-0.13.7-py3-none-any.whl", hash = "sha256:7754edbefb6c367fa0dfb176e2d0610da3ada20aa7a5318516c74af5fb72bf7a", size = 1925473, upload-time = "2024-04-29T02:18:56.206Z" },
+]
+
+[[package]]
+name = "pytest"
+version = "9.0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "iniconfig" },
+    { name = "packaging" },
+    { name = "pluggy" },
+    { name = "pygments" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/07/56/f013048ac4bc4c1d9be45afd4ab209ea62822fb1598f40687e6bf45dcea4/pytest-9.0.1.tar.gz", hash = "sha256:3e9c069ea73583e255c3b21cf46b8d3c56f6e3a1a8f6da94ccb0fcf57b9d73c8", size = 1564125, upload-time = "2025-11-12T13:05:09.333Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0b/8b/6300fb80f858cda1c51ffa17075df5d846757081d11ab4aa35cef9e6258b/pytest-9.0.1-py3-none-any.whl", hash = "sha256:67be0030d194df2dfa7b556f2e56fb3c3315bd5c8822c6951162b92b32ce7dad", size = 373668, upload-time = "2025-11-12T13:05:07.379Z" },
 ]
 
 [[package]]
@@ -3706,7 +3765,7 @@ wheels = [
 
 [[package]]
 name = "suite2p-mbo"
-version = "1.1.0"
+version = "1.1.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cellpose" },
@@ -3732,9 +3791,9 @@ dependencies = [
     { name = "torch", version = "2.9.0+cu126", source = { registry = "https://download.pytorch.org/whl/cu126" }, marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
     { name = "xmltodict" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/93/6c/3f37dfc9cb4fca1a9953575fbdd8ac7268bf332295b255f47af4b3d67246/suite2p_mbo-1.1.0.tar.gz", hash = "sha256:4acab9bc2b04fe81789b920d4c9ac4ac6ff86baadcb74df89ec221ca67a89c4a", size = 658142, upload-time = "2025-11-07T20:50:44.275Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/57/52/d2baa66bf5b887dca754c7cc60488f5d03c4687ac3f70b559a8bffa1c230/suite2p_mbo-1.1.2.tar.gz", hash = "sha256:bd5117bc9373c58e2d18a94ea56d9961c1e14575ce2ccebd3e159b40b22f1b60", size = 657105, upload-time = "2025-11-18T17:34:45.455Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/08/54/8107adc63de5305a65ea239c2dc23977ea89b834dde629faf8af9b5af938/suite2p_mbo-1.1.0-py3-none-any.whl", hash = "sha256:baab638a99c0da8aa267179f3b669119c08eddba2d3012be84ae755de3297689", size = 679656, upload-time = "2025-11-07T20:50:42.728Z" },
+    { url = "https://files.pythonhosted.org/packages/60/34/a2226fbe5baedf31ce5c77c86b24c248f25baa43aa4fd891d7ad14c10c2e/suite2p_mbo-1.1.2-py3-none-any.whl", hash = "sha256:ec03dd508393c18680326b49143a08de3224b5974f671fbad9e01a6957f94306", size = 678086, upload-time = "2025-11-18T17:34:43.831Z" },
 ]
 
 [[package]]
