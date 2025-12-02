@@ -77,6 +77,9 @@ torch = [
 torchvision = [
   { index = "pytorch-cu126", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
+# mbo_utilities = { git = "https://github.com/MillerBrainObservatory/mbo_utilities.git", rev = "opt-imports" }
+mbo_utilities = { path = "../mbo_utilities"}
+
 
 # https://github.com/charliermarsh/ruff
 [tool.ruff]

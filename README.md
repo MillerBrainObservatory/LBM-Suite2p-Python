@@ -13,25 +13,60 @@ A GUI is available via [mbo_utilities](https://millerbrainobservatory.github.io/
 
 ## Installation
 
-See the [installation documentation](https://millerbrainobservatory.github.io/LBM-Suite2p-Python/install.html) for detailed instructions.
-
-### Base Installation
+LBM-Suite2p-Python is a pure `pip` install. You can use `venv`, `uv` (recommended), or `conda`. Just remove the `uv` prefix.
 
 ```bash
-pip install lbm_suite2p_python
+# create a new project folder
+mkdir my_project
+cd my_project
+
+# (uv only) create environment and install
+uv venv --python 3.12.9
+uv pip install lbm_suite2p_python
 ```
 
-### With Optional Dependencies
+### Optional Dependencies
 
 ```bash
 # With rastermap for activity clustering visualization
-pip install "lbm_suite2p_python[rastermap]"
+uv pip install "lbm_suite2p_python[rastermap]"
 
 # With cellpose for anatomical cell detection (includes PyTorch)
-pip install "lbm_suite2p_python[cellpose]"
+uv pip install "lbm_suite2p_python[cellpose]"
 
 # All optional dependencies
-pip install "lbm_suite2p_python[all]"
+uv pip install "lbm_suite2p_python[all]"
+```
+
+### Development Installation
+
+While this pipeline is in active development, you can keep a local copy to quickly pull changes:
+
+```bash
+git clone https://github.com/MillerBrainObservatory/LBM-Suite2p-Python.git
+cd LBM-Suite2p-Python
+uv pip install .
+```
+
+### GUI Dependencies
+
+**Linux / macOS:**
+
+```bash
+sudo apt install libxcursor-dev libgl1-mesa-dev libglu1-mesa-dev freeglut3-dev
+```
+
+**Windows:**
+Install [Microsoft Visual C++ Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist)
+
+### Troubleshooting
+
+When installing from github, you may get:
+
+**Git LFS Error:** If you see `smudge filter lfs failed`:
+
+```bash
+GIT_LFS_SKIP_SMUDGE=1 uv sync --all-extras --active
 ```
 
 ## Quick Start
@@ -57,56 +92,40 @@ results = lsp.pipeline(
 
 ## Planar Results
 
-Each z-plane produces a set of diagnostic images automatically saved during processing.
+Each z-plane produces diagnostic images automatically saved during processing.
 
 <p align="center">
-<img src="docs/_images/segmentation_summary.gif" alt="Segmentation Summary" width="700"/>
-<br><em>Segmentation summary: max projection, enhanced mean, and ROI overlay</em>
+<img src="docs/_images/segmentation_summary.gif" alt="Segmentation Summary" width="500"/>
+<br><em>Segmentation overlays on reference images</em>
 </p>
 
 <p align="center">
-<img src="docs/_images/05_quality_diagnostics.png" alt="Quality Diagnostics" width="700"/>
-<br><em>Quality Diagnostics: ROI quality diagnostics: size distribution, SNR, and compactness metrics</em>
+<img src="docs/_images/05_quality_diagnostics.png" alt="Quality Diagnostics" width="550"/>
+<br><em>ROI quality metrics: size, SNR, compactness</em>
 </p>
 
-<table>
-<tr>
-<td><img src="docs/_images/07_traces_raw.png" alt="Raw Traces" width="400"/></td>
-<td><img src="docs/_images/08_traces_dff.png" alt="ΔF/F Traces" width="400"/></td>
-</tr>
-<tr>
-<td align="center"><em>Raw fluorescence traces</em></td>
-<td align="center"><em>ΔF/F traces</em></td>
-</tr>
-</table>
+<p align="center">
+<img src="docs/_images/08_traces_dff.png" alt="ΔF/F Traces" width="500"/>
+<br><em>ΔF/F traces sorted by quality</em>
+</p>
 
 ## Volumetric Results
 
 Volume-level visualizations combine data across all z-planes.
 
 <p align="center">
-<img src="docs/_images/all_planes_masks.png" alt="All Planes Masks" width="700"/>
-<br><em>All Planes Masks: ROI masks across all z-planes in the volume</em>
+<img src="docs/_images/all_planes_masks.png" alt="All Planes Masks" width="550"/>
+<br><em>ROI masks across all z-planes</em>
 </p>
 
 <p align="center">
-<img src="docs/_images/orthoslices.png" alt="Orthoslices" width="700"/>
-<br><em>Orthoslices: Orthogonal volume slices (XY, XZ, YZ planes)</em>
+<img src="docs/_images/roi_map_3d_snr.png" alt="3D ROI Map" width="450"/>
+<br><em>3D ROI centroids colored by SNR</em>
 </p>
 
 <p align="center">
-<img src="docs/_images/roi_map_3d_snr.png" alt="3D ROI Map" width="700"/>
-<br><em>3D ROI Map: Accepted ROIs colored by SNR</em>
-</p>
-
-<p align="center">
-<img src="docs/_images/rastermap.png" alt="Rastermap" width="700"/>
-<br><em>Rastermap: Neural activity sorted by similarity using dimensionality reduction</em>
-</p>
-
-<p align="center">
-<img src="docs/_images/volume_trace_analysis.png" alt="Volume Trace Analysis" width="700"/>
-<br><em>Traces: Highest/Lowest SNR, Shot-Noise, and Skewness (activity) </em>
+<img src="docs/_images/rastermap.png" alt="Rastermap" width="550"/>
+<br><em>Activity sorted by similarity (Rastermap)</em>
 </p>
 
 
