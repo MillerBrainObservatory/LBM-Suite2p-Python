@@ -15,7 +15,6 @@ See:
 
 - {doc}`../user_guide` - Main documentation (includes parameter discussions)
 - [Suite2p Documentation](https://suite2p.readthedocs.io/) - Detailed algorithm explanations
-- [CLAUDE.md](https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/blob/master/CLAUDE.md) - Technical deep-dive
 
 ---
 
