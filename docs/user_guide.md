@@ -953,11 +953,11 @@ grid_params = {
 }
 
 # Run grid search on a single plane
-lsp.run_grid_search(
-    base_ops=ops,
-    grid_search_dict=grid_params,
+lsp.grid_search(
     input_file=test_plane_file,
-    save_root=grid_search_dir,
+    save_path=grid_search_dir,
+    grid_params=grid_params,
+    ops=ops,
     force_reg=False,
     force_detect=True  # Always re-run detection
 )
@@ -999,11 +999,11 @@ search_dict = {
     "block_size": [[128, 128], [64, 64]]
 }
 
-lsp.run_grid_search(
-    base_ops,
-    search_dict,
+lsp.grid_search(
     input_file=input_tiff,
-    save_root=save_path.joinpath("registration")
+    save_path=save_path / "registration",
+    grid_params=search_dict,
+    ops=base_ops,
 )
 ```
 
