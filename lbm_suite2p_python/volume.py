@@ -1069,7 +1069,8 @@ def plot_orthoslices(
     Generate orthogonal maximum intensity projections (XY, XZ, YZ) of the volume.
 
     Creates a 3-panel figure showing the volume from three orthogonal views,
-    which is standard in microscopy for visualizing 3D structure.
+    which is standard in microscopy for visualizing 3D structure. Axes are
+    displayed in micrometers when valid voxel size metadata is available.
 
     Parameters
     ----------
@@ -1094,6 +1095,26 @@ def plot_orthoslices(
         fig.text(0.5, 0.5, "No ops files provided", ha="center", va="center",
                 fontsize=16, fontweight="bold", color="white")
         return fig
+
+    # Get voxel size from first ops file
+    first_ops = load_ops(ops_files[0])
+    try:
+        from mbo_utilities.metadata import get_voxel_size
+        voxel = get_voxel_size(first_ops)
+        dx_um, dy_um, dz_um = voxel.dx, voxel.dy, voxel.dz
+    except ImportError:
+        # Fallback if mbo_utilities not available
+        pixel_res = first_ops.get("pixel_resolution", [1.0, 1.0])
+        if isinstance(pixel_res, (int, float)):
+            dx_um, dy_um = float(pixel_res), float(pixel_res)
+        else:
+            dx_um = float(pixel_res[0]) if len(pixel_res) > 0 else 1.0
+            dy_um = float(pixel_res[1]) if len(pixel_res) > 1 else dx_um
+        dz_um = float(first_ops.get("dz", first_ops.get("z_step", 15.0)))
+
+    # Check if we have valid (non-default) voxel sizes
+    has_valid_xy = dx_um != 1.0 or dy_um != 1.0
+    has_valid_z = dz_um != 1.0
 
     # Collect images from all planes
     images = []
@@ -1147,19 +1168,37 @@ def plot_orthoslices(
     fig = plt.figure(figsize=figsize, facecolor="black")
 
     # Calculate aspect ratios for proper scaling
-    # Assume z-spacing is ~15um and xy pixel is ~1um (typical for LBM)
-    z_scale = 15  # approximate z-step in microns
-    xy_scale = 1  # approximate xy pixel size
+    z_scale = dz_um
+    xy_scale = (dx_um + dy_um) / 2  # Average XY scale
 
     gs = fig.add_gridspec(1, 3, wspace=0.15, left=0.05, right=0.95, top=0.88, bottom=0.1)
+
+    # Determine axis labels and extent based on valid voxel size
+    if has_valid_xy:
+        x_label = "X (μm)"
+        y_label = "Y (μm)"
+        xy_extent = [0, nx * dx_um, ny * dy_um, 0]
+        xz_extent = [0, nx * dx_um, nz * dz_um, 0]
+        yz_extent = [0, nz * dz_um, ny * dy_um, 0]
+    else:
+        x_label = "X (pixels)"
+        y_label = "Y (pixels)"
+        xy_extent = None
+        xz_extent = None
+        yz_extent = None
+
+    if has_valid_z:
+        z_label = "Z (μm)"
+    else:
+        z_label = "Z (plane)"
 
     # Panel 1: XY projection (top-down view)
     ax1 = fig.add_subplot(gs[0, 0])
     ax1.set_facecolor("black")
-    im1 = ax1.imshow(xy_proj, cmap="magma", aspect="equal",
+    im1 = ax1.imshow(xy_proj, cmap="magma", aspect="equal", extent=xy_extent,
                      vmin=np.percentile(xy_proj, 1), vmax=np.percentile(xy_proj, 99.5))
-    ax1.set_xlabel("X (pixels)", fontsize=10, fontweight="bold", color="white")
-    ax1.set_ylabel("Y (pixels)", fontsize=10, fontweight="bold", color="white")
+    ax1.set_xlabel(x_label, fontsize=10, fontweight="bold", color="white")
+    ax1.set_ylabel(y_label, fontsize=10, fontweight="bold", color="white")
     ax1.set_title("XY Projection (top view)", fontsize=11, fontweight="bold", color="white")
     ax1.tick_params(colors="white", labelsize=8)
     for spine in ax1.spines.values():
@@ -1168,10 +1207,10 @@ def plot_orthoslices(
     # Panel 2: XZ projection (side view)
     ax2 = fig.add_subplot(gs[0, 1])
     ax2.set_facecolor("black")
-    im2 = ax2.imshow(xz_proj, cmap="magma", aspect=z_scale/xy_scale,
+    im2 = ax2.imshow(xz_proj, cmap="magma", aspect=z_scale/xy_scale, extent=xz_extent,
                      vmin=np.percentile(xz_proj, 1), vmax=np.percentile(xz_proj, 99.5))
-    ax2.set_xlabel("X (pixels)", fontsize=10, fontweight="bold", color="white")
-    ax2.set_ylabel("Z (plane)", fontsize=10, fontweight="bold", color="white")
+    ax2.set_xlabel(x_label, fontsize=10, fontweight="bold", color="white")
+    ax2.set_ylabel(z_label, fontsize=10, fontweight="bold", color="white")
     ax2.set_title("XZ Projection (front view)", fontsize=11, fontweight="bold", color="white")
     ax2.tick_params(colors="white", labelsize=8)
     for spine in ax2.spines.values():
@@ -1180,10 +1219,10 @@ def plot_orthoslices(
     # Panel 3: YZ projection (side view)
     ax3 = fig.add_subplot(gs[0, 2])
     ax3.set_facecolor("black")
-    im3 = ax3.imshow(yz_proj.T, cmap="magma", aspect=xy_scale/z_scale,
+    im3 = ax3.imshow(yz_proj.T, cmap="magma", aspect=xy_scale/z_scale, extent=yz_extent,
                      vmin=np.percentile(yz_proj, 1), vmax=np.percentile(yz_proj, 99.5))
-    ax3.set_xlabel("Z (plane)", fontsize=10, fontweight="bold", color="white")
-    ax3.set_ylabel("Y (pixels)", fontsize=10, fontweight="bold", color="white")
+    ax3.set_xlabel(z_label, fontsize=10, fontweight="bold", color="white")
+    ax3.set_ylabel(y_label, fontsize=10, fontweight="bold", color="white")
     ax3.set_title("YZ Projection (side view)", fontsize=11, fontweight="bold", color="white")
     ax3.tick_params(colors="white", labelsize=8)
     for spine in ax3.spines.values():
@@ -1195,8 +1234,16 @@ def plot_orthoslices(
     cbar.ax.tick_params(colors="white")
     cbar.outline.set_edgecolor("white")
 
-    fig.suptitle(f"Orthogonal Projections: {nz} planes, {ny}×{nx} pixels",
-                fontsize=12, fontweight="bold", color="white", y=0.96)
+    # Title with volume dimensions in appropriate units
+    if has_valid_xy and has_valid_z:
+        vol_x = nx * dx_um
+        vol_y = ny * dy_um
+        vol_z = nz * dz_um
+        title = f"Orthogonal Projections: {nz} planes, {vol_x:.0f}×{vol_y:.0f}×{vol_z:.0f} μm"
+    else:
+        title = f"Orthogonal Projections: {nz} planes, {ny}×{nx} pixels"
+
+    fig.suptitle(title, fontsize=12, fontweight="bold", color="white", y=0.96)
 
     if save_path:
         save_path = Path(save_path)
@@ -1218,7 +1265,8 @@ def plot_3d_roi_map(
     Generate a 3D scatter plot of ROI centroids across the volume.
 
     Creates a 3D visualization showing the spatial distribution of detected
-    cells colored by SNR, with axes in microns based on pixel resolution.
+    cells colored by SNR. Axes are displayed in micrometers when valid voxel
+    size metadata is available, otherwise in pixels/planes.
 
     Parameters
     ----------
@@ -1246,17 +1294,25 @@ def plot_3d_roi_map(
                 fontsize=16, fontweight="bold", color="white")
         return fig
 
-    # Get pixel resolution from first ops file
+    # Get voxel size from first ops file
     first_ops = load_ops(ops_files[0])
-    # pixel_resolution is [dx, dy] in microns/pixel, default to 1.0 if not found
-    pixel_res = first_ops.get("pixel_resolution", [1.0, 1.0])
-    if isinstance(pixel_res, (int, float)):
-        dx_um, dy_um = pixel_res, pixel_res
-    else:
-        dx_um = pixel_res[0] if len(pixel_res) > 0 else 1.0
-        dy_um = pixel_res[1] if len(pixel_res) > 1 else dx_um
-    # z-spacing in microns (default 15 um for LBM)
-    dz_um = first_ops.get("z_spacing", first_ops.get("dz", 15.0))
+    try:
+        from mbo_utilities.metadata import get_voxel_size
+        voxel = get_voxel_size(first_ops)
+        dx_um, dy_um, dz_um = voxel.dx, voxel.dy, voxel.dz
+    except ImportError:
+        # Fallback if mbo_utilities not available
+        pixel_res = first_ops.get("pixel_resolution", [1.0, 1.0])
+        if isinstance(pixel_res, (int, float)):
+            dx_um, dy_um = float(pixel_res), float(pixel_res)
+        else:
+            dx_um = float(pixel_res[0]) if len(pixel_res) > 0 else 1.0
+            dy_um = float(pixel_res[1]) if len(pixel_res) > 1 else dx_um
+        dz_um = float(first_ops.get("dz", first_ops.get("z_step", 15.0)))
+
+    # Check if we have valid (non-default) voxel sizes
+    has_valid_xy = dx_um != 1.0 or dy_um != 1.0
+    has_valid_z = dz_um != 1.0
 
     # Collect ROI data from all planes
     all_x = []
@@ -1405,10 +1461,14 @@ def plot_3d_roi_map(
     cbar.ax.tick_params(colors="white")
     cbar.outline.set_edgecolor("white")
 
-    # Style axes with micron units
-    ax.set_xlabel("X (μm)", fontsize=10, fontweight="bold", color="white", labelpad=10)
-    ax.set_ylabel("Y (μm)", fontsize=10, fontweight="bold", color="white", labelpad=10)
-    ax.set_zlabel("Z (μm)", fontsize=10, fontweight="bold", color="white", labelpad=10)
+    # Style axes with appropriate units based on valid voxel size
+    x_label = "X (μm)" if has_valid_xy else "X (pixels)"
+    y_label = "Y (μm)" if has_valid_xy else "Y (pixels)"
+    z_label = "Z (μm)" if has_valid_z else "Z (plane)"
+
+    ax.set_xlabel(x_label, fontsize=10, fontweight="bold", color="white", labelpad=10)
+    ax.set_ylabel(y_label, fontsize=10, fontweight="bold", color="white", labelpad=10)
+    ax.set_zlabel(z_label, fontsize=10, fontweight="bold", color="white", labelpad=10)
 
     ax.tick_params(colors="white", labelsize=8)
     ax.xaxis.label.set_color("white")
@@ -1426,9 +1486,14 @@ def plot_3d_roi_map(
     x_range = all_x.max() - all_x.min()
     y_range = all_y.max() - all_y.min()
     z_range = all_z.max() - all_z.min()
+
+    if has_valid_xy and has_valid_z:
+        vol_str = f"Volume: {x_range:.0f} × {y_range:.0f} × {z_range:.0f} μm"
+    else:
+        vol_str = f"Volume: {x_range:.0f} × {y_range:.0f} × {z_range:.0f}"
+
     fig.suptitle(
-        f"3D ROI Distribution: {n_cells} cells across {n_planes} planes\n"
-        f"Volume: {x_range:.0f} × {y_range:.0f} × {z_range:.0f} μm",
+        f"3D ROI Distribution: {n_cells} cells across {n_planes} planes\n{vol_str}",
         fontsize=12, fontweight="bold", color="white", y=0.95
     )
 

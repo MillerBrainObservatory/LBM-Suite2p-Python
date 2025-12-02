@@ -278,7 +278,7 @@ def plot_traces(
         lw=0.5,
         cmap="tab10",
         scale_bar_label: str = None,
-        mask_overlap: bool = False,
+        mask_overlap: bool = True,
 ) -> None:
     """
     Plot stacked fluorescence traces with automatic offset and scale bars.
@@ -310,7 +310,7 @@ def plot_traces(
         If None, defaults to "10% height" with a warning.
     cell_indices : array-like or None
         Specific cell indices to plot. If provided, overrides num_neurons.
-    mask_overlap : bool, default False
+    mask_overlap : bool, default True
         If True, lower traces mask (occlude) traces above them, creating
         a layered effect where each trace has a black background.
     """

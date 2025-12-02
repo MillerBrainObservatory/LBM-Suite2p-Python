@@ -323,7 +323,7 @@ def pipeline(
     ops["Lx"] = Lx
     ops["nframes"] = num_frames
 
-    # === STEP 3: Determine planes to process ===
+    # Determine planes to process
     if planes is None:
         planes_to_process = list(range(num_planes))
     elif isinstance(planes, int):
@@ -335,13 +335,13 @@ def pipeline(
     print(f"  Planes: {[p+1 for p in planes_to_process]}")
     print(f"  Output: {save_path}")
 
-    # === STEP 4: Handle ROI selection ===
+    # Handle ROI selection
     if roi is not None and supports_roi(arr):
         arr.roi = roi
         roi_desc = {None: "stitch all", 0: "split all"}.get(roi, f"ROI {roi} only")
         print(f"  ROI mode: {roi_desc}")
 
-    # === STEP 5: Process each plane ===
+    # rocess each plane
     all_ops_files = []
 
     for plane_idx in planes_to_process:
