@@ -277,7 +277,7 @@ def plot_traces(
         offset=None,
         lw=0.5,
         cmap="tab10",
-        scale_bar_label: str = None,
+        scale_bar_unit: str = None,
         mask_overlap: bool = True,
 ) -> None:
     """
@@ -303,30 +303,18 @@ def plot_traces(
         Line width for data points.
     cmap : str
         Matplotlib colormap string.
-    scale_bar_label : str, optional
-        Label for the vertical scale bar. The scale bar is always 10% of
-        the figure height; this label describes what that height represents.
-        Examples: "50% ΔF/F₀", "100 a.u.", "Raw F".
-        If None, defaults to "10% height" with a warning.
+    scale_bar_unit : str, optional
+        Unit suffix for the vertical scale bar (e.g., "% ΔF/F₀", "a.u.").
+        The numeric value is computed automatically based on the plot's
+        vertical scale. If None, inferred from data range.
     cell_indices : array-like or None
         Specific cell indices to plot. If provided, overrides num_neurons.
     mask_overlap : bool, default True
         If True, lower traces mask (occlude) traces above them, creating
         a layered effect where each trace has a black background.
     """
-    import warnings
-
     if isinstance(f, dict):
         raise ValueError("f must be a numpy array, not a dictionary")
-
-    if scale_bar_label is None:
-        warnings.warn(
-            "No scale_bar_label provided. Use scale_bar_label to specify units "
-            "(e.g., '50% ΔF/F₀' for dF/F, '100 a.u.' for raw fluorescence).",
-            UserWarning,
-            stacklevel=2,
-        )
-        scale_bar_label = "10% height"
 
     n_timepoints = f.shape[-1]
     data_time = np.arange(n_timepoints) / fps
@@ -396,12 +384,6 @@ def plot_traces(
             zorder=z,
         )
 
-    # Set y-limits based on shifted traces with minimal padding
-    y_min = np.min(shifted_traces)
-    y_max = np.max(shifted_traces)
-    y_padding = (y_max - y_min) * 0.02
-    ax.set_ylim(y_min - y_padding, y_max + y_padding)
-
     time_bar_length = 0.1 * window
     if time_bar_length < 60:
         time_label = f"{time_bar_length:.0f} s"
@@ -410,35 +392,77 @@ def plot_traces(
     else:
         time_label = f"{time_bar_length / 3600:.1f} hr"
 
+    # Set y-limits with small padding (no extra space for scalebars - they go outside)
+    y_min = np.min(shifted_traces)
+    y_max = np.max(shifted_traces)
+    y_range = y_max - y_min
+    ax.set_ylim(y_min - y_range * 0.02, y_max + y_range * 0.02)
+
+    # Compute vertical scale bar value (10% of y-range in data units)
+    scale_bar_height_frac = 0.10  # 10% of axes height
+    scale_bar_data_value = y_range * scale_bar_height_frac
+
+    # Use provided unit or default to "a.u."
+    if scale_bar_unit is None:
+        scale_bar_unit = "a.u."
+
+    # Format the scale bar label with computed value
+    if scale_bar_data_value >= 100:
+        scale_bar_label = f"{int(round(scale_bar_data_value, -1))} {scale_bar_unit}"
+    elif scale_bar_data_value >= 10:
+        scale_bar_label = f"{int(round(scale_bar_data_value))} {scale_bar_unit}"
+    elif scale_bar_data_value >= 1:
+        scale_bar_label = f"{scale_bar_data_value:.0f} {scale_bar_unit}"
+    else:
+        scale_bar_label = f"{scale_bar_data_value:.2f} {scale_bar_unit}"
+
+    # Adjust subplot to make room for scalebars at bottom and right
+    fig.subplots_adjust(bottom=0.12, right=0.88)
+
     linekw = dict(color="white", linewidth=3)
-    hsb = AnchoredHScaleBar(
-        size=0.1,
-        label=time_label,
-        loc=4,
-        frameon=False,
-        pad=0.6,
-        sep=4,
-        linekw=linekw,
-        ax=ax,
+
+    # Time scale bar - use fig.text for fixed position below axes
+    # Get axes position in figure coordinates
+    ax_pos = ax.get_position()
+    time_bar_x = ax_pos.x1 - 0.02  # right side of axes
+    time_bar_y = 0.07  # fixed position just below axes
+
+    # Draw horizontal line for time scale bar
+    line_width_fig = 0.08  # width in figure coords
+    fig.add_artist(plt.Line2D(
+        [time_bar_x - line_width_fig, time_bar_x],
+        [time_bar_y, time_bar_y],
+        transform=fig.transFigure,
+        color="white",
+        linewidth=3,
+        clip_on=False,
+    ))
+    # Add time label
+    fig.text(
+        time_bar_x - line_width_fig / 2,
+        time_bar_y - 0.02,
+        time_label,
+        ha="center",
+        va="top",
+        color="white",
+        fontsize=10,
+        transform=fig.transFigure,
     )
-    hsb.set_bbox_to_anchor((0.9, -0.05), transform=ax.transAxes)  # noqa
-    hsb.txt._text.set_color("white")  # noqa
 
-    ax.add_artist(hsb)
-
-    # Vertical scale bar is 10% of figure height with user-supplied label
+    # Vertical scale bar - positioned just outside right edge, bottom aligned with x-axis
     vsb = AnchoredVScaleBar(
-        height=0.10,
+        height=scale_bar_height_frac,
         label=scale_bar_label,
         loc="lower right",
         frameon=False,
-        pad=-0.1,
+        pad=0.5,
         sep=4,
         linekw=linekw,
         ax=ax,
         spacer_width=0,
     )
-    vsb.set_bbox_to_anchor((1.00, 0.05), transform=ax.transAxes)
+    # Position just outside right edge of axes, bottom at y=0
+    vsb.set_bbox_to_anchor((1.02, 0.0), transform=ax.transAxes)
     vsb.txt._text.set_color("white")
     ax.add_artist(vsb)
 
@@ -447,10 +471,10 @@ def plot_traces(
 
     ax.set_ylabel(
         f"Neuron Count: {displayed_neurons}",
-        fontsize=8,
+        fontsize=10,
         fontweight="bold",
         color="white",
-        labelpad=2,
+        labelpad=5,
     )
 
     if save_path:
@@ -1196,7 +1220,6 @@ def save_pc_panels_and_metrics(ops, savepath, pcs=(0, 1, 2, 3)):
         imagej=True,
         metadata={"Labels": panel_labels},
     )
-    print(f"Saved panel TIFF to {panel_tiff}")
 
     df = pd.DataFrame(regDX, columns=["Rigid", "Avg_NR", "Max_NR"])
     metrics = {
@@ -1209,8 +1232,6 @@ def save_pc_panels_and_metrics(ops, savepath, pcs=(0, 1, 2, 3)):
     }
     csv_path = savepath.with_suffix(".csv")
     pd.DataFrame([metrics]).to_csv(csv_path, index=False)
-    print(f"Saved metrics CSV to {csv_path}")
-    print(df.head())
 
     return {
         "panel_tiff": panel_tiff,
@@ -2353,13 +2374,17 @@ def plot_zplane_figures(
         # Diagnostics and analysis
         "quality_diagnostics": plane_dir / "05_quality_diagnostics.png",
         "registration": plane_dir / "06_registration.png",
-        # Traces
-        "traces_raw": plane_dir / "07_traces_raw.png",
-        "traces_dff": plane_dir / "08_traces_dff.png",
-        "traces_noise": plane_dir / "09_traces_noise.png",
+        # Traces - multiple cell counts
+        "traces_raw_20": plane_dir / "07a_traces_raw_20.png",
+        "traces_raw_50": plane_dir / "07b_traces_raw_50.png",
+        "traces_raw_100": plane_dir / "07c_traces_raw_100.png",
+        "traces_dff_20": plane_dir / "08a_traces_dff_20.png",
+        "traces_dff_50": plane_dir / "08b_traces_dff_50.png",
+        "traces_dff_100": plane_dir / "08c_traces_dff_100.png",
+        "traces_rejected": plane_dir / "09_traces_rejected.png",
         # Noise distributions
-        "noise_acc": plane_dir / "10_noise_accepted.png",
-        "noise_rej": plane_dir / "11_noise_rejected.png",
+        "noise_acc": plane_dir / "10_shot_noise_accepted.png",
+        "noise_rej": plane_dir / "11_shot_noise_rejected.png",
         # Rastermap
         "model": plane_dir / "model.npy",
         "rastermap": plane_dir / "12_rastermap.png",
@@ -2374,9 +2399,13 @@ def plot_zplane_figures(
     # force remake of the heavy figures
     for key in [
         "registration",
-        "traces_raw",
-        "traces_dff",
-        "traces_noise",
+        "traces_raw_20",
+        "traces_raw_50",
+        "traces_raw_100",
+        "traces_dff_20",
+        "traces_dff_50",
+        "traces_dff_100",
+        "traces_rejected",
         "noise_acc",
         "noise_rej",
         "rastermap",
@@ -2431,12 +2460,22 @@ def plot_zplane_figures(
                 if model_file.is_file():
                     try:
                         cached_model = np.load(model_file, allow_pickle=True).item()
-                        if hasattr(cached_model, "isort") and len(cached_model.isort) == n_accepted:
+                        # Handle both direct model objects and dict wrappers
+                        if hasattr(cached_model, "isort"):
+                            cached_isort = cached_model.isort
+                        elif isinstance(cached_model, dict) and "isort" in cached_model:
+                            cached_isort = cached_model["isort"]
+                        else:
+                            cached_isort = None
+
+                        if cached_isort is not None and len(cached_isort) == n_accepted:
                             model = cached_model
                             need_recompute = False
+                            print(f"  Using cached rastermap model ({n_accepted} cells)")
                         else:
                             # stale model - cell count changed since last run
-                            print(f"  Rastermap model stale (cached {len(cached_model.isort) if hasattr(cached_model, 'isort') else '?'} vs current {n_accepted} cells), recomputing...")
+                            cached_len = len(cached_isort) if cached_isort is not None else "?"
+                            print(f"  Rastermap model stale (cached {cached_len} vs current {n_accepted} cells), recomputing...")
                             model_file.unlink()
                     except Exception as e:
                         print(f"  Failed to load cached rastermap model: {e}, recomputing...")
@@ -2444,6 +2483,7 @@ def plot_zplane_figures(
 
                 # fit new model if needed
                 if need_recompute:
+                    print(f"  Computing rastermap model for {n_accepted} cells...")
                     params = {
                         "n_clusters": 100 if n_accepted >= 200 else None,
                         "n_PCs": min(128, max(2, n_accepted - 1)),
@@ -2467,15 +2507,34 @@ def plot_zplane_figures(
 
                 # apply sorting to traces for downstream plots
                 if model is not None:
-                    isort_global = np.where(iscell_mask)[0][model.isort]
-                    output_ops["isort"] = isort_global
-                    F_accepted = F_accepted[model.isort]
+                    # Handle both direct model objects and dict wrappers
+                    if hasattr(model, "isort"):
+                        isort = model.isort
+                    elif isinstance(model, dict) and "isort" in model:
+                        isort = model["isort"]
+                    else:
+                        isort = None
+
+                    if isort is not None:
+                        isort_global = np.where(iscell_mask)[0][isort]
+                        output_ops["isort"] = isort_global
+                        F_accepted = F_accepted[isort]
 
         # --- COMPUTE ΔF/F ---
         fs = output_ops.get("fs", 1.0)
         tau = output_ops.get("tau", 1.0)
 
+        # Compute unsmoothed dF/F for shot noise (smoothing reduces frame-to-frame variance)
         if n_accepted > 0:
+            dffp_acc_unsmoothed = dff_rolling_percentile(
+                F_accepted,
+                percentile=dff_percentile,
+                window_size=dff_window_size,
+                smooth_window=1,  # No smoothing for shot noise
+                fs=fs,
+                tau=tau,
+            ) * 100
+            # Smoothed version for trace plotting
             dffp_acc = dff_rolling_percentile(
                 F_accepted,
                 percentile=dff_percentile,
@@ -2485,9 +2544,19 @@ def plot_zplane_figures(
                 tau=tau,
             ) * 100
         else:
+            dffp_acc_unsmoothed = np.zeros((0, F.shape[1]))
             dffp_acc = np.zeros((0, F.shape[1]))
 
         if n_rejected > 0:
+            dffp_rej_unsmoothed = dff_rolling_percentile(
+                F_rejected,
+                percentile=dff_percentile,
+                window_size=dff_window_size,
+                smooth_window=1,  # No smoothing for shot noise
+                fs=fs,
+                tau=tau,
+            ) * 100
+            # Smoothed version for trace plotting
             dffp_rej = dff_rolling_percentile(
                 F_rejected,
                 percentile=dff_percentile,
@@ -2497,11 +2566,12 @@ def plot_zplane_figures(
                 tau=tau,
             ) * 100
         else:
+            dffp_rej_unsmoothed = np.zeros((0, F.shape[1]))
             dffp_rej = np.zeros((0, F.shape[1]))
 
         # --- TRACE PLOTS (robust to any cell count >= 1) ---
         # Sort traces by quality score (SNR, skewness, shot noise) for visualization
-        plot_n_traces = output_ops.get("plot_n_traces", 20)
+        # Generate plots with 20, 50, and 100 cells if available
 
         if n_accepted > 0:
             # Get accepted cell stat for skewness
@@ -2520,44 +2590,73 @@ def plot_zplane_figures(
             dffp_acc_sorted = dffp_acc[quality_sort_idx]
             F_accepted_sorted = F_accepted[quality_sort_idx]
 
-            plot_traces(
-                dffp_acc_sorted,
-                save_path=expected_files["traces_dff"],
-                num_neurons=min(plot_n_traces, n_accepted),
-                scale_bar_label=r"50% $\Delta$F/F$_0$",
-                title=r"Top {} $\Delta$F/F Traces by Quality (n={} total)".format(
-                    min(plot_n_traces, n_accepted), n_accepted
-                ),
-            )
-            plot_traces(
-                F_accepted_sorted,
-                save_path=expected_files["traces_raw"],
-                num_neurons=min(plot_n_traces, n_accepted),
-                scale_bar_label="a.u.",
-                title=f"Top {min(plot_n_traces, n_accepted)} Raw Traces by Quality (n={n_accepted} total)",
-            )
+            # Generate trace plots at multiple cell counts
+            cell_counts = [20, 50, 100]
+            for n_cells in cell_counts:
+                if n_accepted >= n_cells:
+                    # dF/F traces (percent)
+                    plot_traces(
+                        dffp_acc_sorted,
+                        save_path=expected_files[f"traces_dff_{n_cells}"],
+                        num_neurons=n_cells,
+                        scale_bar_unit=r"% $\Delta$F/F$_0$",
+                        title=rf"Top {n_cells} $\Delta$F/F Traces by Quality (n={n_accepted} total)",
+                    )
+                    # Raw traces
+                    plot_traces(
+                        F_accepted_sorted,
+                        save_path=expected_files[f"traces_raw_{n_cells}"],
+                        num_neurons=n_cells,
+                        scale_bar_unit="a.u.",
+                        title=f"Top {n_cells} Raw Traces by Quality (n={n_accepted} total)",
+                    )
+                elif n_cells == 20:
+                    # Always generate 20-cell plot even if fewer cells available
+                    plot_traces(
+                        dffp_acc_sorted,
+                        save_path=expected_files["traces_dff_20"],
+                        num_neurons=min(20, n_accepted),
+                        scale_bar_unit=r"% $\Delta$F/F$_0$",
+                        title=rf"Top {min(20, n_accepted)} $\Delta$F/F Traces by Quality (n={n_accepted} total)",
+                    )
+                    plot_traces(
+                        F_accepted_sorted,
+                        save_path=expected_files["traces_raw_20"],
+                        num_neurons=min(20, n_accepted),
+                        scale_bar_unit="a.u.",
+                        title=f"Top {min(20, n_accepted)} Raw Traces by Quality (n={n_accepted} total)",
+                    )
         else:
             print("  No accepted cells - skipping accepted trace plots")
 
         if n_rejected > 0:
             plot_traces(
                 dffp_rej,
-                save_path=expected_files["traces_noise"],
-                num_neurons=min(plot_n_traces, n_rejected),
-                scale_bar_label=r"50% $\Delta$F/F$_0$",
-                title=r"$\Delta$F/F Traces - Rejected ROIs (n={})".format(n_rejected),
+                save_path=expected_files["traces_rejected"],
+                num_neurons=min(20, n_rejected),
+                scale_bar_unit=r"% $\Delta$F/F$_0$",
+                title=rf"$\Delta$F/F Traces - Rejected ROIs (n={n_rejected})",
             )
         else:
             print("  No rejected ROIs - skipping rejected trace plots")
 
         # --- NOISE DISTRIBUTIONS (robust to any cell count >= 1) ---
+        # Use unsmoothed dF/F for shot noise (smoothing artificially reduces noise)
         if n_accepted > 0:
-            dff_noise_acc = dff_shot_noise(dffp_acc, fs)
-            plot_noise_distribution(dff_noise_acc, output_filename=expected_files["noise_acc"])
+            dff_noise_acc = dff_shot_noise(dffp_acc_unsmoothed, fs)
+            plot_noise_distribution(
+                dff_noise_acc,
+                output_filename=expected_files["noise_acc"],
+                title=f"Shot-Noise Distribution (Accepted, n={n_accepted})",
+            )
 
         if n_rejected > 0:
-            dff_noise_rej = dff_shot_noise(dffp_rej, fs)
-            plot_noise_distribution(dff_noise_rej, output_filename=expected_files["noise_rej"])
+            dff_noise_rej = dff_shot_noise(dffp_rej_unsmoothed, fs)
+            plot_noise_distribution(
+                dff_noise_rej,
+                output_filename=expected_files["noise_rej"],
+                title=f"Shot-Noise Distribution (Rejected, n={n_rejected})",
+            )
 
         # --- SEGMENTATION OVERLAYS ---
         # Suite2p stores images in two coordinate systems:
@@ -2688,15 +2787,6 @@ def plot_zplane_figures(
     # --- QUALITY DIAGNOSTICS ---
     try:
         plot_plane_diagnostics(plane_dir, save_path=expected_files["quality_diagnostics"])
-        print(f"  Saved: {expected_files['quality_diagnostics'].name}")
-    except Exception as e:
-        print(f"  Failed to generate quality diagnostics: {e}")
-
-    # Generate single-figure diagnostic summary
-    try:
-        diagnostics_path = plane_dir / "quality_diagnostics.png"
-        plot_plane_diagnostics(plane_dir, save_path=diagnostics_path)
-        print(f"  Saved: quality_diagnostics.png")
     except Exception as e:
         print(f"  Failed to generate quality diagnostics: {e}")
 

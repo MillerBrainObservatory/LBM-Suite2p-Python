@@ -15,6 +15,7 @@ from lbm_suite2p_python.postprocessing import (
     ops_to_json,
     load_planar_results,
     load_ops,
+    dff_rolling_percentile,
 )
 from mbo_utilities.log import get as get_logger
 
@@ -33,7 +34,14 @@ from lbm_suite2p_python.volume import (
 )
 from mbo_utilities.file_io import (
     get_plane_from_filename,
-)  # derive_tag_from_filename, PIPELINE_TAGS
+)
+from mbo_utilities.arrays import (
+    iter_rois,
+    supports_roi,
+    _normalize_planes,
+    _build_output_path,
+)
+from mbo_utilities._writers import _write_plane
 
 PIPELINE_TAGS = ("plane", "roi", "z", "plane_", "roi_", "z_")
 
@@ -213,7 +221,6 @@ def pipeline(
     grid_search : Parameter optimization
     """
     from mbo_utilities import imread
-    from mbo_utilities.arrays import iter_rois, supports_roi
 
     start_time = time.time()
 
@@ -285,21 +292,35 @@ def pipeline(
     save_path = Path(save_path)
     save_path.mkdir(exist_ok=True, parents=True)
 
-    # === STEP 2: Extract metadata and configure ops ===
-    metadata = getattr(arr, "metadata", {}) or {}
+    # === STEP 2: Configure ROI on the lazy array ===
+    # This lets the array handle stitching/splitting internally
+    if roi is not None and supports_roi(arr):
+        arr.roi = roi
+        roi_desc = {None: "stitch all", 0: "split all"}.get(roi, f"ROI {roi} only")
+        print(f"  ROI mode: {roi_desc}")
 
-    # Get array dimensions
+    # === STEP 3: Extract metadata and configure ops ===
+    metadata = dict(getattr(arr, "metadata", {}) or {})
+
+    # Get dimensions from the array (which now reflects ROI setting)
     num_planes = _get_num_planes_from_array(arr)
     num_frames = arr.shape[0]
     Ly, Lx = arr.shape[-2], arr.shape[-1]
 
     print(f"\nDataset info:")
-    print(f"  Shape: {arr.shape} (T, Z, Y, X)")
+    print(f"  Shape: {arr.shape}")
     print(f"  Frames: {num_frames}")
     print(f"  Planes: {num_planes}")
     print(f"  Dimensions: {Ly} x {Lx}")
-    if "fs" in metadata or "frame_rate" in metadata:
-        fs = metadata.get("fs", metadata.get("frame_rate"))
+
+    # Show MboRawArray-specific settings
+    if hasattr(arr, "fix_phase"):
+        print(f"  Phase correction: {arr.fix_phase}")
+    if hasattr(arr, "use_fft"):
+        print(f"  FFT subpixel: {arr.use_fft}")
+
+    fs = metadata.get("fs", metadata.get("frame_rate"))
+    if fs:
         print(f"  Frame rate: {fs:.2f} Hz")
     if supports_roi(arr):
         print(f"  ROIs: {getattr(arr, 'num_rois', 1)}")
@@ -313,77 +334,64 @@ def pipeline(
         ops = base_ops
 
     # Auto-populate from metadata
-    if "fs" in metadata or "frame_rate" in metadata:
-        ops["fs"] = metadata.get("fs", metadata.get("frame_rate", ops.get("fs", 30.0)))
+    if fs:
+        ops["fs"] = fs
     if "pixel_resolution" in metadata:
-        ops["dx"] = metadata["pixel_resolution"][0]
-        ops["dy"] = metadata["pixel_resolution"][1]
+        pr = metadata["pixel_resolution"]
+        if isinstance(pr, (list, tuple)) and len(pr) >= 2:
+            ops["dx"] = pr[0]
+            ops["dy"] = pr[1]
 
     ops["Ly"] = Ly
     ops["Lx"] = Lx
     ops["nframes"] = num_frames
 
-    # Determine planes to process
-    if planes is None:
-        planes_to_process = list(range(num_planes))
-    elif isinstance(planes, int):
-        planes_to_process = [planes - 1]  # Convert 1-indexed to 0-indexed
-    else:
-        planes_to_process = [p - 1 for p in planes]  # Convert 1-indexed to 0-indexed
+    # Normalize planes to 0-indexed list using mbo_utilities helper
+    planes_to_process = _normalize_planes(planes, num_planes)
 
     print(f"\nProcessing plan:")
     print(f"  Planes: {[p+1 for p in planes_to_process]}")
     print(f"  Output: {save_path}")
 
-    # Handle ROI selection
-    if roi is not None and supports_roi(arr):
-        arr.roi = roi
-        roi_desc = {None: "stitch all", 0: "split all"}.get(roi, f"ROI {roi} only")
-        print(f"  ROI mode: {roi_desc}")
-
-    # rocess each plane
+    # === STEP 4: Process each plane and ROI combination ===
     all_ops_files = []
+    has_multiple_rois = supports_roi(arr) and getattr(arr, "num_rois", 1) > 1
 
     for plane_idx in planes_to_process:
-        plane_num = plane_idx + 1  # 1-indexed for display and filenames
+        plane_num = plane_idx + 1  # 1-indexed for display
         plane_start = time.time()
 
         print(f"\n{'='*60}")
         print(f"Processing plane {plane_num}/{num_planes}")
         print(f"{'='*60}")
 
-        # Determine ROIs to iterate over
-        if supports_roi(arr):
-            roi_list = list(iter_rois(arr))
-        else:
-            roi_list = [None]
-
-        for current_roi in roi_list:
-            # Set ROI on array if supported
+        # Iterate over ROIs using the array's built-in semantics
+        for current_roi in iter_rois(arr):
+            # Set ROI on array - this changes what __getitem__ returns
             if current_roi is not None and supports_roi(arr):
                 arr.roi = current_roi
 
-            # Build output directory name
-            if current_roi is not None and current_roi > 0:
-                plane_tag = f"plane{plane_num:02d}_roi{current_roi}"
-            else:
-                plane_tag = f"plane{plane_num:02d}"
-                if supports_roi(arr) and getattr(arr, "num_rois", 1) > 1 and current_roi is None:
-                    plane_tag += "_stitched"
-
-            plane_dir = save_path / plane_tag
-            plane_dir.mkdir(exist_ok=True, parents=True)
+            # Build output directory using mbo_utilities convention
+            bin_file = _build_output_path(
+                save_path,
+                plane_idx,
+                current_roi,
+                ext="bin",
+                structural=False,
+                has_multiple_rois=has_multiple_rois,
+            )
+            plane_dir = bin_file.parent
+            plane_tag = plane_dir.name
 
             # Check if already processed
             ops_file = plane_dir / "ops.npy"
             stat_file = plane_dir / "stat.npy"
 
             if ops_file.exists() and stat_file.exists() and not force_reg and not force_detect:
-                print(f"  Skipping {plane_tag}: already complete (use force_detect=True to reprocess)")
+                print(f"  Skipping {plane_tag}: already complete")
                 all_ops_files.append(ops_file)
                 # Still regenerate plots for existing results
                 try:
-                    print(f"  Regenerating plots...")
                     plot_zplane_figures(
                         plane_dir,
                         dff_percentile=dff_percentile,
@@ -394,46 +402,43 @@ def pipeline(
                     print(f"  Warning: Plot generation failed: {e}")
                 continue
 
-            # Extract single plane data
-            # Arrays are TZYX: arr[:, plane_idx, :, :]
+            # Get dimensions for this specific ROI/plane combination
+            # The array's __getitem__ will handle phase correction, ROI stitching, etc.
             if num_planes > 1:
-                plane_data = arr[:, plane_idx, :, :]
+                sample_frame = arr[0, plane_idx]
             else:
-                # Single plane - may be TYX or TZYX with Z=1
-                if arr.ndim == 4:
-                    plane_data = arr[:, 0, :, :]
-                else:
-                    plane_data = arr
+                sample_frame = arr[0] if arr.ndim == 3 else arr[0, 0]
 
-            # Get plane shape
-            plane_Ly = plane_data.shape[-2]
-            plane_Lx = plane_data.shape[-1]
-            plane_nframes = plane_data.shape[0]
+            plane_Ly, plane_Lx = sample_frame.shape[-2], sample_frame.shape[-1]
+            plane_nframes = num_frames
 
-            # Update ops for this plane - include all fields needed by run_plane_bin
-            bin_file = plane_dir / "data_raw.bin"
+            # Build ops for this plane
             plane_ops = copy.deepcopy(ops)
-            plane_ops["Ly"] = plane_Ly
-            plane_ops["Lx"] = plane_Lx
-            plane_ops["nframes"] = plane_nframes
-            plane_ops["nframes_chan1"] = plane_nframes
-            plane_ops["plane"] = plane_num
-            plane_ops["data_path"] = str(plane_dir)
-            plane_ops["save_path"] = str(plane_dir)
-            plane_ops["ops_path"] = str(ops_file)
-            plane_ops["raw_file"] = str(bin_file)
+            plane_ops.update({
+                "Ly": plane_Ly,
+                "Lx": plane_Lx,
+                "nframes": plane_nframes,
+                "nframes_chan1": plane_nframes,
+                "plane": plane_num,
+                "data_path": str(plane_dir),
+                "save_path": str(plane_dir),
+                "ops_path": str(ops_file),
+                "raw_file": str(bin_file),
+                "shape": (plane_nframes, plane_Ly, plane_Lx),
+            })
 
-            # Write binary file using mbo_utilities._write_plane
-            # This also creates ops.npy via write_ops()
+            # Write binary using _write_plane - it handles plane extraction internally
             if not bin_file.exists() or force_reg:
                 print(f"  Writing binary ({plane_nframes} frames, {plane_Ly}x{plane_Lx})...")
-                from mbo_utilities._writers import _write_plane
+
+                # _write_plane uses plane_index to extract the correct z-plane
+                # The array's __getitem__ handles ROI stitching and phase correction
                 _write_plane(
                     arr,
                     bin_file,
                     overwrite=True,
                     metadata=plane_ops,
-                    plane_index=plane_idx,  # 0-indexed
+                    plane_index=plane_idx if num_planes > 1 else None,
                 )
             else:
                 print(f"  Binary exists, skipping write")
@@ -449,23 +454,23 @@ def pipeline(
 
                 # Post-processing: dF/F calculation
                 print(f"  Computing dF/F...")
-                from lbm_suite2p_python.postprocessing import dff_rolling_percentile
                 F_file = plane_dir / "F.npy"
                 Fneu_file = plane_dir / "Fneu.npy"
                 dff_file = plane_dir / "dff.npy"
+
                 if F_file.exists() and Fneu_file.exists():
                     F = np.load(F_file)
                     Fneu = np.load(Fneu_file)
                     F_corr = F - 0.7 * Fneu
-                    # Get fs and tau from ops for auto-calculating window sizes
-                    fs = ops.get("fs", 30.0)
+
+                    fs_val = ops.get("fs", 30.0)
                     tau = ops.get("tau", 1.0)
                     dff = dff_rolling_percentile(
                         F_corr,
                         window_size=dff_window_size,
                         percentile=dff_percentile,
                         smooth_window=dff_smooth_window,
-                        fs=fs,
+                        fs=fs_val,
                         tau=tau,
                     )
                     np.save(dff_file, dff)
@@ -497,7 +502,7 @@ def pipeline(
             plane_elapsed = time.time() - plane_start
             print(f"  Completed {plane_tag} in {plane_elapsed:.1f}s")
 
-    # volumetric outputs if multiple planes ===
+    # === STEP 5: Generate volumetric outputs if multiple planes ===
     if len(planes_to_process) > 1 and all_ops_files:
         print(f"\n{'='*60}")
         print("Generating volumetric statistics...")
@@ -1620,7 +1625,11 @@ def run_plane(
     except Exception as e:
         print(e)
 
-    save_pc_panels_and_metrics(ops_file, plane_dir / "pc_metrics")
+    # Only generate PC metrics if they don't already exist
+    pc_panels = plane_dir / "pc_metrics_panels.tif"
+    pc_csv = plane_dir / "pc_metrics.csv"
+    if not pc_panels.exists() or not pc_csv.exists():
+        save_pc_panels_and_metrics(ops_file, plane_dir / "pc_metrics")
 
     try:
         plot_zplane_figures(
