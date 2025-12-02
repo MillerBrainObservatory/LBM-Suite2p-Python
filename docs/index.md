@@ -6,8 +6,6 @@ bibliography: refs.bib
 
 A volumetric 2-photon calcium imaging processing pipeline for Light Beads Microscopy (LBM) datasets.
 
-## What is LBM-Suite2p-Python?
-
 This package processes multi-plane calcium imaging data through a three-step workflow:
 
 1. **Convert** raw TIFF files to binary format for Suite2p
@@ -22,7 +20,7 @@ This package processes multi-plane calcium imaging data through a three-step wor
 - ΔF/F calculation with multiple baseline methods
 - Volumetric statistics and Rastermap clustering
 
-## Quick Navigation
+## Navigation
 
 See the {doc}`user guide <user_guide>` for complete examples and parameter tuning.
 
@@ -30,43 +28,33 @@ See the {doc}`user guide <user_guide>` for complete examples and parameter tunin
 ---
 maxdepth: 2
 ---
-install
 user_guide
+postprocessing
 API Reference <api>
 glossary
 ```
 
 ```{toctree}
 ---
-caption: Legacy Pages (Deprecated)
+caption: Additional Resources
 hidden: true
 maxdepth: 1
 ---
-usage/index
 discussions/index
-manual_curation
-function_demos
 image_gallery
-examples/index
 ```
 
 ## Quick Example
 
 ```python
-import mbo_utilities as mbo
 import lbm_suite2p_python as lsp
 
-data_dir = r"path/to/data"
-files = mbo.get_files(data_dir, "tiff", max_depth=3)
-
-# Extract metadata and create ops
-metadata = mbo.get_metadata(files[0])
-
-# Process entire volume
-output_ops = lsp.run_volume(
-    input_files=files,
-    save_path=save_dir,
-    ops=ops
+# Process entire volume with the unified pipeline
+results = lsp.pipeline(
+    input_data="D:/data/raw",   # path to file, directory, or list of files
+    save_path=None,             # default: save next to input
+    ops=None,                   # default: use MBO-optimized parameters
+    planes=None,                # default: process all planes
 )
 ```
 
