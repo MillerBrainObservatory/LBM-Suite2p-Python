@@ -242,26 +242,62 @@ def normalize_traces(F, mode="percentile"):
     return F_norm
 
 
-def dff_rolling_percentile(f_trace, window_size=300, percentile=20, use_median_floor: bool=False):
+def dff_rolling_percentile(
+    f_trace,
+    window_size: int = None,
+    percentile: int = 20,
+    use_median_floor: bool = False,
+    smooth_window: int = None,
+    fs: float = None,
+    tau: float = None,
+):
     """
     Compute ΔF/F₀ using a rolling percentile baseline.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     f_trace : np.ndarray
         (N_neurons, N_frames) fluorescence traces.
-    window_size : int
-        Size of the rolling window (in frames).
-    percentile : int
+    window_size : int, optional
+        Size of the rolling window for baseline estimation (in frames).
+        If None, auto-calculated as ~10 × tau × fs (default: 300 frames).
+    percentile : int, default 20
         Percentile to use for baseline F₀ estimation.
-    use_median_floor : bool, optional
+    use_median_floor : bool, default False
         Set a minimum F₀ floor at 1% of the median fluorescence.
+    smooth_window : int, optional
+        Size of temporal smoothing window (in frames) applied after dF/F.
+        If None, auto-calculated as ~0.5 × tau × fs to emphasize transients
+        while reducing noise. Set to 0 or 1 to disable smoothing.
+    fs : float, optional
+        Frame rate in Hz. Used to auto-calculate window sizes if tau is provided.
+    tau : float, optional
+        Calcium indicator decay time constant in seconds (e.g., 1.0 for GCaMP6s).
+        Used to auto-calculate window sizes if fs is provided.
 
-    Returns:
-    --------
+    Returns
+    -------
     dff : np.ndarray
         (N_neurons, N_frames) ΔF/F₀ traces.
+
+    Notes
+    -----
+    Window size recommendations:
+    - Baseline window (~10 × tau × fs): Should span multiple transients so the
+      percentile filter can find baseline between events.
+    - Smooth window (~0.5 × tau × fs): Should be shorter than typical transients
+      to preserve them while averaging out noise.
+
+    For GCaMP6s (tau ≈ 1.0s) at 30 Hz:
+    - window_size ≈ 300 frames (10 seconds)
+    - smooth_window ≈ 15 frames (0.5 seconds)
+
+    For GCaMP6f (tau ≈ 0.4s) at 30 Hz:
+    - window_size ≈ 120 frames (4 seconds)
+    - smooth_window ≈ 6 frames (0.2 seconds)
     """
+    from scipy.ndimage import uniform_filter1d
+
     if not isinstance(f_trace, np.ndarray):
         raise TypeError("f_trace must be a numpy array")
     if f_trace.ndim != 2:
@@ -269,7 +305,27 @@ def dff_rolling_percentile(f_trace, window_size=300, percentile=20, use_median_f
     if f_trace.shape[0] == 0 or f_trace.shape[1] == 0:
         raise ValueError("f_trace must not be empty")
 
+    # Auto-calculate window sizes based on tau and fs
+    if window_size is None:
+        if tau is not None and fs is not None:
+            # ~10 × tau × fs for baseline window
+            window_size = int(10 * tau * fs)
+        else:
+            # Default fallback
+            window_size = 300
 
+    if smooth_window is None:
+        if tau is not None and fs is not None:
+            # ~0.5 × tau × fs for smoothing (preserve transients, reduce noise)
+            smooth_window = max(1, int(0.5 * tau * fs))
+        else:
+            # Default: no smoothing if parameters not provided
+            smooth_window = 1
+
+    # Ensure odd window size for symmetric filtering
+    window_size = max(3, window_size)
+
+    # Compute baseline using rolling percentile
     f0 = np.array(
         [
             percentile_filter(f, percentile, size=window_size, mode="nearest")
@@ -280,7 +336,14 @@ def dff_rolling_percentile(f_trace, window_size=300, percentile=20, use_median_f
         floor = np.median(f_trace, axis=1, keepdims=True) * 0.01
         f0 = np.maximum(f0, floor)
 
-    return (f_trace - f0) / (f0 + 1e-6)  # 1e-6 to avoid division by zero
+    # Compute dF/F
+    dff = (f_trace - f0) / (f0 + 1e-6)  # 1e-6 to avoid division by zero
+
+    # Apply temporal smoothing if requested
+    if smooth_window is not None and smooth_window > 1:
+        dff = uniform_filter1d(dff, size=smooth_window, axis=1, mode="nearest")
+
+    return dff
 
 
 def dff_median_filter(f_trace):
@@ -355,10 +418,190 @@ def dff_shot_noise(dff, fr):
     return np.median(np.abs(np.diff(dff, axis=1)), axis=1) / np.sqrt(fr)
 
 
+def compute_trace_quality_score(
+    F,
+    Fneu=None,
+    stat=None,
+    fs=30.0,
+    weights=None,
+):
+    """
+    Compute a weighted quality score for sorting neurons by signal quality.
+
+    Combines SNR, skewness, and shot noise into a single score for ranking
+    neurons from best to worst signal quality. Higher scores indicate better
+    quality traces.
+
+    Parameters
+    ----------
+    F : np.ndarray
+        Fluorescence traces, shape (n_neurons, n_frames).
+    Fneu : np.ndarray, optional
+        Neuropil fluorescence traces, shape (n_neurons, n_frames).
+        If None, no neuropil correction is applied.
+    stat : np.ndarray or list, optional
+        Suite2p stat array containing ROI statistics. If provided, uses
+        pre-computed skewness from stat['skew']. Otherwise computes from traces.
+    fs : float, default 30.0
+        Frame rate in Hz, used for shot noise calculation.
+    weights : dict, optional
+        Weights for each metric. Keys: 'snr', 'skewness', 'shot_noise'.
+        Default: {'snr': 1.0, 'skewness': 0.8, 'shot_noise': 0.5}
+        Note: shot_noise is inverted (lower noise = higher score).
+
+    Returns
+    -------
+    dict
+        Dictionary containing:
+        - 'score': Combined quality score (n_neurons,)
+        - 'sort_idx': Indices that sort neurons by score (descending)
+        - 'snr': SNR values (n_neurons,)
+        - 'skewness': Skewness values (n_neurons,)
+        - 'shot_noise': Shot noise values (n_neurons,)
+        - 'weights': Weights used for scoring
+
+    Notes
+    -----
+    Each metric is z-scored before weighting to ensure comparable scales:
+    - SNR: signal std / noise estimate (higher = better)
+    - Skewness: positive skew indicates calcium transients (higher = better)
+    - Shot noise: frame-to-frame variability (lower = better, so inverted)
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from lbm_suite2p_python.postprocessing import compute_trace_quality_score
+    >>> F = np.load("F.npy")
+    >>> Fneu = np.load("Fneu.npy")
+    >>> result = compute_trace_quality_score(F, Fneu, fs=30.0)
+    >>> sorted_F = F[result['sort_idx']]  # Traces sorted by quality
+    """
+    from scipy.stats import skew
+
+    if weights is None:
+        weights = {'snr': 1.0, 'skewness': 0.8, 'shot_noise': 0.5}
+
+    n_neurons = F.shape[0]
+
+    # Neuropil correction
+    if Fneu is not None:
+        F_corr = F - 0.7 * Fneu
+    else:
+        F_corr = F
+
+    # Compute baseline and dF/F
+    baseline = np.percentile(F_corr, 20, axis=1, keepdims=True)
+    baseline = np.maximum(baseline, 1e-6)
+    dff = (F_corr - baseline) / baseline
+
+    # --- SNR ---
+    signal = np.std(dff, axis=1)
+    noise = np.median(np.abs(np.diff(dff, axis=1)), axis=1) / 0.6745
+    snr = signal / (noise + 1e-6)
+
+    # --- Skewness ---
+    if stat is not None:
+        # Use pre-computed skewness from Suite2p stat
+        skewness = np.array([s.get('skew', np.nan) for s in stat])
+        # Fill NaN with computed values
+        nan_mask = np.isnan(skewness)
+        if nan_mask.any():
+            skewness[nan_mask] = skew(dff[nan_mask], axis=1)
+    else:
+        # Compute from traces
+        skewness = skew(dff, axis=1)
+
+    # --- Shot noise ---
+    shot_noise = dff_shot_noise(dff, fs)
+
+    # --- Normalize metrics to z-scores ---
+    def safe_zscore(x):
+        """Z-score with handling for constant arrays."""
+        std = np.nanstd(x)
+        if std < 1e-10:
+            return np.zeros_like(x)
+        return (x - np.nanmean(x)) / std
+
+    snr_z = safe_zscore(snr)
+    skewness_z = safe_zscore(skewness)
+    # Invert shot noise (lower noise = higher score)
+    shot_noise_z = -safe_zscore(shot_noise)
+
+    # --- Compute weighted score ---
+    score = (
+        weights['snr'] * snr_z +
+        weights['skewness'] * skewness_z +
+        weights['shot_noise'] * shot_noise_z
+    )
+
+    # Handle any NaN values
+    score = np.nan_to_num(score, nan=-np.inf)
+
+    # Sort indices (descending - best first)
+    sort_idx = np.argsort(score)[::-1]
+
+    return {
+        'score': score,
+        'sort_idx': sort_idx,
+        'snr': snr,
+        'skewness': skewness,
+        'shot_noise': shot_noise,
+        'weights': weights,
+    }
+
+
+def sort_traces_by_quality(
+    F,
+    Fneu=None,
+    stat=None,
+    fs=30.0,
+    weights=None,
+):
+    """
+    Sort fluorescence traces by quality score (best to worst).
+
+    Convenience function that computes quality scores and returns sorted traces.
+
+    Parameters
+    ----------
+    F : np.ndarray
+        Fluorescence traces, shape (n_neurons, n_frames).
+    Fneu : np.ndarray, optional
+        Neuropil fluorescence traces.
+    stat : np.ndarray or list, optional
+        Suite2p stat array for pre-computed skewness.
+    fs : float, default 30.0
+        Frame rate in Hz.
+    weights : dict, optional
+        Weights for each metric. Default: {'snr': 1.0, 'skewness': 0.8, 'shot_noise': 0.5}
+
+    Returns
+    -------
+    F_sorted : np.ndarray
+        Traces sorted by quality (best first).
+    sort_idx : np.ndarray
+        Indices used to sort (can be used to sort other arrays).
+    quality : dict
+        Full quality metrics from compute_trace_quality_score().
+
+    Examples
+    --------
+    >>> F_sorted, sort_idx, quality = sort_traces_by_quality(F, Fneu)
+    >>> # Also sort stat and iscell arrays
+    >>> stat_sorted = stat[sort_idx]
+    >>> iscell_sorted = iscell[sort_idx]
+    """
+    quality = compute_trace_quality_score(F, Fneu, stat, fs, weights)
+    sort_idx = quality['sort_idx']
+    F_sorted = F[sort_idx]
+
+    return F_sorted, sort_idx, quality
+
+
 def load_planar_results(ops: dict | str | Path, z_plane: list | int = None) -> dict:
     """
-    Load stat, iscell, spks files and return as a dict. Does NOT filter by valid cells, array contain both
-    accepted and rejected neurons. Filter for accepted-only via f[iscell] or fneue[iscell] if needed.
+    Load stat, iscell, spks files and return as a dict. Does NOT filter by valid cells, arrays contain both
+    accepted and rejected neurons. Filter for accepted-only via ``iscell_mask = iscell[:, 0].astype(bool)``.
 
     Parameters
     ----------
@@ -370,14 +613,11 @@ def load_planar_results(ops: dict | str | Path, z_plane: list | int = None) -> d
     Returns
     -------
     dict
-        dictionary with keys:
-        - 'F': fluorescence traces loaded from F.npy,
-        - 'Fneu': neuropil fluorescence traces loaded from Fneu.npy,
-        - 'spks': spike traces loaded from spks.npy,
-        - 'stat': stats loaded from stat.npy,
-        - 'iscell': boolean array from iscell.npy,
-        - 'cellprob': cell probability from classifier.
-        - 'z_plane': an array (of shape [n_neurons,]) with the provided z_plane index.
+        Dictionary with keys: 'F' (fluorescence traces, n_rois x n_frames),
+        'Fneu' (neuropil fluorescence), 'spks' (deconvolved spikes),
+        'stat' (ROI statistics array), 'iscell' (classification array where
+        column 0 is 0/1 rejected/accepted and column 1 is probability),
+        and 'z_plane' (z-plane index array).
 
     See Also
     --------
@@ -414,11 +654,9 @@ def load_planar_results(ops: dict | str | Path, z_plane: list | int = None) -> d
     Fneu = np.load(required_files["Fneu.npy"])
     spks = np.load(required_files["spks.npy"])
     stat = np.load(required_files["stat.npy"], allow_pickle=True)
-    iscell = np.load(required_files["iscell.npy"], allow_pickle=True)[:, 0].astype(
-        bool
-    )
-    cellprob = np.load(required_files["iscell.npy"], allow_pickle=True)[:, 1]
-    # model = np.load(save_path.joinpath("model.npy"), allow_pickle=True).item()
+
+    # iscell is (n_rois, 2): column 0 is is_cell (0/1), column 1 is probability
+    iscell = np.load(required_files["iscell.npy"], allow_pickle=True)
 
     n_neurons = spks.shape[0]
     if z_plane is None:
@@ -430,10 +668,8 @@ def load_planar_results(ops: dict | str | Path, z_plane: list | int = None) -> d
         "Fneu": Fneu,
         "spks": spks,
         "stat": stat,
-        "iscell": iscell,
-        "cellprob": cellprob,
+        "iscell": iscell,  # Full (n_rois, 2) array: [:, 0] is bool, [:, 1] is probability
         "z_plane": z_plane_arr,
-        # "rastermap_model": model,
     }
 
 

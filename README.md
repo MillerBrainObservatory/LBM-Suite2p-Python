@@ -11,52 +11,123 @@ A volumetric 2-photon calcium imaging processing pipeline for Light Beads Micros
 
 A GUI is available via [mbo_utilities](https://millerbrainobservatory.github.io/mbo_utilities/index.html#gui) (GUI functionality will lag behind this pipeline).
 
-## Quick Start
+## Installation
 
-See the [installation documentation](https://millerbrainobservatory.github.io/LBM-Suite2p-Python/install.html) for GUI dependencies and troubleshooting.
+LBM-Suite2p-Python is a pure `pip` install. You can use `venv`, `uv` (recommended), or `conda`. Just remove the `uv` prefix.
 
 ```bash
+# create a new project folder
+mkdir my_project
+cd my_project
+
+# (uv only) create environment and install
+uv venv --python 3.12.9
 uv pip install lbm_suite2p_python
 ```
 
-### Basic Usage
+### Optional Dependencies
+
+```bash
+# With rastermap for activity clustering visualization
+uv pip install "lbm_suite2p_python[rastermap]"
+
+# With cellpose for anatomical cell detection (includes PyTorch)
+uv pip install "lbm_suite2p_python[cellpose]"
+
+# All optional dependencies
+uv pip install "lbm_suite2p_python[all]"
+```
+
+### Development Installation
+
+While this pipeline is in active development, you can keep a local copy to quickly pull changes:
+
+```bash
+git clone https://github.com/MillerBrainObservatory/LBM-Suite2p-Python.git
+cd LBM-Suite2p-Python
+uv pip install .
+```
+
+### GUI Dependencies
+
+**Linux / macOS:**
+
+```bash
+sudo apt install libxcursor-dev libgl1-mesa-dev libglu1-mesa-dev freeglut3-dev
+```
+
+**Windows:**
+Install [Microsoft Visual C++ Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist)
+
+### Troubleshooting
+
+When installing from github, you may get:
+
+**Git LFS Error:** If you see `smudge filter lfs failed`:
+
+```bash
+GIT_LFS_SKIP_SMUDGE=1 uv sync --all-extras --active
+```
+
+## Quick Start
 
 ```python
 import lbm_suite2p_python as lsp
 
-ops = {"two_step_registration": 1}
-files = [
-    r"D://demo//plane05_stitched.zarr",
-    r"D://demo//plane06_stitched.zarr",
-]
-
-# Process entire volume
-output_ops = lsp.run_volume(
-    input_files=files,
-    save_path=None,     # save next to tiffs
-    ops=ops,
-    keep_reg=True,      # Keep registered binaries
-    force_reg=False,    # Skip if already registered
-    force_detect=False  # Skip if stat.npy exists
+results = lsp.pipeline(
+    input_data="D:/data/raw",   # path to file, directory, or list of files
+    save_path=None,             # default: save next to input
+    ops=None,                   # default: use MBO-optimized parameters
+    planes=None,                # default: process all planes
+    roi=None,                   # default: stitch multi-ROI data
+    keep_reg=True,              # default: keep data.bin (registered binary)
+    keep_raw=False,             # default: delete data_raw.bin after processing
+    force_reg=False,            # default: skip if already registered
+    force_detect=False,         # default: skip if stat.npy exists
+    dff_window_size=None,       # default: auto-calculate from tau and framerate
+    dff_percentile=20,          # default: 20th percentile for baseline
+    dff_smooth_window=None,     # default: auto-calculate from tau and framerate
 )
 ```
 
-**Process a single plane:**
-```python
-ops_file = lsp.run_plane(
-    input_path=files[0],
-    save_path=None,
-    ops=ops,
-    keep_raw=False,  # Delete data_raw.bin after processing
-    keep_reg=True    # Keep data.bin (registered binary)
-)
-```
+## Planar Results
 
-## Documentation
+Each z-plane produces diagnostic images automatically saved during processing.
 
-- **[Installation Guide](https://millerbrainobservatory.github.io/LBM-Suite2p-Python/install.html)**
-- **[User Guide](https://millerbrainobservatory.github.io/LBM-Suite2p-Python/user_guide.html)** - Complete usage examples
-- **[API Reference](https://millerbrainobservatory.github.io/LBM-Suite2p-Python/api.html)**
+<p align="center">
+<img src="docs/_images/segmentation_summary.gif" alt="Segmentation Summary" width="500"/>
+<br><em>Segmentation overlays on reference images</em>
+</p>
+
+<p align="center">
+<img src="docs/_images/05_quality_diagnostics.png" alt="Quality Diagnostics" width="550"/>
+<br><em>ROI quality metrics: size, SNR, compactness</em>
+</p>
+
+<p align="center">
+<img src="docs/_images/08_traces_dff.png" alt="ΔF/F Traces" width="500"/>
+<br><em>ΔF/F traces sorted by quality</em>
+</p>
+
+## Volumetric Results
+
+Volume-level visualizations combine data across all z-planes.
+
+<p align="center">
+<img src="docs/_images/all_planes_masks.png" alt="All Planes Masks" width="550"/>
+<br><em>ROI masks across all z-planes</em>
+</p>
+
+<p align="center">
+<img src="docs/_images/roi_map_3d_snr.png" alt="3D ROI Map" width="450"/>
+<br><em>3D ROI centroids colored by SNR</em>
+</p>
+
+<p align="center">
+<img src="docs/_images/rastermap.png" alt="Rastermap" width="550"/>
+<br><em>Activity sorted by similarity (Rastermap)</em>
+</p>
+
 
 ## Built With
 

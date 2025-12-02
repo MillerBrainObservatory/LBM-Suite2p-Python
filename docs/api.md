@@ -8,9 +8,10 @@ Functions, broken down by category.
 
 .. currentmodule:: lbm_suite2p_python
 
+.. autofunction:: pipeline
 .. autofunction:: run_plane
 .. autofunction:: run_volume
-.. autofunction:: run_grid_search
+.. autofunction:: grid_search
 
 ```
 ---

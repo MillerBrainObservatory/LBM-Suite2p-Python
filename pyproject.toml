@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lbm_suite2p_python"
-version = "2.2.1"
+version = "2.3.0"
 description = "Light Beads Microscopy Pipeline using Suite2p"
 readme = "README.md"
 license = "BSD-3-Clause"
@@ -18,15 +18,30 @@ classifiers=[
 	"Programming Language :: Python :: 3 :: Only",
 ]
 dependencies = [
-	"mbo_utilities[suite2p]>=2.2.2",
+	"mbo_utilities>=2.3.0",
+	"suite2p_mbo>=2.0.0",
 ]
 
-[dependency-groups]
-all = [
+[project.optional-dependencies]
+# Rastermap for activity clustering and visualization
+rastermap = [
 	"rastermap",
+]
+# Cellpose for anatomical cell detection (requires PyTorch)
+cellpose = [
 	"cellpose==4.0.6",
 	"torch>=2.7.0",
 	"torchvision>=0.22.0",
+]
+# All optional dependencies
+all = [
+	"lbm_suite2p_python[rastermap,cellpose]",
+]
+
+[dependency-groups]
+dev = [
+	"lbm_suite2p_python[all]",
+	"pytest>=8.0.0",
 ]
 docs = [
 	"docutils>=0.21.2",
@@ -62,6 +77,8 @@ torch = [
 torchvision = [
   { index = "pytorch-cu126", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
+# mbo_utilities = { git = "https://github.com/MillerBrainObservatory/mbo_utilities.git", rev = "opt-imports" }
+mbo_utilities = { path = "../mbo_utilities"}
 
 
 # https://github.com/charliermarsh/ruff

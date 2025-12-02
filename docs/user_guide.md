@@ -1,149 +1,470 @@
 (user_guide)=
 # User Guide
 
+```{toctree}
+:maxdepth: 2
+```
+
 This guide covers everything you need to process volumetric calcium imaging data with LBM-Suite2p-Python.
 
-## Quick Start
+```{tip}
+For interactive examples, see the [Quickstart Notebook](https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/blob/master/demos/notebooks/quickstart.ipynb) and [Grid Search Notebook](https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/blob/master/demos/notebooks/grid_search.ipynb).
+```
 
-### Prerequisites
+## Input formats
 
-- Python 3.12.7 to <3.12.10
-- Planar timeseries TIFF files (T, Y, X format)
-- Raw ScanImage TIFFs must be assembled first using [mbo_utilities](https://millerbrainobservatory.github.io/mbo_utilities/assembly.html)
+The pipeline accepts all filetypes at [mbo_utilities imread()](https://millerbrainobservatory.github.io/mbo_utilities/array_types.html) accepts.
 
-### Basic Workflow
+```bash
+uv run mbo formats
+
+Supported input formats:
+  .tif, .tiff  - TIFF files (BigTIFF, OME-TIFF, ScanImage)
+  .zarr        - Zarr v3 arrays
+  .bin         - Suite2p binary format (with ops.npy)
+  .h5, .hdf5   - HDF5 files
+  .npy         - NumPy arrays
+  .json        - Zarr array metadata (loads parent .zarr)
+
+Supported output formats:
+  .tiff        - Multi-page BigTIFF
+  .zarr        - Zarr v3 with optional OME-NGFF metadata
+  .bin         - Suite2p binary format
+  .h5          - HDF5 format
+  .npy         - NumPy array (with .json metadata)
+
+```
+
+## Unified Pipeline
+
+The `lsp.pipeline()` function is the recommended entry point for all processing. It automatically handles:
+
+- **Any input type**: Files, directories, or pre-loaded arrays from `mbo_utilities`
+- **Multi-plane data**: Processes each z-plane independently
+- **Multi-ROI data**: Stitches or splits ScanImage multi-ROI acquisitions
+- **Metadata extraction**: Auto-populates frame rate, pixel resolution, etc.
 
 ```python
-import mbo_utilities as mbo
 import lbm_suite2p_python as lsp
-from pathlib import Path
 
-# 1. Get planar outputs from mbo.imwrite
-data_dir = Path(r"D://demo//local_nvme")
+# Process a directory of raw ScanImage TIFFs
+results = lsp.pipeline(
+    input_data="D:/data/raw_tiffs",
+    save_path="D:/results",
+)
 
-files = mbo.get_files(data_dir, "tiff", max_depth=3) # tiff
-files = list(data_dir.glob("*.zarr*"))               # zarr
-files = list(data_dir.glob("*data_raw.bin*"))        # suite2p binary
+# Process specific planes from a volume
+results = lsp.pipeline(
+    input_data="D:/data/volume.zarr",
+    save_path="D:/results",
+    planes=[1, 5, 10],  # 1-indexed
+)
 
-# 3. Process entire volume
-save_dir = Path(r"D://demo//local_nvme//suite2p")
-ops = {
-    "two_step_registration": True # default is False
-}
+# Process a pre-loaded array (e.g., from mbo_utilities GUI)
+import mbo_utilities as mbo
+arr = mbo.imread("D:/data/raw")
+results = lsp.pipeline(
+    input_data=arr,
+    save_path="D:/results",
+    roi=0,  # Split all ROIs into separate outputs
+)
 
-output_ops = lsp.run_volume(
-    input_files=files,
-    save_path=save_dir,
-    ops=ops,
-    keep_reg=True,      # Keep registered binaries (default: True)
-    keep_raw=False,     # Delete raw binaries to save space (default: False)
-    force_reg=False,    # Skip registration if already done (default: False)
-    force_detect=False  # Skip detection if stat.npy exists (default: False)
+# Custom Suite2p parameters
+results = lsp.pipeline(
+    input_data="D:/data",
+    ops={"diameter": 8, "threshold_scaling": 0.8},
 )
 ```
 
-### Processing a Single Plane
+### Pipeline Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `input_data` | path, list, array | required | File, directory, list of files, or lazy array |
+| `save_path` | path | None | Output directory (auto-detected if None) |
+| `ops` | dict | None | Suite2p parameters (uses defaults if None) |
+| `planes` | int, list | None | Which planes to process (1-indexed, None=all) |
+| `roi` | int | None | ROI handling: None=stitch, 0=split, N=specific ROI |
+| `keep_reg` | bool | True | Keep registered binary after processing |
+| `keep_raw` | bool | False | Keep raw binary after processing |
+| `force_reg` | bool | False | Force re-registration |
+| `force_detect` | bool | False | Force ROI detection |
+| `dff_window_size` | int | None | Window for ΔF/F baseline (auto-calculated from tau and framerate) |
+| `dff_percentile` | int | 20 | Percentile for baseline F₀ |
+| `dff_smooth_window` | int | None | Temporal smoothing for dF/F traces (auto-calculated) |
+| `save_json` | bool | False | Save ops as JSON in addition to .npy |
+
+## Planar Pipeline
 
 For testing parameters or processing individual planes:
 
 ```python
-ops_file = lsp.run_plane(
-    input_path=files[0],
-    save_path=save_dir,
-    ops=ops,
-    chan2_file=None,     # Optional: structural channel for registration
-    keep_raw=False,
-    keep_reg=True,
-    force_reg=False,
-    force_detect=False,
-    dff_window_size=300, # ~10× tau × fs ensures window spans multiple transients
-    dff_percentile=20    # Percentile for baseline F₀
+results = lsp.pipeline(
+    input_data=files[0],        # path to .zarr, .tiff, or .bin file
+    save_path=None,             # default: save next to input file
+    ops=None,                   # default: use MBO-optimized parameters
+    planes=1,                   # process single plane (1-indexed)
+    roi=None,                   # default: stitch multi-ROI data
+    keep_reg=True,              # default: keep data.bin (registered binary)
+    keep_raw=False,             # default: delete data_raw.bin after processing
+    force_reg=False,            # default: skip if already registered
+    force_detect=False,         # default: skip if stat.npy exists
+    dff_window_size=None,       # default: auto-calculate from tau and framerate
+    dff_percentile=20,          # default: 20th percentile for baseline
+    dff_smooth_window=None,     # default: auto-calculate from tau and framerate
+    save_json=False,            # default: only save ops.npy
 )
 ```
 
----
+### Planar Outputs
 
-## Understanding Outputs
+Each z-plane directory contains:
 
-### Per-Plane Outputs
+#### Data Files
 
-Each plane gets its own directory with Suite2p outputs:
+| File | Shape | Description |
+|------|-------|-------------|
+| `ops.npy` | dict | Processing parameters and metadata |
+| `stat.npy` | (n_rois,) | ROI definitions (pixel coordinates, weights, shape stats) |
+| `F.npy` | (n_rois, n_frames) | Raw fluorescence traces |
+| `Fneu.npy` | (n_rois, n_frames) | Neuropil fluorescence traces |
+| `spks.npy` | (n_rois, n_frames) | Deconvolved spike estimates |
+| `iscell.npy` | (n_rois, 2) | Cell classification: `[:, 0]` = is_cell (0/1), `[:, 1]` = probability |
+| `data.bin` | (n_frames, Ly, Lx) | Registered movie (if `keep_reg=True`) |
+| `data_raw.bin` | (n_frames, Ly, Lx) | Raw movie (if `keep_raw=True`) |
 
+#### Visualization Files
+
+Files are numbered to ensure proper ordering when viewing in file browsers.
+
+| File | Description |
+|------|-------------|
+| `01_correlation.png` | Pixel-wise correlation image |
+| `01_correlation_segmentation.png` | Correlation image with ROI overlay |
+| `02_max_projection.png` | Maximum intensity projection |
+| `02_max_projection_segmentation.png` | Max projection with ROI overlay |
+| `03_mean.png` | Temporal mean image |
+| `03_mean_segmentation.png` | Mean image with ROI overlay |
+| `04_mean_enhanced.png` | Enhanced mean image (edge sharpened) |
+| `04_mean_enhanced_segmentation.png` | Enhanced mean with ROI overlay |
+| `05_quality_diagnostics.png` | ROI size, SNR, compactness metrics |
+| `06_registration.png` | Registration quality visualization |
+| `07_traces_raw.png` | Sample raw fluorescence traces |
+| `08_traces_dff.png` | Sample ΔF/F traces |
+| `09_traces_noise.png` | Noise estimation traces (rejected ROIs) |
+| `10_noise_accepted.png` | Shot noise histogram (accepted) |
+| `11_noise_rejected.png` | Shot noise histogram (rejected) |
+| `12_rastermap.png` | Activity sorted by similarity |
+| `pc_metrics.csv` | Registration quality metrics |
+| `pc_metrics_panels.tif` | PC metric visualization panels |
+
+#### Reference Images
+
+The pipeline generates several reference images that serve as both quality checks and visualization aids:
+
+```{figure} _images/02_max_projection.png
+:alt: Maximum Intensity Projection
+:name: ug-fig-max-proj
+:width: 50%
+
+**Maximum intensity projection** across all frames. Highlights the brightest pixels over time, useful for identifying highly active regions and checking for motion artifacts.
 ```
-{save_path}/{plane_tag}/
-├── ops.npy              # Full Suite2p parameters and results
-├── stat.npy             # ROI definitions (pixel coordinates, weights, shape stats)
-├── F.npy                # Fluorescence traces (n_rois, n_frames) - float32
-├── Fneu.npy             # Neuropil fluorescence (n_rois, n_frames) - float32
-├── spks.npy             # Deconvolved spike traces (n_rois, n_frames) - float32
-├── iscell.npy           # Classification (n_rois, 2): [is_cell (0/1), probability]
-├── data.bin             # Registered binary (if keep_reg=True) - int16
-├── data_raw.bin         # Raw binary (if keep_raw=True) - int16
-├── pc_metrics/          # Principal component analysis figures
-└── *.png                # Visualization plots
+
+```{figure} _images/04_mean_enhanced.png
+:alt: Enhanced Mean Image
+:name: ug-fig-mean-enhanced
+:width: 50%
+
+**Enhanced mean image** (meanImgE) with edge sharpening applied. This is the recommended image for Cellpose anatomical detection (`anatomical_only=3`). Cell boundaries are more defined than the standard mean image.
 ```
 
-```{figure} _images/planar_output_files.png
-:name: fig-planar-files
-:alt: Planar output files structure
-:width: 80%
+#### Segmentation Overlays
 
-Example plane directory showing Suite2p outputs and visualization files.
+Each reference image has a corresponding segmentation overlay showing detected ROIs:
+
+```{figure} _images/04_mean_enhanced_segmentation.png
+:alt: Segmentation Overlay
+:name: ug-fig-segmentation
+:width: 50%
+
+**Segmentation overlay** on the enhanced mean image. Accepted ROIs are shown as colored outlines. Use this to visually verify that detected cells match actual cell bodies.
 ```
 
-#### Visualization Outputs
+#### Quality Diagnostics
 
-Processing generates several diagnostic plots automatically:
+The quality diagnostics panel provides a multi-metric view of ROI quality:
 
-```{figure} _images/segmentation.png
-:name: fig-segmentation
-:alt: Cell segmentation results
+```{figure} _images/05_quality_diagnostics.png
+:alt: Quality Diagnostics
+:name: ug-fig-quality-diag
 :width: 100%
 
-**Cell segmentation**: Detected ROI masks overlaid on mean image. Green = accepted cells, red = rejected.
+**ROI quality diagnostics** showing:
+- **Size distribution**: Histogram of ROI areas (pixels) for accepted vs rejected cells
+- **SNR distribution**: Signal-to-noise ratio for each ROI
+- **Compactness**: How circular each ROI is (1.0 = perfect circle)
+- **Skewness**: Positive skew indicates calcium transients
+
+Use these metrics to tune parameters like `max_overlap`, `threshold_scaling`, and post-hoc filters.
 ```
 
-```{figure} _images/max_projection_image.png
-:name: fig-max-proj
-:alt: Maximum projection
+#### Fluorescence Traces
+
+```{figure} _images/07_traces_raw.png
+:alt: Raw Fluorescence Traces
+:name: ug-fig-traces-raw
 :width: 100%
 
-**Maximum projection**: Brightest pixel values across all frames, revealing anatomical structure.
+**Raw fluorescence traces** for the top 20 neurons sorted by quality score. The y-axis shows fluorescence intensity (arbitrary units), x-axis shows time in seconds.
 ```
 
-```{figure} _images/traces.png
-:name: fig-traces
-:alt: Fluorescence traces
+```{figure} _images/08_traces_dff.png
+:alt: ΔF/F Traces
+:name: ug-fig-traces-dff
 :width: 100%
 
-**Activity traces**: Raw fluorescence (F) and neuropil (Fneu) traces for detected cells.
+**ΔF/F traces** computed using rolling percentile baseline. These normalized traces are directly comparable across cells and experiments. The quality-sorted display surfaces the most reliable signals first.
 ```
 
-```{figure} _images/rastermap.png
-:name: fig-rastermap-plane
-:alt: Rastermap clustering
+(understanding-trace-quality-sorting)=
+#### Trace Quality Sorting
+
+The trace plots (`07_traces_raw.png`, `08_traces_dff.png`) display the **top 20 neurons sorted by quality score**.
+This weighted score combines three metrics to surface the best traces:
+
+| Metric | Weight | Description |
+|--------|--------|-------------|
+| **SNR** | 1.0 | Signal-to-noise ratio (higher = better) |
+| **Skewness** | 0.8 | Positive skew indicates calcium transients |
+| **Shot Noise** | 0.5 | Frame-to-frame variability (lower = better) |
+
+**Using Quality Sorting in Your Analysis:**
+
+```python
+import lbm_suite2p_python as lsp
+
+# Load planar results
+results = lsp.load_planar_results("path/to/plane01")
+F = results["F"]
+Fneu = results["Fneu"]
+stat = results["stat"]
+iscell = results["iscell"]
+
+# Filter for accepted cells
+iscell_mask = iscell[:, 0].astype(bool)
+F_acc = F[iscell_mask]
+Fneu_acc = Fneu[iscell_mask]
+stat_acc = [s for s, m in zip(stat, iscell_mask) if m]
+
+# Compute quality scores
+quality = lsp.compute_trace_quality_score(
+    F_acc, Fneu_acc, stat_acc,
+    fs=30.0,  # Your frame rate
+    weights={'snr': 1.0, 'skewness': 0.8, 'shot_noise': 0.5}  # Default weights
+)
+
+# Sort traces by quality (best first)
+sort_idx = quality['sort_idx']
+F_sorted = F_acc[sort_idx]
+
+# View individual metrics
+print(f"SNR range: {quality['snr'].min():.2f} - {quality['snr'].max():.2f}")
+print(f"Best neuron score: {quality['score'][sort_idx[0]]:.2f}")
+
+# Plot top 50 neurons
+lsp.plot_traces(
+    F_sorted,
+    num_neurons=50,
+    fps=30.0,
+    scale_bar_label="Raw F",
+    title="Top 50 Neurons by Quality Score"
+)
+```
+
+**Custom Weights:**
+
+Adjust weights based on your priorities:
+
+```python
+# Prioritize low noise over skewness
+quality = lsp.compute_trace_quality_score(
+    F, Fneu, stat, fs=30.0,
+    weights={'snr': 1.0, 'skewness': 0.3, 'shot_noise': 1.0}
+)
+```
+
+(understanding-δff-traces)=
+#### Activity ΔF/F Traces
+
+The ΔF/F (delta F over F) traces in `08_traces_dff.png` show the change in fluorescence normalized by baseline. This is the standard metric for comparing neural activity across cells and experiments.
+
+**Window Size Selection for ΔF/F:**
+
+The `dff_window_size` parameter controls the rolling window used to estimate baseline F₀. Choosing the right window size is critical:
+
+```
+window_size = 10 × tau × framerate
+```
+
+| Indicator | Tau (s) | Framerate | Recommended Window |
+|-----------|---------|-----------|-------------------|
+| GCaMP6f | 0.7 | 30 Hz | ~210 frames |
+| GCaMP6s | 1.8 | 30 Hz | ~540 frames |
+| GCaMP7s | 1.0 | 17 Hz | ~170 frames |
+| GCaMP8f | 0.25 | 30 Hz | ~75 frames |
+| GCaMP8s | 0.5 | 30 Hz | ~150 frames |
+
+**Why 10× tau × framerate?**
+
+- The window must span **multiple calcium transients** so the percentile filter can find true baseline between events
+- Too small: baseline contaminated by transients → underestimated ΔF/F
+- Too large: slow drifts not tracked → baseline mismatch
+
+```python
+# Example: GCaMP7s at 17 Hz
+tau = 1.0  # seconds
+fs = 17.0  # Hz
+window_size = int(10 * tau * fs)  # = 170 frames
+
+dff = lsp.dff_rolling_percentile(F, window_size=window_size, percentile=20)
+```
+
+(understanding-shot-noise-levels)=
+#### Shot Noise Levels
+
+The noise histograms (`10_noise_accepted.png`, `11_noise_rejected.png`) show **standardized shot noise levels** for each ROI. This metric helps you:
+
+- Compare noise levels across datasets, recordings, and experiments
+- Identify problematic ROIs with unusually high noise
+- Assess overall recording quality
+
+**Shot Noise Formula:**
+
+```{math}
+\nu = \frac{\mathrm{median}_t\left( \left| \frac{\Delta F_t}{F_0} - \frac{\Delta F_{t+1}}{F_0} \right| \right)}{\sqrt{f_r}}
+```
+
+- **Median of frame-to-frame differences**: Takes advantage of slow calcium dynamics (adjacent frames should be similar)
+- **Median (not mean)**: Excludes outliers from fast transient onsets
+- **Normalized by √framerate**: Makes metric comparable across different acquisition rates
+
+**Interpreting Noise Values:**
+
+| Noise Level | Quality | Interpretation |
+|-------------|---------|----------------|
+| < 0.5 %/√Hz | Excellent | Very clean signal |
+| 0.5-1.0 %/√Hz | Good | Typical for healthy recordings |
+| 1.0-2.0 %/√Hz | Fair | May need filtering or careful analysis |
+| > 2.0 %/√Hz | Poor | Consider excluding or investigating |
+
+```{figure} _images/noise_comp.png
+:alt: High vs Low Noise Levels
+:name: ug-fig-noise-planar
 :width: 100%
 
-**Rastermap clustering**: Cells sorted by activity similarity, revealing functional structure.
+Top N neurons with highest and lowest standardized noise levels. Use this to identify outlier ROIs.
 ```
 
 **Conditional outputs (if `chan2_file` provided):**
-```
-├── data_chan2.bin       # Raw structural channel
-├── data_chan2_reg.bin   # Registered structural channel
-├── F_chan2.npy          # Channel 2 fluorescence
-└── Fneu_chan2.npy       # Channel 2 neuropil
+
+| File | Description |
+|------|-------------|
+| `data_chan2.bin` | Raw structural channel |
+| `data_chan2_reg.bin` | Registered structural channel |
+| `F_chan2.npy` | Channel 2 fluorescence |
+| `Fneu_chan2.npy` | Channel 2 neuropil |
+
+## Volumetric Pipeline
+
+Instead of a single file, provide a list of z-planes or a directory:
+
+```python
+results = lsp.pipeline(
+    input_data="D:/data/volume",    # directory or list of plane files
+    save_path=None,                 # default: save next to input
+    ops=None,                       # default: use MBO-optimized parameters
+    planes=None,                    # default: process all planes
+    roi=None,                       # default: stitch multi-ROI data
+    keep_reg=True,                  # default: keep data.bin (registered binary)
+    keep_raw=False,                 # default: delete data_raw.bin after processing
+    force_reg=False,                # default: skip if already registered
+    force_detect=False,             # default: skip if stat.npy exists
+    dff_window_size=None,           # default: auto-calculate from tau and framerate
+    dff_percentile=20,              # default: 20th percentile for baseline
+    dff_smooth_window=None,         # default: auto-calculate from tau and framerate
+    save_json=False,                # default: only save ops.npy
+)
 ```
 
 ### Volumetric Outputs
 
-After `run_volume()` completes:
+When processing multiple planes with `lsp.pipeline()`, additional files are generated in the root save directory:
 
+| File | Description |
+|------|-------------|
+| `all_planes_masks.png` | Grid showing ROI masks overlaid on mean images for all planes |
+| `volume_quality_metrics.png` | Compactness, skewness, ROI size, and radius per plane (mean ± std) |
+| `volume_trace_analysis.png` | Example traces, SNR and fluorescence per plane, activity heatmap |
+| `volume_summary.csv` | Per-plane statistics table (ROIs, SNR, acceptance rate) |
+| `mean_volume_signal.png` | Mean signal intensity across z-depth |
+| `rastermap.png` | Activity sorted by similarity across all planes |
+| `orthoslices.png` | Orthogonal slices through the volume (XY, XZ, YZ) |
+| `roi_map_3d_snr.png` | 3D scatter plot of ROI centroids colored by SNR |
+| `volume_stats.npy` | Per-plane statistics dictionary |
+
+#### All Planes Masks
+
+```{figure} _images/all_planes_masks.png
+:alt: All Planes Masks
+:name: ug-fig-all-planes
+:width: 100%
+
+**ROI masks across all z-planes** arranged in a grid. Each panel shows the enhanced mean image with segmentation overlay for one plane. Use this to quickly assess segmentation quality across the entire volume and identify planes with poor detection.
 ```
-{save_path}/
-├── volume_stats.npy     # Per-plane statistics (n_cells, timing, correlation)
-├── rastermap.png        # Clustered activity heatmap (if rastermap installed)
-└── mean_volume_signal.png  # Signal strength vs z-plane
+
+#### Orthogonal Slices
+
+```{figure} _images/orthoslices.png
+:alt: Orthoslices
+:name: ug-fig-orthoslices
+:width: 80%
+
+**Orthogonal slices** through the mean intensity volume. Shows XY (axial), XZ (coronal), and YZ (sagittal) views with crosshairs indicating the slice positions. Useful for verifying volume alignment and identifying depth-dependent signal changes.
+```
+
+#### 3D ROI Map
+
+```{figure} _images/roi_map_3d_snr.png
+:alt: 3D ROI Map
+:name: ug-fig-roi-3d
+:width: 80%
+
+**3D scatter plot of ROI centroids** with each point representing a detected cell. Points are colored by SNR (signal-to-noise ratio), revealing the spatial distribution of signal quality through the volume. Brighter colors indicate higher quality cells.
+```
+
+#### Volume Trace Analysis
+
+```{figure} _images/volume_trace_analysis.png
+:alt: Volume Trace Analysis
+:name: ug-fig-vol-trace
+:width: 100%
+
+**Volume-wide trace analysis** combining multiple views:
+- **Left**: Example ΔF/F traces from representative cells across planes
+- **Middle**: SNR and mean fluorescence as a function of z-depth
+- **Right**: Activity heatmap showing temporal patterns across all cells
+
+This visualization helps identify depth-dependent signal quality and synchronized activity patterns.
+```
+
+#### Rastermap (Volume-wide)
+
+```{figure} _images/rastermap.png
+:alt: Rastermap
+:name: ug-fig-rastermap-vol
+:width: 100%
+
+**Activity sorted by similarity** using the [Rastermap](https://github.com/MouseLand/rastermap) algorithm. Cells from all planes are combined and reordered so that neurons with similar activity patterns appear adjacent. This reveals functional clusters and population dynamics that may span multiple z-planes.
 ```
 
 ### Registration Quality Metrics
@@ -158,11 +479,6 @@ Each plane directory contains PC-based registration quality metrics in `pc_metri
 ├── pc_metrics_panels.tif       # PC spatial patterns (Low/High)
 └── pc_metrics_raw.npy          # Raw regDX array (5, 3)
 ```
-
-<video width="100%" controls>
-  <source src="../_images/pc_metrics.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
 
 **PC metrics visualization**: Top and bottom temporal halves for each principal component, showing spatial patterns used to assess registration quality.
 
@@ -216,7 +532,8 @@ from lbm_suite2p_python import load_planar_results, dff_rolling_percentile
 
 # Load a single plane's results
 results = load_planar_results(ops_path, z_plane=0)
-# Returns dict with: F, Fneu, spks, stat, iscell, cellprob, z_plane
+# Returns dict with: F, Fneu, spks, stat, iscell, z_plane
+# iscell is (n_rois, 2): column 0 is classification (0/1), column 1 is probability
 
 # Calculate ΔF/F with rolling percentile baseline
 dff = dff_rolling_percentile(
@@ -226,8 +543,9 @@ dff = dff_rolling_percentile(
 )
 
 # Filter for accepted cells only
-F_cells = results['F'][results['iscell']]
-spks_cells = results['spks'][results['iscell']]
+iscell_mask = results['iscell'][:, 0].astype(bool)
+F_cells = results['F'][iscell_mask]
+spks_cells = results['spks'][iscell_mask]
 ```
 
 ---
@@ -236,6 +554,97 @@ spks_cells = results['spks'][results['iscell']]
 ## Critical Parameters
 
 Understanding key Suite2p parameters is essential for good segmentation results.
+
+```{admonition} Recommended: Anatomical Segmentation
+:class: tip
+
+For LBM data, we recommend **anatomical segmentation with Cellpose** over functional detection. Anatomical detection uses structural features (cell morphology) rather than activity correlations, which works better for densely labeled tissue and datasets with variable activity levels.
+```
+
+### Anatomical Segmentation (Cellpose) - Recommended
+
+Anatomical segmentation uses [Cellpose](https://www.cellpose.org/) to detect cell bodies based on morphology rather than functional activity. This is the recommended approach for LBM data.
+
+#### Quick Start: Anatomical Detection
+
+```python
+ops = {
+    "anatomical_only": 3,      # Use enhanced mean image (recommended)
+    "diameter": 6,             # Expected cell diameter in pixels
+    "cellprob_threshold": 0.0, # Cell probability threshold
+    "flow_threshold": 0.4,     # Flow error threshold
+}
+```
+
+#### `anatomical_only` (default: 0)
+
+Enables anatomical segmentation using Cellpose. The value determines which image is used for detection:
+
+| Value | Image Used | Description |
+|-------|------------|-------------|
+| `0` | Disabled | Functional detection (correlation-based) |
+| `1` | `max_proj / mean_img` | Ratio highlighting active areas |
+| `2` | `mean_img` | Average image over all frames |
+| `3` | `meanImgE` | **Recommended**: Enhanced mean with edge sharpening |
+| `4` | `max_proj` | Maximum projection across frames |
+
+```python
+ops["anatomical_only"] = 3  # Use enhanced mean image
+```
+
+#### `diameter` (default: 0)
+
+Expected cell diameter in pixels. **Required for Cellpose**.
+
+- **0**: Auto-estimate (Suite2p default, but not recommended for Cellpose)
+- **4-8**: Typical for LBM data at 2 µm/pixel resolution
+- **LBM override**: If `diameter` is 0/None/NaN and `anatomical_only > 0`, LBM sets it to 8
+
+```python
+ops["diameter"] = 6  # For ~12 µm cells at 2 µm/pixel
+```
+
+#### `cellprob_threshold` (default: 0.0)
+
+Probability threshold from Cellpose output to determine cell boundaries. More negative values include more pixels.
+
+- **0.0**: Standard threshold
+- **-2.0**: More permissive (include dimmer cells)
+- **2.0**: More stringent (only bright, clear cells)
+
+```python
+ops["cellprob_threshold"] = 0.0  # Standard
+```
+
+#### `flow_threshold` (default: 1.5)
+
+Minimum Cellpose flow error to consider a region valid. Lower values include more ROIs.
+
+- **1.5**: Standard (Suite2p default)
+- **0.4**: More permissive (recommended for LBM)
+- **0.1**: Very permissive
+
+```python
+ops["flow_threshold"] = 0.4  # More permissive for LBM data
+```
+
+#### `spatial_hp_cp` (default: 0.0)
+
+High-pass filtering applied before Cellpose segmentation. A float between 0 and 1.
+
+- **0.0**: No filtering (default)
+- **0.5**: Moderate high-pass (reduces background)
+- **1.0**: Strong high-pass
+
+```python
+ops["spatial_hp_cp"] = 0.0  # No pre-filtering
+```
+
+---
+
+### Functional Detection Parameters
+
+For datasets where anatomical detection doesn't work well, or when you need activity-based ROI detection, use functional parameters.
 
 ```{admonition} Example Dataset
 :class: dropdown
@@ -252,7 +661,7 @@ Example dataset collected by Will Snyder with Dr. Charles Gilbert @ Rockefeller 
 | Num-Planes   | 14                      |
 ```
 
-### Visual Parameter Comparisons
+#### Visual Parameter Comparisons
 
 To see the effect of each parameter on segmentation results, it's helpful to start with default parameters as a baseline.
 
@@ -277,29 +686,16 @@ There are generally 2 approaches toward curating a final dataset:
 1. **Approach 1**: Tune parameters, thresholds and scaling factors to properly model your dataset
 2. **Approach 2**: Use thresholds that maximize the number of cells detected, and use post-hoc correlation/spatial measures to curate cells
 
-We will discuss both approaches.
-
-### Detection Parameters
-
-#### `diameter` (default: 0)
-Expected cell diameter in pixels. Used by both Suite2p and Cellpose.
-- **0**: Auto-estimate from data (Suite2p default)
-- **6-15**: Typical range for neuronal somata at 2 µm/pixel
-- **LBM override**: If `diameter` is 0/None/NaN and `anatomical_only > 0`, LBM sets it to 8
-
-```python
-ops["diameter"] = 8  # For ~16 µm cells at 2 µm/pixel resolution
-```
-
 #### `threshold_scaling` (default: 1.0)
+
 Multiplier for detection threshold. **Lower values detect more ROIs.**
+
 - **0.8-1.2**: Good starting range
 - **<0.8**: May detect noise/background
 - **>1.5**: May miss dim cells
 
 ```python
-# More sensitive detection
-ops["threshold_scaling"] = 0.9
+ops["threshold_scaling"] = 0.9  # More sensitive detection
 ```
 
 ```{figure} _images/default_params_thr.png
@@ -310,14 +706,18 @@ Effect of varying `threshold_scaling` on detected cells. Notably, increasing thi
 ```
 
 #### `tau` (default: 1.0)
+
 Calcium indicator decay time constant in seconds. **Critical for binning and deconvolution.**
 
 GCaMP expression is slow, often taking between 100 ms to over 1 second for the signal to rise and decay. This is the timescale of the sensor, in seconds. We need this value because one of the main performance optimizations is [binning](https://en.wikipedia.org/wiki/Data_binning). We can bin our data **because of this slow timescale** - we set the bin-size to our sensor's timescale because we expect all frames in this window to be the same (on average).
 
-- **GCaMP6f**: 0.7-1.0 s
-- **GCaMP6s**: 1.5-2.0 s
-- **GCaMP8s/m/f**: ~1.0 s
-- **When in doubt, round up!**
+| Indicator | Tau (seconds) |
+|-----------|---------------|
+| GCaMP6f | 0.7-1.0 |
+| GCaMP6s | 1.5-2.0 |
+| GCaMP7/8 variants | ~1.0 |
+
+**When in doubt, round up!**
 
 Determines bin size: `bin_size = tau * fs`
 
@@ -358,7 +758,9 @@ with suite2p.io.BinaryFile(filename=bin_path, Ly=ops["Ly"], Lx=ops["Lx"]) as f:
 ```
 
 #### `max_overlap` (default: 0.75)
-Maximum allowed spatial overlap between ROIs (0-1). If two masks overlap by a fraction >max_overlap, they will be discarded/rejected.
+
+Maximum allowed spatial overlap between ROIs (0-1). If two masks overlap by a fraction > max_overlap, they will be discarded/rejected.
+
 - **0.75**: Default, reject ROIs with >75% overlap
 - **1.0**: Keep all overlapping ROIs
 - **0.5**: More stringent overlap rejection
@@ -375,7 +777,8 @@ Effect of varying `max_overlap` on detected cells.
 ```
 
 #### `spatial_hp_detect` (default: 25)
-There are several steps in the pipeline in which a `gaussian filter` is applied to the image before a downstream processing step. `spatial_hp_detect` is the gaussian filter applied immediately to each mean-subtracted image during cell detection and acts to decrease the background noise.
+
+Gaussian filter size applied during functional cell detection to reduce background noise.
 
 A good value for `spatial_hp_detect` will decrease the brightness of the background while increasing the contrast between background and neuron.
 
@@ -459,6 +862,36 @@ Maximum allowed registration shift as fraction of frame size.
 ops["maxregshift"] = 0.15  # Allow 15% shift for large FOV drift
 ```
 
+#### Registration Output Files
+
+Registration produces these files in addition to the main outputs:
+
+| File/Key | Description |
+|----------|-------------|
+| `data.bin` | Motion-corrected movie (channel 1) |
+| `data_chan2.bin` | Registered channel 2 (if `nchannels=2`) |
+| `ops['xoff']` | Rigid X shifts for each frame |
+| `ops['yoff']` | Rigid Y shifts for each frame |
+| `ops['corrXY']` | Phase-correlation scores (frame vs reference) |
+| `ops['refImg']` | Reference image used for registration |
+
+#### Registration Metrics (`ops['regDX']`)
+
+Suite2p computes PC-based metrics to assess registration quality:
+
+| Metric | Description |
+|--------|-------------|
+| `regPC` | Spatial principal components used for QC |
+| `tPC` | Time courses of principal components |
+| `regDX` | Shift distance between split PCs (lower = better) |
+
+You can compute metrics manually:
+
+```python
+from suite2p.registration import metrics
+ops = metrics.get_pc_metrics(ops, use_red=False)
+```
+
 ### Extraction Parameters
 
 #### `neucoeff` (default: 0.7)
@@ -487,40 +920,6 @@ Inner radius (pixels) of neuropil annulus around each ROI.
 - **2**: Standard 2-pixel buffer
 - **0**: No buffer (neuropil immediately adjacent)
 - **5+**: Larger buffer for very bright cells
-
-### Anatomical Segmentation (Cellpose)
-
-Set `anatomical_only` to use Cellpose instead of functional detection:
-
-#### `anatomical_only` (default: 0)
-Enables anatomical segmentation using [Cellpose](https://www.cellpose.org/), bypassing Suite2p's functional ROI detection. The value determines which image is used:
-
-| Value | Image Used         | Description                                                                 |
-|-------|--------------------|-----------------------------------------------------------------------------|
-| `1`   | `max_proj / mean_img` | Ratio of the max projection to the mean image; highlights active areas relative to baseline. |
-| `2`   | `mean_img`         | The average image over all frames; provides baseline structural contrast. |
-| `3`   | `meanImgE`         | An enhanced version of the mean image using Suite2p's sharpening/filtering; highlights edges and features. |
-| `4`   | `max_proj`         | Maximum projection across all frames. |
-| `0` or False | Disabled   | Anatomical detection is off; functional detection (correlation-based) is used instead. |
-
-```python
-ops["anatomical_only"] = 3  # Use enhanced mean image
-ops["diameter"] = 8         # Required for Cellpose
-ops["sparse_mode"] = False  # Turn off sparse detection
-```
-
-#### `cellprob_threshold` (default: 0.0)
-Probability threshold from Cellpose's output to determine whether a pixel belongs to a cell. More negative values include more pixels.
-- **0.0**: Standard
-- **-2.0**: More permissive
-
-#### `flow_threshold` (default: 1.5)
-Minimum Cellpose flow error to consider a region valid. Lower values include more ROIs.
-- **1.5**: Standard
-- **0.4**: More permissive
-
-#### `spatial_hp_cp` (default: 0.0)
-Amount of high-pass filtering applied to the image before Cellpose segmentation. A float between `0` and `1`.
 
 ---
 
@@ -554,11 +953,11 @@ grid_params = {
 }
 
 # Run grid search on a single plane
-lsp.run_grid_search(
-    base_ops=ops,
-    grid_search_dict=grid_params,
+lsp.grid_search(
     input_file=test_plane_file,
-    save_root=grid_search_dir,
+    save_path=grid_search_dir,
+    grid_params=grid_params,
+    ops=ops,
     force_reg=False,
     force_detect=True  # Always re-run detection
 )
@@ -600,11 +999,11 @@ search_dict = {
     "block_size": [[128, 128], [64, 64]]
 }
 
-lsp.run_grid_search(
-    base_ops,
-    search_dict,
+lsp.grid_search(
     input_file=input_tiff,
-    save_root=save_path.joinpath("registration")
+    save_path=save_path / "registration",
+    grid_params=search_dict,
+    ops=base_ops,
 )
 ```
 
@@ -763,30 +1162,6 @@ The resulting ΔF/F₀ traces can look different depending on the chosen baselin
 The resulting ΔF/F₀ traces with detected events overlaid.
 ```
 
-### Standardized Noise Levels
-
-```{math}
-:class: center large
-
-\nu = \frac{\mathrm{median}_t\left( \left| \frac{\Delta F_t}{F_0} - \frac{\Delta F_{t+1}}{F_0} \right| \right)}{\sqrt{f_r}}
-```
-
-- Compare shot-noise levels across datasets, recordings, experiments
-- Takes advantage of the slow calcium signal, which is typically similar between adjacent frames
-- Median to exclude outliers stemming from fast onset
-- Norm by sqrt(framerate) makes metric comparable across datasets with different framerates
-- Shot-noise decreases with #samples with a square root dependency
-
-The resulting units, `% for dF/F, divided by the square root of seconds`, is strange but should be used relative to other datasets.
-
-```{figure} _images/noise_comp.png
-:alt: High vs Low Noise Levels
-:name: ug-fig-noise-high-low
-:width: 100%
-
-Top N neurons with highest and lowest standardized noise levels.
-```
-
 ### Pipeline Comparison
 
 Different pipelines handle ΔF/F₀ differently:
@@ -830,16 +1205,31 @@ The 0.7 is an empirically chosen scalar to account for the partial contamination
 Raw, neuropil, ΔF/F₀ and resulting deconvolved spikes as output by [Suite2p](https://github.com/MouseLand/suite2p).
 ```
 
+#### EXTRACT
+
+[EXTRACT](https://github.com/schnitzer-lab/EXTRACT-public) outputs raw fluorescence signals without built-in ΔF/F₀ calculation. You compute it yourself using something like a low-percentile (e.g. 10%) as F₀. Most users apply a global or sliding percentile window.
+
+**Neuropil:** Handled implicitly. The algorithm uses robust factorization to ignore background and neuropil. There's no explicit subtraction or coefficient to tune—it isolates only what fits a consistent spatial footprint and suppresses outliers by design.
+
 ### Using LBM-Suite2p-Python ΔF/F Functions
+
+```{tip}
+For detailed guidance on choosing `window_size` based on your indicator and framerate, see [Understanding ΔF/F Traces](#understanding-δff-traces) in the Planar Outputs section.
+```
 
 #### Rolling Percentile Baseline (Recommended)
 
 ```python
 from lbm_suite2p_python import dff_rolling_percentile
 
+# Calculate window size: 10 × tau × framerate
+tau = 1.0   # GCaMP7s decay time constant (seconds)
+fs = 17.0   # Your acquisition framerate (Hz)
+window_size = int(10 * tau * fs)  # = 170 frames
+
 dff = dff_rolling_percentile(
     F,
-    window_size=500,    # Frames (e.g., ~30s at 17 Hz)
+    window_size=window_size,
     percentile=20,      # Use 20th percentile as baseline
     use_median_floor=False  # Optional: set min F₀ at 1% of median
 )
@@ -975,88 +1365,6 @@ with suite2p.io.BinaryFile(filename=data_bin, Ly=ops["Ly"], Lx=ops["Lx"]) as f:
 - Increase `maxregshift` (default 0.1 → 0.15-0.2)
 - Check `refImg` quality
 
-### Memory Issues
-
-**Processing large volumes:**
-```python
-# Process planes individually
-for file in files:
-    ops_file = lsp.run_plane(input_path=file, ...)
-    gc.collect()  # Force garbage collection
-
-# Or: delete binaries immediately
-ops_file = lsp.run_plane(keep_raw=False, keep_reg=False, ...)
-```
-
----
-
-## Advanced Usage
-
-### Custom Ops Overrides
-
-```python
-# Start with defaults
-ops = lsp.default_ops()
-
-# Override specific parameters
-ops.update({
-    "threshold_scaling": 0.9,
-    "tau": 1.2,
-    "nonrigid": True,
-    "block_size": [96, 96],
-    "max_overlap": 0.85,
-    "allow_overlap": True
-})
-
-# Run with custom ops
-output_ops = lsp.run_volume(input_files, save_path, ops)
-```
-
-### Bypassing Binary Validation
-
-Force recreation of binaries even if they exist:
-
-```python
-ops_file = lsp.run_plane(
-    input_path=file,
-    force_reg=True,  # Force binary rewrite and registration
-    ops=ops
-)
-```
-
-### Processing Pre-Registered Data
-
-If you have `data.bin` already:
-
-```python
-from lbm_suite2p_python import run_plane_bin
-
-# Directly process existing binary
-ops["raw_file"] = str(plane_dir / "data_raw.bin")
-ops["ops_path"] = str(plane_dir / "ops.npy")
-ops["do_registration"] = 0  # Skip registration
-ops["roidetect"] = True
-
-run_plane_bin(ops)
-```
-
----
-
-## Best Practices
-
-1. **Start small:** Test parameters on 1-2 representative planes before processing full volumes
-2. **Use grid search:** Systematically explore parameter space
-3. **Save registered binaries:** Set `keep_reg=True` for re-analysis without re-registration
-4. **Delete raw binaries:** Set `keep_raw=False` to save ~50% disk space
-5. **Monitor registration quality:** Check `ops["corrXY"]` and `meanImg` for artifacts
-6. **Validate diameter:** Measure actual cell sizes in your max projection
-7. **Document parameters:** Save `ops.json` alongside results for reproducibility
-
-```python
-from lbm_suite2p_python import ops_to_json
-ops_to_json(ops_file, outpath="ops.json")
-```
-
 ---
 
 ## Further Reading
@@ -1065,59 +1373,3 @@ ops_to_json(ops_file, outpath="ops.json")
 - {doc}`Glossary <glossary>` - Term definitions
 - [Suite2p Documentation](https://suite2p.readthedocs.io/) - Detailed Suite2p parameter guide
 - [Cellpose Documentation](https://cellpose.readthedocs.io/) - Anatomical segmentation details
-- [CLAUDE.md](https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/blob/master/CLAUDE.md) - Technical deep-dive into data flow
-
----
-
-## Example Workflows
-
-### Workflow 1: Standard Volumetric Processing
-
-```python
-import mbo_utilities as mbo
-import lbm_suite2p_python as lsp
-
-# Setup
-files = mbo.get_files(data_dir, "tiff", max_depth=3)
-metadata = mbo.get_metadata(files[0])
-ops = mbo.params_from_metadata(metadata)
-
-# Tune parameters
-ops["threshold_scaling"] = 0.9
-ops["tau"] = 1.0
-ops["diameter"] = 8
-
-# Process
-output_ops = lsp.run_volume(files, save_dir, ops, keep_raw=False)
-
-# Load and analyze
-results = [lsp.load_planar_results(f) for f in output_ops]
-```
-
-### Workflow 2: Two-Channel Registration
-
-```python
-# Functional and structural channels
-func_files = mbo.get_files(func_dir, "tiff")
-struct_files = mbo.get_files(struct_dir, "tiff")
-
-for func, struct in zip(func_files, struct_files):
-    ops_file = lsp.run_plane(
-        input_path=func,
-        chan2_file=struct,  # Register functional to structural
-        save_path=save_dir / func.stem,
-        ops=ops
-    )
-```
-
-### Workflow 3: Cellpose Anatomical Segmentation
-
-```python
-ops = lsp.default_ops()
-ops["anatomical_only"] = 3  # Use meanImgE
-ops["diameter"] = 8
-ops["sparse_mode"] = False
-ops["cellprob_threshold"] = -2.0  # More permissive
-
-output_ops = lsp.run_volume(files, save_dir, ops)
-```

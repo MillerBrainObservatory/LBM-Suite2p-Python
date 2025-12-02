@@ -21,6 +21,7 @@ from lbm_suite2p_python.postprocessing import (
     load_planar_results,
     dff_rolling_percentile,
     dff_shot_noise,
+    compute_trace_quality_score,
 )
 from lbm_suite2p_python.utils import (
     _resize_masks_fit_crop,
@@ -276,7 +277,8 @@ def plot_traces(
         offset=None,
         lw=0.5,
         cmap="tab10",
-        scale_bar_label: str = "50% ΔF/F₀",
+        scale_bar_unit: str = None,
+        mask_overlap: bool = True,
 ) -> None:
     """
     Plot stacked fluorescence traces with automatic offset and scale bars.
@@ -301,11 +303,15 @@ def plot_traces(
         Line width for data points.
     cmap : str
         Matplotlib colormap string.
-    scale_bar_label : str, default "50% ΔF/F₀"
-        User-supplied label for the vertical scale bar. The scale bar is always
-        10% of the figure height; this label describes what that height represents.
+    scale_bar_unit : str, optional
+        Unit suffix for the vertical scale bar (e.g., "% ΔF/F₀", "a.u.").
+        The numeric value is computed automatically based on the plot's
+        vertical scale. If None, inferred from data range.
     cell_indices : array-like or None
         Specific cell indices to plot. If provided, overrides num_neurons.
+    mask_overlap : bool, default True
+        If True, lower traces mask (occlude) traces above them, creating
+        a layered effect where each trace has a black background.
     """
     if isinstance(f, dict):
         raise ValueError("f must be a numpy array, not a dictionary")
@@ -358,20 +364,25 @@ def plot_traces(
         spine.set_visible(False)
 
     # Plot from top to bottom so lower-indexed traces appear on top
+    time_slice = data_time[: current_frame + 1]
     for i in range(displayed_neurons - 1, -1, -1):
+        z = displayed_neurons - i  # Lower index = higher zorder = on top
+        if mask_overlap:
+            # Fill below trace with black to mask traces above
+            ax.fill_between(
+                time_slice,
+                shifted_traces[i],
+                y2=shifted_traces[i].min() - offset,
+                color="black",
+                zorder=z - 0.5,
+            )
         ax.plot(
-            data_time[: current_frame + 1],
+            time_slice,
             shifted_traces[i],
             color=colors[i],
             lw=lw,
-            zorder=displayed_neurons - i,  # Lower index = higher zorder = on top
+            zorder=z,
         )
-
-    # Set y-limits based on shifted traces with minimal padding
-    y_min = np.min(shifted_traces)
-    y_max = np.max(shifted_traces)
-    y_padding = (y_max - y_min) * 0.02
-    ax.set_ylim(y_min - y_padding, y_max + y_padding)
 
     time_bar_length = 0.1 * window
     if time_bar_length < 60:
@@ -381,35 +392,77 @@ def plot_traces(
     else:
         time_label = f"{time_bar_length / 3600:.1f} hr"
 
+    # Set y-limits with small padding (no extra space for scalebars - they go outside)
+    y_min = np.min(shifted_traces)
+    y_max = np.max(shifted_traces)
+    y_range = y_max - y_min
+    ax.set_ylim(y_min - y_range * 0.02, y_max + y_range * 0.02)
+
+    # Compute vertical scale bar value (10% of y-range in data units)
+    scale_bar_height_frac = 0.10  # 10% of axes height
+    scale_bar_data_value = y_range * scale_bar_height_frac
+
+    # Use provided unit or default to "a.u."
+    if scale_bar_unit is None:
+        scale_bar_unit = "a.u."
+
+    # Format the scale bar label with computed value
+    if scale_bar_data_value >= 100:
+        scale_bar_label = f"{int(round(scale_bar_data_value, -1))} {scale_bar_unit}"
+    elif scale_bar_data_value >= 10:
+        scale_bar_label = f"{int(round(scale_bar_data_value))} {scale_bar_unit}"
+    elif scale_bar_data_value >= 1:
+        scale_bar_label = f"{scale_bar_data_value:.0f} {scale_bar_unit}"
+    else:
+        scale_bar_label = f"{scale_bar_data_value:.2f} {scale_bar_unit}"
+
+    # Adjust subplot to make room for scalebars at bottom and right
+    fig.subplots_adjust(bottom=0.12, right=0.88)
+
     linekw = dict(color="white", linewidth=3)
-    hsb = AnchoredHScaleBar(
-        size=0.1,
-        label=time_label,
-        loc=4,
-        frameon=False,
-        pad=0.6,
-        sep=4,
-        linekw=linekw,
-        ax=ax,
+
+    # Time scale bar - use fig.text for fixed position below axes
+    # Get axes position in figure coordinates
+    ax_pos = ax.get_position()
+    time_bar_x = ax_pos.x1 - 0.02  # right side of axes
+    time_bar_y = 0.07  # fixed position just below axes
+
+    # Draw horizontal line for time scale bar
+    line_width_fig = 0.08  # width in figure coords
+    fig.add_artist(plt.Line2D(
+        [time_bar_x - line_width_fig, time_bar_x],
+        [time_bar_y, time_bar_y],
+        transform=fig.transFigure,
+        color="white",
+        linewidth=3,
+        clip_on=False,
+    ))
+    # Add time label
+    fig.text(
+        time_bar_x - line_width_fig / 2,
+        time_bar_y - 0.02,
+        time_label,
+        ha="center",
+        va="top",
+        color="white",
+        fontsize=10,
+        transform=fig.transFigure,
     )
-    hsb.set_bbox_to_anchor((0.9, -0.05), transform=ax.transAxes)  # noqa
-    hsb.txt._text.set_color("white")  # noqa
 
-    ax.add_artist(hsb)
-
-    # Vertical scale bar is 10% of figure height with user-supplied label
+    # Vertical scale bar - positioned just outside right edge, bottom aligned with x-axis
     vsb = AnchoredVScaleBar(
-        height=0.10,
+        height=scale_bar_height_frac,
         label=scale_bar_label,
         loc="lower right",
         frameon=False,
-        pad=-0.1,
+        pad=0.5,
         sep=4,
         linekw=linekw,
         ax=ax,
         spacer_width=0,
     )
-    vsb.set_bbox_to_anchor((1.00, 0.05), transform=ax.transAxes)
+    # Position just outside right edge of axes, bottom at y=0
+    vsb.set_bbox_to_anchor((1.02, 0.0), transform=ax.transAxes)
     vsb.txt._text.set_color("white")
     ax.add_artist(vsb)
 
@@ -418,10 +471,10 @@ def plot_traces(
 
     ax.set_ylabel(
         f"Neuron Count: {displayed_neurons}",
-        fontsize=8,
+        fontsize=10,
         fontweight="bold",
         color="white",
-        labelpad=2,
+        labelpad=5,
     )
 
     if save_path:
@@ -651,7 +704,7 @@ def plot_masks(
         img: np.ndarray,
         stat: list[dict] | dict,
         mask_idx: np.ndarray,
-        savepath: str | Path,
+        savepath: str | Path = None,
         colors=None,
         title=None,
 ):
@@ -660,14 +713,14 @@ def plot_masks(
 
     Parameters
     ----------
-    stat : list[dict]
-        Suite2p ROI stat dictionaries (with "ypix", "xpix", "lam").
     img : ndarray (Ly x Lx)
         Background image to overlay on.
+    stat : list[dict]
+        Suite2p ROI stat dictionaries (with "ypix", "xpix", "lam").
     mask_idx : ndarray[bool]
         Boolean array selecting which ROIs to plot.
-    savepath : str or Path
-        Fully qualified path to save the figure.
+    savepath : str or Path, optional
+        Path to save the figure. If None, displays with plt.show().
     colors : ndarray or list, optional
         Array/list of RGB tuples for each ROI selected.
         If None, colors are assigned via HSV colormap.
@@ -675,13 +728,18 @@ def plot_masks(
         Title string to place on the figure.
     """
 
-    # Normalize background image (handle NaN values from dead zone masking)
-    img_min = np.nanmin(img)
-    img_ptp = np.nanmax(img) - img_min
-    normalized = (img - img_min) / (img_ptp + 1e-6)
+    # Normalize background image using percentile stretch for better contrast
+    # this prevents dark images when min/max are extreme outliers
+    vmin = np.nanpercentile(img, 1)
+    vmax = np.nanpercentile(img, 99)
+    normalized = (img - vmin) / (vmax - vmin + 1e-6)
+    normalized = np.clip(normalized, 0, 1)
     # Set NaN regions to 0 (black background)
     normalized = np.nan_to_num(normalized, nan=0.0)
     canvas = np.tile(normalized, (3, 1, 1)).transpose(1, 2, 0)
+
+    # Get image dimensions for bounds checking
+    Ly, Lx = img.shape[:2]
 
     # Assign colors if not provided
     n_masks = mask_idx.sum()
@@ -692,7 +750,18 @@ def plot_masks(
     for n, s in enumerate(stat):
         if mask_idx[n]:
             ypix, xpix, lam = s["ypix"], s["xpix"], s["lam"]
-            lam = lam / lam.max()
+
+            # Bounds checking - only keep pixels within image dimensions
+            valid_mask = (ypix >= 0) & (ypix < Ly) & (xpix >= 0) & (xpix < Lx)
+            if not np.any(valid_mask):
+                c += 1
+                continue  # Skip ROI if no valid pixels
+
+            ypix = ypix[valid_mask]
+            xpix = xpix[valid_mask]
+            lam = lam[valid_mask]
+
+            lam = lam / (lam.max() + 1e-10)
             col = colors[c]
             c += 1
             for k in range(3):
@@ -700,18 +769,19 @@ def plot_masks(
                         0.5 * canvas[ypix, xpix, k] + 0.5 * col[k] * lam
                 )
 
-    plt.figure(figsize=(10, 10))
-    plt.imshow(canvas, interpolation="nearest")
+    fig, ax = plt.subplots(figsize=(10, 10), facecolor="black")
+    ax.set_facecolor("black")
+    ax.imshow(canvas, interpolation="nearest")
     if title is not None:
-        plt.title(title, fontsize=10)
-    plt.axis("off")
+        ax.set_title(title, fontsize=10, color="white", fontweight="bold")
+    ax.axis("off")
     plt.tight_layout()
 
     if savepath:
         if Path(savepath).is_dir():
             raise ValueError("savepath must be a file path, not a directory.")
-        plt.savefig(savepath, dpi=300)
-        plt.close()
+        plt.savefig(savepath, dpi=300, facecolor="black")
+        plt.close(fig)
     else:
         plt.show()
 
@@ -774,15 +844,15 @@ def plot_projection(
     if display_masks:
         res = load_planar_results(ops)
         stat = res["stat"]
-        iscell = res["iscell"]
+        iscell_mask = res["iscell"][:, 0].astype(bool)
         im = ROI.stats_dicts_to_3d_array(
             stat, Ly=ops["Ly"], Lx=ops["Lx"], label_id=True
         )
         im[im == 0] = np.nan
-        accepted_cells = np.sum(iscell)
-        rejected_cells = np.sum(~iscell)
+        accepted_cells = np.sum(iscell_mask)
+        rejected_cells = np.sum(~iscell_mask)
         cell_rois = _resize_masks_fit_crop(
-            np.nanmax(im[iscell], axis=0) if np.any(iscell) else np.zeros_like(im[0]),
+            np.nanmax(im[iscell_mask], axis=0) if np.any(iscell_mask) else np.zeros_like(im[0]),
             shape,
         )
         green_overlay = np.zeros((*shape, 4), dtype=np.float32)
@@ -792,8 +862,8 @@ def plot_projection(
         if not accepted_only:
             non_cell_rois = _resize_masks_fit_crop(
                 (
-                    np.nanmax(im[~iscell], axis=0)
-                    if np.any(~iscell)
+                    np.nanmax(im[~iscell_mask], axis=0)
+                    if np.any(~iscell_mask)
                     else np.zeros_like(im[0])
                 ),
                 shape,
@@ -1150,7 +1220,6 @@ def save_pc_panels_and_metrics(ops, savepath, pcs=(0, 1, 2, 3)):
         imagej=True,
         metadata={"Labels": panel_labels},
     )
-    print(f"Saved panel TIFF to {panel_tiff}")
 
     df = pd.DataFrame(regDX, columns=["Rigid", "Avg_NR", "Max_NR"])
     metrics = {
@@ -1163,18 +1232,12 @@ def save_pc_panels_and_metrics(ops, savepath, pcs=(0, 1, 2, 3)):
     }
     csv_path = savepath.with_suffix(".csv")
     pd.DataFrame([metrics]).to_csv(csv_path, index=False)
-    print(f"Saved metrics CSV to {csv_path}")
-    print(df.head())
 
     return {
         "panel_tiff": panel_tiff,
         "metrics_csv": csv_path,
     }
 
-
-# =============================================================================
-# Publication-Quality Volumetric Figures
-# =============================================================================
 
 
 def plot_multiplane_masks(
@@ -1323,17 +1386,16 @@ def plot_plane_quality_metrics(
     stat: np.ndarray,
     iscell: np.ndarray,
     save_path: str | Path = None,
-    figsize: tuple = (16, 10),
-    style: str = "publication",
+    figsize: tuple = (14, 10),
 ) -> plt.Figure:
     """
     Generate publication-quality ROI quality metrics across all planes.
 
-    Creates a multi-panel figure showing:
-    - ROI counts per plane (stacked bar: accepted/rejected)
-    - Compactness distribution by plane (violin plot)
-    - ROI size distribution by plane (violin plot)
-    - Summary statistics table
+    Creates a multi-panel figure with line plots showing mean ± std:
+    - Compactness vs plane
+    - Skewness vs plane
+    - ROI size (npix) vs plane
+    - Radius vs plane
 
     Parameters
     ----------
@@ -1343,10 +1405,8 @@ def plot_plane_quality_metrics(
         Cell classification array (n_rois, 2).
     save_path : str or Path, optional
         If provided, save figure to this path.
-    figsize : tuple, default (16, 10)
+    figsize : tuple, default (14, 10)
         Figure size in inches.
-    style : str, default "publication"
-        Style preset: "publication" (white bg) or "dark" (black bg).
 
     Returns
     -------
@@ -1367,189 +1427,111 @@ def plot_plane_quality_metrics(
     compactness = np.array([s.get("compact", np.nan) for s in stat])
     skewness = np.array([s.get("skew", np.nan) for s in stat])
     npix = np.array([s.get("npix", 0) for s in stat])
+    radius = np.array([s.get("radius", np.nan) for s in stat])
     accepted = iscell[:, 0] == 1
 
-    # Style configuration
-    if style == "dark":
-        bg_color, text_color = "black", "white"
-        accent_colors = {"accepted": "lime", "rejected": "orangered",
-                        "violin1": "cyan", "violin2": "magenta"}
-    else:
-        bg_color, text_color = "white", "black"
-        accent_colors = {"accepted": "#2ecc71", "rejected": "#e74c3c",
-                        "violin1": "#3498db", "violin2": "#9b59b6"}
+    # Dark theme colors (consistent with plot_volume_diagnostics)
+    bg_color = "black"
+    text_color = "white"
+    colors = {
+        "compactness": "#9b59b6",  # Purple
+        "skewness": "#e67e22",     # Orange
+        "size": "#3498db",         # Blue
+        "radius": "#2ecc71",       # Green
+    }
+    mean_line_color = "#e74c3c"  # Red for mean markers
+
+    # Compute mean and std per plane for accepted cells
+    def compute_stats_per_plane(values, plane_nums, accepted, unique_planes):
+        means = []
+        stds = []
+        for p in unique_planes:
+            mask = (plane_nums == p) & accepted & ~np.isnan(values)
+            if mask.sum() > 0:
+                means.append(np.mean(values[mask]))
+                stds.append(np.std(values[mask]))
+            else:
+                means.append(np.nan)
+                stds.append(np.nan)
+        return np.array(means), np.array(stds)
+
+    compact_mean, compact_std = compute_stats_per_plane(compactness, plane_nums, accepted, unique_planes)
+    skew_mean, skew_std = compute_stats_per_plane(skewness, plane_nums, accepted, unique_planes)
+    npix_mean, npix_std = compute_stats_per_plane(npix.astype(float), plane_nums, accepted, unique_planes)
+    radius_mean, radius_std = compute_stats_per_plane(radius, plane_nums, accepted, unique_planes)
 
     with plt.style.context("default"):
-        fig = plt.figure(figsize=figsize, facecolor=bg_color)
-        gs = gridspec.GridSpec(2, 3, figure=fig, hspace=0.35, wspace=0.3)
-
-        # Panel 1: ROI counts per plane (stacked bar)
-        ax1 = fig.add_subplot(gs[0, 0])
-        ax1.set_facecolor(bg_color)
-        counts_acc = [np.sum((plane_nums == p) & accepted) for p in unique_planes]
-        counts_rej = [np.sum((plane_nums == p) & ~accepted) for p in unique_planes]
+        fig, axes = plt.subplots(2, 2, figsize=figsize, facecolor=bg_color)
+        axes = axes.flatten()
 
         x = np.arange(n_planes)
-        width = 0.7
-        ax1.bar(x, counts_acc, width, label="Accepted", color=accent_colors["accepted"], alpha=0.85)
-        ax1.bar(x, counts_rej, width, bottom=counts_acc, label="Rejected",
-                color=accent_colors["rejected"], alpha=0.85)
 
-        ax1.set_xlabel("Plane", fontweight="bold", fontsize=11, color=text_color)
-        ax1.set_ylabel("Number of ROIs", fontweight="bold", fontsize=11, color=text_color)
-        ax1.set_title("ROI Counts per Plane", fontweight="bold", fontsize=12, color=text_color)
-        ax1.set_xticks(x[::max(1, n_planes // 10)])
-        ax1.set_xticklabels([f"{int(p)}" for p in unique_planes[::max(1, n_planes // 10)]])
-        ax1.tick_params(colors=text_color)
-        ax1.legend(fontsize=9, framealpha=0.9)
-        ax1.spines["top"].set_visible(False)
-        ax1.spines["right"].set_visible(False)
-        for spine in ax1.spines.values():
-            spine.set_color(text_color)
+        def style_axis(ax, xlabel, ylabel, title):
+            ax.set_facecolor(bg_color)
+            ax.set_xlabel(xlabel, fontweight="bold", fontsize=10, color=text_color)
+            ax.set_ylabel(ylabel, fontweight="bold", fontsize=10, color=text_color)
+            ax.set_title(title, fontweight="bold", fontsize=11, color=text_color)
+            ax.tick_params(colors=text_color, labelsize=9)
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
+            ax.spines["bottom"].set_color(text_color)
+            ax.spines["left"].set_color(text_color)
+            # Set x-ticks to show plane numbers
+            if n_planes <= 20:
+                ax.set_xticks(x)
+                ax.set_xticklabels([f"{int(p)}" for p in unique_planes])
+            else:
+                step = max(1, n_planes // 10)
+                ax.set_xticks(x[::step])
+                ax.set_xticklabels([f"{int(p)}" for p in unique_planes[::step]])
 
-        # Panel 2: Compactness violin plot
-        ax2 = fig.add_subplot(gs[0, 1])
-        ax2.set_facecolor(bg_color)
-        data_compact = [compactness[(plane_nums == p) & accepted & ~np.isnan(compactness)]
-                       for p in unique_planes]
-        # Filter out empty arrays
-        valid_compact = [(i, d) for i, d in enumerate(data_compact) if len(d) > 0]
-        if valid_compact:
-            positions, data = zip(*valid_compact)
-            parts = ax2.violinplot(data, positions=positions, widths=0.7, showmeans=True, showmedians=True)
-            for pc in parts["bodies"]:
-                pc.set_facecolor(accent_colors["violin1"])
-                pc.set_alpha(0.7)
-            for key in ["cmeans", "cmedians", "cbars", "cmins", "cmaxes"]:
-                if key in parts:
-                    parts[key].set_color(text_color)
+        # Panel 1: Compactness
+        ax = axes[0]
+        valid = ~np.isnan(compact_mean)
+        ax.fill_between(x[valid], (compact_mean - compact_std)[valid], (compact_mean + compact_std)[valid],
+                       alpha=0.3, color=colors["compactness"])
+        ax.plot(x[valid], compact_mean[valid], 'o-', color=colors["compactness"], linewidth=2, markersize=5)
+        style_axis(ax, "Z-Plane", "Compactness", "ROI Compactness (Accepted)")
 
-        ax2.set_xlabel("Plane", fontweight="bold", fontsize=11, color=text_color)
-        ax2.set_ylabel("Compactness", fontweight="bold", fontsize=11, color=text_color)
-        ax2.set_title("ROI Compactness (Accepted)", fontweight="bold", fontsize=12, color=text_color)
-        ax2.tick_params(colors=text_color)
-        ax2.spines["top"].set_visible(False)
-        ax2.spines["right"].set_visible(False)
-        for spine in ax2.spines.values():
-            spine.set_color(text_color)
+        # Panel 2: Skewness
+        ax = axes[1]
+        valid = ~np.isnan(skew_mean)
+        ax.fill_between(x[valid], (skew_mean - skew_std)[valid], (skew_mean + skew_std)[valid],
+                       alpha=0.3, color=colors["skewness"])
+        ax.plot(x[valid], skew_mean[valid], 'o-', color=colors["skewness"], linewidth=2, markersize=5)
+        style_axis(ax, "Z-Plane", "Skewness", "Trace Skewness (Accepted)")
 
-        # Panel 3: Skewness violin plot
-        ax3 = fig.add_subplot(gs[0, 2])
-        ax3.set_facecolor(bg_color)
-        data_skew = [skewness[(plane_nums == p) & accepted & ~np.isnan(skewness)]
-                    for p in unique_planes]
-        valid_skew = [(i, d) for i, d in enumerate(data_skew) if len(d) > 0]
-        if valid_skew:
-            positions, data = zip(*valid_skew)
-            parts = ax3.violinplot(data, positions=positions, widths=0.7, showmeans=True, showmedians=True)
-            for pc in parts["bodies"]:
-                pc.set_facecolor(accent_colors["violin2"])
-                pc.set_alpha(0.7)
-            for key in ["cmeans", "cmedians", "cbars", "cmins", "cmaxes"]:
-                if key in parts:
-                    parts[key].set_color(text_color)
+        # Panel 3: ROI Size (npix)
+        ax = axes[2]
+        valid = ~np.isnan(npix_mean)
+        ax.fill_between(x[valid], (npix_mean - npix_std)[valid], (npix_mean + npix_std)[valid],
+                       alpha=0.3, color=colors["size"])
+        ax.plot(x[valid], npix_mean[valid], 'o-', color=colors["size"], linewidth=2, markersize=5)
+        style_axis(ax, "Z-Plane", "Number of Pixels", "ROI Size (Accepted)")
 
-        ax3.set_xlabel("Plane", fontweight="bold", fontsize=11, color=text_color)
-        ax3.set_ylabel("Skewness", fontweight="bold", fontsize=11, color=text_color)
-        ax3.set_title("Trace Skewness (Accepted)", fontweight="bold", fontsize=12, color=text_color)
-        ax3.tick_params(colors=text_color)
-        ax3.spines["top"].set_visible(False)
-        ax3.spines["right"].set_visible(False)
-        for spine in ax3.spines.values():
-            spine.set_color(text_color)
-
-        # Panel 4: ROI size violin plot
-        ax4 = fig.add_subplot(gs[1, 0])
-        ax4.set_facecolor(bg_color)
-        data_npix = [npix[(plane_nums == p) & accepted] for p in unique_planes]
-        valid_npix = [(i, d) for i, d in enumerate(data_npix) if len(d) > 0]
-        if valid_npix:
-            positions, data = zip(*valid_npix)
-            parts = ax4.violinplot(data, positions=positions, widths=0.7, showmeans=True, showmedians=True)
-            for pc in parts["bodies"]:
-                pc.set_facecolor(accent_colors["violin1"])
-                pc.set_alpha(0.7)
-            for key in ["cmeans", "cmedians", "cbars", "cmins", "cmaxes"]:
-                if key in parts:
-                    parts[key].set_color(text_color)
-
-        ax4.set_xlabel("Plane", fontweight="bold", fontsize=11, color=text_color)
-        ax4.set_ylabel("Number of Pixels", fontweight="bold", fontsize=11, color=text_color)
-        ax4.set_title("ROI Size (Accepted)", fontweight="bold", fontsize=12, color=text_color)
-        ax4.tick_params(colors=text_color)
-        ax4.spines["top"].set_visible(False)
-        ax4.spines["right"].set_visible(False)
-        for spine in ax4.spines.values():
-            spine.set_color(text_color)
-
-        # Panel 5: Acceptance rate by plane
-        ax5 = fig.add_subplot(gs[1, 1])
-        ax5.set_facecolor(bg_color)
-        acceptance_rates = [100 * np.sum((plane_nums == p) & accepted) / max(1, np.sum(plane_nums == p))
-                          for p in unique_planes]
-        ax5.bar(x, acceptance_rates, width, color=accent_colors["accepted"], alpha=0.85)
-        ax5.axhline(np.mean(acceptance_rates), color=accent_colors["rejected"],
-                   linestyle="--", linewidth=2, label=f"Mean: {np.mean(acceptance_rates):.1f}%")
-
-        ax5.set_xlabel("Plane", fontweight="bold", fontsize=11, color=text_color)
-        ax5.set_ylabel("Acceptance Rate (%)", fontweight="bold", fontsize=11, color=text_color)
-        ax5.set_title("Cell Classification Rate", fontweight="bold", fontsize=12, color=text_color)
-        ax5.set_xticks(x[::max(1, n_planes // 10)])
-        ax5.set_xticklabels([f"{int(p)}" for p in unique_planes[::max(1, n_planes // 10)]])
-        ax5.tick_params(colors=text_color)
-        ax5.legend(fontsize=9, framealpha=0.9)
-        ax5.set_ylim(0, 100)
-        ax5.spines["top"].set_visible(False)
-        ax5.spines["right"].set_visible(False)
-        for spine in ax5.spines.values():
-            spine.set_color(text_color)
-
-        # Panel 6: Summary statistics
-        ax6 = fig.add_subplot(gs[1, 2])
-        ax6.set_facecolor(bg_color)
-        ax6.axis("off")
-
-        total_rois = len(stat)
-        total_acc = accepted.sum()
-        total_rej = (~accepted).sum()
-        mean_compact = np.nanmean(compactness[accepted])
-        mean_npix = np.mean(npix[accepted])
-        mean_skew = np.nanmean(skewness[accepted])
-
-        summary_text = (
-            f"{'Summary Statistics':^30}\n"
-            f"{'─' * 30}\n"
-            f"{'Total ROIs:':<20}{total_rois:>10,}\n"
-            f"{'Accepted:':<20}{total_acc:>10,} ({100*total_acc/total_rois:.1f}%)\n"
-            f"{'Rejected:':<20}{total_rej:>10,} ({100*total_rej/total_rois:.1f}%)\n"
-            f"{'Planes:':<20}{n_planes:>10}\n"
-            f"{'─' * 30}\n"
-            f"{'Mean Compactness:':<20}{mean_compact:>10.2f}\n"
-            f"{'Mean ROI Size:':<20}{mean_npix:>10.0f} px\n"
-            f"{'Mean Skewness:':<20}{mean_skew:>10.2f}\n"
-        )
-
-        ax6.text(
-            0.5, 0.5, summary_text, transform=ax6.transAxes,
-            fontsize=11, verticalalignment="center", horizontalalignment="center",
-            family="monospace", color=text_color,
-            bbox=dict(boxstyle="round,pad=0.5", facecolor=bg_color,
-                     edgecolor=text_color, alpha=0.8)
-        )
+        # Panel 4: Radius
+        ax = axes[3]
+        valid = ~np.isnan(radius_mean)
+        ax.fill_between(x[valid], (radius_mean - radius_std)[valid], (radius_mean + radius_std)[valid],
+                       alpha=0.3, color=colors["radius"])
+        ax.plot(x[valid], radius_mean[valid], 'o-', color=colors["radius"], linewidth=2, markersize=5)
+        style_axis(ax, "Z-Plane", "Radius (pixels)", "ROI Radius (Accepted)")
 
         # Main title
+        total_accepted = int(accepted.sum())
+        total_rois = len(stat)
         fig.suptitle(
-            "Volume Quality Metrics", fontsize=14, fontweight="bold",
-            color=text_color, y=0.98
+            f"Volume Quality Metrics: {total_accepted} accepted / {total_rois} total ROIs",
+            fontsize=12, fontweight="bold", color=text_color, y=0.98
         )
+
+        plt.tight_layout(rect=[0, 0, 1, 0.96])
 
         if save_path:
             save_path = Path(save_path)
             save_path.parent.mkdir(parents=True, exist_ok=True)
-            plt.savefig(save_path, dpi=200, bbox_inches="tight", facecolor=bg_color)
+            plt.savefig(save_path, dpi=150, bbox_inches="tight", facecolor=bg_color)
             plt.close(fig)
-        else:
-            plt.show()
 
     return fig
 
@@ -1561,18 +1543,15 @@ def plot_trace_analysis(
     iscell: np.ndarray,
     ops: dict,
     save_path: str | Path = None,
-    figsize: tuple = (18, 12),
-    style: str = "publication",
+    figsize: tuple = (16, 14),
 ) -> Tuple[plt.Figure, dict]:
     """
-    Generate comprehensive trace analysis figure for volumetric data.
+    Generate trace analysis figure showing extreme examples by quality metrics.
 
-    Creates a multi-panel figure showing:
-    - Example traces from different planes
-    - SNR distribution per plane
-    - Mean fluorescence per plane
-    - Activity correlation matrix
-    - Activity heatmap (sorted by activity level)
+    Creates a 6-panel figure showing example ΔF/F traces for:
+    - Highest SNR / Lowest SNR
+    - Lowest shot noise / Highest shot noise
+    - Highest skewness / Lowest skewness
 
     Parameters
     ----------
@@ -1581,24 +1560,22 @@ def plot_trace_analysis(
     Fneu : np.ndarray
         Neuropil fluorescence array (n_rois, n_frames).
     stat : np.ndarray
-        Stat array with 'iplane' field.
+        Stat array with 'iplane' and 'skew' fields.
     iscell : np.ndarray
         Cell classification array.
     ops : dict
         Ops dictionary with 'fs' (frame rate) field.
     save_path : str or Path, optional
         If provided, save figure to this path.
-    figsize : tuple, default (18, 12)
+    figsize : tuple, default (16, 14)
         Figure size in inches.
-    style : str, default "publication"
-        Style preset: "publication" or "dark".
 
     Returns
     -------
     fig : matplotlib.figure.Figure
         The generated figure object.
     metrics : dict
-        Dictionary containing computed metrics (snr, dff, mean_F).
+        Dictionary containing computed metrics (snr, shot_noise, skewness, dff).
 
     Examples
     --------
@@ -1606,186 +1583,165 @@ def plot_trace_analysis(
     >>> print(f"Mean SNR: {np.mean(metrics['snr']):.2f}")
     """
     accepted = iscell[:, 0] == 1
+    n_accepted = int(np.sum(accepted))
+
+    if n_accepted == 0:
+        fig = plt.figure(figsize=figsize, facecolor="black")
+        fig.text(0.5, 0.5, "No accepted ROIs found", ha="center", va="center",
+                fontsize=16, fontweight="bold", color="white")
+        return fig, {}
+
     F_acc = F[accepted]
     Fneu_acc = Fneu[accepted]
     stat_acc = stat[accepted]
     plane_nums = np.array([s.get("iplane", 0) for s in stat_acc])
-    unique_planes = np.unique(plane_nums)
     fs = ops.get("fs", 30.0)
 
     # Compute ΔF/F
     F_corrected = F_acc - 0.7 * Fneu_acc
     baseline = np.percentile(F_corrected, 20, axis=1, keepdims=True)
-    baseline = np.maximum(baseline, 1e-6)  # Prevent division by zero
+    baseline = np.maximum(baseline, 1e-6)
     dff = (F_corrected - baseline) / baseline
 
-    # Compute SNR (signal-to-noise ratio)
+    # Compute metrics
+    # SNR: signal / noise
     signal = np.std(dff, axis=1)
     noise = np.median(np.abs(np.diff(dff, axis=1)), axis=1) / 0.6745  # MAD estimator
     snr = signal / (noise + 1e-6)
 
-    # Mean fluorescence
-    mean_F = np.mean(F_acc, axis=1)
+    # Shot noise: noise level (MAD of diff)
+    shot_noise = noise
+
+    # Skewness: from stat or compute from trace
+    skewness = np.array([s.get("skew", np.nan) for s in stat_acc])
+    # Fill NaNs with computed skewness if needed
+    nan_mask = np.isnan(skewness)
+    if nan_mask.any():
+        from scipy.stats import skew as scipy_skew
+        for i in np.where(nan_mask)[0]:
+            skewness[i] = scipy_skew(dff[i])
 
     # Style configuration
-    if style == "dark":
-        bg_color, text_color = "black", "white"
-        cmap_traces = "tab10"
-        cmap_heatmap = "magma"
-        cmap_corr = "RdBu_r"
-    else:
-        bg_color, text_color = "white", "black"
-        cmap_traces = "tab10"
-        cmap_heatmap = "viridis"
-        cmap_corr = "RdBu_r"
+    bg_color = "black"
+    text_color = "white"
+
+    # Colors for each metric type
+    colors = {
+        "snr_high": "#2ecc71",      # Green - good
+        "snr_low": "#e74c3c",       # Red - bad
+        "noise_low": "#3498db",     # Blue - good
+        "noise_high": "#e67e22",    # Orange - bad
+        "skew_high": "#9b59b6",     # Purple - high activity
+        "skew_low": "#95a5a6",      # Gray - low activity
+    }
+
+    # Find indices for each category
+    valid_mask = ~np.isnan(snr) & ~np.isnan(shot_noise) & ~np.isnan(skewness)
+    valid_idx = np.where(valid_mask)[0]
+
+    if len(valid_idx) == 0:
+        fig = plt.figure(figsize=figsize, facecolor="black")
+        fig.text(0.5, 0.5, "No valid ROIs with computed metrics", ha="center", va="center",
+                fontsize=16, fontweight="bold", color="white")
+        return fig, {}
+
+    # Get indices for extremes
+    snr_valid = snr[valid_mask]
+    noise_valid = shot_noise[valid_mask]
+    skew_valid = skewness[valid_mask]
+
+    idx_snr_high = valid_idx[np.argmax(snr_valid)]
+    idx_snr_low = valid_idx[np.argmin(snr_valid)]
+    idx_noise_low = valid_idx[np.argmin(noise_valid)]
+    idx_noise_high = valid_idx[np.argmax(noise_valid)]
+    idx_skew_high = valid_idx[np.argmax(skew_valid)]
+    idx_skew_low = valid_idx[np.argmin(skew_valid)]
+
+    # Time axis - show up to 100s or full trace
+    n_frames_show = min(int(100 * fs), dff.shape[1])
+    time = np.arange(n_frames_show) / fs
 
     with plt.style.context("default"):
         fig = plt.figure(figsize=figsize, facecolor=bg_color)
-        gs = gridspec.GridSpec(3, 3, figure=fig, hspace=0.35, wspace=0.3,
-                              height_ratios=[1, 1, 1.2])
+        gs = gridspec.GridSpec(3, 2, figure=fig, hspace=0.4, wspace=0.25,
+                              left=0.08, right=0.95, top=0.92, bottom=0.06)
 
-        # Panel 1: Example traces from different planes (spans top row)
-        ax1 = fig.add_subplot(gs[0, :])
-        ax1.set_facecolor(bg_color)
+        def plot_trace_panel(ax, idx, title, color, metric_name, metric_val):
+            """Plot a single trace panel."""
+            ax.set_facecolor(bg_color)
+            trace = dff[idx, :n_frames_show]
+            ax.plot(time, trace, color=color, linewidth=0.8, alpha=0.9)
 
-        n_examples = min(5, len(unique_planes))
-        colors = plt.cm.get_cmap(cmap_traces)(np.linspace(0, 1, n_examples))
+            # Add zero line
+            ax.axhline(0, color="gray", linestyle="--", linewidth=0.5, alpha=0.5)
 
-        offset = 0
-        time = np.arange(min(3000, dff.shape[1])) / fs  # Show first ~100s
-        for i, p in enumerate(unique_planes[:n_examples]):
-            plane_mask = plane_nums == p
-            if plane_mask.sum() > 0:
-                # Get highest SNR cell from this plane
-                plane_snr = snr[plane_mask]
-                best_idx = np.where(plane_mask)[0][np.argmax(plane_snr)]
-                trace = dff[best_idx, :len(time)]
-                ax1.plot(time, trace + offset, color=colors[i], linewidth=0.8,
-                        label=f"Plane {int(p)}")
-                offset += np.percentile(np.abs(trace), 99) * 1.5
+            # Get plane info
+            plane = plane_nums[idx]
 
-        ax1.set_xlabel("Time (s)", fontweight="bold", fontsize=11, color=text_color)
-        ax1.set_ylabel("ΔF/F (offset)", fontweight="bold", fontsize=11, color=text_color)
-        ax1.set_title("Example Traces (Highest SNR per Plane)", fontweight="bold",
-                     fontsize=12, color=text_color)
-        ax1.legend(loc="upper right", fontsize=9, framealpha=0.9)
-        ax1.tick_params(colors=text_color)
-        ax1.spines["top"].set_visible(False)
-        ax1.spines["right"].set_visible(False)
-        for spine in ax1.spines.values():
-            spine.set_color(text_color)
+            # Style
+            ax.set_xlabel("Time (s)", fontsize=10, fontweight="bold", color=text_color)
+            ax.set_ylabel("ΔF/F", fontsize=10, fontweight="bold", color=text_color)
+            ax.set_title(f"{title}\n{metric_name}={metric_val:.2f}, Plane {plane}",
+                        fontsize=11, fontweight="bold", color=text_color)
+            ax.tick_params(colors=text_color, labelsize=9)
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
+            ax.spines["bottom"].set_color(text_color)
+            ax.spines["left"].set_color(text_color)
 
-        # Panel 2: SNR distribution per plane
-        ax2 = fig.add_subplot(gs[1, 0])
-        ax2.set_facecolor(bg_color)
-        snr_by_plane = [snr[plane_nums == p] for p in unique_planes]
-        valid_snr = [(i, d) for i, d in enumerate(snr_by_plane) if len(d) > 0]
-        if valid_snr:
-            positions, data = zip(*valid_snr)
-            parts = ax2.violinplot(data, positions=positions, widths=0.7, showmeans=True)
-            for pc in parts["bodies"]:
-                pc.set_facecolor("#f39c12")
-                pc.set_alpha(0.7)
-            for key in ["cmeans", "cbars", "cmins", "cmaxes"]:
-                if key in parts:
-                    parts[key].set_color(text_color)
+            # Set reasonable y-limits
+            y_max = np.percentile(trace, 99.5)
+            y_min = np.percentile(trace, 0.5)
+            margin = (y_max - y_min) * 0.1
+            ax.set_ylim(y_min - margin, y_max + margin)
 
-        ax2.axhline(2, color="#e74c3c", linestyle="--", linewidth=1.5, alpha=0.7, label="SNR=2")
-        ax2.set_xlabel("Plane", fontweight="bold", fontsize=11, color=text_color)
-        ax2.set_ylabel("SNR", fontweight="bold", fontsize=11, color=text_color)
-        ax2.set_title("Signal-to-Noise Ratio", fontweight="bold", fontsize=12, color=text_color)
-        ax2.legend(fontsize=9, framealpha=0.9)
-        ax2.tick_params(colors=text_color)
-        ax2.spines["top"].set_visible(False)
-        ax2.spines["right"].set_visible(False)
-        for spine in ax2.spines.values():
-            spine.set_color(text_color)
+        # Row 1: SNR extremes
+        ax1 = fig.add_subplot(gs[0, 0])
+        plot_trace_panel(ax1, idx_snr_high, "Highest SNR", colors["snr_high"],
+                        "SNR", snr[idx_snr_high])
 
-        # Panel 3: Mean fluorescence per plane
-        ax3 = fig.add_subplot(gs[1, 1])
-        ax3.set_facecolor(bg_color)
-        mean_F_by_plane = [mean_F[plane_nums == p] for p in unique_planes]
-        valid_F = [(i, d) for i, d in enumerate(mean_F_by_plane) if len(d) > 0]
-        if valid_F:
-            positions, data = zip(*valid_F)
-            parts = ax3.violinplot(data, positions=positions, widths=0.7, showmeans=True)
-            for pc in parts["bodies"]:
-                pc.set_facecolor("#3498db")
-                pc.set_alpha(0.7)
-            for key in ["cmeans", "cbars", "cmins", "cmaxes"]:
-                if key in parts:
-                    parts[key].set_color(text_color)
+        ax2 = fig.add_subplot(gs[0, 1])
+        plot_trace_panel(ax2, idx_snr_low, "Lowest SNR", colors["snr_low"],
+                        "SNR", snr[idx_snr_low])
 
-        ax3.set_xlabel("Plane", fontweight="bold", fontsize=11, color=text_color)
-        ax3.set_ylabel("Mean Fluorescence (a.u.)", fontweight="bold", fontsize=11, color=text_color)
-        ax3.set_title("Mean Fluorescence per Plane", fontweight="bold", fontsize=12, color=text_color)
-        ax3.tick_params(colors=text_color)
-        ax3.spines["top"].set_visible(False)
-        ax3.spines["right"].set_visible(False)
-        for spine in ax3.spines.values():
-            spine.set_color(text_color)
+        # Row 2: Shot noise extremes
+        ax3 = fig.add_subplot(gs[1, 0])
+        plot_trace_panel(ax3, idx_noise_low, "Lowest Shot Noise", colors["noise_low"],
+                        "Noise", shot_noise[idx_noise_low])
 
-        # Panel 4: Activity correlation matrix (sampled)
-        ax4 = fig.add_subplot(gs[1, 2])
-        ax4.set_facecolor(bg_color)
-        n_sample = min(100, len(dff))
-        if n_sample > 1:
-            sample_idx = np.random.choice(len(dff), n_sample, replace=False)
-            corr_matrix = np.corrcoef(dff[sample_idx])
-            im = ax4.imshow(corr_matrix, cmap=cmap_corr, vmin=-0.5, vmax=0.5, aspect="auto")
-            cbar = plt.colorbar(im, ax=ax4, shrink=0.8)
-            cbar.set_label("Correlation", fontsize=10, color=text_color)
-            cbar.ax.tick_params(colors=text_color)
+        ax4 = fig.add_subplot(gs[1, 1])
+        plot_trace_panel(ax4, idx_noise_high, "Highest Shot Noise", colors["noise_high"],
+                        "Noise", shot_noise[idx_noise_high])
 
-        ax4.set_xlabel("Cell Index", fontweight="bold", fontsize=11, color=text_color)
-        ax4.set_ylabel("Cell Index", fontweight="bold", fontsize=11, color=text_color)
-        ax4.set_title(f"Correlation Matrix (n={n_sample})", fontweight="bold",
-                     fontsize=12, color=text_color)
-        ax4.tick_params(colors=text_color)
+        # Row 3: Skewness extremes
+        ax5 = fig.add_subplot(gs[2, 0])
+        plot_trace_panel(ax5, idx_skew_high, "Highest Skewness", colors["skew_high"],
+                        "Skew", skewness[idx_skew_high])
 
-        # Panel 5: Activity heatmap (spans bottom row)
-        ax5 = fig.add_subplot(gs[2, :])
-        ax5.set_facecolor(bg_color)
+        ax6 = fig.add_subplot(gs[2, 1])
+        plot_trace_panel(ax6, idx_skew_low, "Lowest Skewness", colors["skew_low"],
+                        "Skew", skewness[idx_skew_low])
 
-        # Sort by activity level (number of high ΔF/F events)
-        activity = np.sum(dff > 1, axis=1)
-        n_show = min(200, len(dff))
-        sort_idx = np.argsort(activity)[::-1][:n_show]
-
-        # Temporal downsampling for visualization
-        downsample = max(1, dff.shape[1] // 2000)
-        dff_plot = dff[sort_idx, ::downsample]
-
-        im = ax5.imshow(
-            dff_plot, aspect="auto", cmap=cmap_heatmap,
-            vmin=0, vmax=np.percentile(dff_plot, 99),
-            extent=[0, dff.shape[1] / fs, n_show, 0]
-        )
-        cbar = plt.colorbar(im, ax=ax5, shrink=0.6, pad=0.02)
-        cbar.set_label("ΔF/F", fontsize=10, color=text_color)
-        cbar.ax.tick_params(colors=text_color)
-
-        ax5.set_xlabel("Time (s)", fontweight="bold", fontsize=11, color=text_color)
-        ax5.set_ylabel("Cell (sorted by activity)", fontweight="bold", fontsize=11, color=text_color)
-        ax5.set_title(f"Activity Heatmap (Top {n_show} Active Cells)", fontweight="bold",
-                     fontsize=12, color=text_color)
-        ax5.tick_params(colors=text_color)
-
-        # Main title
+        # Main title with summary stats
         fig.suptitle(
-            "Volumetric Trace Analysis", fontsize=14, fontweight="bold",
-            color=text_color, y=0.99
+            f"Trace Quality Extremes: {n_accepted} accepted ROIs | "
+            f"SNR: {np.nanmedian(snr):.1f} (median) | "
+            f"Noise: {np.nanmedian(shot_noise):.3f} (median)",
+            fontsize=12, fontweight="bold", color=text_color, y=0.98
         )
 
         if save_path:
             save_path = Path(save_path)
             save_path.parent.mkdir(parents=True, exist_ok=True)
-            plt.savefig(save_path, dpi=200, bbox_inches="tight", facecolor=bg_color)
+            plt.savefig(save_path, dpi=150, bbox_inches="tight", facecolor=bg_color)
             plt.close(fig)
-        else:
-            plt.show()
 
-    metrics = {"snr": snr, "dff": dff, "mean_F": mean_F}
+    metrics = {
+        "snr": snr,
+        "shot_noise": shot_noise,
+        "skewness": skewness,
+        "dff": dff,
+    }
     return fig, metrics
 
 
@@ -1798,8 +1754,6 @@ def create_volume_summary_table(
     save_path: str | Path = None,
 ) -> pd.DataFrame:
     """
-    Create a comprehensive summary table of volumetric processing results.
-
     Generates per-plane and aggregate statistics including ROI counts,
     SNR metrics, and quality measures.
 
@@ -1912,18 +1866,21 @@ def create_volume_summary_table(
 def plot_plane_diagnostics(
     plane_dir: str | Path,
     save_path: str | Path = None,
-    figsize: tuple = (16, 12),
+    figsize: tuple = (16, 14),
+    n_examples: int = 4,
 ) -> plt.Figure:
     """
     Generate a single-figure diagnostic summary for a processed plane.
 
-    Creates a publication-quality 6-panel figure showing:
-    - Mean image with ROI outlines
+    Creates a publication-quality figure showing:
     - ROI size distribution (accepted vs rejected)
     - SNR distribution with quality threshold
-    - Example traces (top SNR cells)
     - Compactness vs SNR scatter
     - Summary statistics text
+    - Zoomed ROI examples: N highest SNR and N lowest SNR cells
+
+    Robust to low/zero cell counts - will display informative messages
+    when data is insufficient for certain visualizations.
 
     Parameters
     ----------
@@ -1931,8 +1888,10 @@ def plot_plane_diagnostics(
         Path to the plane directory containing ops.npy, stat.npy, etc.
     save_path : str or Path, optional
         If provided, save figure to this path.
-    figsize : tuple, default (16, 12)
+    figsize : tuple, default (16, 14)
         Figure size in inches.
+    n_examples : int, default 4
+        Number of high/low SNR ROI examples to show.
 
     Returns
     -------
@@ -1950,18 +1909,34 @@ def plot_plane_diagnostics(
     F = res["F"]
     Fneu = res["Fneu"]
 
-    accepted = iscell[:, 0] == 1
+    # Handle edge case: no ROIs at all
     n_total = len(stat)
-    n_accepted = accepted.sum()
-    n_rejected = (~accepted).sum()
+    if n_total == 0:
+        fig = plt.figure(figsize=figsize, facecolor="black")
+        fig.text(0.5, 0.5, "No ROIs detected\n\nCheck detection parameters:\n- threshold_scaling\n- cellprob_threshold\n- diameter",
+                ha="center", va="center", fontsize=16, fontweight="bold", color="white")
+        plane_name = plane_dir.name
+        fig.suptitle(f"Quality Diagnostics: {plane_name}", fontsize=14, fontweight="bold", y=0.98, color="white")
+        if save_path:
+            save_path = Path(save_path)
+            save_path.parent.mkdir(parents=True, exist_ok=True)
+            plt.savefig(save_path, dpi=150, bbox_inches="tight", facecolor="black")
+            plt.close(fig)
+        return fig
 
-    # Compute metrics
+    # iscell from load_planar_results is (n_rois, 2): [:, 0] is 0/1, [:, 1] is probability
+    accepted = iscell[:, 0].astype(bool)
+    cell_prob = iscell[:, 1]  # classifier probability for each ROI
+    n_accepted = int(accepted.sum())
+    n_rejected = int((~accepted).sum())
+
+    # Compute metrics for ALL ROIs (not just accepted)
     F_corr = F - 0.7 * Fneu
     baseline = np.percentile(F_corr, 20, axis=1, keepdims=True)
     baseline = np.maximum(baseline, 1e-6)
     dff = (F_corr - baseline) / baseline
 
-    # SNR calculation
+    # SNR calculation for all ROIs
     signal = np.std(dff, axis=1)
     noise = np.median(np.abs(np.diff(dff, axis=1)), axis=1) / 0.6745
     snr = signal / (noise + 1e-6)
@@ -1969,143 +1944,337 @@ def plot_plane_diagnostics(
     # Extract ROI properties
     npix = np.array([s.get("npix", 0) for s in stat])
     compactness = np.array([s.get("compact", np.nan) for s in stat])
+    skewness = np.array([s.get("skew", np.nan) for s in stat])
     fs = ops.get("fs", 30.0)
 
-    # Create figure
-    fig = plt.figure(figsize=figsize, facecolor="white")
-    gs = gridspec.GridSpec(3, 3, figure=fig, hspace=0.3, wspace=0.3)
+    # Compute stats with safe defaults
+    snr_acc = snr[accepted] if n_accepted > 0 else np.array([np.nan])
+    npix_acc = npix[accepted] if n_accepted > 0 else np.array([0])
+    mean_snr = np.nanmean(snr_acc) if n_accepted > 0 else 0.0
+    median_snr = np.nanmedian(snr_acc) if n_accepted > 0 else 0.0
+    high_snr_pct = 100 * np.sum(snr_acc > 2) / max(1, len(snr_acc)) if n_accepted > 0 else 0.0
+    mean_size = np.mean(npix_acc) if n_accepted > 0 else 0.0
 
-    # Panel 1: Mean image with ROI outlines (spans 2 columns)
-    ax1 = fig.add_subplot(gs[0, :2])
+    # Get mean image for ROI zoom panels
     mean_img = ops.get("meanImgE", ops.get("meanImg"))
-    if mean_img is not None:
-        vmin, vmax = np.nanpercentile(mean_img, [1, 99])
-        ax1.imshow(mean_img, cmap="gray", vmin=vmin, vmax=vmax, aspect="equal")
 
-        # Draw accepted ROIs
-        for s in stat[accepted]:
-            ypix, xpix = s["ypix"], s["xpix"]
-            ax1.scatter(xpix, ypix, c="lime", s=0.2, alpha=0.5, linewidths=0)
+    # Create figure with custom layout - dark background like consolidate.ipynb
+    # Row 0: Size dist, SNR dist, SNR vs Compactness, Activity vs SNR (4 panels)
+    # Row 1: High SNR ROI zooms (n_examples panels)
+    # Row 2: High SNR ROI traces
+    # Row 3: Low SNR ROI zooms (n_examples panels)
+    # Row 4: Low SNR ROI traces
+    fig = plt.figure(figsize=(figsize[0], figsize[1] + 2), facecolor="black")
 
-    ax1.set_title(f"ROI Detection: {n_accepted} accepted / {n_rejected} rejected",
-                  fontweight="bold", fontsize=11)
-    ax1.axis("off")
+    # use nested gridspec: top row has more spacing, bottom rows are tight
+    # Increased gap between top plots (bottom=0.62) and ROI images (top=0.48)
+    # Added 5th row as spacer between high and low SNR groups
+    gs_top = gridspec.GridSpec(1, 4, figure=fig, left=0.06, right=0.98, top=0.95, bottom=0.62,
+                                wspace=0.35)
+    gs_bottom = gridspec.GridSpec(5, max(4, n_examples), figure=fig, left=0.02, right=0.98,
+                                   top=0.48, bottom=0.02, hspace=0.02, wspace=0.08,
+                                   height_ratios=[1, 0.4, 0.15, 1, 0.4])
 
-    # Panel 2: Summary statistics
-    ax2 = fig.add_subplot(gs[0, 2])
-    ax2.axis("off")
-
-    snr_acc = snr[accepted] if n_accepted > 0 else np.array([0])
-    high_snr_pct = 100 * np.sum(snr_acc > 2) / max(1, len(snr_acc))
-
-    summary_text = (
-        f"{'Plane Summary':^28}\n"
-        f"{'─' * 28}\n"
-        f"{'Total ROIs:':<18}{n_total:>10,}\n"
-        f"{'Accepted:':<18}{n_accepted:>10,}\n"
-        f"{'Rejected:':<18}{n_rejected:>10,}\n"
-        f"{'Accept Rate:':<18}{100*n_accepted/max(1,n_total):>9.1f}%\n"
-        f"{'─' * 28}\n"
-        f"{'Mean SNR:':<18}{np.mean(snr_acc):>10.2f}\n"
-        f"{'Median SNR:':<18}{np.median(snr_acc):>10.2f}\n"
-        f"{'SNR > 2:':<18}{high_snr_pct:>9.1f}%\n"
-        f"{'─' * 28}\n"
-        f"{'Mean Size:':<18}{np.mean(npix[accepted]):>8.0f} px\n"
-        f"{'Frame Rate:':<18}{fs:>9.1f} Hz\n"
-        f"{'Frames:':<18}{F.shape[1]:>10,}\n"
-    )
-
-    ax2.text(
-        0.5, 0.5, summary_text, transform=ax2.transAxes,
-        fontsize=10, verticalalignment="center", horizontalalignment="center",
-        family="monospace",
-        bbox=dict(boxstyle="round,pad=0.5", facecolor="white", edgecolor="black", alpha=0.9)
-    )
-
-    # Panel 3: ROI size distribution
-    ax3 = fig.add_subplot(gs[1, 0])
+    # compute activity metric: number of transients (peaks above 2 std)
     if n_accepted > 0:
-        ax3.hist(npix[accepted], bins=30, alpha=0.7, color="#2ecc71", label="Accepted", edgecolor="white")
-    if n_rejected > 0:
-        ax3.hist(npix[~accepted], bins=30, alpha=0.5, color="#e74c3c", label="Rejected", edgecolor="white")
-    ax3.set_xlabel("ROI Size (pixels)", fontweight="bold")
-    ax3.set_ylabel("Count", fontweight="bold")
-    ax3.set_title("ROI Size Distribution", fontweight="bold", fontsize=11)
-    ax3.legend(fontsize=9)
-    ax3.spines["top"].set_visible(False)
-    ax3.spines["right"].set_visible(False)
-
-    # Panel 4: SNR distribution
-    ax4 = fig.add_subplot(gs[1, 1])
-    if n_accepted > 0:
-        ax4.hist(snr[accepted], bins=30, alpha=0.7, color="#3498db", label="Accepted", edgecolor="white")
-    ax4.axvline(2, color="#e74c3c", linestyle="--", linewidth=2, label="SNR=2 threshold")
-    ax4.axvline(np.median(snr_acc), color="#2ecc71", linestyle="-", linewidth=2,
-                label=f"Median={np.median(snr_acc):.1f}")
-    ax4.set_xlabel("Signal-to-Noise Ratio", fontweight="bold")
-    ax4.set_ylabel("Count", fontweight="bold")
-    ax4.set_title("SNR Distribution (Accepted)", fontweight="bold", fontsize=11)
-    ax4.legend(fontsize=9)
-    ax4.spines["top"].set_visible(False)
-    ax4.spines["right"].set_visible(False)
-
-    # Panel 5: Compactness vs SNR scatter
-    ax5 = fig.add_subplot(gs[1, 2])
-    if n_accepted > 0:
-        valid_mask = accepted & ~np.isnan(compactness)
-        if valid_mask.sum() > 0:
-            sc = ax5.scatter(compactness[valid_mask], snr[valid_mask],
-                           c=npix[valid_mask], cmap="viridis", alpha=0.6, s=20)
-            cbar = plt.colorbar(sc, ax=ax5, shrink=0.8)
-            cbar.set_label("ROI Size (px)", fontsize=9)
-    ax5.axhline(2, color="#e74c3c", linestyle="--", linewidth=1.5, alpha=0.7)
-    ax5.set_xlabel("Compactness", fontweight="bold")
-    ax5.set_ylabel("SNR", fontweight="bold")
-    ax5.set_title("Quality Metrics (Accepted)", fontweight="bold", fontsize=11)
-    ax5.spines["top"].set_visible(False)
-    ax5.spines["right"].set_visible(False)
-
-    # Panel 6: Example traces (spans bottom row)
-    ax6 = fig.add_subplot(gs[2, :])
-
-    if n_accepted > 0:
-        # Get top 10 SNR cells
-        n_traces = min(10, n_accepted)
-        top_snr_idx = np.argsort(snr[accepted])[::-1][:n_traces]
-        accepted_idx = np.where(accepted)[0]
-        cells_to_plot = accepted_idx[top_snr_idx]
-
-        time = np.arange(min(3000, dff.shape[1])) / fs
-        colors = plt.cm.tab10(np.linspace(0, 1, n_traces))
-
-        offset = 0
-        for i, cell_idx in enumerate(cells_to_plot):
-            trace = dff[cell_idx, :len(time)]
-            ax6.plot(time, trace + offset, color=colors[i], linewidth=0.8,
-                    label=f"Cell {cell_idx} (SNR={snr[cell_idx]:.1f})")
-            offset += np.percentile(np.abs(trace), 99) * 1.5
-
-        ax6.set_xlabel("Time (s)", fontweight="bold")
-        ax6.set_ylabel("ΔF/F (offset)", fontweight="bold")
-        ax6.set_title(f"Top {n_traces} Cells by SNR", fontweight="bold", fontsize=11)
-        ax6.legend(loc="upper right", fontsize=8, ncol=2)
+        dff_acc = dff[accepted]
+        activity = np.sum(dff_acc > 2, axis=1)  # count frames above 2 std
     else:
-        ax6.text(0.5, 0.5, "No accepted cells", transform=ax6.transAxes,
-                ha="center", va="center", fontsize=14)
+        activity = np.array([])
 
-    ax6.spines["top"].set_visible(False)
-    ax6.spines["right"].set_visible(False)
+    # compute shot noise per ROI (standardized noise metric)
+    # shot_noise = median(|diff(dff)|) / sqrt(fs) * 100 (in %/sqrt(Hz))
+    frame_diffs = np.abs(np.diff(dff, axis=1))
+    shot_noise = np.median(frame_diffs, axis=1) / np.sqrt(fs) * 100
+
+    # Panel 1: ROI size distribution - use step histogram for clarity
+    ax_size = fig.add_subplot(gs_top[0, 0])
+    ax_size.set_facecolor("black")
+
+    all_npix = npix[npix > 0]
+    if len(all_npix) > 0:
+        bins = np.linspace(0, np.percentile(all_npix, 99), 40)
+        # Use step histograms with distinct line styles for clear separation
+        if n_accepted > 0:
+            ax_size.hist(npix[accepted], bins=bins, histtype="stepfilled", alpha=0.7,
+                        color="#2ecc71", edgecolor="#2ecc71", linewidth=1.5,
+                        label=f"Accepted ({n_accepted})")
+        if n_rejected > 0:
+            ax_size.hist(npix[~accepted], bins=bins, histtype="step",
+                        color="#e74c3c", linewidth=2, linestyle="-",
+                        label=f"Rejected ({n_rejected})")
+        ax_size.legend(fontsize=7, facecolor="#1a1a1a", edgecolor="white", labelcolor="white", loc="upper right")
+    else:
+        ax_size.text(0.5, 0.5, "No ROI data", ha="center", va="center", fontsize=12, color="white")
+
+    ax_size.set_xlabel("Size (pixels)", fontweight="bold", fontsize=9, color="white")
+    ax_size.set_ylabel("Count", fontweight="bold", fontsize=9, color="white")
+    ax_size.set_title("ROI Size", fontweight="bold", fontsize=10, color="white")
+    ax_size.tick_params(colors="white", labelsize=8)
+    ax_size.spines["top"].set_visible(False)
+    ax_size.spines["right"].set_visible(False)
+    ax_size.spines["bottom"].set_color("white")
+    ax_size.spines["left"].set_color("white")
+
+    # Panel 2: SNR distribution - use step histogram for clarity
+    ax_snr = fig.add_subplot(gs_top[0, 1])
+    ax_snr.set_facecolor("black")
+
+    all_snr = snr[~np.isnan(snr)]
+    if len(all_snr) > 0:
+        bins = np.linspace(0, np.percentile(all_snr, 99), 40)
+
+        # Filled for accepted, outline for rejected - no overlap confusion
+        if n_accepted > 0:
+            ax_snr.hist(snr[accepted], bins=bins, histtype="stepfilled", alpha=0.7,
+                       color="#2ecc71", edgecolor="#2ecc71", linewidth=1.5,
+                       label=f"Accepted ({n_accepted})")
+            ax_snr.axvline(median_snr, color="#ffe66d", linestyle="-", linewidth=2,
+                        label=f"Median={median_snr:.1f}")
+        if n_rejected > 0:
+            ax_snr.hist(snr[~accepted], bins=bins, histtype="step",
+                       color="#e74c3c", linewidth=2, linestyle="-",
+                       label=f"Rejected ({n_rejected})")
+
+        ax_snr.legend(fontsize=7, facecolor="#1a1a1a", edgecolor="white", labelcolor="white", loc="upper right")
+    else:
+        ax_snr.text(0.5, 0.5, "No SNR data", ha="center", va="center", fontsize=12, color="white")
+
+    ax_snr.set_xlabel("SNR", fontweight="bold", fontsize=9, color="white")
+    ax_snr.set_ylabel("Count", fontweight="bold", fontsize=9, color="white")
+    ax_snr.set_title("SNR Distribution", fontweight="bold", fontsize=10, color="white")
+    ax_snr.tick_params(colors="white", labelsize=8)
+    ax_snr.spines["top"].set_visible(False)
+    ax_snr.spines["right"].set_visible(False)
+    ax_snr.spines["bottom"].set_color("white")
+    ax_snr.spines["left"].set_color("white")
+
+    # Panels 3 & 4: Compactness vs SNR and Activity vs SNR (shared Y-axis = SNR)
+    # Color by skewness (activity pattern quality metric)
+    ax_compact = fig.add_subplot(gs_top[0, 2])
+    ax_activity = fig.add_subplot(gs_top[0, 3], sharey=ax_compact)
+    ax_compact.set_facecolor("black")
+    ax_activity.set_facecolor("black")
+
+    has_scatter_data = False
+    if n_accepted > 0:
+        valid_compact = accepted & ~np.isnan(compactness) & ~np.isnan(skewness)
+        valid_activity = accepted & ~np.isnan(skewness)
+        snr_acc = snr[accepted]
+        skew_acc = skewness[accepted]
+
+        # Get shared color limits from skewness (more informative than SNR for color)
+        valid_skew = skew_acc[~np.isnan(skew_acc)]
+        if len(valid_skew) > 0:
+            vmin, vmax = np.nanpercentile(valid_skew, [5, 95])
+        else:
+            vmin, vmax = 0, 1
+
+        if valid_compact.sum() > 0:
+            # Panel 3: Compactness vs SNR (SNR on y-axis)
+            sc1 = ax_compact.scatter(compactness[valid_compact], snr[valid_compact],
+                           c=skewness[valid_compact], cmap="plasma", alpha=0.7, s=20,
+                           vmin=vmin, vmax=vmax)
+            has_scatter_data = True
+
+        if len(activity) > 0 and valid_activity.sum() > 0:
+            # Panel 4: Activity vs SNR (SNR on y-axis)
+            sc2 = ax_activity.scatter(activity, snr_acc, c=skew_acc, cmap="plasma",
+                           alpha=0.7, s=20, vmin=vmin, vmax=vmax)
+
+            # Add single colorbar for both plots (attached to activity plot)
+            cbar = plt.colorbar(sc2, ax=ax_activity, shrink=0.8)
+            cbar.set_label("Skewness", fontsize=8, color="white")
+            cbar.ax.yaxis.set_tick_params(color="white")
+            cbar.outline.set_edgecolor("white")
+            plt.setp(plt.getp(cbar.ax.axes, "yticklabels"), color="white")
+
+    if not has_scatter_data:
+        ax_compact.text(0.5, 0.5, "No data", ha="center", va="center", fontsize=12, color="white")
+        ax_activity.text(0.5, 0.5, "No data", ha="center", va="center", fontsize=12, color="white")
+
+    ax_compact.set_xlabel("Compactness", fontweight="bold", fontsize=9, color="white")
+    ax_compact.set_ylabel("SNR", fontweight="bold", fontsize=9, color="white")
+    ax_compact.set_title("Compactness vs SNR", fontweight="bold", fontsize=10, color="white")
+    ax_compact.tick_params(colors="white", labelsize=8)
+    ax_compact.spines["top"].set_visible(False)
+    ax_compact.spines["right"].set_visible(False)
+    ax_compact.spines["bottom"].set_color("white")
+    ax_compact.spines["left"].set_color("white")
+
+    ax_activity.set_xlabel("Active Frames", fontweight="bold", fontsize=9, color="white")
+    ax_activity.set_ylabel("SNR", fontweight="bold", fontsize=9, color="white")
+    ax_activity.set_title("Activity vs SNR", fontweight="bold", fontsize=10, color="white")
+    ax_activity.tick_params(colors="white", labelsize=8)
+    # Hide y-axis labels on right plot since it shares y-axis with left
+    plt.setp(ax_activity.get_yticklabels(), visible=False)
+    ax_activity.spines["top"].set_visible(False)
+    ax_activity.spines["right"].set_visible(False)
+    ax_activity.spines["bottom"].set_color("white")
+    ax_activity.spines["left"].set_color("white")
+
+    # Helper function to plot zoomed ROI
+    def plot_roi_zoom(ax, roi_idx, img, stat_entry, snr_val, noise_val, color):
+        """Plot a zoomed view of a single ROI with SNR and shot noise."""
+        ax.set_facecolor("black")
+        ypix = stat_entry["ypix"]
+        xpix = stat_entry["xpix"]
+
+        # Calculate bounding box with padding
+        pad = 15
+        y_min, y_max = max(0, ypix.min() - pad), min(img.shape[0], ypix.max() + pad)
+        x_min, x_max = max(0, xpix.min() - pad), min(img.shape[1], xpix.max() + pad)
+
+        # Extract ROI region
+        roi_img = img[y_min:y_max, x_min:x_max]
+
+        if roi_img.size == 0:
+            ax.text(0.5, 0.5, "No image", ha="center", va="center", fontsize=10, color="white")
+            ax.axis("off")
+            return
+
+        vmin, vmax = np.nanpercentile(roi_img, [1, 99])
+        ax.imshow(roi_img, cmap="gray", vmin=vmin, vmax=vmax, aspect="equal")
+
+        # Draw ROI outline (shifted to local coordinates)
+        local_y = ypix - y_min
+        local_x = xpix - x_min
+        ax.scatter(local_x, local_y, c=color, s=3, alpha=0.7, linewidths=0)
+
+        # Title with SNR and shot noise
+        ax.set_title(f"#{roi_idx} SNR={snr_val:.1f} σ={noise_val:.2f}", fontsize=7, fontweight="bold", color=color)
+        ax.axis("off")
+
+    # Helper function to plot a trace snippet
+    def plot_roi_trace(ax, trace, color, window_frames=500):
+        """Plot a short trace snippet with shrunk Y axis."""
+        ax.set_facecolor("black")
+        # show first N frames or all if shorter
+        n_show = min(window_frames, len(trace))
+        trace_segment = trace[:n_show]
+        ax.plot(trace_segment, color=color, linewidth=0.8, alpha=0.9)
+        ax.set_xlim(0, n_show)
+        # Shrink Y axis to 5th-95th percentile to reduce whitespace
+        if len(trace_segment) > 0:
+            y_lo, y_hi = np.nanpercentile(trace_segment, [5, 95])
+            y_range = y_hi - y_lo
+            if y_range > 0:
+                ax.set_ylim(y_lo - 0.1 * y_range, y_hi + 0.1 * y_range)
+        ax.axis("off")
+
+    # Row 0-1: High SNR ROI examples with traces
+    if n_accepted > 0 and mean_img is not None:
+        accepted_idx = np.where(accepted)[0]
+        snr_accepted = snr[accepted]
+        n_show = min(n_examples, n_accepted)
+
+        # Get indices of highest SNR cells
+        top_snr_order = np.argsort(snr_accepted)[::-1][:n_show]
+
+        for i in range(n_examples):
+            # ROI image
+            ax = fig.add_subplot(gs_bottom[0, i])
+            if i < n_show:
+                local_idx = top_snr_order[i]
+                global_idx = accepted_idx[local_idx]
+                plot_roi_zoom(ax, global_idx, mean_img, stat[global_idx],
+                             snr[global_idx], shot_noise[global_idx], "#2ecc71")
+                # trace below
+                ax_trace = fig.add_subplot(gs_bottom[1, i])
+                plot_roi_trace(ax_trace, dff[global_idx], "#2ecc71")
+            else:
+                ax.set_facecolor("black")
+                ax.axis("off")
+                ax_trace = fig.add_subplot(gs_bottom[1, i])
+                ax_trace.set_facecolor("black")
+                ax_trace.axis("off")
+
+        # Row 2 is spacer (empty)
+
+        # Row 3-4: Low SNR ROI examples with traces
+        bottom_snr_order = np.argsort(snr_accepted)[:n_show]
+
+        for i in range(n_examples):
+            # ROI image
+            ax = fig.add_subplot(gs_bottom[3, i])
+            if i < n_show:
+                local_idx = bottom_snr_order[i]
+                global_idx = accepted_idx[local_idx]
+                plot_roi_zoom(ax, global_idx, mean_img, stat[global_idx],
+                             snr[global_idx], shot_noise[global_idx], "#ff6b6b")
+                # trace below
+                ax_trace = fig.add_subplot(gs_bottom[4, i])
+                plot_roi_trace(ax_trace, dff[global_idx], "#ff6b6b")
+            else:
+                ax.set_facecolor("black")
+                ax.axis("off")
+                ax_trace = fig.add_subplot(gs_bottom[4, i])
+                ax_trace.set_facecolor("black")
+                ax_trace.axis("off")
+
+    elif n_rejected > 0 and mean_img is not None:
+        # Show rejected ROIs for diagnostics
+        rejected_idx = np.where(~accepted)[0]
+        snr_rejected = snr[~accepted]
+        n_show = min(n_examples, n_rejected)
+
+        # High SNR rejected
+        top_snr_order = np.argsort(snr_rejected)[::-1][:n_show]
+        for i in range(n_examples):
+            ax = fig.add_subplot(gs_bottom[0, i])
+            if i < n_show:
+                local_idx = top_snr_order[i]
+                global_idx = rejected_idx[local_idx]
+                plot_roi_zoom(ax, global_idx, mean_img, stat[global_idx],
+                             snr[global_idx], shot_noise[global_idx], "#ff6b6b")
+                ax_trace = fig.add_subplot(gs_bottom[1, i])
+                plot_roi_trace(ax_trace, dff[global_idx], "#ff6b6b")
+            else:
+                ax.set_facecolor("black")
+                ax.axis("off")
+                ax_trace = fig.add_subplot(gs_bottom[1, i])
+                ax_trace.set_facecolor("black")
+                ax_trace.axis("off")
+
+        # Row 2 is spacer
+
+        # Low SNR rejected
+        bottom_snr_order = np.argsort(snr_rejected)[:n_show]
+        for i in range(n_examples):
+            ax = fig.add_subplot(gs_bottom[3, i])
+            if i < n_show:
+                local_idx = bottom_snr_order[i]
+                global_idx = rejected_idx[local_idx]
+                plot_roi_zoom(ax, global_idx, mean_img, stat[global_idx],
+                             snr[global_idx], shot_noise[global_idx], "#ff6b6b")
+                ax_trace = fig.add_subplot(gs_bottom[4, i])
+                plot_roi_trace(ax_trace, dff[global_idx], "#ff6b6b")
+            else:
+                ax.set_facecolor("black")
+                ax.axis("off")
+                ax_trace = fig.add_subplot(gs_bottom[4, i])
+                ax_trace.set_facecolor("black")
+                ax_trace.axis("off")
+    else:
+        # No image available
+        for row in [0, 1, 3, 4]:  # Skip spacer row 2
+            for i in range(n_examples):
+                ax = fig.add_subplot(gs_bottom[row, i])
+                ax.set_facecolor("black")
+                if row in [0, 3]:
+                    ax.text(0.5, 0.5, "No data", ha="center", va="center", fontsize=8, color="white")
+                ax.axis("off")
 
     # Main title
     plane_name = plane_dir.name
-    fig.suptitle(f"Quality Diagnostics: {plane_name}", fontsize=14, fontweight="bold", y=0.98)
+    fig.suptitle(f"Quality Diagnostics: {plane_name}", fontsize=14, fontweight="bold", y=0.98, color="white")
 
-    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    # No tight_layout - we use manual GridSpec positioning for precise control
 
     if save_path:
         save_path = Path(save_path)
         save_path.parent.mkdir(parents=True, exist_ok=True)
-        plt.savefig(save_path, dpi=150, bbox_inches="tight", facecolor="white")
+        plt.savefig(save_path, dpi=150, bbox_inches="tight", facecolor="black")
         plt.close(fig)
     else:
         plt.show()
@@ -2160,7 +2329,8 @@ def mask_dead_zones_in_ops(ops, threshold=0.01):
 
 
 def plot_zplane_figures(
-    plane_dir, dff_percentile=8, dff_window_size=101, run_rastermap=False, **kwargs
+    plane_dir, dff_percentile=8, dff_window_size=None, dff_smooth_window=None,
+    run_rastermap=False, **kwargs
 ):
     """
     Re-generate Suite2p figures for a merged plane.
@@ -2172,7 +2342,12 @@ def plot_zplane_figures(
     dff_percentile : int, optional
         Percentile used for ΔF/F baseline.
     dff_window_size : int, optional
-        Window size for ΔF/F rolling baseline.
+        Window size for ΔF/F rolling baseline. If None, auto-calculated
+        as ~10 × tau × fs based on ops values.
+    dff_smooth_window : int, optional
+        Temporal smoothing window for dF/F traces (in frames).
+        If None, auto-calculated as ~0.5 × tau × fs to emphasize
+        transients while reducing noise. Set to 1 to disable.
     run_rastermap : bool, optional
         If True, compute and plot rastermap sorting of cells.
     kwargs : dict
@@ -2180,26 +2355,39 @@ def plot_zplane_figures(
     """
     plane_dir = Path(plane_dir)
 
+    # File naming convention: numbered prefixes ensure proper alphabetical ordering
+    # 01_correlation -> 02_max_projection -> 03_mean -> 04_mean_enhanced
+    # each image immediately followed by its _segmentation variant
     expected_files = {
         "ops": plane_dir / "ops.npy",
         "stat": plane_dir / "stat.npy",
         "iscell": plane_dir / "iscell.npy",
-        "registration": plane_dir / "registration.png",
-        "segmentation_accepted": plane_dir / "segmentation_accepted.png",
-        "segmentation_rejected": plane_dir / "segmentation_rejected.png",
-        "area_filter": plane_dir / "segmentation_rejected_area_filter.png",
-        "segmentation_filtered": plane_dir / "segmentation_rejected.png",
-        "max_proj": plane_dir / "max_projection_image.png",
-        "meanImg": plane_dir / "mean_image.png",
-        "meanImgE": plane_dir / "mean_image_enhanced.png",
-        "traces_raw": plane_dir / "traces_raw.png",
-        "traces_dff": plane_dir / "traces_dff.png",
-        "traces_noise": plane_dir / "traces_noise.png",
-        "traces_area": plane_dir / "traces_rejected_area_filter.png",
-        "noise_acc": plane_dir / "shot_noise_distrubution_accepted.png",
-        "noise_rej": plane_dir / "shot_noise_distrubution_rejected.png",
+        # Summary images with segmentation overlays - numbered for proper ordering
+        "correlation_image": plane_dir / "01_correlation.png",
+        "correlation_segmentation": plane_dir / "01_correlation_segmentation.png",
+        "max_proj": plane_dir / "02_max_projection.png",
+        "max_proj_segmentation": plane_dir / "02_max_projection_segmentation.png",
+        "meanImg": plane_dir / "03_mean.png",
+        "meanImg_segmentation": plane_dir / "03_mean_segmentation.png",
+        "meanImgE": plane_dir / "04_mean_enhanced.png",
+        "meanImgE_segmentation": plane_dir / "04_mean_enhanced_segmentation.png",
+        # Diagnostics and analysis
+        "quality_diagnostics": plane_dir / "05_quality_diagnostics.png",
+        "registration": plane_dir / "06_registration.png",
+        # Traces - multiple cell counts
+        "traces_raw_20": plane_dir / "07a_traces_raw_20.png",
+        "traces_raw_50": plane_dir / "07b_traces_raw_50.png",
+        "traces_raw_100": plane_dir / "07c_traces_raw_100.png",
+        "traces_dff_20": plane_dir / "08a_traces_dff_20.png",
+        "traces_dff_50": plane_dir / "08b_traces_dff_50.png",
+        "traces_dff_100": plane_dir / "08c_traces_dff_100.png",
+        "traces_rejected": plane_dir / "09_traces_rejected.png",
+        # Noise distributions
+        "noise_acc": plane_dir / "10_shot_noise_accepted.png",
+        "noise_rej": plane_dir / "11_shot_noise_rejected.png",
+        # Rastermap
         "model": plane_dir / "model.npy",
-        "rastermap": plane_dir / "rastermap.png",
+        "rastermap": plane_dir / "12_rastermap.png",
     }
 
     output_ops = load_ops(expected_files["ops"])
@@ -2211,11 +2399,13 @@ def plot_zplane_figures(
     # force remake of the heavy figures
     for key in [
         "registration",
-        "segmentation_accepted",
-        "segmentation_rejected",
-        "traces_raw",
-        "traces_dff",
-        "traces_noise",
+        "traces_raw_20",
+        "traces_raw_50",
+        "traces_raw_100",
+        "traces_dff_20",
+        "traces_dff_50",
+        "traces_dff_100",
+        "traces_rejected",
         "noise_acc",
         "noise_rej",
         "rastermap",
@@ -2230,207 +2420,373 @@ def plot_zplane_figures(
     if expected_files["stat"].is_file():
 
         res = load_planar_results(plane_dir)
-        iscell = res["iscell"]
-        iscell_mask = (
-            iscell[:, 0].astype(bool) if iscell.ndim == 2 else iscell.astype(bool)
-        )
+        # iscell is (n_rois, 2): [:, 0] is 0/1, [:, 1] is classifier probability
+        iscell_mask = res["iscell"][:, 0].astype(bool)
+        cell_prob = res["iscell"][:, 1]
 
         spks = res["spks"]
         F = res["F"]
 
-        n_neurons = F.shape[0]
-        if n_neurons < 10:
-            return output_ops
-
-        # rastermap model
-        F_accepted = F[iscell_mask]
-        F_rejected = F[~iscell_mask]
-        spks_cells = spks[iscell_mask]
+        # Split by accepted/rejected
+        F_accepted = F[iscell_mask] if iscell_mask.sum() > 0 else np.zeros((0, F.shape[1]))
+        F_rejected = F[~iscell_mask] if (~iscell_mask).sum() > 0 else np.zeros((0, F.shape[1]))
+        spks_cells = spks[iscell_mask] if iscell_mask.sum() > 0 else np.zeros((0, spks.shape[1]))
 
         n_accepted = F_accepted.shape[0]
         n_rejected = F_rejected.shape[0]
         print(f"Plotting results for {n_accepted} accepted / {n_rejected} rejected ROIs")
 
+        # --- RASTERMAP (only for sufficient cell counts) ---
+        # rastermap sorts neurons by activity similarity for visualization
+        # we cache the model to avoid recomputing, but validate it matches current data
         model = None
-        if run_rastermap:
+        if run_rastermap and n_accepted >= 2:
             try:
                 from lbm_suite2p_python.zplane import plot_rastermap
                 import rastermap
-
                 has_rastermap = True
             except ImportError:
-                print(
-                    "rastermap package not found, skipping rastermap plotting. \n"
-                    "Install via `pip install rastermap` or set run_rastermap=False \n"
-                    "for run_plane(), run_volume(), or plot_rastermap() to work."
-                )
+                print("rastermap not found. Install via: pip install rastermap")
+                print("  or: pip install mbo_utilities[rastermap]")
                 has_rastermap = False
                 rastermap, plot_rastermap = None, None
-            if expected_files["model"].is_file():
-                model = np.load(expected_files["model"], allow_pickle=True).item()
-            elif has_rastermap:
-                params = {
-                    "n_clusters": 100 if n_neurons >= 200 else None,
-                    "n_PCs": min(128, max(2, n_neurons - 1)),
-                    "locality": 0.0 if n_neurons >= 200 else 0.1,
-                    "time_lag_window": 15,
-                    "grid_upsample": 10 if n_neurons >= 200 else 0,
-                }
-                model = rastermap.Rastermap(**params).fit(spks_cells)
-                np.save(expected_files["model"], model)
 
-                plot_rastermap(
-                    spks_cells,
-                    model,
-                    neuron_bin_size=0,
-                    save_path=expected_files["rastermap"],
-                    title_kwargs={"fontsize": 8, "y": 0.95},
-                    title="Rastermap Sorted Activity",
-                )
+            if has_rastermap:
+                model_file = expected_files["model"]
+                plot_file = expected_files["rastermap"]
+                need_recompute = True
 
-            if model is not None:
-                # indices of cells relative to *all* ROIs
-                isort_global = np.where(iscell_mask)[0][model.isort]
-                output_ops["isort"] = isort_global
+                # check if cached model exists and is valid for current cell count
+                if model_file.is_file():
+                    try:
+                        cached_model = np.load(model_file, allow_pickle=True).item()
+                        # Handle both direct model objects and dict wrappers
+                        if hasattr(cached_model, "isort"):
+                            cached_isort = cached_model.isort
+                        elif isinstance(cached_model, dict) and "isort" in cached_model:
+                            cached_isort = cached_model["isort"]
+                        else:
+                            cached_isort = None
 
-                # reorder just the cells
-                F_accepted = F_accepted[model.isort]
+                        if cached_isort is not None and len(cached_isort) == n_accepted:
+                            model = cached_model
+                            need_recompute = False
+                            print(f"  Using cached rastermap model ({n_accepted} cells)")
+                        else:
+                            # stale model - cell count changed since last run
+                            cached_len = len(cached_isort) if cached_isort is not None else "?"
+                            print(f"  Rastermap model stale (cached {cached_len} vs current {n_accepted} cells), recomputing...")
+                            model_file.unlink()
+                    except Exception as e:
+                        print(f"  Failed to load cached rastermap model: {e}, recomputing...")
+                        model_file.unlink(missing_ok=True)
 
-        # compute dF/F
-        # f_norm_acc = normalize_traces(F_accepted, mode="percentile")
-        # f_norm_rej = normalize_traces(F_rejected, mode="percentile")
-        f_norm_acc = F_accepted
-        f_norm_rej = F_rejected
+                # fit new model if needed
+                if need_recompute:
+                    print(f"  Computing rastermap model for {n_accepted} cells...")
+                    params = {
+                        "n_clusters": 100 if n_accepted >= 200 else None,
+                        "n_PCs": min(128, max(2, n_accepted - 1)),
+                        "locality": 0.0 if n_accepted >= 200 else 0.1,
+                        "time_lag_window": 15,
+                        "grid_upsample": 10 if n_accepted >= 200 else 0,
+                    }
+                    model = rastermap.Rastermap(**params).fit(spks_cells)
+                    np.save(model_file, model)
 
-        dffp_acc = (
-            dff_rolling_percentile(
-                f_norm_acc, percentile=dff_percentile, window_size=dff_window_size
-            )
-            * 100
-        )
-        dffp_rej = (
-            dff_rolling_percentile(
-                f_norm_rej, percentile=dff_percentile, window_size=dff_window_size
-            )
-            * 100
-        )
+                # regenerate plot if missing (even if model was cached)
+                if model is not None and not plot_file.is_file():
+                    plot_rastermap(
+                        spks_cells,
+                        model,
+                        neuron_bin_size=0,
+                        save_path=plot_file,
+                        title_kwargs={"fontsize": 8, "y": 0.95},
+                        title="Rastermap Sorted Activity",
+                    )
 
-        # Plot traces for accepted cells (if any exist)
+                # apply sorting to traces for downstream plots
+                if model is not None:
+                    # Handle both direct model objects and dict wrappers
+                    if hasattr(model, "isort"):
+                        isort = model.isort
+                    elif isinstance(model, dict) and "isort" in model:
+                        isort = model["isort"]
+                    else:
+                        isort = None
+
+                    if isort is not None:
+                        isort_global = np.where(iscell_mask)[0][isort]
+                        output_ops["isort"] = isort_global
+                        F_accepted = F_accepted[isort]
+
+        # --- COMPUTE ΔF/F ---
+        fs = output_ops.get("fs", 1.0)
+        tau = output_ops.get("tau", 1.0)
+
+        # Compute unsmoothed dF/F for shot noise (smoothing reduces frame-to-frame variance)
         if n_accepted > 0:
-            plot_traces(
-                dffp_acc,
-                save_path=expected_files["traces_dff"],
-                num_neurons=min(output_ops.get("plot_n_traces", 30), n_accepted),
-                scale_bar_label="50% ΔF/F₀",
-                title=f"Accepted Cells (n={n_accepted})",
-            )
-            plot_traces(
-                f_norm_acc,
-                save_path=expected_files["traces_raw"],
-                num_neurons=min(output_ops.get("plot_n_traces", 30), n_accepted),
-                scale_bar_label="a.u.",
-                title=f"Accepted Cells (n={n_accepted})",
-            )
+            dffp_acc_unsmoothed = dff_rolling_percentile(
+                F_accepted,
+                percentile=dff_percentile,
+                window_size=dff_window_size,
+                smooth_window=1,  # No smoothing for shot noise
+                fs=fs,
+                tau=tau,
+            ) * 100
+            # Smoothed version for trace plotting
+            dffp_acc = dff_rolling_percentile(
+                F_accepted,
+                percentile=dff_percentile,
+                window_size=dff_window_size,
+                smooth_window=dff_smooth_window,
+                fs=fs,
+                tau=tau,
+            ) * 100
         else:
-            print(f"No accepted cells to plot traces for")
+            dffp_acc_unsmoothed = np.zeros((0, F.shape[1]))
+            dffp_acc = np.zeros((0, F.shape[1]))
 
-        # Plot traces for rejected cells (if any exist)
+        if n_rejected > 0:
+            dffp_rej_unsmoothed = dff_rolling_percentile(
+                F_rejected,
+                percentile=dff_percentile,
+                window_size=dff_window_size,
+                smooth_window=1,  # No smoothing for shot noise
+                fs=fs,
+                tau=tau,
+            ) * 100
+            # Smoothed version for trace plotting
+            dffp_rej = dff_rolling_percentile(
+                F_rejected,
+                percentile=dff_percentile,
+                window_size=dff_window_size,
+                smooth_window=dff_smooth_window,
+                fs=fs,
+                tau=tau,
+            ) * 100
+        else:
+            dffp_rej_unsmoothed = np.zeros((0, F.shape[1]))
+            dffp_rej = np.zeros((0, F.shape[1]))
+
+        # --- TRACE PLOTS (robust to any cell count >= 1) ---
+        # Sort traces by quality score (SNR, skewness, shot noise) for visualization
+        # Generate plots with 20, 50, and 100 cells if available
+
+        if n_accepted > 0:
+            # Get accepted cell stat for skewness
+            stat_accepted = [s for s, m in zip(res["stat"], iscell_mask) if m]
+
+            # Compute quality scores and sort
+            quality = compute_trace_quality_score(
+                F_accepted,
+                Fneu=res["Fneu"][iscell_mask] if "Fneu" in res else None,
+                stat=stat_accepted,
+                fs=fs,
+            )
+            quality_sort_idx = quality["sort_idx"]
+
+            # Sort traces by quality (best first)
+            dffp_acc_sorted = dffp_acc[quality_sort_idx]
+            F_accepted_sorted = F_accepted[quality_sort_idx]
+
+            # Generate trace plots at multiple cell counts
+            cell_counts = [20, 50, 100]
+            for n_cells in cell_counts:
+                if n_accepted >= n_cells:
+                    # dF/F traces (percent)
+                    plot_traces(
+                        dffp_acc_sorted,
+                        save_path=expected_files[f"traces_dff_{n_cells}"],
+                        num_neurons=n_cells,
+                        scale_bar_unit=r"% $\Delta$F/F$_0$",
+                        title=rf"Top {n_cells} $\Delta$F/F Traces by Quality (n={n_accepted} total)",
+                    )
+                    # Raw traces
+                    plot_traces(
+                        F_accepted_sorted,
+                        save_path=expected_files[f"traces_raw_{n_cells}"],
+                        num_neurons=n_cells,
+                        scale_bar_unit="a.u.",
+                        title=f"Top {n_cells} Raw Traces by Quality (n={n_accepted} total)",
+                    )
+                elif n_cells == 20:
+                    # Always generate 20-cell plot even if fewer cells available
+                    plot_traces(
+                        dffp_acc_sorted,
+                        save_path=expected_files["traces_dff_20"],
+                        num_neurons=min(20, n_accepted),
+                        scale_bar_unit=r"% $\Delta$F/F$_0$",
+                        title=rf"Top {min(20, n_accepted)} $\Delta$F/F Traces by Quality (n={n_accepted} total)",
+                    )
+                    plot_traces(
+                        F_accepted_sorted,
+                        save_path=expected_files["traces_raw_20"],
+                        num_neurons=min(20, n_accepted),
+                        scale_bar_unit="a.u.",
+                        title=f"Top {min(20, n_accepted)} Raw Traces by Quality (n={n_accepted} total)",
+                    )
+        else:
+            print("  No accepted cells - skipping accepted trace plots")
+
         if n_rejected > 0:
             plot_traces(
                 dffp_rej,
-                save_path=expected_files["traces_noise"],
-                num_neurons=min(output_ops.get("plot_n_traces", 30), n_rejected),
-                scale_bar_label="50% ΔF/F₀",
-                title=f"Rejected Cells (n={n_rejected})",
+                save_path=expected_files["traces_rejected"],
+                num_neurons=min(20, n_rejected),
+                scale_bar_unit=r"% $\Delta$F/F$_0$",
+                title=rf"$\Delta$F/F Traces - Rejected ROIs (n={n_rejected})",
             )
         else:
-            print(f"No rejected cells to plot traces for")
+            print("  No rejected ROIs - skipping rejected trace plots")
 
-        fs = output_ops.get("fs", 1.0)
-        dff_noise_acc = dff_shot_noise(dffp_acc, fs) if n_accepted > 0 else np.array([])
-        dff_noise_rej = dff_shot_noise(dffp_rej, fs) if n_rejected > 0 else np.array([])
-
+        # --- NOISE DISTRIBUTIONS (robust to any cell count >= 1) ---
+        # Use unsmoothed dF/F for shot noise (smoothing artificially reduces noise)
         if n_accepted > 0:
+            dff_noise_acc = dff_shot_noise(dffp_acc_unsmoothed, fs)
             plot_noise_distribution(
-                dff_noise_acc, output_filename=expected_files["noise_acc"]
+                dff_noise_acc,
+                output_filename=expected_files["noise_acc"],
+                title=f"Shot-Noise Distribution (Accepted, n={n_accepted})",
             )
+
         if n_rejected > 0:
+            dff_noise_rej = dff_shot_noise(dffp_rej_unsmoothed, fs)
             plot_noise_distribution(
-                dff_noise_rej, output_filename=expected_files["noise_rej"]
+                dff_noise_rej,
+                output_filename=expected_files["noise_rej"],
+                title=f"Shot-Noise Distribution (Rejected, n={n_rejected})",
             )
-        # Use the image that was actually used for detection
-        # For anatomical: ops["Vcorr"] contains the detection image (in CROPPED space)
-        # stat coordinates are in FULL image space (after yrange/xrange adjustment in detect.py)
-        # So we need to adjust coordinates back to cropped space to match Vcorr
 
-        # Prefer Vcorr (actual detection image) when available
-        detection_img = output_ops.get("Vcorr")
-        stat_to_plot = res["stat"]
+        # --- SEGMENTATION OVERLAYS ---
+        # Suite2p stores images in two coordinate systems:
+        # - FULL space: refImg, meanImg, meanImgE (same size as original Ly x Lx)
+        # - CROPPED space: max_proj, Vcorr (size determined by yrange/xrange after registration)
+        # The stat coordinates are in FULL image space.
 
-        # Check if Vcorr is valid and not a placeholder
-        if detection_img is None or (isinstance(detection_img, (int, float)) and detection_img == 0):
-            # Fallback to full images that match stat coordinate space
-            detection_img = output_ops.get("meanImgE")
-            if detection_img is None:
-                detection_img = output_ops.get("meanImg")
-        else:
-            # Vcorr is in cropped space - need to offset stat coordinates
-            ymin = int(output_ops.get("yrange", [0])[0])
-            xmin = int(output_ops.get("xrange", [0])[0])
+        stat_full = res["stat"]  # stat coordinates in full image space
 
-            # Create temporary stat with adjusted coordinates for cropped space
-            stat_to_plot = []
-            for s in res["stat"]:
+        # Helper to check if image is valid
+        def _is_valid_image(img):
+            if img is None:
+                return False
+            if isinstance(img, (int, float)) and img == 0:
+                return False
+            if isinstance(img, np.ndarray) and img.size == 0:
+                return False
+            return True
+
+        # Get crop parameters for images in cropped space
+        yrange = output_ops.get("yrange", [0, output_ops.get("Ly", 512)])
+        xrange = output_ops.get("xrange", [0, output_ops.get("Lx", 512)])
+        ymin, xmin = int(yrange[0]), int(xrange[0])
+
+        # Create stat with adjusted coordinates for cropped image space
+        if ymin > 0 or xmin > 0:
+            stat_cropped = []
+            for s in stat_full:
                 s_adj = s.copy()
                 s_adj["ypix"] = s["ypix"] - ymin
                 s_adj["xpix"] = s["xpix"] - xmin
-                stat_to_plot.append(s_adj)
-
-        if detection_img is not None:
-            plot_masks(
-                img=detection_img,
-                stat=stat_to_plot,
-                mask_idx=iscell_mask,
-                savepath=expected_files["segmentation_accepted"],
-                title="Accepted ROIs"
-            )
+                stat_cropped.append(s_adj)
         else:
-            print("WARNING: No valid background image found for mask overlay")
+            stat_cropped = stat_full
 
-        # iscell_area = filter_by_area(iscell_mask, res["stat"])
-        # eliminated_area = iscell_mask & ~iscell_area
-        # plot_masks(
-        #     img=output_ops.get("meanImgE"),
-        #     stat=res["stat"],
-        #     mask_idx=eliminated_area,
-        #     savepath=expected_files["area_filter"],
-        #     title="Cells Rejected: Area filter"
-        # )
-        # plot_traces(
-        #     F,
-        #     save_path=expected_files["traces_area"],
-        #     cell_indices=eliminated_area,
-        #     title="Traces eliminated by Area filter",
-        #     fps=output_ops["fs"],
-        # )
+        # Images in FULL space - use stat_full
+        full_space_images = {
+            "meanImg": ("Mean Image", expected_files["meanImg_segmentation"]),
+            "meanImgE": ("Enhanced Mean Image", expected_files["meanImgE_segmentation"]),
+        }
 
+        for img_key, (title_name, save_file) in full_space_images.items():
+            img = output_ops.get(img_key)
+            if _is_valid_image(img):
+                if n_accepted > 0:
+                    plot_masks(
+                        img=img,
+                        stat=stat_full,
+                        mask_idx=iscell_mask,
+                        savepath=save_file,
+                        title=f"{title_name} - Accepted ROIs (n={n_accepted})"
+                    )
+                else:
+                    plot_projection(
+                        output_ops,
+                        save_file,
+                        fig_label=kwargs.get("fig_label", plane_dir.stem),
+                        display_masks=False,
+                        add_scalebar=True,
+                        proj=img_key,
+                    )
+
+        # Images in CROPPED space - use stat_cropped
+        cropped_space_images = {
+            "max_proj": ("Max Projection", expected_files["max_proj_segmentation"]),
+        }
+
+        for img_key, (title_name, save_file) in cropped_space_images.items():
+            img = output_ops.get(img_key)
+            if _is_valid_image(img):
+                if n_accepted > 0:
+                    plot_masks(
+                        img=img,
+                        stat=stat_cropped,
+                        mask_idx=iscell_mask,
+                        savepath=save_file,
+                        title=f"{title_name} - Accepted ROIs (n={n_accepted})"
+                    )
+                else:
+                    plot_projection(
+                        output_ops,
+                        save_file,
+                        fig_label=kwargs.get("fig_label", plane_dir.stem),
+                        display_masks=False,
+                        add_scalebar=True,
+                        proj=img_key,
+                    )
+
+        # Correlation image (Vcorr) - in CROPPED space
+        vcorr = output_ops.get("Vcorr")
+        if _is_valid_image(vcorr):
+            # Save correlation image without masks
+            fig, ax = plt.subplots(figsize=(8, 8), facecolor="black")
+            ax.set_facecolor("black")
+            ax.imshow(vcorr, cmap="gray")
+            ax.set_title("Correlation Image", color="white", fontweight="bold")
+            ax.axis("off")
+            plt.tight_layout()
+            plt.savefig(expected_files["correlation_image"], dpi=150, facecolor="black")
+            plt.close(fig)
+
+            # Correlation image with segmentation
+            if n_accepted > 0:
+                plot_masks(
+                    img=vcorr,
+                    stat=stat_cropped,
+                    mask_idx=iscell_mask,
+                    savepath=expected_files["correlation_segmentation"],
+                    title=f"Correlation Image - Accepted ROIs (n={n_accepted})"
+                )
+
+    # --- SUMMARY IMAGES (no masks) - always generated ---
     fig_label = kwargs.get("fig_label", plane_dir.stem)
     for key in ["meanImg", "max_proj", "meanImgE"]:
-        if key in output_ops:
-            plot_projection(
-                output_ops,
-                expected_files[key],
-                fig_label=fig_label,
-                display_masks=False,
-                add_scalebar=True,
-                proj=key,
-            )
+        if key in output_ops and output_ops[key] is not None:
+            try:
+                plot_projection(
+                    output_ops,
+                    expected_files[key],
+                    fig_label=fig_label,
+                    display_masks=False,
+                    add_scalebar=True,
+                    proj=key,
+                )
+            except Exception as e:
+                print(f"  Failed to plot {key}: {e}")
 
-    # Generate single-figure diagnostic summary
+    # --- QUALITY DIAGNOSTICS ---
     try:
-        diagnostics_path = plane_dir / "quality_diagnostics.png"
-        plot_plane_diagnostics(plane_dir, save_path=diagnostics_path)
-        print(f"  Saved: quality_diagnostics.png")
+        plot_plane_diagnostics(plane_dir, save_path=expected_files["quality_diagnostics"])
     except Exception as e:
         print(f"  Failed to generate quality diagnostics: {e}")
 
