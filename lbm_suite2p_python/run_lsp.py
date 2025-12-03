@@ -1,5 +1,6 @@
 import logging
 import time
+from datetime import datetime
 from pathlib import Path
 import os
 import traceback
@@ -11,6 +12,7 @@ import gc
 import numpy as np
 
 from lbm_suite2p_python import default_ops
+import lbm_suite2p_python as lsp
 from lbm_suite2p_python.postprocessing import (
     ops_to_json,
     load_planar_results,
@@ -74,6 +76,63 @@ def _get_num_planes_from_array(arr):
     if len(shape) == 4:
         return shape[1]  # Z dimension
     return 1
+
+
+def _get_suite2p_version():
+    """Get suite2p version string."""
+    try:
+        import suite2p
+        return getattr(suite2p, "__version__", "unknown")
+    except ImportError:
+        return "not installed"
+
+
+def _add_processing_step(ops, step_name, input_files=None, duration_seconds=None, extra=None):
+    """
+    Add a processing step to ops["processing_history"].
+
+    Each step is appended to the history list, preserving previous runs.
+    This allows tracking of re-runs and incremental processing.
+
+    Parameters
+    ----------
+    ops : dict
+        The ops dictionary to update.
+    step_name : str
+        Name of the processing step (e.g., "binary_write", "registration", "detection").
+    input_files : list of str, optional
+        List of input file paths for this step.
+    duration_seconds : float, optional
+        How long this step took.
+    extra : dict, optional
+        Additional metadata for this step.
+
+    Returns
+    -------
+    dict
+        The updated ops dictionary.
+    """
+    if "processing_history" not in ops:
+        ops["processing_history"] = []
+
+    step_record = {
+        "step": step_name,
+        "timestamp": datetime.now().isoformat(),
+        "lbm_suite2p_python_version": lsp.__version__,
+        "suite2p_version": _get_suite2p_version(),
+    }
+
+    if input_files is not None:
+        step_record["input_files"] = [str(f) for f in input_files] if not isinstance(input_files, str) else [input_files]
+
+    if duration_seconds is not None:
+        step_record["duration_seconds"] = round(duration_seconds, 2)
+
+    if extra is not None:
+        step_record.update(extra)
+
+    ops["processing_history"].append(step_record)
+    return ops
 
 
 def pipeline(
@@ -430,6 +489,7 @@ def pipeline(
             # Write binary using _write_plane - it handles plane extraction internally
             if not bin_file.exists() or force_reg:
                 print(f"  Writing binary ({plane_nframes} frames, {plane_Ly}x{plane_Lx})...")
+                bin_write_start = time.time()
 
                 # _write_plane uses plane_index to extract the correct z-plane
                 # The array's __getitem__ handles ROI stitching and phase correction
@@ -440,6 +500,15 @@ def pipeline(
                     metadata=plane_ops,
                     plane_index=plane_idx if num_planes > 1 else None,
                 )
+
+                # Record binary write step
+                _add_processing_step(
+                    plane_ops,
+                    "binary_write",
+                    input_files=input_str,
+                    duration_seconds=time.time() - bin_write_start,
+                    extra={"plane": plane_num, "shape": list(plane_ops["shape"])},
+                )
             else:
                 print(f"  Binary exists, skipping write")
                 # Ensure ops.npy exists even if binary was skipped
@@ -449,11 +518,27 @@ def pipeline(
             # Run Suite2p pipeline on binary
             try:
                 print(f"  Running Suite2p pipeline...")
+                s2p_start = time.time()
                 run_plane_bin(ops_file)
                 all_ops_files.append(ops_file)
 
+                # Reload ops to get updated values from Suite2p, then add history
+                updated_ops = load_ops(ops_file)
+                _add_processing_step(
+                    updated_ops,
+                    "suite2p_pipeline",
+                    duration_seconds=time.time() - s2p_start,
+                    extra={
+                        "do_registration": updated_ops.get("do_registration", True),
+                        "anatomical_only": updated_ops.get("anatomical_only", 0),
+                        "n_cells_detected": len(np.load(plane_dir / "stat.npy", allow_pickle=True)) if (plane_dir / "stat.npy").exists() else 0,
+                    },
+                )
+                np.save(ops_file, updated_ops)
+
                 # Post-processing: dF/F calculation
                 print(f"  Computing dF/F...")
+                dff_start = time.time()
                 F_file = plane_dir / "F.npy"
                 Fneu_file = plane_dir / "Fneu.npy"
                 dff_file = plane_dir / "dff.npy"
@@ -474,6 +559,21 @@ def pipeline(
                         tau=tau,
                     )
                     np.save(dff_file, dff)
+
+                    # Record dF/F calculation step
+                    updated_ops = load_ops(ops_file)
+                    _add_processing_step(
+                        updated_ops,
+                        "dff_calculation",
+                        duration_seconds=time.time() - dff_start,
+                        extra={
+                            "dff_percentile": dff_percentile,
+                            "dff_window_size": dff_window_size,
+                            "dff_smooth_window": dff_smooth_window,
+                            "neucoeff": 0.7,
+                        },
+                    )
+                    np.save(ops_file, updated_ops)
 
                 # Generate plots
                 try:
