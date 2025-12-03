@@ -19,23 +19,29 @@ classifiers=[
 ]
 dependencies = [
 	"mbo_utilities>=2.3.0",
-	"suite2p_mbo>=2.0.0",
 ]
 
 [project.optional-dependencies]
+# Suite2p cell extraction pipeline (core dependency for this package)
+suite2p = [
+	"suite2p_mbo>=2.0.0",
+]
 # Rastermap for activity clustering and visualization
 rastermap = [
 	"rastermap",
 ]
 # Cellpose for anatomical cell detection (requires PyTorch)
 cellpose = [
-	"cellpose==4.0.6",
+	"cellpose>=4.0.6",
+]
+# PyTorch for neural network operations (Cellpose, etc.)
+torch = [
 	"torch>=2.7.0",
 	"torchvision>=0.22.0",
 ]
 # All optional dependencies
 all = [
-	"lbm_suite2p_python[rastermap,cellpose]",
+	"lbm_suite2p_python[suite2p,rastermap,cellpose,torch]",
 ]
 
 [dependency-groups]
@@ -115,6 +121,3 @@ exclude_lines = [
 	"\\.\\.\\.",
 	"raise NotImplementedError()"
 ]
-#
-#[tool.setuptools.dynamic]
-#version = {file = ["lbm_suite2p_python/VERSION"]}
