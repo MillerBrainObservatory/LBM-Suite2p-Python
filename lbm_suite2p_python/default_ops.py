@@ -130,8 +130,7 @@ def s2p_ops():
         "cellprob_threshold": -6,  # cellprob_threshold for cellpose
         "flow_threshold": 0,  # flow_threshold for cellpose
         "spatial_hp_cp": 0.5,  # high-pass image spatially by a multiple of the diameter
-        "pretrained_model":
-            "cpsam",  # path to pretrained model or model type string in Cellpose (can be user model)
+        # pretrained_model is always "cpsam" - set internally by suite2p
 
         # classification parameters
         "soma_crop":

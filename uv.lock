@@ -520,13 +520,17 @@ wheels = [
 
 [[package]]
 name = "fastplotlib"
-version = "0.6.0"
-source = { git = "https://github.com/fastplotlib/fastplotlib.git?rev=iw-check-subclass-bugfix#4b8867e2bee554a71759cd0d918d5da6c7b43f12" }
+version = "0.6.1"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cmap" },
     { name = "numpy" },
     { name = "pygfx" },
     { name = "wgpu" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/55/5d/8d8188e2702713b783774da30df40158b68650baae3c9a0eda50910ef5f5/fastplotlib-0.6.1.tar.gz", hash = "sha256:2de8b7cec83d5eeb7c39aacdf28994a46f87ce94354a684c8d3d89ebdbe796dd", size = 162943, upload-time = "2025-11-16T02:36:57.563Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/62/f1/c47cf226d712c39e5bf655d8b6b2e6fcb96a95e5defc5b576b115fbb4412/fastplotlib-0.6.1-py3-none-any.whl", hash = "sha256:bfc0c02a948d80b4e983bc77467d1b0edefd46be6e862e7b63b7c06d712b5955", size = 196172, upload-time = "2025-11-16T02:36:56.166Z" },
 ]
 
 [[package]]
@@ -1406,7 +1410,7 @@ docs = [
 requires-dist = [
     { name = "cellpose", marker = "extra == 'cellpose'", specifier = "==4.0.6" },
     { name = "lbm-suite2p-python", extras = ["rastermap", "cellpose"], marker = "extra == 'all'" },
-    { name = "mbo-utilities", directory = "../mbo_utilities" },
+    { name = "mbo-utilities", specifier = ">=2.3.0" },
     { name = "rastermap", marker = "extra == 'rastermap'" },
     { name = "suite2p-mbo", specifier = ">=2.0.0" },
     { name = "torch", marker = "(sys_platform == 'linux' and extra == 'cellpose') or (sys_platform == 'win32' and extra == 'cellpose')", specifier = ">=2.7.0", index = "https://download.pytorch.org/whl/cu126" },
@@ -1537,7 +1541,7 @@ wheels = [
 [[package]]
 name = "mbo-utilities"
 version = "2.3.0"
-source = { directory = "../mbo_utilities" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "dask" },
     { name = "fastplotlib" },
@@ -1566,73 +1570,9 @@ dependencies = [
     { name = "tqdm" },
     { name = "zarr" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "cupy-cuda12x", marker = "extra == 'suite3d'" },
-    { name = "dask", specifier = ">=2025.3.0" },
-    { name = "docutils", marker = "extra == 'docs'", specifier = ">=0.19" },
-    { name = "fastplotlib", git = "https://github.com/fastplotlib/fastplotlib.git?rev=iw-check-subclass-bugfix" },
-    { name = "ffmpeg-python" },
-    { name = "glfw", marker = "sys_platform != 'linux'" },
-    { name = "h5py" },
-    { name = "icecream", specifier = ">=2.1.4" },
-    { name = "imageio", extras = ["ffmpeg"] },
-    { name = "imgui-bundle", specifier = ">=1.92.5" },
-    { name = "ipykernel" },
-    { name = "ipykernel", marker = "extra == 'docs'" },
-    { name = "ipywidgets", specifier = ">=8.0.0,<9" },
-    { name = "jupyter-rfb", specifier = ">=0.5.1" },
-    { name = "jupyterlab" },
-    { name = "jupytext", marker = "extra == 'docs'" },
-    { name = "lbm-suite2p-python", marker = "extra == 'suite2p'" },
-    { name = "llvmlite", specifier = ">=0.43.0" },
-    { name = "matplotlib", specifier = ">=3.10.1" },
-    { name = "mbo-suite3d", marker = "extra == 'suite3d'", specifier = ">=0.0.6" },
-    { name = "mbo-utilities", extras = ["processing", "docs"], marker = "extra == 'all'" },
-    { name = "mbo-utilities", extras = ["suite2p", "suite3d", "rastermap", "torch"], marker = "extra == 'processing'" },
-    { name = "mkl-fft", specifier = ">=2.0.0" },
-    { name = "myst-nb", marker = "extra == 'docs'" },
-    { name = "nbsphinx", marker = "extra == 'docs'" },
-    { name = "numba", marker = "extra == 'suite2p'", specifier = ">=0.60.0" },
-    { name = "numpy", specifier = ">=2.2.5,<3.0" },
-    { name = "numpydoc", marker = "extra == 'docs'" },
-    { name = "opencv-python-headless" },
-    { name = "pandas" },
-    { name = "pygfx", specifier = ">=0.15.2" },
-    { name = "pygfx", marker = "extra == 'docs'", specifier = ">=0.14.0" },
-    { name = "pyside6", marker = "sys_platform == 'linux'" },
-    { name = "rastermap", marker = "extra == 'rastermap'" },
-    { name = "scikit-image" },
-    { name = "scipy" },
-    { name = "seaborn", specifier = ">=0.13.2" },
-    { name = "sphinx", marker = "extra == 'docs'", specifier = ">=6.1.3" },
-    { name = "sphinx-autodoc2", marker = "extra == 'docs'" },
-    { name = "sphinx-book-theme", marker = "extra == 'docs'" },
-    { name = "sphinx-copybutton", marker = "extra == 'docs'" },
-    { name = "sphinx-design", marker = "extra == 'docs'" },
-    { name = "sphinx-gallery", marker = "extra == 'docs'" },
-    { name = "sphinx-tippy", marker = "extra == 'docs'" },
-    { name = "sphinx-togglebutton", marker = "extra == 'docs'" },
-    { name = "sphinxcontrib-bibtex", marker = "extra == 'docs'" },
-    { name = "sphinxcontrib-images", marker = "extra == 'docs'" },
-    { name = "sphinxcontrib-video", marker = "extra == 'docs'" },
-    { name = "suite2p-mbo", marker = "extra == 'suite2p'", specifier = ">=2.0.0" },
-    { name = "tifffile", specifier = ">=2025.3.30" },
-    { name = "torch", marker = "(sys_platform == 'linux' and extra == 'torch') or (sys_platform == 'win32' and extra == 'torch')", index = "https://download.pytorch.org/whl/cu126" },
-    { name = "torch", marker = "sys_platform != 'linux' and sys_platform != 'win32' and extra == 'torch'" },
-    { name = "torchvision", marker = "(sys_platform == 'linux' and extra == 'torch') or (sys_platform == 'win32' and extra == 'torch')", index = "https://download.pytorch.org/whl/cu126" },
-    { name = "torchvision", marker = "sys_platform != 'linux' and sys_platform != 'win32' and extra == 'torch'" },
-    { name = "tqdm" },
-    { name = "zarr", specifier = ">=3.1.3" },
-]
-provides-extras = ["suite2p", "suite3d", "rastermap", "torch", "processing", "docs", "all"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "graphviz", specifier = ">=0.21" },
-    { name = "pyautogui", specifier = ">=0.9.54" },
-    { name = "pytest", specifier = ">=8.4.2" },
+sdist = { url = "https://files.pythonhosted.org/packages/c9/b6/b845ab05c47117f89da77895c999654b2f55c3edc2160fbe2d32c1c19662/mbo_utilities-2.3.0.tar.gz", hash = "sha256:f907e1dc66756bf69b71e0dbf167dc352344187f757d77171c111d75b3028816", size = 199355, upload-time = "2025-12-02T18:02:21.438Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3f/e4/b626bc1a7a0629958adf352ec95143ff35717265bfbfe32c0a12137aa9ed/mbo_utilities-2.3.0-py3-none-any.whl", hash = "sha256:33c46883ca46780796fc943487b5337796ddd6a851bfca1834f44620cd85d067", size = 202975, upload-time = "2025-12-02T18:02:20.016Z" },
 ]
 
 [[package]]
@@ -2333,7 +2273,7 @@ wheels = [
 
 [[package]]
 name = "pygfx"
-version = "0.15.2"
+version = "0.15.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "freetype-py" },
@@ -2345,9 +2285,9 @@ dependencies = [
     { name = "uharfbuzz" },
     { name = "wgpu" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/16/dd/13f5161ffd629b4067ce16375cbe81e9bf96af54f8778db7692a039998ff/pygfx-0.15.2.tar.gz", hash = "sha256:fdec0a4751443b68f6c484f70a56f31bfd84169c08d3701e037c9d586d4afe2b", size = 1137418, upload-time = "2025-11-11T09:31:37.888Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ae/ac/0cb5ed3e8fe2e4865cc6fa113cccac78c60e47d5e8774f24b1530029950d/pygfx-0.15.3.tar.gz", hash = "sha256:917d05b9a636c81af4754aeca50af8f95f6a29612c6341f64b5a8f069522edc3", size = 1137501, upload-time = "2025-11-14T09:54:37.419Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d2/22/a3e2cf874214c0afc7e30159b53e5f190eafb3263d5da137744ec6e2ed18/pygfx-0.15.2-py3-none-any.whl", hash = "sha256:d8a3786a3fc4ec30f5e115b4e0f0c710c88d4453b9567b6696a9c4168670c2a7", size = 1219429, upload-time = "2025-11-11T09:31:35.762Z" },
+    { url = "https://files.pythonhosted.org/packages/9e/43/417fdd78aba02fc305c28eb355c8fc1b48c521c95f204b20a7ad32c3b5b3/pygfx-0.15.3-py3-none-any.whl", hash = "sha256:df1f1248a885db4674e3b099a4e8b5d853de360200a96005569945793ab916dd", size = 1219433, upload-time = "2025-11-14T09:54:34.975Z" },
 ]
 
 [[package]]
@@ -2639,14 +2579,14 @@ wheels = [
 
 [[package]]
 name = "rendercanvas"
-version = "2.3.0"
+version = "2.4.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "sniffio" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d8/ed/a162a1f4890259a88d35729a0a48cc80de18a73bef4cdd18f69f252693db/rendercanvas-2.3.0.tar.gz", hash = "sha256:376fc961443186bcb31d377ec56d0bec183008dab03e29f1dd391e8d0066a18f", size = 64864, upload-time = "2025-11-05T20:11:07.275Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/4e/44/e938d7d178c69159f88944c0d22a3dd1c68388e335e0033a3af94c2d3f2c/rendercanvas-2.4.2.tar.gz", hash = "sha256:21bdc6fdfc36de207a29497ac580ba4cd64de920bc46ecdafd29a8b689ad8601", size = 76273, upload-time = "2025-11-19T15:33:11.461Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0c/14/967bc5e85de2dae00b2960581237a150b62c978177ce277f603e5b0faa31/rendercanvas-2.3.0-py3-none-any.whl", hash = "sha256:ac725dbdc875db9648cbdb8a071d06e00b7ad43fe6cb1340e951b49c81d94512", size = 77563, upload-time = "2025-11-05T20:11:06.149Z" },
+    { url = "https://files.pythonhosted.org/packages/5f/49/559e40b25b35c02c81bb9deb46914d8d1ba0012e1ab6100bbb63dac3b66e/rendercanvas-2.4.2-py3-none-any.whl", hash = "sha256:c7af9ae8ac86c79f8b773f19e9127fa2a5c901f605b07cf0fdfc460eaf6813df", size = 90251, upload-time = "2025-11-19T15:33:10.271Z" },
 ]
 
 [[package]]
