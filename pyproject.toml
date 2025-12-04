@@ -19,6 +19,7 @@ classifiers=[
 ]
 dependencies = [
 	"mbo_utilities>=2.3.0",
+	"fastplotlib",
 ]
 
 [project.optional-dependencies]
@@ -83,6 +84,7 @@ torch = [
 torchvision = [
   { index = "pytorch-cu126", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
+fastplotlib = { git = "https://github.com/fastplotlib/fastplotlib.git", rev = "iw-check-subclass-bugfix" }
 
 # https://github.com/charliermarsh/ruff
 [tool.ruff]
