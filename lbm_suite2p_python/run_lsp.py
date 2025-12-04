@@ -34,9 +34,6 @@ from lbm_suite2p_python.volume import (
     plot_3d_roi_map,
     get_volume_stats,
 )
-from mbo_utilities.file_io import (
-    get_plane_from_filename,
-)
 from mbo_utilities.arrays import (
     iter_rois,
     supports_roi,
@@ -686,6 +683,41 @@ def derive_tag_from_filename(path):
     return name
 
 
+def get_plane_num_from_tag(tag: str, fallback: int = None) -> int:
+    """
+    Extract the plane number from a tag string like "plane3" or "roi7".
+
+    Parameters
+    ----------
+    tag : str
+        A tag string (e.g., "plane3", "roi7", "z10") typically from derive_tag_from_filename.
+    fallback : int, optional
+        Value to return if no number can be extracted from the tag.
+
+    Returns
+    -------
+    int
+        The extracted plane number, or the fallback value if extraction fails.
+
+    Examples
+    --------
+    >>> get_plane_num_from_tag("plane3")
+    3
+    >>> get_plane_num_from_tag("roi7")
+    7
+    >>> get_plane_num_from_tag("z10")
+    10
+    >>> get_plane_num_from_tag("assembled_data", fallback=0)
+    0
+    """
+    import re
+
+    match = re.search(r"(\d+)$", tag)
+    if match:
+        return int(match.group(1))
+    return fallback
+
+
 def run_volume(
     input_files: list,
     save_path: str | Path = None,
@@ -834,7 +866,7 @@ def run_volume(
     run_plane_bin : Process an existing binary file through Suite2p pipeline
     merge_mrois : Manual multi-ROI merging function
     """
-    from mbo_utilities.file_io import get_files, get_plane_from_filename
+    from mbo_utilities.file_io import get_files
 
     if not input_files:
         raise Exception("No input files given.")
@@ -875,7 +907,7 @@ def run_volume(
         else:
             # tiff, zarr, or other format - derive plane_name from filename
             plane_name = derive_tag_from_filename(file_path.name)
-            plane_num = get_plane_from_filename(plane_name, fallback=len(all_ops))
+            plane_num = get_plane_num_from_tag(plane_name, fallback=len(all_ops))
             input_to_process = file_path
             plane_save_path = save_path
             call_kwargs["plane"] = plane_num
@@ -1549,7 +1581,8 @@ def run_plane(
         ops["plane"] = plane
     else:
         # get the plane from the filename
-        plane = get_plane_from_filename(input_path, ops.get("plane", None))
+        tag = derive_tag_from_filename(input_path)
+        plane = get_plane_num_from_tag(tag, fallback=ops.get("plane", None))
         ops["plane"] = plane
         metadata["plane"] = plane
 
