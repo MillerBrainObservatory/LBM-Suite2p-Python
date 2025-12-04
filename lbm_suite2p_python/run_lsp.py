@@ -505,7 +505,7 @@ def pipeline(
                 _add_processing_step(
                     plane_ops,
                     "binary_write",
-                    input_files=input_str,
+                    input_files=filenames,
                     duration_seconds=time.time() - bin_write_start,
                     extra={"plane": plane_num, "shape": list(plane_ops["shape"])},
                 )
