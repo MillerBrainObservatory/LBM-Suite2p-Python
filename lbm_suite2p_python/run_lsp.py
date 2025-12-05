@@ -270,6 +270,19 @@ def pipeline(
     - dx, dy (pixel resolution)
     - Ly, Lx (frame dimensions)
 
+    **Parameter Override Precedence:**
+
+    The ``force_reg`` and ``force_detect`` arguments take precedence over
+    ``do_registration`` and ``roidetect`` values in the ops dict:
+
+    - ``force_reg=True`` → always register, ignoring ``ops["do_registration"]``
+    - ``force_detect=True`` → always detect, ignoring ``ops["roidetect"]``
+    - ``force_reg=False`` (default) → skip registration if already complete,
+      even if ``ops["do_registration"]=1``
+
+    This allows users to focus on detection parameters without worrying about
+    the registration/detection flags in their ops dict.
+
     See Also
     --------
     run_plane : Lower-level single-plane processing
@@ -392,11 +405,20 @@ def pipeline(
     # Auto-populate from metadata
     if fs:
         ops["fs"] = fs
-    if "pixel_resolution" in metadata:
-        pr = metadata["pixel_resolution"]
-        if isinstance(pr, (list, tuple)) and len(pr) >= 2:
-            ops["dx"] = pr[0]
-            ops["dy"] = pr[1]
+
+    # Get pixel resolution from metadata (check aliases)
+    pr = metadata.get("pixel_resolution")
+    if pr is None:
+        # Check common aliases: dx/dy, PhysicalSizeX/Y, umPerPixX/Y
+        dx = metadata.get("dx") or metadata.get("umPerPixX") or metadata.get("PhysicalSizeX")
+        dy = metadata.get("dy") or metadata.get("umPerPixY") or metadata.get("PhysicalSizeY")
+        if dx is not None and dy is not None:
+            pr = [dx, dy]
+            metadata["pixel_resolution"] = pr  # Set it so mbo_utilities doesn't warn
+
+    if pr is not None and isinstance(pr, (list, tuple)) and len(pr) >= 2:
+        ops["dx"] = pr[0]
+        ops["dy"] = pr[1]
 
     ops["Ly"] = Ly
     ops["Lx"] = Lx
@@ -1680,21 +1702,21 @@ def run_plane(
         "plane": correct_plane,  # Override with correct plane number
     }
 
-    # Set do_registration/roidetect based on needs analysis
-    # Even if user provides these values, respect the needs_reg/needs_detect logic
-    # unless force_reg/force_detect are True
-    if "do_registration" not in ops_user:
+    # Set do_registration/roidetect based on force flags and needs analysis
+    # force_reg/force_detect ALWAYS override user ops values
+    if force_reg:
+        ops["do_registration"] = 1
+    elif force_reg is False and not needs_reg:
+        # Skip registration if already done, regardless of user ops
+        ops["do_registration"] = 0
+        if ops_user.get("do_registration", 0) == 1:
+            print(f"Registration already complete, skipping despite do_registration=1 in ops")
+    elif "do_registration" not in ops_user:
         ops["do_registration"] = int(needs_reg)
-    else:
-        # User provided do_registration, but check if we should override
-        # If force_reg=False and registration is already done (needs_reg=False),
-        # skip registration even if user said do_registration=1
-        if not force_reg and not needs_reg:
-            ops["do_registration"] = 0
-            if ops_user.get("do_registration", 0) == 1:
-                print(f"Registration already complete, skipping despite do_registration=1 in ops")
 
-    if "roidetect" not in ops_user:
+    if force_detect:
+        ops["roidetect"] = 1
+    elif "roidetect" not in ops_user:
         ops["roidetect"] = int(needs_detect)
 
     # optional structural (channel 2) input
@@ -1811,6 +1833,8 @@ def grid_search(
 
     Notes
     -----
+    - ``force_reg`` and ``force_detect`` override any ``do_registration`` or
+      ``roidetect`` values in the ops dict. Users don't need to set those.
     - Subfolder names use abbreviated parameter keys (first 3 chars) and values.
     - Registration is shared across combinations when `force_reg=False`.
     - For Suite2p parameters, see: https://suite2p.readthedocs.io/en/latest/settings.html
