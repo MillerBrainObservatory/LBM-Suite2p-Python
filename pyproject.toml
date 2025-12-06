@@ -90,7 +90,7 @@ fastplotlib = { git = "https://github.com/fastplotlib/fastplotlib.git", rev = "i
 [tool.ruff]
 line-length = 88
 src = ["lbm_suite2p_python"]
-exclude = ["docs", "exclude", "demos", "scripts"]
+exclude = ["docs", "exclude", "demos", "scripts", "dev"]
 
 [tool.ruff.lint]
 pydocstyle = { convention = "numpy" }

@@ -7,9 +7,6 @@ on:
 jobs:
   format:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.12.7", "3.12.8", "3.12.9"]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -17,7 +14,7 @@ jobs:
       - name: Setup uv
         uses: astral-sh/setup-uv@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.12"
           enable-cache: true
 
       - name: Format with ruff
