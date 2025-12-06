@@ -35,7 +35,7 @@ Supported output formats:
 
 ```
 
-## Unified Pipeline
+## Pipeline Basics
 
 The `lsp.pipeline()` function is the recommended entry point for all processing. It automatically handles:
 
@@ -93,6 +93,55 @@ results = lsp.pipeline(
 | `dff_percentile` | int | 20 | Percentile for baseline F₀ |
 | `dff_smooth_window` | int | None | Temporal smoothing for dF/F traces (auto-calculated) |
 | `save_json` | bool | False | Save ops as JSON in addition to .npy |
+| `reader_kwargs` | dict | None | Keyword arguments passed to `mbo_utilities.imread()` |
+| `writer_kwargs` | dict | None | Keyword arguments passed to binary writer |
+
+### Reader and Writer Kwargs
+
+When processing raw ScanImage TIFFs or other input formats, you may need to control how the data is read. The `reader_kwargs` parameter passes arguments directly to `mbo_utilities.imread()`.
+
+#### Reader Options for Raw ScanImage TIFFs
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `fix_phase` | bool | True | Apply phase correction for bidirectional scanning |
+| `phasecorr_method` | str | 'mean' | Phase correction method ('mean', 'mode', 'median') |
+| `border` | int | 3 | Border pixels to ignore during phase estimation |
+| `use_fft` | bool | False | Use FFT-based subpixel phase correction |
+| `fft_method` | str | '2d' | FFT method ('1d' or '2d') |
+| `upsample` | int | 5 | Upsampling factor for subpixel precision |
+| `max_offset` | int | 4 | Maximum phase offset to search |
+
+#### Examples
+
+```python
+import lbm_suite2p_python as lsp
+
+# Enable FFT-based phase correction for higher precision
+results = lsp.pipeline(
+    input_data="D:/data/raw_tiffs",
+    save_path="D:/results",
+    reader_kwargs={
+        "fix_phase": True,
+        "use_fft": True,
+        "fft_method": "2d",
+    },
+)
+
+# Disable phase correction for already-corrected data
+results = lsp.pipeline(
+    input_data="D:/data/corrected_tiffs",
+    save_path="D:/results",
+    reader_kwargs={"fix_phase": False},
+)
+```
+
+#### Writer Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `target_chunk_mb` | int | 100 | Target chunk size in MB for streaming writes |
+| `progress_callback` | Callable | None | Callback function for progress updates |
 
 ## Planar Pipeline
 
@@ -160,14 +209,38 @@ Files are numbered to ensure proper ordering when viewing in file browsers.
 
 #### Reference Images
 
-The pipeline generates several reference images that serve as both quality checks and visualization aids:
+The pipeline generates several reference images that serve as both quality checks and visualization aids. Each image is computed from the **temporally high-pass filtered, registered movie**.
+
+##### How Reference Images Are Computed
+
+During Suite2p detection, the registered movie undergoes temporal high-pass filtering to remove slow baseline fluctuations. This is done via `temporal_high_pass_filter(mov, width=high_pass)` which subtracts either a Gaussian-filtered or rolling mean version of the movie over time. The reference images are then computed from this filtered movie:
+
+| Image | Computation | Code |
+|-------|-------------|------|
+| `max_proj` | Maximum across time of HP-filtered movie | `mov_hp.max(axis=0)` |
+| `meanImg` | Mean across time of registered movie | `mov.mean(axis=0)` |
+| `meanImgE` | Enhanced mean with median HP filter | See below |
+
+The **enhanced mean image** (`meanImgE`) applies a spatial high-pass filter using a median filter to sharpen cell boundaries:
+
+```python
+def compute_enhanced_mean_image(mean_img, diameter=12):
+    I = mean_img.astype(np.float32)
+    d = int(4 * np.ceil(diameter) + 1)
+    Imed = median_filter(I, size=d)
+    I = I - Imed  # Subtract local median (high-pass)
+    Idiv = median_filter(np.abs(I), size=d)
+    I = I / (1e-10 + Idiv)  # Normalize by local contrast
+    I = np.clip((I + 6) / 12, 0, 1)  # Scale to [0, 1]
+    return I
+```
 
 ```{figure} _images/02_max_projection.png
 :alt: Maximum Intensity Projection
 :name: ug-fig-max-proj
 :width: 50%
 
-**Maximum intensity projection** across all frames. Highlights the brightest pixels over time, useful for identifying highly active regions and checking for motion artifacts.
+**Maximum intensity projection** (`max_proj`) computed as `mov_hp.max(axis=0)` from the temporally high-pass filtered registered movie. Highlights the brightest pixels over time, useful for identifying highly active regions and checking for motion artifacts. This is the image used when `anatomical_only=4`.
 ```
 
 ```{figure} _images/04_mean_enhanced.png
@@ -175,7 +248,7 @@ The pipeline generates several reference images that serve as both quality check
 :name: ug-fig-mean-enhanced
 :width: 50%
 
-**Enhanced mean image** (meanImgE) with edge sharpening applied. This is the recommended image for Cellpose anatomical detection (`anatomical_only=3`). Cell boundaries are more defined than the standard mean image.
+**Enhanced mean image** (`meanImgE`) with median filter high-pass applied. This spatial filtering makes darks darker and brights brighter, sharpening cell boundaries. This is the recommended image for Cellpose anatomical detection (`anatomical_only=3`).
 ```
 
 #### Segmentation Overlays
@@ -916,10 +989,111 @@ ops["allow_overlap"] = True  # For overlapping dendritic segments
 ```
 
 #### `inner_neuropil_radius` (default: 2)
+
 Inner radius (pixels) of neuropil annulus around each ROI.
+
 - **2**: Standard 2-pixel buffer
 - **0**: No buffer (neuropil immediately adjacent)
 - **5+**: Larger buffer for very bright cells
+
+### ΔF/F Parameters
+
+```{tip}
+For detailed guidance on choosing `window_size` based on your indicator and framerate, see [Understanding ΔF/F Traces](#understanding-δff-traces) in the Planar Outputs section.
+```
+
+#### Rolling Percentile Baseline (Recommended)
+
+```python
+from lbm_suite2p_python import dff_rolling_percentile
+
+# Calculate window size: 10 × tau × framerate
+tau = 1.0   # GCaMP7s decay time constant (seconds)
+fs = 17.0   # Your acquisition framerate (Hz)
+window_size = int(10 * tau * fs)  # = 170 frames
+
+dff = dff_rolling_percentile(
+    F,
+    window_size=window_size,
+    percentile=20,      # Use 20th percentile as baseline
+    use_median_floor=False  # Optional: set min F₀ at 1% of median
+)
+```
+
+**Window size rule of thumb:** Use ~10× the indicator decay time constant (tau) × frame rate.
+For example, with jGCaMP7s (tau≈1.0s) at 30Hz: 10 × 1.0 × 30 = 300 frames.
+This ensures the window spans multiple calcium transients so the percentile filter
+can find the baseline between events. See [Suite2p Cell Detection](https://suite2p.readthedocs.io/en/latest/celldetection.html) for related binning logic.
+
+**When to use:** Most datasets, handles slow baseline drifts.
+
+#### Median Filter Baseline
+
+```python
+from lbm_suite2p_python import dff_median_filter
+
+dff = dff_median_filter(F)
+# Uses 1% of median as F₀ (simple but less adaptive)
+```
+
+**When to use:** Quick baseline for stable recordings.
+
+#### Shot Noise Estimation
+
+```python
+from lbm_suite2p_python import dff_shot_noise
+
+noise_levels = dff_shot_noise(dff, fr=17.0)  # Frame rate in Hz
+# Returns noise level per neuron in %/√Hz units
+```
+
+Quantifies SNR for comparing across datasets.
+
+### Spike Deconvolution & Tau
+
+Most calcium imaging pipelines model neural activity as an exponential decay process following each spike, making τ (tau) a key hyperparameter.
+
+#### Indicator Dynamics
+
+| **GCaMP Variant**     | **Optimal Tau (s)** | **Notes / Sources** |
+|-----------------------|---------------------|----------------------|
+| **GCaMP6f (fast)**    | ~0.5–0.7 s          | Suite2p: ~0.7 s. OASIS/CNMF: ~0.5–0.7 s. CaImAn: ~0.4 s. |
+| **GCaMP6m (medium)**  | ~1.0–1.25 s         | Suite2p: ~1.0 s. OASIS: ~1.25 s. CaImAn: ~1.0 s. |
+| **GCaMP6s (slow)**    | ~1.5–2.0 s          | Suite2p: 1.25–1.5 s. OASIS/Suite2p: ~2.0 s. CaImAn: ~1.5–2.0 s. |
+| **GCaMP7f (fast)**    | ~0.5 s              | Similar to GCaMP6f. |
+| **GCaMP7m (medium)**  | ~1.0 s (est.)       | Estimated by analogy to GCaMP6m. |
+| **GCaMP7s (slow)**    | ~1.0–1.5 s          | In vivo half-decay ~0.7 s. Tau ≈ 1.0 s. |
+| **GCaMP8f (fast)**    | ~0.3 s              | Fastest decay; tenfold faster than 6f/7f. |
+| **GCaMP8m (medium)**  | ~0.3 s              | Slightly slower than 8f, still ~0.3 s. |
+| **GCaMP8s (slow)**    | ~0.7 s              | Faster than 6s. |
+
+::::{grid}
+:::{grid-item-card} GCaMP6 Family
+:columns: 4
+
+Fast (6f): 0.5 s
+Medium (6m): 1.1 s
+Slow (6s): 1.8 s
+:::
+:::{grid-item-card} GCaMP7 Family
+:columns: 4
+
+7f: 0.45 s
+7s: 1.0 s
+7c: 0.8 s
+:::
+:::{grid-item-card} GCaMP8 Family
+:columns: 4
+
+8f: 0.25 s
+8m: 0.3 s
+8s: 0.5 s
+:::
+::::
+
+```{seealso}
+For a comparison of how different pipelines handle spike deconvolution and τ, see {doc}`Pipeline Comparison - Deconvolution Algorithms <pipeline_comparison>`.
+```
 
 ---
 
@@ -1162,175 +1336,8 @@ The resulting ΔF/F₀ traces can look different depending on the chosen baselin
 The resulting ΔF/F₀ traces with detected events overlaid.
 ```
 
-### Pipeline Comparison
-
-Different pipelines handle ΔF/F₀ differently:
-
-| **Pipeline** | **F₀ Method**                       | **ΔF/F₀**                 | **Neuropil**                            |
-| ------------ | ----------------------------------- | ------------------------- | ------------------------------------------------ |
-| **CaImAn**   | 8th percentile, 500-frame window    | Yes, in pipeline          | Modeled via CNMF, no manual subtraction          |
-| **Suite2p**  | Maximin (default) or 8th percentile | No, user divides post hoc | 0.7 × F<sub>neu</sub> subtracted before baseline |
-| **EXTRACT**  | User-defined (e.g. 10th percentile) | No, user computes         | Implicitly handled via robust model              |
-
-#### CaImAn
-
-CaImAn computes ΔF/F₀ using a **running low-percentile baseline**. By default, it uses the **8th percentile** over a **500 frame** window. The idea is to track the lower envelope of the signal to get F₀ without being biased by transients.
-
-**Neuropil/background:** CaImAn handles this as part of its CNMF model. Background and neuropil are explicitly separated into distinct spatial/temporal components, so the output traces are background subtracted during this factorization.
-
-```{figure} _images/dff_baseline_strategies_caiman.png
-:alt: CaImAn default DF/F strategy
-:name: ug-fig-dff-caiman
-:width: 100%
-
-[CaImAn](https://github.com/flatironinstitute/CaImAn) uses a default baseline of the `lower 8th percentile` and a moving window of `200 frames`.
-```
-
-#### Suite2p
-
-Suite2p does **not** output traces in ΔF/F₀ format directly. Instead, it gives you the raw trace and the neuropil, along with spike estimates if you ran deconvolution. The neuropil represents fluorescence from the surrounding non-somatic tissue. As an optional step, many experimenters apply a fixed subtraction:
-
-```python
-# F is an [n_neurons x time] array of raw signal
-# Fneu is an [n_neurons x time] array of neuropil
-F_corrected = F - 0.7 * Fneu
-```
-
-The 0.7 is an empirically chosen scalar to account for the partial contamination. Essentially you subtract 70% of the signal contained in the surrounding neuropil.
-
-```{figure} _images/dff_oasis.png
-:name: fig-dff-oasis
-:width: 100%
-
-Raw, neuropil, ΔF/F₀ and resulting deconvolved spikes as output by [Suite2p](https://github.com/MouseLand/suite2p).
-```
-
-#### EXTRACT
-
-[EXTRACT](https://github.com/schnitzer-lab/EXTRACT-public) outputs raw fluorescence signals without built-in ΔF/F₀ calculation. You compute it yourself using something like a low-percentile (e.g. 10%) as F₀. Most users apply a global or sliding percentile window.
-
-**Neuropil:** Handled implicitly. The algorithm uses robust factorization to ignore background and neuropil. There's no explicit subtraction or coefficient to tune—it isolates only what fits a consistent spatial footprint and suppresses outliers by design.
-
-### Using LBM-Suite2p-Python ΔF/F Functions
-
-```{tip}
-For detailed guidance on choosing `window_size` based on your indicator and framerate, see [Understanding ΔF/F Traces](#understanding-δff-traces) in the Planar Outputs section.
-```
-
-#### Rolling Percentile Baseline (Recommended)
-
-```python
-from lbm_suite2p_python import dff_rolling_percentile
-
-# Calculate window size: 10 × tau × framerate
-tau = 1.0   # GCaMP7s decay time constant (seconds)
-fs = 17.0   # Your acquisition framerate (Hz)
-window_size = int(10 * tau * fs)  # = 170 frames
-
-dff = dff_rolling_percentile(
-    F,
-    window_size=window_size,
-    percentile=20,      # Use 20th percentile as baseline
-    use_median_floor=False  # Optional: set min F₀ at 1% of median
-)
-```
-
-**Window size rule of thumb:** Use ~10× the indicator decay time constant (tau) × frame rate.
-For example, with jGCaMP7s (tau≈1.0s) at 30Hz: 10 × 1.0 × 30 = 300 frames.
-This ensures the window spans multiple calcium transients so the percentile filter
-can find the baseline between events. See [Suite2p Cell Detection](https://suite2p.readthedocs.io/en/latest/celldetection.html) for related binning logic.
-
-**When to use:** Most datasets, handles slow baseline drifts.
-
-#### Median Filter Baseline
-
-```python
-from lbm_suite2p_python import dff_median_filter
-
-dff = dff_median_filter(F)
-# Uses 1% of median as F₀ (simple but less adaptive)
-```
-
-**When to use:** Quick baseline for stable recordings.
-
-#### Shot Noise Estimation
-
-```python
-from lbm_suite2p_python import dff_shot_noise
-
-noise_levels = dff_shot_noise(dff, fr=17.0)  # Frame rate in Hz
-# Returns noise level per neuron in %/√Hz units
-```
-
-Quantifies SNR for comparing across datasets.
-
----
-
-## Spike Deconvolution & Tau
-
-Most calcium imaging pipelines model neural activity as an exponential decay process following each spike, making τ (tau) a key hyperparameter.
-
-### Indicator Dynamics
-
-| **GCaMP Variant**     | **Optimal Tau (s)** | **Notes / Sources** |
-|-----------------------|---------------------|----------------------|
-| **GCaMP6f (fast)**    | ~0.5–0.7 s          | Suite2p: ~0.7 s. OASIS/CNMF: ~0.5–0.7 s. CaImAn: ~0.4 s. |
-| **GCaMP6m (medium)**  | ~1.0–1.25 s         | Suite2p: ~1.0 s. OASIS: ~1.25 s. CaImAn: ~1.0 s. |
-| **GCaMP6s (slow)**    | ~1.5–2.0 s          | Suite2p: 1.25–1.5 s. OASIS/Suite2p: ~2.0 s. CaImAn: ~1.5–2.0 s. |
-| **GCaMP7f (fast)**    | ~0.5 s              | Similar to GCaMP6f. |
-| **GCaMP7m (medium)**  | ~1.0 s (est.)       | Estimated by analogy to GCaMP6m. |
-| **GCaMP7s (slow)**    | ~1.0–1.5 s          | In vivo half-decay ~0.7 s. Tau ≈ 1.0 s. |
-| **GCaMP8f (fast)**    | ~0.3 s              | Fastest decay; tenfold faster than 6f/7f. |
-| **GCaMP8m (medium)**  | ~0.3 s              | Slightly slower than 8f, still ~0.3 s. |
-| **GCaMP8s (slow)**    | ~0.7 s              | Faster than 6s. |
-
-::::{grid}
-:::{grid-item-card} GCaMP6 Family
-:columns: 4
-Fast (6f): 0.5 s
-Medium (6m): 1.1 s
-Slow (6s): 1.8 s
-:::
-:::{grid-item-card} GCaMP7 Family
-:columns: 4
-7f: 0.45 s
-7s: 1.0 s
-7c: 0.8 s
-:::
-:::{grid-item-card} GCaMP8 Family
-:columns: 4
-8f: 0.25 s
-8m: 0.3 s
-8s: 0.5 s
-:::
-::::
-
-### Pipeline Comparison
-
-| **Pipeline** | **Uses τ?** | **Range (s)** | **Method** |
-|---------------|-------------|----------------|-------------|
-| **FOOPSI** | Yes | ~1.0 | Fixed exponential |
-| **OASIS / CNMF** | Yes | 0.3 – 2.0 | AR(1/2) model |
-| **Suite2p** | Yes | 0.7 – 1.5 | OASIS internal |
-| **CaImAn** | Yes | 0.4 – 2.0 | CNMF-E fit |
-| **CASCADE** | Implicit | 0.3 – 2.0 | Learned dynamics |
-
-::::{grid}
-:::{grid-item-card} Key Takeaways
-:columns: 12
-
-- τ defines calcium transient decay and sets temporal resolution of spike inference
-- Optimal τ depends on both **indicator kinetics** and **frame rate**
-- Pipelines like Suite2p and CaImAn require τ tuning per GECI
-- CASCADE bypasses explicit τ by learning it implicitly
-- GCaMP8 series are ~3× faster than GCaMP6
-:::
-::::
-
-```{note}
-All τ values summarized here reflect *in vivo* mammalian calcium imaging (typically ~30 Hz frame rate).
-In vitro or temperature-controlled decay times (e.g., 37 °C) can be >10× shorter.
-Choosing an incorrect τ biases both spike amplitude and inferred firing rate.
+```{seealso}
+For a comparison of how different pipelines (CaImAn, Suite2p, EXTRACT) handle ΔF/F calculation, see {doc}`Pipeline Comparison <pipeline_comparison>`.
 ```
 
 ---

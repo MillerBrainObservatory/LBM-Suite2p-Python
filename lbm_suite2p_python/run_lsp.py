@@ -1,5 +1,6 @@
 import logging
 import time
+from datetime import datetime
 from pathlib import Path
 import os
 import traceback
@@ -11,6 +12,7 @@ import gc
 import numpy as np
 
 from lbm_suite2p_python import default_ops
+import lbm_suite2p_python as lsp
 from lbm_suite2p_python.postprocessing import (
     ops_to_json,
     load_planar_results,
@@ -31,9 +33,6 @@ from lbm_suite2p_python.volume import (
     plot_orthoslices,
     plot_3d_roi_map,
     get_volume_stats,
-)
-from mbo_utilities.file_io import (
-    get_plane_from_filename,
 )
 from mbo_utilities.arrays import (
     iter_rois,
@@ -76,6 +75,63 @@ def _get_num_planes_from_array(arr):
     return 1
 
 
+def _get_suite2p_version():
+    """Get suite2p version string."""
+    try:
+        import suite2p
+        return getattr(suite2p, "__version__", "unknown")
+    except ImportError:
+        return "not installed"
+
+
+def _add_processing_step(ops, step_name, input_files=None, duration_seconds=None, extra=None):
+    """
+    Add a processing step to ops["processing_history"].
+
+    Each step is appended to the history list, preserving previous runs.
+    This allows tracking of re-runs and incremental processing.
+
+    Parameters
+    ----------
+    ops : dict
+        The ops dictionary to update.
+    step_name : str
+        Name of the processing step (e.g., "binary_write", "registration", "detection").
+    input_files : list of str, optional
+        List of input file paths for this step.
+    duration_seconds : float, optional
+        How long this step took.
+    extra : dict, optional
+        Additional metadata for this step.
+
+    Returns
+    -------
+    dict
+        The updated ops dictionary.
+    """
+    if "processing_history" not in ops:
+        ops["processing_history"] = []
+
+    step_record = {
+        "step": step_name,
+        "timestamp": datetime.now().isoformat(),
+        "lbm_suite2p_python_version": lsp.__version__,
+        "suite2p_version": _get_suite2p_version(),
+    }
+
+    if input_files is not None:
+        step_record["input_files"] = [str(f) for f in input_files] if not isinstance(input_files, str) else [input_files]
+
+    if duration_seconds is not None:
+        step_record["duration_seconds"] = round(duration_seconds, 2)
+
+    if extra is not None:
+        step_record.update(extra)
+
+    ops["processing_history"].append(step_record)
+    return ops
+
+
 def pipeline(
     input_data,
     save_path: str | Path = None,
@@ -90,6 +146,8 @@ def pipeline(
     dff_percentile: int = 20,
     dff_smooth_window: int = None,
     save_json: bool = False,
+    reader_kwargs: dict = None,
+    writer_kwargs: dict = None,
     **kwargs,
 ) -> list[Path]:
     """
@@ -142,10 +200,38 @@ def pipeline(
         Percentile for baseline F₀ estimation.
     dff_smooth_window : int, optional
         Temporal smoothing window for dF/F traces (in frames).
-        If None, auto-calculated as ~0.5 × tau × fs to emphasize
-        transients while reducing noise. Set to 1 to disable.
+        If None, auto-calculated as ~0.5 × tau × fs to ensure the window
+        spans the calcium indicator decay time. Set to 1 to disable.
     save_json : bool, default False
         Save ops as JSON in addition to .npy.
+    reader_kwargs : dict, optional
+        Keyword arguments passed to mbo_utilities.imread() when loading data.
+        Useful for controlling how raw ScanImage TIFFs are read. Common options:
+
+        - ``fix_phase`` : bool, default True
+            Apply phase correction for bidirectional scanning.
+        - ``phasecorr_method`` : str, default 'mean'
+            Phase correction method ('mean', 'mode', 'median').
+        - ``border`` : int, default 3
+            Border pixels to ignore during phase estimation.
+        - ``use_fft`` : bool, default False
+            Use FFT-based subpixel phase correction.
+        - ``fft_method`` : str, default '2d'
+            FFT method ('1d' or '2d').
+        - ``upsample`` : int, default 5
+            Upsampling factor for subpixel precision.
+        - ``max_offset`` : int, default 4
+            Maximum phase offset to search.
+
+    writer_kwargs : dict, optional
+        Keyword arguments passed to mbo_utilities when writing binary files.
+        Common options:
+
+        - ``target_chunk_mb`` : int, default 100
+            Target chunk size in MB for streaming writes.
+        - ``progress_callback`` : Callable, optional
+            Callback function for progress updates.
+
     **kwargs
         Additional arguments passed to Suite2p.
 
@@ -175,6 +261,20 @@ def pipeline(
 
     >>> ops = {"diameter": 8, "threshold_scaling": 0.8}
     >>> results = lsp.pipeline("D:/data", ops=ops)
+
+    Control phase correction for raw ScanImage TIFFs:
+
+    >>> results = lsp.pipeline(
+    ...     "D:/data/raw",
+    ...     reader_kwargs={"fix_phase": True, "use_fft": True},
+    ... )
+
+    Disable phase correction (for already-corrected data):
+
+    >>> results = lsp.pipeline(
+    ...     "D:/data/raw",
+    ...     reader_kwargs={"fix_phase": False},
+    ... )
 
     Notes
     -----
@@ -214,6 +314,19 @@ def pipeline(
     - dx, dy (pixel resolution)
     - Ly, Lx (frame dimensions)
 
+    **Parameter Override Precedence:**
+
+    The ``force_reg`` and ``force_detect`` arguments take precedence over
+    ``do_registration`` and ``roidetect`` values in the ops dict:
+
+    - ``force_reg=True`` → always register, ignoring ``ops["do_registration"]``
+    - ``force_detect=True`` → always detect, ignoring ``ops["roidetect"]``
+    - ``force_reg=False`` (default) → skip registration if already complete,
+      even if ``ops["do_registration"]=1``
+
+    This allows users to focus on detection parameters without worrying about
+    the registration/detection flags in their ops dict.
+
     See Also
     --------
     run_plane : Lower-level single-plane processing
@@ -223,6 +336,10 @@ def pipeline(
     from mbo_utilities import imread
 
     start_time = time.time()
+
+    # Normalize kwargs dicts
+    reader_kwargs = reader_kwargs or {}
+    writer_kwargs = writer_kwargs or {}
 
     # === STEP 1: Normalize input to lazy array ===
     print(f"Loading input data...")
@@ -242,7 +359,7 @@ def pipeline(
     elif isinstance(input_data, (str, Path)):
         input_path = Path(input_data)
         print(f"  Input: {input_path}")
-        arr = imread(input_path)
+        arr = imread(input_path, **reader_kwargs)
         print(f"  Loaded as: {type(arr).__name__}")
         filenames = getattr(arr, "filenames", [input_path])
         if save_path is None:
@@ -274,11 +391,13 @@ def pipeline(
                 dff_window_size=dff_window_size,
                 dff_percentile=dff_percentile,
                 save_json=save_json,
+                reader_kwargs=reader_kwargs,
+                writer_kwargs=writer_kwargs,
                 **kwargs,
             )
         else:
             # Try to load as a single dataset
-            arr = imread(paths)
+            arr = imread(paths, **reader_kwargs)
             print(f"  Loaded as: {type(arr).__name__}")
             filenames = paths
             if save_path is None:
@@ -336,11 +455,20 @@ def pipeline(
     # Auto-populate from metadata
     if fs:
         ops["fs"] = fs
-    if "pixel_resolution" in metadata:
-        pr = metadata["pixel_resolution"]
-        if isinstance(pr, (list, tuple)) and len(pr) >= 2:
-            ops["dx"] = pr[0]
-            ops["dy"] = pr[1]
+
+    # Get pixel resolution from metadata (check aliases)
+    pr = metadata.get("pixel_resolution")
+    if pr is None:
+        # Check common aliases: dx/dy, PhysicalSizeX/Y, umPerPixX/Y
+        dx = metadata.get("dx") or metadata.get("umPerPixX") or metadata.get("PhysicalSizeX")
+        dy = metadata.get("dy") or metadata.get("umPerPixY") or metadata.get("PhysicalSizeY")
+        if dx is not None and dy is not None:
+            pr = [dx, dy]
+            metadata["pixel_resolution"] = pr  # Set it so mbo_utilities doesn't warn
+
+    if pr is not None and isinstance(pr, (list, tuple)) and len(pr) >= 2:
+        ops["dx"] = pr[0]
+        ops["dy"] = pr[1]
 
     ops["Ly"] = Ly
     ops["Lx"] = Lx
@@ -430,6 +558,7 @@ def pipeline(
             # Write binary using _write_plane - it handles plane extraction internally
             if not bin_file.exists() or force_reg:
                 print(f"  Writing binary ({plane_nframes} frames, {plane_Ly}x{plane_Lx})...")
+                bin_write_start = time.time()
 
                 # _write_plane uses plane_index to extract the correct z-plane
                 # The array's __getitem__ handles ROI stitching and phase correction
@@ -439,6 +568,16 @@ def pipeline(
                     overwrite=True,
                     metadata=plane_ops,
                     plane_index=plane_idx if num_planes > 1 else None,
+                    **writer_kwargs,
+                )
+
+                # Record binary write step
+                _add_processing_step(
+                    plane_ops,
+                    "binary_write",
+                    input_files=filenames,
+                    duration_seconds=time.time() - bin_write_start,
+                    extra={"plane": plane_num, "shape": list(plane_ops["shape"])},
                 )
             else:
                 print(f"  Binary exists, skipping write")
@@ -449,11 +588,27 @@ def pipeline(
             # Run Suite2p pipeline on binary
             try:
                 print(f"  Running Suite2p pipeline...")
+                s2p_start = time.time()
                 run_plane_bin(ops_file)
                 all_ops_files.append(ops_file)
 
+                # Reload ops to get updated values from Suite2p, then add history
+                updated_ops = load_ops(ops_file)
+                _add_processing_step(
+                    updated_ops,
+                    "suite2p_pipeline",
+                    duration_seconds=time.time() - s2p_start,
+                    extra={
+                        "do_registration": updated_ops.get("do_registration", True),
+                        "anatomical_only": updated_ops.get("anatomical_only", 0),
+                        "n_cells_detected": len(np.load(plane_dir / "stat.npy", allow_pickle=True)) if (plane_dir / "stat.npy").exists() else 0,
+                    },
+                )
+                np.save(ops_file, updated_ops)
+
                 # Post-processing: dF/F calculation
                 print(f"  Computing dF/F...")
+                dff_start = time.time()
                 F_file = plane_dir / "F.npy"
                 Fneu_file = plane_dir / "Fneu.npy"
                 dff_file = plane_dir / "dff.npy"
@@ -474,6 +629,21 @@ def pipeline(
                         tau=tau,
                     )
                     np.save(dff_file, dff)
+
+                    # Record dF/F calculation step
+                    updated_ops = load_ops(ops_file)
+                    _add_processing_step(
+                        updated_ops,
+                        "dff_calculation",
+                        duration_seconds=time.time() - dff_start,
+                        extra={
+                            "dff_percentile": dff_percentile,
+                            "dff_window_size": dff_window_size,
+                            "dff_smooth_window": dff_smooth_window,
+                            "neucoeff": 0.7,
+                        },
+                    )
+                    np.save(ops_file, updated_ops)
 
                 # Generate plots
                 try:
@@ -586,6 +756,41 @@ def derive_tag_from_filename(path):
     return name
 
 
+def get_plane_num_from_tag(tag: str, fallback: int = None) -> int:
+    """
+    Extract the plane number from a tag string like "plane3" or "roi7".
+
+    Parameters
+    ----------
+    tag : str
+        A tag string (e.g., "plane3", "roi7", "z10") typically from derive_tag_from_filename.
+    fallback : int, optional
+        Value to return if no number can be extracted from the tag.
+
+    Returns
+    -------
+    int
+        The extracted plane number, or the fallback value if extraction fails.
+
+    Examples
+    --------
+    >>> get_plane_num_from_tag("plane3")
+    3
+    >>> get_plane_num_from_tag("roi7")
+    7
+    >>> get_plane_num_from_tag("z10")
+    10
+    >>> get_plane_num_from_tag("assembled_data", fallback=0)
+    0
+    """
+    import re
+
+    match = re.search(r"(\d+)$", tag)
+    if match:
+        return int(match.group(1))
+    return fallback
+
+
 def run_volume(
     input_files: list,
     save_path: str | Path = None,
@@ -598,6 +803,8 @@ def run_volume(
     dff_percentile: int = 20,
     dff_smooth_window: int = None,
     save_json: bool = False,
+    reader_kwargs: dict = None,
+    writer_kwargs: dict = None,
     **kwargs,
 ):
     """
@@ -639,8 +846,8 @@ def run_volume(
         Percentile to use for baseline F₀ estimation (e.g., 20 = 20th percentile).
     dff_smooth_window : int, optional
         Temporal smoothing window for dF/F traces (in frames).
-        If None, auto-calculated as ~0.5 × tau × fs to emphasize
-        transients while reducing noise. Set to 1 to disable.
+        If None, auto-calculated as ~0.5 × tau × fs to ensure the window
+        spans the calcium indicator decay time. Set to 1 to disable.
     save_json : bool, default False
         If True, saves ops as JSON in addition to .npy format.
     **kwargs
@@ -734,7 +941,7 @@ def run_volume(
     run_plane_bin : Process an existing binary file through Suite2p pipeline
     merge_mrois : Manual multi-ROI merging function
     """
-    from mbo_utilities.file_io import get_files, get_plane_from_filename
+    from mbo_utilities.file_io import get_files
 
     if not input_files:
         raise Exception("No input files given.")
@@ -775,7 +982,7 @@ def run_volume(
         else:
             # tiff, zarr, or other format - derive plane_name from filename
             plane_name = derive_tag_from_filename(file_path.name)
-            plane_num = get_plane_from_filename(plane_name, fallback=len(all_ops))
+            plane_num = get_plane_num_from_tag(plane_name, fallback=len(all_ops))
             input_to_process = file_path
             plane_save_path = save_path
             call_kwargs["plane"] = plane_num
@@ -795,6 +1002,8 @@ def run_volume(
                 dff_smooth_window=dff_smooth_window,
                 save_json=save_json,
                 plane_name=plane_name,
+                reader_kwargs=reader_kwargs,
+                writer_kwargs=writer_kwargs,
                 **call_kwargs,
             )
             all_ops.append(ops_file)
@@ -1273,6 +1482,8 @@ def run_plane(
     dff_smooth_window: int = None,
     save_json: bool = False,
     plane_name: str | None = None,
+    reader_kwargs: dict = None,
+    writer_kwargs: dict = None,
     **kwargs,
 ) -> Path:
     """
@@ -1424,6 +1635,10 @@ def run_plane(
     # Skip imread if we're using existing binary OR if binary exists and passes validation
     should_write = skip_imwrite is False and _should_write_bin(ops_file, force=force_reg)
 
+    # Normalize kwargs dicts
+    reader_kwargs = reader_kwargs or {}
+    writer_kwargs = writer_kwargs or {}
+
     if skip_imwrite or not should_write:
         file = None
         # Load metadata from existing ops.npy
@@ -1431,7 +1646,7 @@ def run_plane(
         metadata = {k: v for k, v in existing_ops.items() if k in ("plane", "fs", "dx", "dy", "Ly", "Lx", "nframes")}
     else:
         # Only call imread if we're actually going to write the binary
-        file = imread(input_path)
+        file = imread(input_path, **reader_kwargs)
         if isinstance(file, MboRawArray):
             raise TypeError(
                 "Input file appears to be a raw array. Please provide a planar input file."
@@ -1449,7 +1664,8 @@ def run_plane(
         ops["plane"] = plane
     else:
         # get the plane from the filename
-        plane = get_plane_from_filename(input_path, ops.get("plane", None))
+        tag = derive_tag_from_filename(input_path)
+        plane = get_plane_num_from_tag(tag, fallback=ops.get("plane", None))
         ops["plane"] = plane
         metadata["plane"] = plane
 
@@ -1501,7 +1717,8 @@ def run_plane(
             metadata=md_combined,
             register_z=False,
             output_name="data_raw.bin",
-            overwrite=True
+            overwrite=True,
+            **writer_kwargs,
         )
     else:
         print(
@@ -1547,21 +1764,21 @@ def run_plane(
         "plane": correct_plane,  # Override with correct plane number
     }
 
-    # Set do_registration/roidetect based on needs analysis
-    # Even if user provides these values, respect the needs_reg/needs_detect logic
-    # unless force_reg/force_detect are True
-    if "do_registration" not in ops_user:
+    # Set do_registration/roidetect based on force flags and needs analysis
+    # force_reg/force_detect ALWAYS override user ops values
+    if force_reg:
+        ops["do_registration"] = 1
+    elif force_reg is False and not needs_reg:
+        # Skip registration if already done, regardless of user ops
+        ops["do_registration"] = 0
+        if ops_user.get("do_registration", 0) == 1:
+            print(f"Registration already complete, skipping despite do_registration=1 in ops")
+    elif "do_registration" not in ops_user:
         ops["do_registration"] = int(needs_reg)
-    else:
-        # User provided do_registration, but check if we should override
-        # If force_reg=False and registration is already done (needs_reg=False),
-        # skip registration even if user said do_registration=1
-        if not force_reg and not needs_reg:
-            ops["do_registration"] = 0
-            if ops_user.get("do_registration", 0) == 1:
-                print(f"Registration already complete, skipping despite do_registration=1 in ops")
 
-    if "roidetect" not in ops_user:
+    if force_detect:
+        ops["roidetect"] = 1
+    elif "roidetect" not in ops_user:
         ops["roidetect"] = int(needs_detect)
 
     # optional structural (channel 2) input
@@ -1678,6 +1895,8 @@ def grid_search(
 
     Notes
     -----
+    - ``force_reg`` and ``force_detect`` override any ``do_registration`` or
+      ``roidetect`` values in the ops dict. Users don't need to set those.
     - Subfolder names use abbreviated parameter keys (first 3 chars) and values.
     - Registration is shared across combinations when `force_reg=False`.
     - For Suite2p parameters, see: https://suite2p.readthedocs.io/en/latest/settings.html

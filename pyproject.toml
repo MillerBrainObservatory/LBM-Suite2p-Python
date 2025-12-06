@@ -19,23 +19,30 @@ classifiers=[
 ]
 dependencies = [
 	"mbo_utilities>=2.3.0",
-	"suite2p_mbo>=2.0.0",
+	"fastplotlib",
 ]
 
 [project.optional-dependencies]
+# Suite2p cell extraction pipeline (core dependency for this package)
+suite2p = [
+	"suite2p_mbo>=2.0.0",
+]
 # Rastermap for activity clustering and visualization
 rastermap = [
 	"rastermap",
 ]
 # Cellpose for anatomical cell detection (requires PyTorch)
 cellpose = [
-	"cellpose==4.0.6",
+	"cellpose>=4.0.6",
+]
+# PyTorch for neural network operations (Cellpose, etc.)
+torch = [
 	"torch>=2.7.0",
 	"torchvision>=0.22.0",
 ]
 # All optional dependencies
 all = [
-	"lbm_suite2p_python[rastermap,cellpose]",
+	"lbm_suite2p_python[suite2p,rastermap,cellpose,torch]",
 ]
 
 [dependency-groups]
@@ -77,15 +84,13 @@ torch = [
 torchvision = [
   { index = "pytorch-cu126", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
-# mbo_utilities = { git = "https://github.com/MillerBrainObservatory/mbo_utilities.git", rev = "opt-imports" }
-mbo_utilities = { path = "../mbo_utilities"}
-
+fastplotlib = { git = "https://github.com/fastplotlib/fastplotlib.git", rev = "iw-check-subclass-bugfix" }
 
 # https://github.com/charliermarsh/ruff
 [tool.ruff]
 line-length = 88
 src = ["lbm_suite2p_python"]
-exclude = ["docs", "exclude", "demos", "scripts"]
+exclude = ["docs", "exclude", "demos", "scripts", "dev"]
 
 [tool.ruff.lint]
 pydocstyle = { convention = "numpy" }
@@ -118,6 +123,3 @@ exclude_lines = [
 	"\\.\\.\\.",
 	"raise NotImplementedError()"
 ]
-#
-#[tool.setuptools.dynamic]
-#version = {file = ["lbm_suite2p_python/VERSION"]}

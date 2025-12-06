@@ -19,6 +19,7 @@ __all__ = [
     "run_plane",
     "grid_search",
     "consolidate_volume",
+    "add_processing_step",
     "plot_traces",
     "plot_masks",
     "plot_rastermap",
@@ -46,3 +47,6 @@ __all__ = [
     "load_planar_results",
     "default_ops",
 ]
+
+# Re-export with public name
+from lbm_suite2p_python.run_lsp import _add_processing_step as add_processing_step

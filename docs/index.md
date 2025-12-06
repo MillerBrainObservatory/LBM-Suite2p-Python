@@ -42,6 +42,7 @@ maxdepth: 1
 ---
 discussions/index
 image_gallery
+pipeline_comparison
 ```
 
 ## Quick Example
