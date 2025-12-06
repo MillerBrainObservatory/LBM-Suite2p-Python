@@ -146,6 +146,8 @@ def pipeline(
     dff_percentile: int = 20,
     dff_smooth_window: int = None,
     save_json: bool = False,
+    reader_kwargs: dict = None,
+    writer_kwargs: dict = None,
     **kwargs,
 ) -> list[Path]:
     """
@@ -198,10 +200,38 @@ def pipeline(
         Percentile for baseline F₀ estimation.
     dff_smooth_window : int, optional
         Temporal smoothing window for dF/F traces (in frames).
-        If None, auto-calculated as ~0.5 × tau × fs to emphasize
-        transients while reducing noise. Set to 1 to disable.
+        If None, auto-calculated as ~0.5 × tau × fs to ensure the window
+        spans the calcium indicator decay time. Set to 1 to disable.
     save_json : bool, default False
         Save ops as JSON in addition to .npy.
+    reader_kwargs : dict, optional
+        Keyword arguments passed to mbo_utilities.imread() when loading data.
+        Useful for controlling how raw ScanImage TIFFs are read. Common options:
+
+        - ``fix_phase`` : bool, default True
+            Apply phase correction for bidirectional scanning.
+        - ``phasecorr_method`` : str, default 'mean'
+            Phase correction method ('mean', 'mode', 'median').
+        - ``border`` : int, default 3
+            Border pixels to ignore during phase estimation.
+        - ``use_fft`` : bool, default False
+            Use FFT-based subpixel phase correction.
+        - ``fft_method`` : str, default '2d'
+            FFT method ('1d' or '2d').
+        - ``upsample`` : int, default 5
+            Upsampling factor for subpixel precision.
+        - ``max_offset`` : int, default 4
+            Maximum phase offset to search.
+
+    writer_kwargs : dict, optional
+        Keyword arguments passed to mbo_utilities when writing binary files.
+        Common options:
+
+        - ``target_chunk_mb`` : int, default 100
+            Target chunk size in MB for streaming writes.
+        - ``progress_callback`` : Callable, optional
+            Callback function for progress updates.
+
     **kwargs
         Additional arguments passed to Suite2p.
 
@@ -231,6 +261,20 @@ def pipeline(
 
     >>> ops = {"diameter": 8, "threshold_scaling": 0.8}
     >>> results = lsp.pipeline("D:/data", ops=ops)
+
+    Control phase correction for raw ScanImage TIFFs:
+
+    >>> results = lsp.pipeline(
+    ...     "D:/data/raw",
+    ...     reader_kwargs={"fix_phase": True, "use_fft": True},
+    ... )
+
+    Disable phase correction (for already-corrected data):
+
+    >>> results = lsp.pipeline(
+    ...     "D:/data/raw",
+    ...     reader_kwargs={"fix_phase": False},
+    ... )
 
     Notes
     -----
@@ -293,6 +337,10 @@ def pipeline(
 
     start_time = time.time()
 
+    # Normalize kwargs dicts
+    reader_kwargs = reader_kwargs or {}
+    writer_kwargs = writer_kwargs or {}
+
     # === STEP 1: Normalize input to lazy array ===
     print(f"Loading input data...")
 
@@ -311,7 +359,7 @@ def pipeline(
     elif isinstance(input_data, (str, Path)):
         input_path = Path(input_data)
         print(f"  Input: {input_path}")
-        arr = imread(input_path)
+        arr = imread(input_path, **reader_kwargs)
         print(f"  Loaded as: {type(arr).__name__}")
         filenames = getattr(arr, "filenames", [input_path])
         if save_path is None:
@@ -343,11 +391,13 @@ def pipeline(
                 dff_window_size=dff_window_size,
                 dff_percentile=dff_percentile,
                 save_json=save_json,
+                reader_kwargs=reader_kwargs,
+                writer_kwargs=writer_kwargs,
                 **kwargs,
             )
         else:
             # Try to load as a single dataset
-            arr = imread(paths)
+            arr = imread(paths, **reader_kwargs)
             print(f"  Loaded as: {type(arr).__name__}")
             filenames = paths
             if save_path is None:
@@ -518,6 +568,7 @@ def pipeline(
                     overwrite=True,
                     metadata=plane_ops,
                     plane_index=plane_idx if num_planes > 1 else None,
+                    **writer_kwargs,
                 )
 
                 # Record binary write step
@@ -752,6 +803,8 @@ def run_volume(
     dff_percentile: int = 20,
     dff_smooth_window: int = None,
     save_json: bool = False,
+    reader_kwargs: dict = None,
+    writer_kwargs: dict = None,
     **kwargs,
 ):
     """
@@ -793,8 +846,8 @@ def run_volume(
         Percentile to use for baseline F₀ estimation (e.g., 20 = 20th percentile).
     dff_smooth_window : int, optional
         Temporal smoothing window for dF/F traces (in frames).
-        If None, auto-calculated as ~0.5 × tau × fs to emphasize
-        transients while reducing noise. Set to 1 to disable.
+        If None, auto-calculated as ~0.5 × tau × fs to ensure the window
+        spans the calcium indicator decay time. Set to 1 to disable.
     save_json : bool, default False
         If True, saves ops as JSON in addition to .npy format.
     **kwargs
@@ -949,6 +1002,8 @@ def run_volume(
                 dff_smooth_window=dff_smooth_window,
                 save_json=save_json,
                 plane_name=plane_name,
+                reader_kwargs=reader_kwargs,
+                writer_kwargs=writer_kwargs,
                 **call_kwargs,
             )
             all_ops.append(ops_file)
@@ -1427,6 +1482,8 @@ def run_plane(
     dff_smooth_window: int = None,
     save_json: bool = False,
     plane_name: str | None = None,
+    reader_kwargs: dict = None,
+    writer_kwargs: dict = None,
     **kwargs,
 ) -> Path:
     """
@@ -1578,6 +1635,10 @@ def run_plane(
     # Skip imread if we're using existing binary OR if binary exists and passes validation
     should_write = skip_imwrite is False and _should_write_bin(ops_file, force=force_reg)
 
+    # Normalize kwargs dicts
+    reader_kwargs = reader_kwargs or {}
+    writer_kwargs = writer_kwargs or {}
+
     if skip_imwrite or not should_write:
         file = None
         # Load metadata from existing ops.npy
@@ -1585,7 +1646,7 @@ def run_plane(
         metadata = {k: v for k, v in existing_ops.items() if k in ("plane", "fs", "dx", "dy", "Ly", "Lx", "nframes")}
     else:
         # Only call imread if we're actually going to write the binary
-        file = imread(input_path)
+        file = imread(input_path, **reader_kwargs)
         if isinstance(file, MboRawArray):
             raise TypeError(
                 "Input file appears to be a raw array. Please provide a planar input file."
@@ -1656,7 +1717,8 @@ def run_plane(
             metadata=md_combined,
             register_z=False,
             output_name="data_raw.bin",
-            overwrite=True
+            overwrite=True,
+            **writer_kwargs,
         )
     else:
         print(
