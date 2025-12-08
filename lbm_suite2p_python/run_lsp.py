@@ -509,6 +509,7 @@ def pipeline(
                 ext="bin",
                 structural=False,
                 has_multiple_rois=has_multiple_rois,
+                output_suffix=writer_kwargs.get("output_suffix"),
             )
             plane_dir = bin_file.parent
             plane_tag = plane_dir.name
@@ -1318,15 +1319,6 @@ def run_plane_bin(ops) -> bool:
     from suite2p.run_s2p import pipeline
 
     ops = load_ops(ops)
-
-    # Clear stale registration outputs that may have been loaded from a previous run
-    # These will be recomputed fresh by registration or the skip-registration block below
-    # This prevents issues where meanImg/meanImgE from a previous run cause empty images
-    stale_keys = ["meanImg", "meanImgE", "refImg", "max_proj"]
-    for key in stale_keys:
-        if key in ops:
-            del ops[key]
-
     Ly, Lx = int(ops["Ly"]), int(ops["Lx"])
 
     raw_file = ops.get("raw_file")
@@ -1456,17 +1448,6 @@ def run_plane_bin(ops) -> bool:
                     shutil.copy2(chan2_path, reg_chan2_path)
                 else:
                     print(f"  {reg_chan2_path.name} already exists, skipping copy")
-
-        # Compute meanImg and meanImgE when skipping registration
-        # Suite2p's pipeline only computes these during registration, so we must do it here
-        print("  Computing mean images (required for detection)...")
-        with BinaryFile(Ly=Ly, Lx=Lx, filename=str(reg_file), n_frames=n_align) as f:
-            ops["meanImg"] = f.sampled_mean().astype(np.float32)
-
-        # Compute enhanced mean image using Suite2p's method
-        from suite2p.registration import compute_enhanced_mean_image
-        ops["meanImgE"] = compute_enhanced_mean_image(ops["meanImg"], ops)
-        print(f"  meanImg shape: {ops['meanImg'].shape}, meanImgE shape: {ops['meanImgE'].shape}")
 
     with (
         BinaryFile(Ly=Ly, Lx=Lx, filename=str(reg_file), n_frames=n_align) as f_reg,
