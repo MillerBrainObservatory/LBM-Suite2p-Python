@@ -37,6 +37,7 @@ __all__ = [
     "plot_plane_diagnostics",
     "plot_trace_analysis",
     "plot_zplane_figures",
+    "plot_mask_comparison",
     "create_volume_summary_table",
     "dff_rolling_percentile",
     "dff_median_filter",
@@ -46,6 +47,12 @@ __all__ = [
     "load_ops",
     "load_planar_results",
     "default_ops",
+    # Image processing utilities
+    "normalize99",
+    "apply_hp_filter",
+    "random_colors_for_mask",
+    "mask_overlay",
+    "stat_to_mask",
 ]
 
 # Re-export with public name

@@ -2791,3 +2791,363 @@ def plot_zplane_figures(
         print(f"  Failed to generate quality diagnostics: {e}")
 
     return output_ops
+
+def normalize99(img):
+    """
+    Normalize image using 1st and 99th percentile values.
+
+    This is a robust normalization that clips outliers and scales the image
+    to the [0, 1] range based on the 1st and 99th percentile values.
+
+    Parameters
+    ----------
+    img : numpy.ndarray
+        Input image array of any shape.
+
+    Returns
+    -------
+    numpy.ndarray
+        Normalized image with values clipped to [0, 1].
+
+    Examples
+    --------
+    >>> img = np.random.rand(100, 100) * 1000
+    >>> normalized = normalize99(img)
+    >>> assert 0 <= normalized.min() <= normalized.max() <= 1
+    """
+    p1, p99 = np.percentile(img, [1, 99])
+    return np.clip((img - p1) / (p99 - p1 + 1e-8), 0, 1)
+
+
+def apply_hp_filter(img, diameter, spatial_hp_cp):
+    """
+    Apply high-pass filter to image for Cellpose preprocessing.
+
+    This replicates Suite2p's anatomical detection preprocessing, which
+    normalizes the image and then subtracts a Gaussian-smoothed version
+    to enhance cell boundaries.
+
+    Parameters
+    ----------
+    img : numpy.ndarray
+        Input 2D image (e.g., mean image or max projection).
+    diameter : int or float
+        Expected cell diameter in pixels. Used to calculate the Gaussian
+        sigma as ``diameter * spatial_hp_cp``.
+    spatial_hp_cp : float
+        High-pass filter strength multiplier. Common values:
+        - 0: No filtering (return normalized image)
+        - 0.5: LBM default, mild filtering
+        - 2.0: Strong filtering, enhances small features
+
+    Returns
+    -------
+    numpy.ndarray
+        High-pass filtered image.
+
+    See Also
+    --------
+    normalize99 : Used internally for percentile normalization.
+
+    Examples
+    --------
+    >>> from scipy.ndimage import gaussian_filter
+    >>> img = np.random.rand(256, 256)
+    >>> filtered = apply_hp_filter(img, diameter=6, spatial_hp_cp=0.5)
+    """
+    from scipy.ndimage import gaussian_filter
+
+    img_norm = normalize99(img)
+    if spatial_hp_cp > 0:
+        sigma = diameter * spatial_hp_cp
+        img_hp = img_norm - gaussian_filter(img_norm, sigma)
+    else:
+        img_hp = img_norm
+    return img_hp
+
+
+def random_colors_for_mask(mask, seed=42):
+    """
+    Generate random distinct colors for each cell ID in a mask.
+
+    Uses HSV color space to generate visually distinct colors for each
+    unique cell label in the mask.
+
+    Parameters
+    ----------
+    mask : numpy.ndarray
+        2D integer array where each unique positive value represents a
+        different cell. Background should be 0.
+    seed : int, optional
+        Random seed for reproducibility. Default is 42.
+
+    Returns
+    -------
+    numpy.ndarray
+        RGB image of shape ``(Ly, Lx, 3)`` with float32 values in [0, 1].
+
+    See Also
+    --------
+    mask_overlay : Uses this function to colorize masks.
+    stat_to_mask : Converts Suite2p stat to mask array.
+
+    Examples
+    --------
+    >>> mask = np.zeros((100, 100), dtype=np.int32)
+    >>> mask[10:20, 10:20] = 1
+    >>> mask[30:40, 30:40] = 2
+    >>> colors = random_colors_for_mask(mask)
+    >>> assert colors.shape == (100, 100, 3)
+    """
+    from matplotlib.colors import hsv_to_rgb
+
+    n_cells = mask.max()
+    if n_cells == 0:
+        return np.zeros((*mask.shape, 3), dtype=np.float32)
+
+    # Generate random colors using HSV for better distinction
+    np.random.seed(seed)
+    hues = np.random.rand(n_cells + 1)
+    saturations = 0.7 + 0.3 * np.random.rand(n_cells + 1)
+    values = 0.8 + 0.2 * np.random.rand(n_cells + 1)
+
+    # Convert HSV to RGB
+    colors = np.zeros((n_cells + 1, 3))
+    for i in range(1, n_cells + 1):
+        colors[i] = hsv_to_rgb([hues[i], saturations[i], values[i]])
+
+    # Map colors to mask
+    rgb = colors[mask]
+    return rgb.astype(np.float32)
+
+
+def mask_overlay(img, mask, alpha=0.5):
+    """
+    Overlay colored masks on a grayscale image.
+
+    Creates a visualization where detected cells are shown as colored
+    regions blended with the underlying grayscale image.
+
+    Parameters
+    ----------
+    img : numpy.ndarray
+        2D grayscale background image (e.g., mean image, max projection).
+    mask : numpy.ndarray
+        2D integer mask where each positive value represents a different
+        cell. Background should be 0.
+    alpha : float, optional
+        Blending factor for mask overlay. 0 = fully transparent,
+        1 = fully opaque. Default is 0.5.
+
+    Returns
+    -------
+    numpy.ndarray
+        RGB image of shape ``(Ly, Lx, 3)`` with float32 values in [0, 1].
+
+    See Also
+    --------
+    random_colors_for_mask : Generates colors for each cell.
+    stat_to_mask : Converts Suite2p stat to mask.
+    plot_mask_comparison : Uses this for multi-panel visualization.
+
+    Examples
+    --------
+    >>> img = np.random.rand(256, 256)
+    >>> mask = np.zeros((256, 256), dtype=np.int32)
+    >>> mask[50:100, 50:100] = 1
+    >>> overlay = mask_overlay(img, mask, alpha=0.5)
+    >>> assert overlay.shape == (256, 256, 3)
+    """
+    img_norm = normalize99(img)
+    rgb = np.stack([img_norm] * 3, axis=-1).astype(np.float32)
+
+    if mask.max() > 0:
+        colors = random_colors_for_mask(mask)
+        mask_px = mask > 0
+        rgb[mask_px] = (1 - alpha) * rgb[mask_px] + alpha * colors[mask_px]
+
+    return rgb
+
+
+def stat_to_mask(stat, Ly, Lx):
+    """
+    Convert Suite2p stat array to a 2D labeled mask.
+
+    Each cell is assigned a unique integer label starting from 1.
+    Background pixels are 0.
+
+    Parameters
+    ----------
+    stat : numpy.ndarray or list
+        Array of Suite2p stat dictionaries, each containing 'ypix' and
+        'xpix' keys with pixel coordinates.
+    Ly : int
+        Image height in pixels.
+    Lx : int
+        Image width in pixels.
+
+    Returns
+    -------
+    numpy.ndarray
+        2D mask of shape ``(Ly, Lx)`` with dtype uint16. Each cell has
+        a unique integer label, background is 0.
+
+    See Also
+    --------
+    mask_overlay : Uses masks for visualization.
+
+    Examples
+    --------
+    >>> stat = [{'ypix': np.array([10, 11]), 'xpix': np.array([20, 21])}]
+    >>> mask = stat_to_mask(stat, Ly=100, Lx=100)
+    >>> assert mask[10, 20] == 1
+    >>> assert mask[0, 0] == 0
+    """
+    mask = np.zeros((Ly, Lx), dtype=np.uint16)
+    for i, s in enumerate(stat):
+        ypix, xpix = s['ypix'], s['xpix']
+        valid = (ypix >= 0) & (ypix < Ly) & (xpix >= 0) & (xpix < Lx)
+        mask[ypix[valid], xpix[valid]] = i + 1
+    return mask
+
+
+def plot_mask_comparison(
+    img,
+    results,
+    zoom_levels=None,
+    zoom_center=None,
+    title=None,
+    save_path=None,
+    figsize=None,
+):
+    """
+    Create a multi-panel comparison of detection results with zoom views.
+
+    Generates a grid visualization comparing different parameter combinations
+    (e.g., diameters) with full-image views and progressively zoomed regions.
+
+    Parameters
+    ----------
+    img : numpy.ndarray
+        2D background image for overlay (e.g., max projection).
+    results : dict
+        Dictionary mapping names to result dicts. Each result dict should
+        contain either:
+        - 'masks': 2D labeled mask array, OR
+        - 'stat': Suite2p stat array (will be converted to mask)
+        And optionally:
+        - 'n_cells': Number of cells (computed from mask if not provided)
+    zoom_levels : list of int, optional
+        List of zoom region sizes in pixels. Default is [400, 200, 100].
+    zoom_center : tuple of (int, int), optional
+        Center point (cy, cx) for zoom regions. Default is image center.
+    title : str, optional
+        Overall figure title.
+    save_path : str or Path, optional
+        Path to save the figure. If None, displays with plt.show().
+    figsize : tuple, optional
+        Figure size (width, height) in inches. Default is auto-calculated.
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The generated figure.
+
+    See Also
+    --------
+    mask_overlay : Creates individual overlays.
+    stat_to_mask : Converts stat arrays to masks.
+
+    Examples
+    --------
+    >>> img = ops['max_proj']
+    >>> results = {
+    ...     'd=2': {'masks': masks_d2, 'n_cells': 500},
+    ...     'd=4': {'masks': masks_d4, 'n_cells': 350},
+    ...     'd=6': {'masks': masks_d6, 'n_cells': 200},
+    ... }
+    >>> fig = plot_mask_comparison(img, results, zoom_levels=[200, 100])
+    """
+    Ly, Lx = img.shape[:2]
+
+    # Default zoom levels
+    if zoom_levels is None:
+        zoom_levels = [400, 200, 100]
+
+    # Default to image center
+    if zoom_center is None:
+        cy, cx = Ly // 2, Lx // 2
+    else:
+        cy, cx = zoom_center
+
+    n_cols = len(results)
+    n_rows = len(zoom_levels) + 1  # Full image + zoom levels
+
+    if figsize is None:
+        figsize = (5 * n_cols, 5 * n_rows)
+
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=figsize)
+    if n_cols == 1:
+        axes = axes.reshape(-1, 1)
+
+    # Color palette for zoom boxes
+    box_colors = ['yellow', 'cyan', 'magenta', 'lime', 'orange']
+
+    for col, (name, r) in enumerate(results.items()):
+        # Get or create mask
+        if 'masks' in r:
+            mask = r['masks']
+        elif 'stat' in r:
+            mask = stat_to_mask(r['stat'], Ly, Lx)
+        else:
+            raise ValueError(f"Result '{name}' must contain 'masks' or 'stat'")
+
+        # Get cell count
+        if 'n_cells' in r:
+            n_cells = r['n_cells']
+        else:
+            n_cells = mask.max()
+
+        overlay = mask_overlay(img, mask)
+
+        # Full image with zoom boxes
+        axes[0, col].imshow(overlay)
+        axes[0, col].set_title(f"{name}: {n_cells} cells\nFull image")
+        axes[0, col].axis('off')
+
+        # Draw zoom boxes
+        for i, zs in enumerate(zoom_levels):
+            color = box_colors[i % len(box_colors)]
+            rect = Rectangle(
+                (cx - zs // 2, cy - zs // 2), zs, zs,
+                fill=False, edgecolor=color, linewidth=2
+            )
+            axes[0, col].add_patch(rect)
+
+        # Zoomed views
+        for row, zs in enumerate(zoom_levels):
+            y1, y2 = max(0, cy - zs // 2), min(Ly, cy + zs // 2)
+            x1, x2 = max(0, cx - zs // 2), min(Lx, cx + zs // 2)
+
+            zoom_overlay = overlay[y1:y2, x1:x2]
+            zoom_mask = mask[y1:y2, x1:x2]
+            n_cells_zoom = len(np.unique(zoom_mask)) - 1  # Exclude background
+
+            axes[row + 1, col].imshow(zoom_overlay)
+            axes[row + 1, col].set_title(f"{zs}x{zs} zoom: {n_cells_zoom} cells")
+            axes[row + 1, col].axis('off')
+
+    if title:
+        fig.suptitle(title, fontsize=14, fontweight='bold')
+
+    plt.tight_layout()
+
+    if save_path:
+        save_path = Path(save_path)
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        plt.close(fig)
+    else:
+        plt.show()
+
+    return fig
