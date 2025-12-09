@@ -58,6 +58,8 @@ __all__ = [
     "filter_by_diameter",
     "filter_by_area",
     "filter_by_eccentricity",
+    "apply_filters",
+    # Visualization
     "plot_regional_zoom",
     "plot_filtered_cells",
     "plot_diameter_histogram",

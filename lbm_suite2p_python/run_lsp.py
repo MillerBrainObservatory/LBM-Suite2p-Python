@@ -145,6 +145,7 @@ def pipeline(
     dff_window_size: int = None,
     dff_percentile: int = 20,
     dff_smooth_window: int = None,
+    cell_filters: list = None,
     save_json: bool = False,
     reader_kwargs: dict = None,
     writer_kwargs: dict = None,
@@ -202,6 +203,32 @@ def pipeline(
         Temporal smoothing window for dF/F traces (in frames).
         If None, auto-calculated as ~0.5 × tau × fs to ensure the window
         spans the calcium indicator decay time. Set to 1 to disable.
+    cell_filters : list of dict, optional
+        List of cell filters to apply after detection. Each dict must have:
+        - 'name': str - filter name ('max_diameter', 'area', 'eccentricity', 'diameter')
+        - Additional keys are passed as kwargs to the filter function.
+
+        Available filters and their parameters:
+        - 'max_diameter': max_diameter_um, max_diameter_px, min_diameter_um, min_diameter_px
+        - 'area': min_area_px, max_area_px, min_mult, max_mult
+        - 'eccentricity': max_ratio, min_ratio
+        - 'diameter': min_mult, max_mult (relative to ops['diameter'])
+
+        **Default behavior**: If cell_filters is None and pixel resolution is available
+        in the metadata, a default filter of ``max_diameter_um=30`` is applied automatically.
+        To disable this, pass ``cell_filters=[]`` (empty list).
+
+        Example::
+
+            cell_filters=[
+                {"name": "max_diameter", "max_diameter_um": 22},
+                {"name": "eccentricity", "max_ratio": 5.0},
+            ]
+
+        To disable default filtering::
+
+            cell_filters=[]
+
     save_json : bool, default False
         Save ops as JSON in addition to .npy.
     reader_kwargs : dict, optional
@@ -610,6 +637,62 @@ def pipeline(
                     },
                 )
                 np.save(ops_file, updated_ops)
+
+                # Apply cell filters
+                # Default: filter by max_diameter_um=30 if pixel resolution available
+                from lbm_suite2p_python.postprocessing import apply_filters, _get_pixel_size
+
+                filters_to_apply = cell_filters
+                if filters_to_apply is None:
+                    # Check if pixel resolution is available for default filter
+                    current_ops = load_ops(ops_file)
+                    pixel_size = _get_pixel_size(current_ops)
+                    if pixel_size is not None:
+                        filters_to_apply = [{"name": "max_diameter", "max_diameter_um": 30}]
+                        print(f"  Applying default diameter filter (max 30 µm, pixel_size={pixel_size:.2f} µm/px)")
+
+                if filters_to_apply:
+                    print(f"  Applying cell filters...")
+                    filter_start = time.time()
+                    try:
+                        # Load original iscell for comparison plot
+                        iscell_original = np.load(plane_dir / "iscell.npy", allow_pickle=True)
+
+                        iscell_filtered, removed_mask, filter_results = apply_filters(
+                            plane_dir=plane_dir,
+                            filters=filters_to_apply,
+                            save=True,
+                        )
+                        # Record filtering step
+                        updated_ops = load_ops(ops_file)
+                        _add_processing_step(
+                            updated_ops,
+                            "cell_filtering",
+                            duration_seconds=time.time() - filter_start,
+                            extra={
+                                "filters": [f["name"] for f in filters_to_apply],
+                                "n_removed": int(removed_mask.sum()),
+                                "n_remaining": int(iscell_filtered.sum()),
+                            },
+                        )
+                        np.save(ops_file, updated_ops)
+
+                        # Generate filter comparison plot
+                        if removed_mask.sum() > 0:
+                            try:
+                                from lbm_suite2p_python.zplane import plot_filtered_cells
+                                fig = plot_filtered_cells(
+                                    plane_dir,
+                                    iscell_original=iscell_original,
+                                    iscell_filtered=iscell_filtered,
+                                    save_path=plane_dir / "13_filtered_cells.png",
+                                )
+                                import matplotlib.pyplot as plt
+                                plt.close(fig)
+                            except Exception as e:
+                                print(f"  Warning: Filter plot failed: {e}")
+                    except Exception as e:
+                        print(f"  Warning: Cell filtering failed: {e}")
 
                 # Post-processing: dF/F calculation
                 print(f"  Computing dF/F...")
