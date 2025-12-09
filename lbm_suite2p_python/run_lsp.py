@@ -227,6 +227,8 @@ def pipeline(
         Keyword arguments passed to mbo_utilities when writing binary files.
         Common options:
 
+        - ``output_suffix`` : str, default ""
+            Append a string to the output filename.
         - ``target_chunk_mb`` : int, default 100
             Target chunk size in MB for streaming writes.
         - ``progress_callback`` : Callable, optional
@@ -466,9 +468,11 @@ def pipeline(
             pr = [dx, dy]
             metadata["pixel_resolution"] = pr  # Set it so mbo_utilities doesn't warn
 
-    if pr is not None and isinstance(pr, (list, tuple)) and len(pr) >= 2:
-        ops["dx"] = pr[0]
-        ops["dy"] = pr[1]
+    # Handle numpy arrays, lists, and tuples for pixel_resolution
+    if pr is not None and hasattr(pr, "__len__") and len(pr) >= 2:
+        ops["dx"] = float(pr[0])
+        ops["dy"] = float(pr[1])
+        ops["pixel_resolution"] = [float(pr[0]), float(pr[1])]  # Also set for write_ops
 
     ops["Ly"] = Ly
     ops["Lx"] = Lx
@@ -507,6 +511,7 @@ def pipeline(
                 ext="bin",
                 structural=False,
                 has_multiple_rois=has_multiple_rois,
+                output_suffix=writer_kwargs.get("output_suffix"),
             )
             plane_dir = bin_file.parent
             plane_tag = plane_dir.name

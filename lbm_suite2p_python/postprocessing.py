@@ -39,6 +39,121 @@ def filter_by_diameter(iscell, stat, ops, min_mult=0.3, max_mult=3.0):
     return iscell
 
 
+def filter_by_max_diameter(
+    iscell,
+    stat,
+    max_diameter_um: float = None,
+    max_diameter_px: float = None,
+    pixel_size_um: float = None,
+    ops: dict = None,
+):
+    """
+    Filter cells by maximum diameter in microns or pixels.
+
+    Sets iscell=False for ROIs whose diameter exceeds the specified threshold.
+    Diameter is computed as 2 * radius from the ellipse fit.
+
+    Parameters
+    ----------
+    iscell : np.ndarray
+        Cell classification array (n_rois,) or (n_rois, 2).
+    stat : np.ndarray or list
+        Suite2p stat array with ROI statistics.
+    max_diameter_um : float, optional
+        Maximum allowed diameter in microns. Requires pixel_size_um or ops
+        with pixel resolution info.
+    max_diameter_px : float, optional
+        Maximum allowed diameter in pixels. Used if max_diameter_um not given.
+    pixel_size_um : float, optional
+        Pixel size in microns. If None, attempts to read from ops.
+    ops : dict, optional
+        Suite2p ops dictionary. Used to get pixel resolution if pixel_size_um
+        not provided. Looks for 'umPerPix' or 'diameter' keys.
+
+    Returns
+    -------
+    iscell_filtered : np.ndarray
+        Updated iscell array with large ROIs marked as rejected.
+    removed_mask : np.ndarray
+        Boolean mask of ROIs that were removed (True = removed).
+    diameters_px : np.ndarray
+        Diameter of each ROI in pixels.
+    threshold_px : float
+        The threshold used in pixels.
+
+    Examples
+    --------
+    >>> # Filter by max 22 microns diameter
+    >>> iscell_filtered, removed, diameters, thresh = filter_by_max_diameter(
+    ...     iscell, stat, max_diameter_um=22, ops=ops
+    ... )
+
+    >>> # Filter by max 15 pixels diameter
+    >>> iscell_filtered, removed, diameters, thresh = filter_by_max_diameter(
+    ...     iscell, stat, max_diameter_px=15
+    ... )
+
+    >>> # Plot the removed cells
+    >>> from lbm_suite2p_python import plot_filtered_cells
+    >>> fig = plot_filtered_cells(stat, iscell_filtered, removed, ops=ops)
+    """
+    iscell = _normalize_iscell(iscell)
+
+    if max_diameter_um is None and max_diameter_px is None:
+        raise ValueError("Must specify either max_diameter_um or max_diameter_px")
+
+    # Get radii from stat
+    if "radius" not in stat[0]:
+        # Compute radius if not present
+        radii = []
+        for s in stat:
+            npix = len(s["xpix"])
+            # Approximate radius from area: r = sqrt(npix / pi)
+            radii.append(np.sqrt(npix / np.pi))
+        radii = np.array(radii)
+    else:
+        radii = np.array([s["radius"] for s in stat])
+
+    diameters_px = 2 * radii
+
+    # Convert to pixels if given in microns
+    if max_diameter_um is not None:
+        # Get pixel size
+        if pixel_size_um is None and ops is not None:
+            # Try various keys for pixel resolution
+            if "umPerPix" in ops:
+                pixel_size_um = ops["umPerPix"]
+            elif "um_per_pixel" in ops:
+                pixel_size_um = ops["um_per_pixel"]
+            elif "pixel_resolution" in ops and ops["pixel_resolution"]:
+                pr = ops["pixel_resolution"]
+                if isinstance(pr, (list, tuple)) and len(pr) >= 2:
+                    pixel_size_um = np.mean([pr[0], pr[1]])
+                else:
+                    pixel_size_um = float(pr)
+            elif "umPerPixX" in ops and "umPerPixY" in ops:
+                pixel_size_um = np.mean([ops["umPerPixX"], ops["umPerPixY"]])
+
+        if pixel_size_um is None:
+            raise ValueError(
+                "Cannot convert microns to pixels: pixel_size_um not provided "
+                "and could not be found in ops. Use max_diameter_px instead."
+            )
+
+        max_diameter_px = max_diameter_um / pixel_size_um
+
+    # Apply filter
+    valid = diameters_px <= max_diameter_px
+    removed_mask = ~valid & iscell  # ROIs that were cells but got filtered out
+    n_rejected = removed_mask.sum()
+
+    if n_rejected > 0:
+        print(f"Filtered {n_rejected} ROIs with diameter > {max_diameter_px:.1f} px")
+
+    iscell_filtered = iscell & valid
+    return iscell_filtered, removed_mask, diameters_px, max_diameter_px
+
+
 def filter_by_area(iscell, stat, min_mult=0.25, max_mult=4.0):
     """
     Filter cells by total area (in pixels).
