@@ -3151,3 +3151,415 @@ def plot_mask_comparison(
         plt.show()
 
     return fig
+
+
+def plot_regional_zoom(
+    plane_dir,
+    zoom_size: int = 150,
+    img_key: str = "max_proj",
+    alpha: float = 0.5,
+    save_path=None,
+    figsize: tuple = (15, 10),
+    accepted_only: bool = True,
+):
+    """
+    Plot corner, edge, and center zoom views of detection results.
+
+    Creates a 2x3 grid visualization showing the full image with region
+    boxes, plus zoomed views of each corner and the center. Useful for
+    checking detection quality across different parts of the field of view.
+
+    Parameters
+    ----------
+    plane_dir : str or Path
+        Path to a Suite2p plane directory containing ops.npy, stat.npy,
+        and optionally iscell.npy.
+    zoom_size : int, optional
+        Size of zoom regions in pixels. Default is 150.
+    img_key : str, optional
+        Key in ops to use as background image. Options:
+        'max_proj', 'meanImg', 'meanImgE'. Default is 'max_proj'.
+    alpha : float, optional
+        Blending factor for mask overlay (0-1). Default is 0.5.
+    save_path : str or Path, optional
+        Path to save the figure. If None, displays with plt.show().
+    figsize : tuple, optional
+        Figure size (width, height) in inches. Default is (15, 10).
+    accepted_only : bool, optional
+        If True, only show cells marked as accepted (iscell[:, 0] == 1).
+        Default is True.
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The generated figure.
+
+    Examples
+    --------
+    >>> # From pipeline results
+    >>> ops_paths = lsp.pipeline(input_data=path, save_path=output_dir, ...)
+    >>> for ops_path in ops_paths:
+    ...     plot_regional_zoom(ops_path.parent, zoom_size=150)
+
+    >>> # With custom settings
+    >>> plot_regional_zoom(
+    ...     "D:/results/plane01_vdaq0",
+    ...     zoom_size=200,
+    ...     img_key="meanImgE",
+    ...     save_path="regional_zoom.png"
+    ... )
+    """
+    plane_dir = Path(plane_dir)
+
+    # Load results
+    res = load_planar_results(plane_dir)
+    ops = load_ops(plane_dir)
+
+    Ly, Lx = ops["Ly"], ops["Lx"]
+
+    # Get background image
+    if img_key in ops:
+        img = ops[img_key]
+    elif img_key == "max_proj" and "max_proj" not in ops:
+        img = ops.get("meanImg", np.zeros((Ly, Lx)))
+    else:
+        img = ops.get("meanImg", np.zeros((Ly, Lx)))
+
+    # Get stat and optionally filter by iscell
+    stat = res["stat"]
+    if accepted_only and "iscell" in res:
+        iscell_mask = res["iscell"][:, 0].astype(bool)
+        stat = stat[iscell_mask]
+
+    n_cells = len(stat)
+
+    # Create mask from stat
+    mask = stat_to_mask(stat, Ly, Lx)
+
+    # Create overlay
+    overlay = mask_overlay(img, mask, alpha=alpha)
+
+    # Define corner and edge regions
+    cy, cx = Ly // 2, Lx // 2
+    zs = zoom_size
+
+    regions = {
+        "Top-Left": (0, zs, 0, zs),
+        "Top-Right": (0, zs, Lx - zs, Lx),
+        "Bottom-Left": (Ly - zs, Ly, 0, zs),
+        "Bottom-Right": (Ly - zs, Ly, Lx - zs, Lx),
+        "Center": (cy - zs // 2, cy + zs // 2, cx - zs // 2, cx + zs // 2),
+    }
+
+    # Color palette for boxes
+    box_colors = ['red', 'blue', 'green', 'orange', 'yellow']
+
+    fig, axes = plt.subplots(2, 3, figsize=figsize)
+    axes = axes.flatten()
+
+    # Full image with boxes showing regions
+    ax = axes[0]
+    ax.imshow(overlay)
+    for (name, (y1, y2, x1, x2)), c in zip(regions.items(), box_colors):
+        rect = Rectangle(
+            (x1, y1), x2 - x1, y2 - y1,
+            fill=False, edgecolor=c, linewidth=2, label=name
+        )
+        ax.add_patch(rect)
+    ax.set_title(f"Full Image: {n_cells} cells\n(boxes show zoom regions)")
+    ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.02), ncol=3, fontsize=8)
+    ax.axis('off')
+
+    # Zoomed views
+    for ax, ((name, (y1, y2, x1, x2)), c) in zip(axes[1:], zip(regions.items(), box_colors)):
+        zoom_mask = mask[y1:y2, x1:x2]
+        n_zoom = len(np.unique(zoom_mask)) - 1  # Exclude background
+        ax.imshow(overlay[y1:y2, x1:x2])
+        ax.set_title(f"{name}: {n_zoom} cells", color=c, fontweight='bold')
+        ax.axis('off')
+
+    # Get plane name for title
+    plane_name = plane_dir.name
+    diameter = ops.get("diameter", "?")
+    plt.suptitle(
+        f"{plane_name} - Regional Comparison ({zs}x{zs}) - d={diameter}",
+        fontsize=14, fontweight='bold'
+    )
+    plt.tight_layout()
+
+    if save_path:
+        save_path = Path(save_path)
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        plt.close(fig)
+    else:
+        plt.show()
+
+    return fig
+
+
+def plot_filtered_cells(
+    plane_dir,
+    iscell_original,
+    iscell_filtered,
+    img_key: str = "max_proj",
+    alpha: float = 0.5,
+    save_path=None,
+    figsize: tuple = (18, 6),
+    title: str = None,
+):
+    """
+    Plot side-by-side comparison of cells before and after filtering.
+
+    Shows three panels: kept cells, removed cells, and both overlaid
+    with different colors.
+
+    Parameters
+    ----------
+    plane_dir : str or Path
+        Path to a Suite2p plane directory containing ops.npy, stat.npy.
+    iscell_original : np.ndarray
+        Original iscell array before filtering (n_rois,) or (n_rois, 2).
+    iscell_filtered : np.ndarray
+        Filtered iscell array (n_rois,) or (n_rois, 2).
+    img_key : str, optional
+        Key in ops to use as background image. Default is 'max_proj'.
+    alpha : float, optional
+        Blending factor for mask overlay (0-1). Default is 0.5.
+    save_path : str or Path, optional
+        Path to save the figure. If None, displays with plt.show().
+    figsize : tuple, optional
+        Figure size (width, height) in inches. Default is (18, 6).
+    title : str, optional
+        Custom title for the figure.
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The generated figure.
+
+    Examples
+    --------
+    >>> from lbm_suite2p_python import filter_by_max_diameter, plot_filtered_cells
+    >>> res = load_planar_results(plane_dir)
+    >>> iscell_filtered = filter_by_max_diameter(
+    ...     res["iscell"], res["stat"], max_diameter_px=15
+    ... )
+    >>> plot_filtered_cells(plane_dir, res["iscell"], iscell_filtered)
+    """
+    plane_dir = Path(plane_dir)
+
+    # Load results
+    res = load_planar_results(plane_dir)
+    ops = load_ops(plane_dir)
+
+    Ly, Lx = ops["Ly"], ops["Lx"]
+
+    # Get background image
+    if img_key in ops:
+        img = ops[img_key]
+    else:
+        img = ops.get("meanImg", np.zeros((Ly, Lx)))
+
+    # Normalize iscell arrays to 1D boolean
+    if iscell_original.ndim == 2:
+        iscell_original = iscell_original[:, 0]
+    if iscell_filtered.ndim == 2:
+        iscell_filtered = iscell_filtered[:, 0]
+
+    iscell_original = iscell_original.astype(bool)
+    iscell_filtered = iscell_filtered.astype(bool)
+
+    stat = res["stat"]
+
+    # Identify kept and removed cells
+    kept_mask = iscell_filtered
+    removed_mask = iscell_original & ~iscell_filtered
+
+    n_kept = kept_mask.sum()
+    n_removed = removed_mask.sum()
+    n_original = iscell_original.sum()
+
+    # Create masks for visualization
+    mask_kept = stat_to_mask(stat[kept_mask], Ly, Lx)
+    mask_removed = stat_to_mask(stat[removed_mask], Ly, Lx)
+
+    # Normalize image
+    img_norm = normalize99(img)
+    img_rgb = np.stack([img_norm] * 3, axis=-1).astype(np.float32)
+
+    fig, axes = plt.subplots(1, 3, figsize=figsize)
+
+    # Panel 1: Kept cells (green)
+    ax = axes[0]
+    overlay_kept = img_rgb.copy()
+    if mask_kept.max() > 0:
+        mask_px = mask_kept > 0
+        overlay_kept[mask_px] = (1 - alpha) * overlay_kept[mask_px] + alpha * np.array([0, 1, 0])
+    ax.imshow(overlay_kept)
+    ax.set_title(f"Kept: {n_kept} cells", fontsize=12, fontweight='bold', color='green')
+    ax.axis('off')
+
+    # Panel 2: Removed cells (red)
+    ax = axes[1]
+    overlay_removed = img_rgb.copy()
+    if mask_removed.max() > 0:
+        mask_px = mask_removed > 0
+        overlay_removed[mask_px] = (1 - alpha) * overlay_removed[mask_px] + alpha * np.array([1, 0, 0])
+    ax.imshow(overlay_removed)
+    ax.set_title(f"Removed: {n_removed} cells", fontsize=12, fontweight='bold', color='red')
+    ax.axis('off')
+
+    # Panel 3: Both overlaid
+    ax = axes[2]
+    overlay_both = img_rgb.copy()
+    if mask_kept.max() > 0:
+        mask_px = mask_kept > 0
+        overlay_both[mask_px] = (1 - alpha) * overlay_both[mask_px] + alpha * np.array([0, 1, 0])
+    if mask_removed.max() > 0:
+        mask_px = mask_removed > 0
+        overlay_both[mask_px] = (1 - alpha) * overlay_both[mask_px] + alpha * np.array([1, 0, 0])
+    ax.imshow(overlay_both)
+    ax.set_title(f"Combined: {n_kept} kept (green) / {n_removed} removed (red)", fontsize=12, fontweight='bold')
+    ax.axis('off')
+
+    # Add legend
+    from matplotlib.patches import Patch
+    legend_elements = [
+        Patch(facecolor='green', alpha=0.7, label=f'Kept ({n_kept})'),
+        Patch(facecolor='red', alpha=0.7, label=f'Removed ({n_removed})'),
+    ]
+    axes[2].legend(handles=legend_elements, loc='upper right', fontsize=10)
+
+    # Title
+    if title is None:
+        plane_name = plane_dir.name
+        title = f"{plane_name}: {n_original} → {n_kept} cells ({n_removed} removed)"
+
+    plt.suptitle(title, fontsize=14, fontweight='bold')
+    plt.tight_layout()
+
+    if save_path:
+        save_path = Path(save_path)
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        plt.close(fig)
+    else:
+        plt.show()
+
+    return fig
+
+
+def plot_diameter_histogram(
+    stat,
+    iscell=None,
+    max_diameter_px: float = None,
+    pixel_size_um: float = None,
+    bins: int = 50,
+    save_path=None,
+    figsize: tuple = (10, 6),
+):
+    """
+    Plot histogram of cell diameters with optional threshold line.
+
+    Parameters
+    ----------
+    stat : np.ndarray or list
+        Suite2p stat array with ROI statistics.
+    iscell : np.ndarray, optional
+        Cell classification array. If provided, only plots accepted cells.
+    max_diameter_px : float, optional
+        Threshold diameter in pixels to show as vertical line.
+    pixel_size_um : float, optional
+        Pixel size in microns. If provided, adds micron scale to x-axis.
+    bins : int, optional
+        Number of histogram bins. Default is 50.
+    save_path : str or Path, optional
+        Path to save the figure.
+    figsize : tuple, optional
+        Figure size. Default is (10, 6).
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The generated figure.
+    """
+    # Filter by iscell if provided
+    if iscell is not None:
+        if iscell.ndim == 2:
+            iscell = iscell[:, 0]
+        iscell = iscell.astype(bool)
+        stat = stat[iscell]
+
+    # Get radii
+    if len(stat) == 0:
+        print("No cells to plot")
+        return None
+
+    if "radius" not in stat[0]:
+        radii = np.array([np.sqrt(len(s["xpix"]) / np.pi) for s in stat])
+    else:
+        radii = np.array([s["radius"] for s in stat])
+
+    diameters_px = 2 * radii
+
+    fig, ax = plt.subplots(figsize=figsize)
+
+    # Plot histogram
+    counts, bin_edges, patches = ax.hist(
+        diameters_px, bins=bins, color='steelblue',
+        edgecolor='white', alpha=0.7
+    )
+
+    # Color bars above threshold red
+    if max_diameter_px is not None:
+        for patch, left_edge in zip(patches, bin_edges[:-1]):
+            if left_edge >= max_diameter_px:
+                patch.set_facecolor('red')
+                patch.set_alpha(0.7)
+
+        # Add threshold line
+        ax.axvline(max_diameter_px, color='red', linestyle='--', linewidth=2,
+                   label=f'Threshold: {max_diameter_px:.1f} px')
+
+        # Count cells above threshold
+        n_above = (diameters_px > max_diameter_px).sum()
+        n_total = len(diameters_px)
+        ax.legend(title=f'{n_above}/{n_total} cells above threshold')
+
+    ax.set_xlabel('Diameter (pixels)', fontsize=12)
+    ax.set_ylabel('Count', fontsize=12)
+    ax.set_title(f'Cell Diameter Distribution (n={len(diameters_px)})', fontsize=14)
+
+    # Add micron scale if pixel size provided
+    if pixel_size_um is not None:
+        ax2 = ax.twiny()
+        ax2.set_xlim(ax.get_xlim()[0] * pixel_size_um, ax.get_xlim()[1] * pixel_size_um)
+        ax2.set_xlabel('Diameter (µm)', fontsize=12)
+        if max_diameter_px is not None:
+            max_um = max_diameter_px * pixel_size_um
+            ax2.axvline(max_um, color='red', linestyle='--', linewidth=2, alpha=0.5)
+
+    # Add statistics
+    median_d = np.median(diameters_px)
+    mean_d = np.mean(diameters_px)
+    stats_text = f'Median: {median_d:.1f} px\nMean: {mean_d:.1f} px'
+    if pixel_size_um:
+        stats_text += f'\n({median_d * pixel_size_um:.1f} / {mean_d * pixel_size_um:.1f} µm)'
+
+    ax.text(0.95, 0.95, stats_text, transform=ax.transAxes,
+            verticalalignment='top', horizontalalignment='right',
+            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5),
+            fontsize=10)
+
+    plt.tight_layout()
+
+    if save_path:
+        save_path = Path(save_path)
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        plt.close(fig)
+    else:
+        plt.show()
+
+    return fig

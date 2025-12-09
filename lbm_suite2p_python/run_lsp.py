@@ -227,6 +227,8 @@ def pipeline(
         Keyword arguments passed to mbo_utilities when writing binary files.
         Common options:
 
+        - ``output_suffix`` : str, default ""
+            Append a string to the output filename.
         - ``target_chunk_mb`` : int, default 100
             Target chunk size in MB for streaming writes.
         - ``progress_callback`` : Callable, optional

@@ -53,6 +53,14 @@ __all__ = [
     "random_colors_for_mask",
     "mask_overlay",
     "stat_to_mask",
+    # Filtering utilities
+    "filter_by_max_diameter",
+    "filter_by_diameter",
+    "filter_by_area",
+    "filter_by_eccentricity",
+    "plot_regional_zoom",
+    "plot_filtered_cells",
+    "plot_diameter_histogram",
 ]
 
 # Re-export with public name
