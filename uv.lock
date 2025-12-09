@@ -1346,7 +1346,7 @@ wheels = [
 
 [[package]]
 name = "lbm-suite2p-python"
-version = "2.3.0"
+version = "2.3.1"
 source = { editable = "." }
 dependencies = [
     { name = "fastplotlib" },
