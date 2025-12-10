@@ -1,10 +1,10 @@
 import json
 from pathlib import Path
+from typing import Callable
 
 import numpy as np
 from scipy.ndimage import percentile_filter
 from scipy.stats import norm
-
 
 
 def _normalize_iscell(iscell):
@@ -14,11 +14,147 @@ def _normalize_iscell(iscell):
     return iscell.astype(bool)
 
 
-def filter_by_diameter(iscell, stat, ops, min_mult=0.3, max_mult=3.0):
+def _load_plane_data(plane_dir, iscell=None, stat=None, ops=None):
     """
-    Set iscell=False for ROIs whose radius is out of range relative to ops['diameter'].
+    Load iscell, stat, and ops from plane_dir if not provided.
+
+    Parameters
+    ----------
+    plane_dir : str or Path, optional
+        Path to Suite2p plane directory.
+    iscell : np.ndarray, optional
+        Pre-loaded iscell array.
+    stat : np.ndarray, optional
+        Pre-loaded stat array.
+    ops : dict, optional
+        Pre-loaded ops dictionary.
+
+    Returns
+    -------
+    tuple
+        (iscell, stat, ops, plane_dir) with loaded data.
     """
-    iscell = _normalize_iscell(iscell)
+    if plane_dir is not None:
+        plane_dir = Path(plane_dir)
+        if plane_dir.suffix == ".npy":
+            plane_dir = plane_dir.parent
+
+        if iscell is None:
+            iscell_path = plane_dir / "iscell.npy"
+            if iscell_path.exists():
+                iscell = np.load(iscell_path, allow_pickle=True)
+
+        if stat is None:
+            stat_path = plane_dir / "stat.npy"
+            if stat_path.exists():
+                stat = np.load(stat_path, allow_pickle=True)
+
+        if ops is None:
+            ops_path = plane_dir / "ops.npy"
+            if ops_path.exists():
+                ops = np.load(ops_path, allow_pickle=True).item()
+
+    return iscell, stat, ops, plane_dir
+
+
+def _get_pixel_size(ops):
+    """Extract pixel size in microns from ops dictionary."""
+    if ops is None:
+        return None
+
+    if "umPerPix" in ops:
+        return ops["umPerPix"]
+    elif "um_per_pixel" in ops:
+        return ops["um_per_pixel"]
+    elif "pixel_resolution" in ops and ops["pixel_resolution"]:
+        pr = ops["pixel_resolution"]
+        if isinstance(pr, (list, tuple)) and len(pr) >= 2:
+            return np.mean([pr[0], pr[1]])
+        return float(pr)
+    elif "umPerPixX" in ops and "umPerPixY" in ops:
+        return np.mean([ops["umPerPixX"], ops["umPerPixY"]])
+    return None
+
+
+def _save_filtered_iscell(plane_dir, iscell_filtered, iscell_original=None):
+    """
+    Save filtered iscell to plane_dir, preserving probability column.
+
+    Parameters
+    ----------
+    plane_dir : Path
+        Path to Suite2p plane directory.
+    iscell_filtered : np.ndarray
+        1D boolean array of filtered cell classifications.
+    iscell_original : np.ndarray, optional
+        Original 2D iscell array to preserve probabilities from.
+    """
+    plane_dir = Path(plane_dir)
+    iscell_path = plane_dir / "iscell.npy"
+
+    # Load original to preserve probabilities
+    if iscell_original is None and iscell_path.exists():
+        iscell_original = np.load(iscell_path, allow_pickle=True)
+
+    if iscell_original is not None and iscell_original.ndim == 2:
+        # Preserve probability column
+        iscell_2d = iscell_original.copy()
+        iscell_2d[:, 0] = iscell_filtered.astype(float)
+    else:
+        # Create 2D array with probability=1 for all cells
+        iscell_2d = np.column_stack([
+            iscell_filtered.astype(float),
+            iscell_filtered.astype(float)  # prob=1 for cells, 0 for non-cells
+        ])
+
+    np.save(iscell_path, iscell_2d)
+    print(f"Saved filtered iscell to {iscell_path}")
+
+
+def filter_by_diameter(
+    plane_dir=None,
+    iscell=None,
+    stat=None,
+    ops=None,
+    min_mult: float = 0.3,
+    max_mult: float = 3.0,
+    save: bool = False,
+):
+    """
+    Filter cells by diameter relative to median diameter.
+
+    Sets iscell=False for ROIs whose radius is outside [min_mult, max_mult]
+    times the median diameter (from ops['diameter'] or computed from radii).
+
+    Parameters
+    ----------
+    plane_dir : str or Path, optional
+        Path to Suite2p plane directory. If provided, loads iscell, stat, ops.
+    iscell : np.ndarray, optional
+        Cell classification array (n_rois,) or (n_rois, 2).
+    stat : np.ndarray or list, optional
+        Suite2p stat array with ROI statistics.
+    ops : dict, optional
+        Suite2p ops dictionary.
+    min_mult : float, default 0.3
+        Minimum diameter as multiple of median.
+    max_mult : float, default 3.0
+        Maximum diameter as multiple of median.
+    save : bool, default False
+        If True, save updated iscell.npy to plane_dir.
+
+    Returns
+    -------
+    iscell_filtered : np.ndarray
+        Updated iscell array (1D boolean).
+    removed_mask : np.ndarray
+        Boolean mask of ROIs that were removed.
+    info : dict
+        Dictionary with 'diameters_px', 'lower_px', 'upper_px', 'n_removed'.
+    """
+    iscell, stat, ops, plane_dir = _load_plane_data(plane_dir, iscell, stat, ops)
+    iscell_orig = _normalize_iscell(iscell)
+    iscell = iscell_orig.copy()
 
     if "radius" not in stat[0]:
         from suite2p.detection.stats import roi_stats
@@ -33,157 +169,469 @@ def filter_by_diameter(iscell, stat, ops, min_mult=0.3, max_mult=3.0):
         )
 
     radii = np.array([s["radius"] for s in stat])
-    median_diam = ops.get("diameter", np.median(radii))
+    diameters_px = 2 * radii
+    median_diam = ops.get("diameter", np.median(diameters_px))
     lower, upper = min_mult * median_diam, max_mult * median_diam
-    iscell &= (radii >= lower) & (radii <= upper)
-    return iscell
+
+    valid = (diameters_px >= lower) & (diameters_px <= upper)
+    removed_mask = ~valid & iscell_orig
+    iscell = iscell_orig & valid
+
+    n_removed = removed_mask.sum()
+    if n_removed > 0:
+        print(f"filter_by_diameter: removed {n_removed} ROIs (diameter not in [{lower:.1f}, {upper:.1f}] px)")
+
+    if save and plane_dir is not None:
+        _save_filtered_iscell(plane_dir, iscell, iscell_orig)
+
+    return iscell, removed_mask, {
+        "diameters_px": diameters_px,
+        "lower_px": lower,
+        "upper_px": upper,
+        "n_removed": n_removed,
+    }
 
 
 def filter_by_max_diameter(
-    iscell,
-    stat,
+    plane_dir=None,
+    iscell=None,
+    stat=None,
+    ops=None,
     max_diameter_um: float = None,
     max_diameter_px: float = None,
+    min_diameter_um: float = None,
+    min_diameter_px: float = None,
     pixel_size_um: float = None,
-    ops: dict = None,
+    save: bool = False,
 ):
     """
-    Filter cells by maximum diameter in microns or pixels.
+    Filter cells by diameter bounds in microns or pixels.
 
-    Sets iscell=False for ROIs whose diameter exceeds the specified threshold.
+    Sets iscell=False for ROIs whose diameter is outside the specified bounds.
     Diameter is computed as 2 * radius from the ellipse fit.
 
     Parameters
     ----------
-    iscell : np.ndarray
+    plane_dir : str or Path, optional
+        Path to Suite2p plane directory. If provided, loads iscell, stat, ops.
+    iscell : np.ndarray, optional
         Cell classification array (n_rois,) or (n_rois, 2).
-    stat : np.ndarray or list
+    stat : np.ndarray or list, optional
         Suite2p stat array with ROI statistics.
+    ops : dict, optional
+        Suite2p ops dictionary.
     max_diameter_um : float, optional
-        Maximum allowed diameter in microns. Requires pixel_size_um or ops
-        with pixel resolution info.
+        Maximum allowed diameter in microns.
     max_diameter_px : float, optional
-        Maximum allowed diameter in pixels. Used if max_diameter_um not given.
+        Maximum allowed diameter in pixels.
+    min_diameter_um : float, optional
+        Minimum allowed diameter in microns.
+    min_diameter_px : float, optional
+        Minimum allowed diameter in pixels.
     pixel_size_um : float, optional
         Pixel size in microns. If None, attempts to read from ops.
-    ops : dict, optional
-        Suite2p ops dictionary. Used to get pixel resolution if pixel_size_um
-        not provided. Looks for 'umPerPix' or 'diameter' keys.
+    save : bool, default False
+        If True, save updated iscell.npy to plane_dir.
 
     Returns
     -------
     iscell_filtered : np.ndarray
-        Updated iscell array with large ROIs marked as rejected.
+        Updated iscell array (1D boolean).
     removed_mask : np.ndarray
-        Boolean mask of ROIs that were removed (True = removed).
-    diameters_px : np.ndarray
-        Diameter of each ROI in pixels.
-    threshold_px : float
-        The threshold used in pixels.
+        Boolean mask of ROIs that were removed.
+    info : dict
+        Dictionary with 'diameters_px', 'min_px', 'max_px', 'n_removed'.
 
     Examples
     --------
     >>> # Filter by max 22 microns diameter
-    >>> iscell_filtered, removed, diameters, thresh = filter_by_max_diameter(
-    ...     iscell, stat, max_diameter_um=22, ops=ops
+    >>> iscell_filtered, removed, info = filter_by_max_diameter(
+    ...     plane_dir="path/to/plane01", max_diameter_um=22
     ... )
 
-    >>> # Filter by max 15 pixels diameter
-    >>> iscell_filtered, removed, diameters, thresh = filter_by_max_diameter(
-    ...     iscell, stat, max_diameter_px=15
+    >>> # Filter by diameter range in pixels
+    >>> iscell_filtered, removed, info = filter_by_max_diameter(
+    ...     plane_dir, min_diameter_px=5, max_diameter_px=30
     ... )
 
-    >>> # Plot the removed cells
-    >>> from lbm_suite2p_python import plot_filtered_cells
-    >>> fig = plot_filtered_cells(stat, iscell_filtered, removed, ops=ops)
+    >>> # Filter and save to iscell.npy
+    >>> iscell_filtered, removed, info = filter_by_max_diameter(
+    ...     plane_dir, max_diameter_um=22, save=True
+    ... )
     """
-    iscell = _normalize_iscell(iscell)
+    iscell, stat, ops, plane_dir = _load_plane_data(plane_dir, iscell, stat, ops)
+    iscell_orig = _normalize_iscell(iscell)
 
-    if max_diameter_um is None and max_diameter_px is None:
-        raise ValueError("Must specify either max_diameter_um or max_diameter_px")
+    # Need at least one bound
+    has_max = max_diameter_um is not None or max_diameter_px is not None
+    has_min = min_diameter_um is not None or min_diameter_px is not None
+    if not has_max and not has_min:
+        raise ValueError("Must specify at least one of: max_diameter_um, max_diameter_px, "
+                         "min_diameter_um, min_diameter_px")
+
+    # Get pixel size for unit conversion
+    if pixel_size_um is None:
+        pixel_size_um = _get_pixel_size(ops)
 
     # Get radii from stat
     if "radius" not in stat[0]:
-        # Compute radius if not present
-        radii = []
-        for s in stat:
-            npix = len(s["xpix"])
-            # Approximate radius from area: r = sqrt(npix / pi)
-            radii.append(np.sqrt(npix / np.pi))
-        radii = np.array(radii)
+        radii = np.array([np.sqrt(len(s["xpix"]) / np.pi) for s in stat])
     else:
         radii = np.array([s["radius"] for s in stat])
 
     diameters_px = 2 * radii
 
-    # Convert to pixels if given in microns
+    # Convert bounds to pixels
+    max_px = None
+    min_px = None
+
     if max_diameter_um is not None:
-        # Get pixel size
-        if pixel_size_um is None and ops is not None:
-            # Try various keys for pixel resolution
-            if "umPerPix" in ops:
-                pixel_size_um = ops["umPerPix"]
-            elif "um_per_pixel" in ops:
-                pixel_size_um = ops["um_per_pixel"]
-            elif "pixel_resolution" in ops and ops["pixel_resolution"]:
-                pr = ops["pixel_resolution"]
-                if isinstance(pr, (list, tuple)) and len(pr) >= 2:
-                    pixel_size_um = np.mean([pr[0], pr[1]])
-                else:
-                    pixel_size_um = float(pr)
-            elif "umPerPixX" in ops and "umPerPixY" in ops:
-                pixel_size_um = np.mean([ops["umPerPixX"], ops["umPerPixY"]])
-
         if pixel_size_um is None:
-            raise ValueError(
-                "Cannot convert microns to pixels: pixel_size_um not provided "
-                "and could not be found in ops. Use max_diameter_px instead."
-            )
+            raise ValueError("Cannot convert max_diameter_um to pixels: pixel_size_um not found")
+        max_px = max_diameter_um / pixel_size_um
+    elif max_diameter_px is not None:
+        max_px = max_diameter_px
 
-        max_diameter_px = max_diameter_um / pixel_size_um
+    if min_diameter_um is not None:
+        if pixel_size_um is None:
+            raise ValueError("Cannot convert min_diameter_um to pixels: pixel_size_um not found")
+        min_px = min_diameter_um / pixel_size_um
+    elif min_diameter_px is not None:
+        min_px = min_diameter_px
 
     # Apply filter
-    valid = diameters_px <= max_diameter_px
-    removed_mask = ~valid & iscell  # ROIs that were cells but got filtered out
-    n_rejected = removed_mask.sum()
+    valid = np.ones(len(diameters_px), dtype=bool)
+    if max_px is not None:
+        valid &= diameters_px <= max_px
+    if min_px is not None:
+        valid &= diameters_px >= min_px
 
-    if n_rejected > 0:
-        print(f"Filtered {n_rejected} ROIs with diameter > {max_diameter_px:.1f} px")
+    removed_mask = ~valid & iscell_orig
+    iscell_filtered = iscell_orig & valid
+    n_removed = removed_mask.sum()
 
-    iscell_filtered = iscell & valid
-    return iscell_filtered, removed_mask, diameters_px, max_diameter_px
+    if n_removed > 0:
+        bounds_str = []
+        if min_px is not None:
+            bounds_str.append(f"min={min_px:.1f}px")
+        if max_px is not None:
+            bounds_str.append(f"max={max_px:.1f}px")
+        print(f"filter_by_max_diameter: removed {n_removed} ROIs ({', '.join(bounds_str)})")
+
+    if save and plane_dir is not None:
+        _save_filtered_iscell(plane_dir, iscell_filtered)
+
+    return iscell_filtered, removed_mask, {
+        "diameters_px": diameters_px,
+        "min_px": min_px,
+        "max_px": max_px,
+        "n_removed": n_removed,
+    }
 
 
-def filter_by_area(iscell, stat, min_mult=0.25, max_mult=4.0):
+def filter_by_area(
+    plane_dir=None,
+    iscell=None,
+    stat=None,
+    ops=None,
+    min_area_px: float = None,
+    max_area_px: float = None,
+    min_mult: float = None,
+    max_mult: float = None,
+    save: bool = False,
+):
     """
     Filter cells by total area (in pixels).
 
-    Cells with area outside [min_mult*median_area, max_mult*median_area] are rejected.
+    Can specify absolute bounds (min_area_px, max_area_px) or relative bounds
+    as multiples of the median area (min_mult, max_mult).
+
+    Parameters
+    ----------
+    plane_dir : str or Path, optional
+        Path to Suite2p plane directory. If provided, loads iscell, stat, ops.
+    iscell : np.ndarray, optional
+        Cell classification array.
+    stat : np.ndarray or list, optional
+        Suite2p stat array.
+    ops : dict, optional
+        Suite2p ops dictionary (not used, for consistent interface).
+    min_area_px : float, optional
+        Minimum allowed area in pixels.
+    max_area_px : float, optional
+        Maximum allowed area in pixels.
+    min_mult : float, optional
+        Minimum area as multiple of median (e.g., 0.25 = 25% of median).
+    max_mult : float, optional
+        Maximum area as multiple of median (e.g., 4.0 = 400% of median).
+    save : bool, default False
+        If True, save updated iscell.npy to plane_dir.
+
+    Returns
+    -------
+    iscell_filtered : np.ndarray
+        Updated iscell array (1D boolean).
+    removed_mask : np.ndarray
+        Boolean mask of ROIs that were removed.
+    info : dict
+        Dictionary with 'areas_px', 'min_px', 'max_px', 'n_removed'.
     """
-    iscell = _normalize_iscell(iscell)
+    iscell, stat, ops, plane_dir = _load_plane_data(plane_dir, iscell, stat, ops)
+    iscell_orig = _normalize_iscell(iscell)
 
     areas = np.array([len(s["xpix"]) for s in stat])
-    median_area = np.median(areas)
-    lower, upper = min_mult * median_area, max_mult * median_area
-    iscell &= (areas >= lower) & (areas <= upper)
-    return iscell
+    median_area = np.median(areas[iscell_orig]) if iscell_orig.any() else np.median(areas)
+
+    # Determine bounds
+    min_px = min_area_px
+    max_px = max_area_px
+
+    if min_mult is not None:
+        min_px = min_mult * median_area if min_px is None else min(min_px, min_mult * median_area)
+    if max_mult is not None:
+        max_px = max_mult * median_area if max_px is None else max(max_px, max_mult * median_area)
+
+    # Default bounds if nothing specified
+    if min_px is None and max_px is None:
+        min_px = 0.25 * median_area
+        max_px = 4.0 * median_area
+
+    # Apply filter
+    valid = np.ones(len(areas), dtype=bool)
+    if min_px is not None:
+        valid &= areas >= min_px
+    if max_px is not None:
+        valid &= areas <= max_px
+
+    removed_mask = ~valid & iscell_orig
+    iscell_filtered = iscell_orig & valid
+    n_removed = removed_mask.sum()
+
+    if n_removed > 0:
+        bounds_str = []
+        if min_px is not None:
+            bounds_str.append(f"min={min_px:.0f}px")
+        if max_px is not None:
+            bounds_str.append(f"max={max_px:.0f}px")
+        print(f"filter_by_area: removed {n_removed} ROIs ({', '.join(bounds_str)})")
+
+    if save and plane_dir is not None:
+        _save_filtered_iscell(plane_dir, iscell_filtered)
+
+    return iscell_filtered, removed_mask, {
+        "areas_px": areas,
+        "min_px": min_px,
+        "max_px": max_px,
+        "median_area": median_area,
+        "n_removed": n_removed,
+    }
 
 
-def filter_by_eccentricity(iscell, stat, max_ratio=5.0):
+def filter_by_eccentricity(
+    plane_dir=None,
+    iscell=None,
+    stat=None,
+    ops=None,
+    max_ratio: float = 5.0,
+    min_ratio: float = None,
+    save: bool = False,
+):
     """
-    Set iscell=False for ROIs that are extremely elongated (bounding box disproportion).
-    """
-    iscell = _normalize_iscell(iscell)
+    Filter ROIs by aspect ratio (elongation).
 
-    ecc = []
+    Uses bounding box dimensions to compute aspect ratio. High ratios
+    indicate elongated shapes (likely not cell bodies).
+
+    Parameters
+    ----------
+    plane_dir : str or Path, optional
+        Path to Suite2p plane directory. If provided, loads iscell, stat, ops.
+    iscell : np.ndarray, optional
+        Cell classification array.
+    stat : np.ndarray or list, optional
+        Suite2p stat array.
+    ops : dict, optional
+        Suite2p ops dictionary (not used, for consistent interface).
+    max_ratio : float, default 5.0
+        Maximum allowed aspect ratio (width/height or height/width).
+    min_ratio : float, optional
+        Minimum allowed aspect ratio.
+    save : bool, default False
+        If True, save updated iscell.npy to plane_dir.
+
+    Returns
+    -------
+    iscell_filtered : np.ndarray
+        Updated iscell array (1D boolean).
+    removed_mask : np.ndarray
+        Boolean mask of ROIs that were removed.
+    info : dict
+        Dictionary with 'ratios', 'min_ratio', 'max_ratio', 'n_removed'.
+    """
+    iscell, stat, ops, plane_dir = _load_plane_data(plane_dir, iscell, stat, ops)
+    iscell_orig = _normalize_iscell(iscell)
+
+    ratios = []
     for s in stat:
         h = s["ypix"].max() - s["ypix"].min() + 1
         w = s["xpix"].max() - s["xpix"].min() + 1
         ratio = max(h, w) / max(1, min(h, w))
-        ecc.append(ratio <= max_ratio)
+        ratios.append(ratio)
+    ratios = np.array(ratios)
 
-    iscell &= np.array(ecc, dtype=bool)
-    return iscell
+    # Apply filter
+    valid = np.ones(len(ratios), dtype=bool)
+    if max_ratio is not None:
+        valid &= ratios <= max_ratio
+    if min_ratio is not None:
+        valid &= ratios >= min_ratio
+
+    removed_mask = ~valid & iscell_orig
+    iscell_filtered = iscell_orig & valid
+    n_removed = removed_mask.sum()
+
+    if n_removed > 0:
+        bounds_str = []
+        if min_ratio is not None:
+            bounds_str.append(f"min={min_ratio:.1f}")
+        if max_ratio is not None:
+            bounds_str.append(f"max={max_ratio:.1f}")
+        print(f"filter_by_eccentricity: removed {n_removed} ROIs (ratio {', '.join(bounds_str)})")
+
+    if save and plane_dir is not None:
+        _save_filtered_iscell(plane_dir, iscell_filtered)
+
+    return iscell_filtered, removed_mask, {
+        "ratios": ratios,
+        "min_ratio": min_ratio,
+        "max_ratio": max_ratio,
+        "n_removed": n_removed,
+    }
+
+
+def apply_filters(
+    plane_dir=None,
+    iscell=None,
+    stat=None,
+    ops=None,
+    filters: list = None,
+    save: bool = False,
+):
+    """
+    Apply multiple cell filters in sequence.
+
+    Chains filter functions together, passing the filtered iscell from each
+    step to the next. All filters use a consistent interface.
+
+    Parameters
+    ----------
+    plane_dir : str or Path, optional
+        Path to Suite2p plane directory. If provided, loads iscell, stat, ops.
+    iscell : np.ndarray, optional
+        Cell classification array.
+    stat : np.ndarray or list, optional
+        Suite2p stat array.
+    ops : dict, optional
+        Suite2p ops dictionary.
+    filters : list of dict
+        List of filter configurations. Each dict must have:
+        - 'name': str - filter function name (e.g., 'max_diameter', 'area', 'eccentricity')
+        - Additional keys are passed as kwargs to the filter function.
+
+        Available filters:
+        - 'diameter': filter_by_diameter (min_mult, max_mult)
+        - 'max_diameter': filter_by_max_diameter (max_diameter_um, max_diameter_px, min_diameter_um, min_diameter_px)
+        - 'area': filter_by_area (min_area_px, max_area_px, min_mult, max_mult)
+        - 'eccentricity': filter_by_eccentricity (max_ratio, min_ratio)
+
+    save : bool, default False
+        If True, save final filtered iscell.npy to plane_dir.
+
+    Returns
+    -------
+    iscell_filtered : np.ndarray
+        Final filtered iscell array (1D boolean).
+    total_removed : np.ndarray
+        Boolean mask of all ROIs removed by any filter.
+    filter_results : list of dict
+        Results from each filter, including removed_mask and info.
+
+    Examples
+    --------
+    >>> # Apply multiple filters
+    >>> iscell, removed, results = apply_filters(
+    ...     plane_dir="path/to/plane01",
+    ...     filters=[
+    ...         {"name": "max_diameter", "max_diameter_um": 22},
+    ...         {"name": "area", "min_mult": 0.25, "max_mult": 4.0},
+    ...         {"name": "eccentricity", "max_ratio": 5.0},
+    ...     ],
+    ...     save=True
+    ... )
+
+    >>> # Use with pre-loaded data
+    >>> iscell, removed, results = apply_filters(
+    ...     iscell=iscell, stat=stat, ops=ops,
+    ...     filters=[{"name": "max_diameter", "max_diameter_px": 30}]
+    ... )
+    """
+    # Map filter names to functions
+    FILTER_MAP = {
+        "diameter": filter_by_diameter,
+        "max_diameter": filter_by_max_diameter,
+        "area": filter_by_area,
+        "eccentricity": filter_by_eccentricity,
+    }
+
+    iscell, stat, ops, plane_dir = _load_plane_data(plane_dir, iscell, stat, ops)
+    iscell_orig = _normalize_iscell(iscell)
+    iscell_current = iscell_orig.copy()
+
+    if filters is None:
+        filters = []
+
+    filter_results = []
+    total_removed = np.zeros(len(iscell_current), dtype=bool)
+
+    for filter_config in filters:
+        config = filter_config.copy()
+        name = config.pop("name", None)
+
+        if name is None:
+            raise ValueError("Each filter must have a 'name' key")
+
+        if name not in FILTER_MAP:
+            raise ValueError(f"Unknown filter: {name}. Available: {list(FILTER_MAP.keys())}")
+
+        filter_fn = FILTER_MAP[name]
+
+        # Don't save intermediate results, only final
+        config["save"] = False
+
+        # Apply filter
+        iscell_current, removed, info = filter_fn(
+            iscell=iscell_current,
+            stat=stat,
+            ops=ops,
+            **config
+        )
+
+        total_removed |= removed
+        filter_results.append({
+            "name": name,
+            "removed_mask": removed,
+            "info": info,
+        })
+
+    # Save final result if requested
+    if save and plane_dir is not None:
+        _save_filtered_iscell(plane_dir, iscell_current)
+
+    n_total = total_removed.sum()
+    n_orig = iscell_orig.sum()
+    print(f"apply_filters: {n_total} total ROIs removed ({n_orig - n_total}/{n_orig} cells remaining)")
+
+    return iscell_current, total_removed, filter_results
 
 
 def mode_robust(x):
