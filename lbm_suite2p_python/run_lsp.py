@@ -370,7 +370,6 @@ def pipeline(
     reader_kwargs = reader_kwargs or {}
     writer_kwargs = writer_kwargs or {}
 
-    # === STEP 1: Normalize input to lazy array ===
     print(f"Loading input data...")
 
     if _is_lazy_array(input_data):
