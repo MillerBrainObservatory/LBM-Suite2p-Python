@@ -904,6 +904,14 @@ def open_in_gui(
     -----
     Requires cellpose to be installed with gui dependencies.
     """
+    # patch QCheckBox for Qt5/Qt6 compatibility
+    try:
+        from qtpy.QtWidgets import QCheckBox
+        if not hasattr(QCheckBox, 'checkStateChanged'):
+            QCheckBox.checkStateChanged = QCheckBox.stateChanged
+    except ImportError:
+        pass
+
     from cellpose.gui import gui
 
     if seg_path is not None:
