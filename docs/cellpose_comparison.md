@@ -2,6 +2,16 @@
 
 Suite2p is a pipeline in which cellpose sits as software responsible for segmentation, just one of the steps involved in calcium imaging.
 
+## Sample Data
+
+The figures below use a 100×120 pixel region from a calcium imaging dataset:
+
+![Zoom Region](_images/cellpose/zoom_region.png)
+
+<video width="400" controls autoplay loop muted>
+  <source src="_images/cellpose/sample_data.mp4" type="video/mp4">
+</video>
+
 Cellpose itself is useful in non-calcium imaging paradigms and is much more actively developed. However, we may wish to incorperate some pre/post processing routines from suite2p to help sharpen our 2D image which is segmented.
 
 Eventually, we would like to consolidate these workflows.
