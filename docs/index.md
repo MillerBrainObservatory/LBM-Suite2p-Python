@@ -26,10 +26,11 @@ See the {doc}`user guide <user_guide>` for complete examples and parameter tunin
 
 ```{toctree}
 ---
-maxdepth: 2
+maxdepth: 1
 ---
 user_guide
 postprocessing
+cellpose_comparison
 API Reference <api>
 glossary
 ```
@@ -83,18 +84,6 @@ results = lsp.pipeline(
 
 ---
 
-## Citation
-
-If you use this pipeline, please cite Suite2p and LBM:
-
-```{bibliography}
-:filter: docname in docnames
-:style: plain
-```
-
-
----
-
 ## Acknowledgements
 
 This pipeline is built on excellent open-source tools:
@@ -102,7 +91,6 @@ This pipeline is built on excellent open-source tools:
 - **[Suite2p](https://github.com/MouseLand/suite2p)** - Registration and segmentation (Pachitariu, Stringer, et al.)
 - **[Cellpose](https://github.com/MouseLand/cellpose)** - Anatomical segmentation (Stringer, Pachitariu, et al.)
 - **[Rastermap](https://github.com/MouseLand/rastermap)** - Activity clustering (Stringer, Pachitariu)
-- **[scanreader](https://github.com/atlab/scanreader)** - ScanImage metadata parsing (atlab)
 - **[Suite3D](https://github.com/alihaydaroglu/suite3d)** - Volumetric processing inspiration (Haydaroglu)
 
 Special thanks to the Miller Brain Observatory team and all contributors for testing and feedback.
