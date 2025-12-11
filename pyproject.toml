@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lbm_suite2p_python"
-version = "2.3.1"
+version = "2.4.0"
 description = "Light Beads Microscopy Pipeline using Suite2p"
 readme = "README.md"
 license = "BSD-3-Clause"
@@ -18,14 +18,13 @@ classifiers=[
 	"Programming Language :: Python :: 3 :: Only",
 ]
 dependencies = [
-	"mbo_utilities>=2.3.0",
-	"fastplotlib",
+	"mbo_utilities>=2.4.0",
 ]
 
 [project.optional-dependencies]
 # Suite2p cell extraction pipeline (core dependency for this package)
 suite2p = [
-	"suite2p_mbo>=2.0.0",
+	"suite2p_mbo>=2.0.1",
 ]
 # Rastermap for activity clustering and visualization
 rastermap = [
