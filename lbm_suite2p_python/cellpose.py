@@ -288,13 +288,16 @@ def cellpose(
     projection: Literal["max", "mean", "std", "percentile"] = "max",
     projection_percentile: float = 99,
     # cellpose model parameters
-    model_type: str = "cyto3",
+    model_type: str = "cpsam",
     gpu: bool = True,
     # cellpose eval parameters
     diameter: float = None,
-    flow_threshold: float = 0.4,
-    cellprob_threshold: float = 0.0,
-    min_size: int = 15,
+    flow_threshold: float = 0.0,
+    cellprob_threshold: float = -6.0,
+    min_size: int = 2,
+    max_size: int = None,
+    max_size_fraction: float = None,
+    max_size_um: float = None,
     batch_size: int = 8,
     normalize: bool = True,
     # 3D options
@@ -332,9 +335,10 @@ def cellpose(
     projection_percentile : float, default 99
         Percentile value if projection='percentile'.
 
-    model_type : str, default 'cyto3'
+    model_type : str, default 'cpsam'
         Cellpose model to use. Options:
-        - 'cyto3': Latest cytoplasm model (recommended)
+        - 'cpsam': CP-SAM model (recommended for calcium imaging)
+        - 'cyto3': Latest cytoplasm model
         - 'cyto2': Previous cytoplasm model
         - 'cyto': Original cytoplasm model
         - 'nuclei': Nuclear segmentation
@@ -347,8 +351,17 @@ def cellpose(
         Maximum allowed error of flows for each mask.
     cellprob_threshold : float, default 0.0
         Probability threshold for cell detection. Lower = more cells.
-    min_size : int, default 15
+    min_size : int, default 2
         Minimum number of pixels per mask.
+    max_size : int, optional
+        Maximum number of pixels per mask. Overrides max_size_fraction and max_size_um.
+    max_size_fraction : float, optional
+        Maximum mask size as fraction of total image area. E.g., 0.4 means masks
+        larger than 40% of image area are removed.
+    max_size_um : float, optional
+        Maximum cell diameter in microns. Converted to pixel area using dx/dy
+        metadata from the array. E.g., 35 for cortical neurons. Requires array
+        to have pixel size metadata.
     batch_size : int, default 8
         Batch size for GPU processing.
     normalize : bool, default True
@@ -559,6 +572,33 @@ def cellpose(
             if diameter is not None:
                 eval_kwargs["diameter"] = diameter
 
+            # compute max_size: priority is max_size > max_size_um > max_size_fraction
+            computed_max_size = None
+            if max_size is not None:
+                computed_max_size = max_size
+            elif max_size_um is not None:
+                # compute from microns using pixel size from array metadata
+                pixel_size = None
+                if hasattr(arr, "dx") and arr.dx is not None:
+                    pixel_size = arr.dx
+                elif hasattr(arr, "dy") and arr.dy is not None:
+                    pixel_size = arr.dy
+                if pixel_size is not None:
+                    # max_size_um is diameter in microns, convert to pixel area
+                    max_diameter_px = max_size_um / pixel_size
+                    computed_max_size = int(np.pi * (max_diameter_px / 2) ** 2)
+                    print(f"  Max size from {max_size_um} um: {computed_max_size} pixels (pixel size: {pixel_size:.3f} um)")
+                else:
+                    print(f"  Warning: max_size_um specified but no pixel size in array metadata")
+            elif max_size_fraction is not None:
+                # compute as fraction of total image area
+                total_pixels = proj.shape[-2] * proj.shape[-1]
+                computed_max_size = int(total_pixels * max_size_fraction)
+                print(f"  Max size from fraction {max_size_fraction}: {computed_max_size} pixels")
+
+            if computed_max_size is not None:
+                eval_kwargs["max_size"] = computed_max_size
+
             if do_3D or (proj.ndim == 3 and plane_idx is None):
                 eval_kwargs["do_3D"] = True
                 eval_kwargs["z_axis"] = 0
@@ -586,6 +626,8 @@ def cellpose(
                     "diameter": diameter,
                     "flow_threshold": flow_threshold,
                     "cellprob_threshold": cellprob_threshold,
+                    "min_size": min_size,
+                    "max_size": computed_max_size,
                     "projection": projection,
                     "do_3D": do_3D,
                 },
