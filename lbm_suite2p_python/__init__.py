@@ -6,6 +6,17 @@ from lbm_suite2p_python.utils import *
 from lbm_suite2p_python.volume import *
 from lbm_suite2p_python.zplane import *
 from lbm_suite2p_python.postprocessing import *
+from lbm_suite2p_python.cellpose import (
+    cellpose,
+    load_cellpose_results,
+    cellpose_to_suite2p,
+    masks_to_stat,
+    stat_to_masks,
+    save_gui_results,
+    load_seg_file,
+    open_in_gui,
+    save_comparison,
+)
 
 try:
     __version__ = version("lbm_suite2p_python")
@@ -62,6 +73,16 @@ __all__ = [
     "plot_regional_zoom",
     "plot_filtered_cells",
     "plot_diameter_histogram",
+    # Cellpose
+    "cellpose",
+    "load_cellpose_results",
+    "cellpose_to_suite2p",
+    "masks_to_stat",
+    "stat_to_masks",
+    "save_gui_results",
+    "load_seg_file",
+    "open_in_gui",
+    "save_comparison",
 ]
 
 # Re-export with public name
