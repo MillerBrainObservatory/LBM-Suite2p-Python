@@ -4,18 +4,14 @@ bibliography: refs.bib
 
 # LBM-Suite2p-Python Documentation
 
-A volumetric 2-photon calcium imaging processing pipeline for Light Beads Microscopy (LBM) datasets.
+Volumetric 2-photon calcium imaging processing pipeline using [Suite2p](https://github.com/MouseLand/suite2p) and [Cellpose](https://cellpose.readthedocs.io/en/latest/).
 
-This package processes multi-plane calcium imaging data through a three-step workflow:
-
-1. **Convert** raw TIFF files to binary format for Suite2p
-2. **Process** each z-plane independently (registration → segmentation → extraction)
-3. **Aggregate** planar results into volumetric outputs with visualization
+Primarily intended for Light Beads Microscopy (LBM) datasets, but viable with any planar or volumetric data.
 
 **Key capabilities:**
-- Planar-by-planar Suite2p processing optimized for volumetric datasets
+
+- Volumetric and/or Planar registration, detection, segmentation and deconvolution
 - Automatic detection and merging of ScanImage multi-ROI acquisitions
-- Robust binary validation to avoid redundant reprocessing
 - Post-processing filters for cell quality (area, eccentricity, event exceptionality)
 - ΔF/F calculation with multiple baseline methods
 - Volumetric statistics and Rastermap clustering

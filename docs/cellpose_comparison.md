@@ -22,20 +22,25 @@ When you use `lsp.pipeline()` with `anatomical_only > 0`, Suite2p processes your
 
 1. Temporal Binning → 2. PCA Denoise → 3. HP Filter → 4. Compute Image → 5. Cellpose
 
-### Step 1: Temporal Binning
+### Temporal Binning
 
-Suite2p bins frames together to reduce noise and computation time.
+Averages consecutive frames to reduce noise and computation:
+
+$$\text{binned}[i] = \frac{1}{b} \sum_{j=0}^{b-1} \text{raw}[i \cdot b + j]$$
 
 ```python
 # controlled by ops["nbinned"] (default: 1000)
 bin_size = max(1, nframes // nbinned, tau * fs)
 ```
 
-**Effect:** A 10,000 frame movie becomes ~1,000 binned frames (averaging every 10 frames).
+**Scale:** Values 1-20 are typical. Suite2p default targets ~1000 total binned frames.
 
-![Temporal Binning](_images/cellpose_temporal_binning.png)
+**Use high values (10-20):** Noisy data, many frames, want faster processing
+**Use low values (1-5):** Short recordings, want to preserve transient dynamics
 
-### Step 2: PCA Denoising (optional)
+![Temporal Binning](_images/cellpose/temporal_binning.png)
+
+### PCA Denoising (optional)
 
 If `denoise=1` (default), Suite2p applies PCA-based spatial denoising.
 
@@ -46,46 +51,47 @@ mov = pca_denoise(mov, block_size=[32, 32], n_comps_frac=0.5)
 
 **Effect:** Reduces high-frequency spatial noise while preserving cell structures.
 
-### Step 3: Temporal High-Pass Filtering
+### Temporal High-Pass Filter
 
-If `high_pass > 0`, Suite2p applies a temporal high-pass filter to remove slow baseline drift.
+Removes slow baseline drift by subtracting a running average:
+
+$$\text{filtered}[t] = \text{raw}[t] - \frac{1}{w} \sum_{i=t-w/2}^{t+w/2} \text{raw}[i]$$
 
 ```python
 # controlled by ops["high_pass"] (default: 100)
 mov = temporal_high_pass_filter(mov, width=high_pass)
 ```
 
-**Effect:** Removes slow fluctuations, emphasizing transient activity.
+**Scale:** Values 10-500 frames. Suite2p default is 100.
 
-| `high_pass` value | Effect |
-|-------------------|--------|
-| 0 | No filtering (keep raw dynamics) |
-| 10-50 | Mild filtering (preserves some baseline) |
-| 100 (default) | Standard filtering |
-| 500+ | Aggressive filtering (only fast transients) |
+**Use high values (100-500):** Preserve slower dynamics, less aggressive filtering
+**Use low values (10-50):** Remove more baseline, emphasize fast transients
+**Use 0:** No filtering (keep raw dynamics)
 
-![Temporal High-Pass Filter](_images/cellpose_temporal_hp.png)
+![Temporal High-Pass Filter](_images/cellpose/temporal_hp.png)
 
-### Step 4: Image Computation
+### Anatomical Mode
 
-Suite2p computes different images for Cellpose based on `anatomical_only` mode:
+Suite2p computes different images for Cellpose based on `anatomical_only`:
 
-| Mode | Image | Best for |
-|------|-------|----------|
-| 1 | `log(max_proj / mean_img)` | Activity contrast |
-| 2 | `mean_img` | Stable anatomy |
-| 3 | `meanImgE` (enhanced) | Enhanced contrast |
-| 4 | `max_proj` | Direct max projection |
+| Mode | Formula | Use case |
+|------|---------|----------|
+| 1 | $\log(\max / \text{mean})$ | Activity contrast (default) |
+| 2 | $\text{mean}$ | Stable anatomy |
+| 3 | $\text{enhanced mean}$ | High contrast |
+| 4 | $\max$ | Direct max projection |
 
-![Anatomical Modes](_images/cellpose_anatomical_modes.png)
+Mode 1 emphasizes active pixels; Mode 4 is closest to direct `lsp.cellpose()`.
 
-**Mode 1** (default) emphasizes pixels that are brighter in max vs mean - highlighting active cells.
+![Anatomical Modes](_images/cellpose/anatomical_modes.png)
 
-**Mode 4** is closest to what `lsp.cellpose()` does by default.
+### Spatial High-Pass (optional)
 
-### Step 5: Spatial High-Pass (optional)
+Removes large-scale intensity gradients by subtracting a Gaussian-blurred version:
 
-If `spatial_hp_cp > 0`, Suite2p subtracts a Gaussian-smoothed version of the image.
+$$\text{filtered} = \text{img} - G_{\sigma}(\text{img})$$
+
+where $\sigma = \text{diameter} \times \text{spatial\_hp\_cp}$.
 
 ```python
 # controlled by ops["spatial_hp_cp"] (default: 0)
@@ -93,11 +99,15 @@ img = normalize99(img)
 img -= gaussian_filter(img, diameter * spatial_hp_cp)
 ```
 
-**Effect:** Removes large-scale intensity gradients, useful for uneven illumination.
+**Scale:** Values 0-4 (multiplier on cell diameter). Suite2p default is 0 (off).
 
-![Spatial High-Pass](_images/cellpose_spatial_hp.png)
+**Use 1-2:** Mild gradient removal, uneven illumination
+**Use 3-4:** Aggressive, may remove cell bodies
+**Use 0:** No spatial filtering
 
-### Step 6: Cellpose Segmentation
+![Spatial High-Pass](_images/cellpose/spatial_hp.png)
+
+### Cellpose Segmentation
 
 Finally, Suite2p runs Cellpose on the processed image:
 
@@ -113,7 +123,7 @@ masks = model.eval(img, channels=[0, 0], diameter=diameter,
 
 1. Load Data → 2. Projection → 3. Cellpose
 
-### Step 1: Load Data
+### Load Data
 
 Load any format via `mbo.imread()`:
 
@@ -121,7 +131,7 @@ Load any format via `mbo.imread()`:
 arr = imread(input_path)  # supports TIFF, Zarr, HDF5, etc.
 ```
 
-### Step 2: Temporal Projection
+### Temporal Projection
 
 Compute a single projection image:
 
@@ -137,7 +147,9 @@ proj = np.max(arr, axis=0)  # 'max', 'mean', 'std', or 'percentile'
 | `std` | `np.std(arr, axis=0)` | Activity variance |
 | `percentile` | `np.percentile(arr, 99, axis=0)` | Robust peaks |
 
-### Step 3: Cellpose Segmentation
+![Projection Methods](_images/cellpose/projection_methods.png)
+
+### Run Cellpose
 
 Run Cellpose with full parameter control:
 
@@ -234,38 +246,8 @@ cellpose/
 └── cellpose_meta.npy       # metadata
 ```
 
-## Visual Comparison
+## Segmentation Comparison
 
-The following figures (generated by `demos/notebooks/cellpose_figure_generation.ipynb`) show the effect of each preprocessing step on a 250×250 zoomed region:
+The following figure compares segmentation results across different preprocessing methods:
 
-### Temporal Binning Effect
-
-![Temporal Binning](_images/cellpose_temporal_binning.png)
-
-### High-Pass Filter Effect
-
-![High-Pass Filter](_images/cellpose_temporal_hp.png)
-
-### Anatomical Mode Comparison
-
-![Anatomical Modes](_images/cellpose_anatomical_modes.png)
-
-### Spatial High-Pass Effect
-
-![Spatial HP](_images/cellpose_spatial_hp.png)
-
-### Projection Methods (lsp.cellpose)
-
-![Projection Methods](_images/cellpose_projection_methods.png)
-
-### Segmentation Comparison
-
-![Segmentation Comparison](_images/cellpose_segmentation_comparison.png)
-
-### Binning Effect on Segmentation
-
-![Binning Segmentation](_images/cellpose_binning_comparison.png)
-
-### High-Pass Effect on Segmentation
-
-![HP Segmentation](_images/cellpose_hp_comparison.png)
+![Segmentation Comparison](_images/cellpose/segmentation_comparison.png)
