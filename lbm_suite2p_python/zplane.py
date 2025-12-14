@@ -16,6 +16,8 @@ import matplotlib.gridspec as gridspec
 
 from scipy.ndimage import distance_transform_edt
 
+from mbo_utilities.metadata import get_param
+
 from lbm_suite2p_python.postprocessing import (
     load_ops,
     load_planar_results,
@@ -846,7 +848,7 @@ def plot_projection(
         stat = res["stat"]
         iscell_mask = res["iscell"][:, 0].astype(bool)
         im = ROI.stats_dicts_to_3d_array(
-            stat, Ly=ops["Ly"], Lx=ops["Lx"], label_id=True
+            stat, Ly=get_param(ops, "Ly", default=512), Lx=get_param(ops, "Lx", default=512), label_id=True
         )
         im[im == 0] = np.nan
         accepted_cells = np.sum(iscell_mask)
@@ -3211,13 +3213,14 @@ def plot_regional_zoom(
     """
     plane_dir = Path(plane_dir)
 
-    # Load results
+    # load results
     res = load_planar_results(plane_dir)
     ops = load_ops(plane_dir)
 
-    Ly, Lx = ops["Ly"], ops["Lx"]
+    Ly = get_param(ops, "Ly", default=512)
+    Lx = get_param(ops, "Lx", default=512)
 
-    # Get background image
+    # get background image
     if img_key in ops:
         img = ops[img_key]
     elif img_key == "max_proj" and "max_proj" not in ops:
@@ -3349,19 +3352,20 @@ def plot_filtered_cells(
     """
     plane_dir = Path(plane_dir)
 
-    # Load results
+    # load results
     res = load_planar_results(plane_dir)
     ops = load_ops(plane_dir)
 
-    Ly, Lx = ops["Ly"], ops["Lx"]
+    Ly = get_param(ops, "Ly", default=512)
+    Lx = get_param(ops, "Lx", default=512)
 
-    # Get background image
+    # get background image
     if img_key in ops:
         img = ops[img_key]
     else:
         img = ops.get("meanImg", np.zeros((Ly, Lx)))
 
-    # Normalize iscell arrays to 1D boolean
+    # normalize iscell arrays to 1D boolean
     if iscell_original.ndim == 2:
         iscell_original = iscell_original[:, 0]
     if iscell_filtered.ndim == 2:

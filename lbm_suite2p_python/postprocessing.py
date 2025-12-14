@@ -6,6 +6,8 @@ import numpy as np
 from scipy.ndimage import percentile_filter
 from scipy.stats import norm
 
+from mbo_utilities.metadata import get_voxel_size
+
 
 def _normalize_iscell(iscell):
     """Ensure iscell is 1D boolean array."""
@@ -55,25 +57,6 @@ def _load_plane_data(plane_dir, iscell=None, stat=None, ops=None):
                 ops = np.load(ops_path, allow_pickle=True).item()
 
     return iscell, stat, ops, plane_dir
-
-
-def _get_pixel_size(ops):
-    """Extract pixel size in microns from ops dictionary."""
-    if ops is None:
-        return None
-
-    if "umPerPix" in ops:
-        return ops["umPerPix"]
-    elif "um_per_pixel" in ops:
-        return ops["um_per_pixel"]
-    elif "pixel_resolution" in ops and ops["pixel_resolution"]:
-        pr = ops["pixel_resolution"]
-        if isinstance(pr, (list, tuple)) and len(pr) >= 2:
-            return np.mean([pr[0], pr[1]])
-        return float(pr)
-    elif "umPerPixX" in ops and "umPerPixY" in ops:
-        return np.mean([ops["umPerPixX"], ops["umPerPixY"]])
-    return None
 
 
 def _save_filtered_iscell(plane_dir, iscell_filtered, iscell_original=None):
@@ -269,9 +252,10 @@ def filter_by_max_diameter(
         raise ValueError("Must specify at least one of: max_diameter_um, max_diameter_px, "
                          "min_diameter_um, min_diameter_px")
 
-    # Get pixel size for unit conversion
-    if pixel_size_um is None:
-        pixel_size_um = _get_pixel_size(ops)
+    # get pixel size for unit conversion
+    if pixel_size_um is None and ops is not None:
+        voxel = get_voxel_size(ops)
+        pixel_size_um = (voxel.dx + voxel.dy) / 2 if voxel.dx != 1.0 or voxel.dy != 1.0 else None
 
     # Get radii from stat
     if "radius" not in stat[0]:

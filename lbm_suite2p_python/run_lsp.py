@@ -20,6 +20,7 @@ from lbm_suite2p_python.postprocessing import (
     dff_rolling_percentile,
 )
 from mbo_utilities.log import get as get_logger
+from mbo_utilities.metadata import get_param, get_voxel_size
 
 from lbm_suite2p_python.zplane import save_pc_panels_and_metrics, plot_zplane_figures
 
@@ -466,7 +467,7 @@ def pipeline(
     if hasattr(arr, "use_fft"):
         print(f"  FFT subpixel: {arr.use_fft}")
 
-    fs = metadata.get("fs", metadata.get("frame_rate"))
+    fs = get_param(metadata, "fs")
     if fs:
         print(f"  Frame rate: {fs:.2f} Hz")
     if supports_roi(arr):
@@ -480,25 +481,17 @@ def pipeline(
         base_ops.update(ops)
         ops = base_ops
 
-    # Auto-populate from metadata
+    # auto-populate from metadata
     if fs:
         ops["fs"] = fs
 
-    # Get pixel resolution from metadata (check aliases)
-    pr = metadata.get("pixel_resolution")
-    if pr is None:
-        # Check common aliases: dx/dy, PhysicalSizeX/Y, umPerPixX/Y
-        dx = metadata.get("dx") or metadata.get("umPerPixX") or metadata.get("PhysicalSizeX")
-        dy = metadata.get("dy") or metadata.get("umPerPixY") or metadata.get("PhysicalSizeY")
-        if dx is not None and dy is not None:
-            pr = [dx, dy]
-            metadata["pixel_resolution"] = pr  # Set it so mbo_utilities doesn't warn
-
-    # Handle numpy arrays, lists, and tuples for pixel_resolution
-    if pr is not None and hasattr(pr, "__len__") and len(pr) >= 2:
-        ops["dx"] = float(pr[0])
-        ops["dy"] = float(pr[1])
-        ops["pixel_resolution"] = [float(pr[0]), float(pr[1])]  # Also set for write_ops
+    # get pixel resolution from metadata using mbo_utilities
+    voxel = get_voxel_size(metadata)
+    # only set if we got real values (not defaults of 1.0)
+    if voxel.dx != 1.0 or voxel.dy != 1.0:
+        ops["dx"] = voxel.dx
+        ops["dy"] = voxel.dy
+        ops["pixel_resolution"] = [voxel.dx, voxel.dy]
 
     ops["Ly"] = Ly
     ops["Lx"] = Lx
@@ -637,15 +630,16 @@ def pipeline(
                 )
                 np.save(ops_file, updated_ops)
 
-                # Apply cell filters
-                # Default: filter by 4-35µm diameter if pixel resolution available
-                from lbm_suite2p_python.postprocessing import apply_filters, _get_pixel_size
+                # apply cell filters
+                # default: filter by 4-35µm diameter if pixel resolution available
+                from lbm_suite2p_python.postprocessing import apply_filters
 
                 filters_to_apply = cell_filters
                 if filters_to_apply is None:
-                    # Check if pixel resolution is available for default filter
+                    # check if pixel resolution is available for default filter
                     current_ops = load_ops(ops_file)
-                    pixel_size = _get_pixel_size(current_ops)
+                    voxel = get_voxel_size(current_ops)
+                    pixel_size = (voxel.dx + voxel.dy) / 2 if voxel.dx != 1.0 or voxel.dy != 1.0 else None
                     if pixel_size is not None:
                         filters_to_apply = [{"name": "max_diameter", "min_diameter_um": 4, "max_diameter_um": 35}]
                         print(f"  Applying default diameter filter (4-35 µm, pixel_size={pixel_size:.2f} µm/px)")
@@ -1886,22 +1880,21 @@ def run_plane(
         ops["align_by_chan"] = 2
 
     if "nframes" not in ops:
+        # try ops["metadata"] first, then metadata dict
+        nframes = None
         if "metadata" in ops and "shape" in ops["metadata"]:
-            ops["nframes"] = ops["metadata"]["shape"][0]
-        elif "num_frames" in metadata:
-            ops["nframes"] = metadata["num_frames"]
-        elif "nframes" in metadata:
-            ops["nframes"] = metadata["nframes"]
-        elif "shape" in metadata:
-            ops["nframes"] = metadata["shape"][0]
-        elif file is not None and hasattr(file, "shape") and len(file.shape) >= 1:
-            # WARNING: This may trigger lazy loading of the entire file!
+            nframes = ops["metadata"]["shape"][0]
+        if nframes is None:
+            nframes = get_param(metadata, "nframes")
+        if nframes is None and file is not None and hasattr(file, "shape") and len(file.shape) >= 1:
+            # warning: may trigger lazy loading
             print(f"Warning: nframes not found in metadata, loading file to determine shape (plane {plane})...")
-            ops["nframes"] = file.shape[0]
-        else:
+            nframes = file.shape[0]
+        if nframes is None:
             raise KeyError(
                 "missing frame count (nframes) in ops or metadata, and cannot infer from data"
             )
+        ops["nframes"] = nframes
 
     try:
         processed = run_plane_bin(ops)
