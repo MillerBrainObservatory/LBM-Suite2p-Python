@@ -603,6 +603,7 @@ def apply_filters(
         total_removed |= removed
         filter_results.append({
             "name": name,
+            "config": config,  # original user params (without 'name' and 'save')
             "removed_mask": removed,
             "info": info,
         })
