@@ -215,8 +215,8 @@ def pipeline(
         - 'diameter': min_mult, max_mult (relative to ops['diameter'])
 
         **Default behavior**: If cell_filters is None and pixel resolution is available
-        in the metadata, a default filter of ``max_diameter_um=30`` is applied automatically.
-        To disable this, pass ``cell_filters=[]`` (empty list).
+        in the metadata, a default filter of ``min_diameter_um=4, max_diameter_um=35`` is
+        applied automatically. To disable this, pass ``cell_filters=[]`` (empty list).
 
         Example::
 
@@ -638,7 +638,7 @@ def pipeline(
                 np.save(ops_file, updated_ops)
 
                 # Apply cell filters
-                # Default: filter by max_diameter_um=30 if pixel resolution available
+                # Default: filter by 4-35µm diameter if pixel resolution available
                 from lbm_suite2p_python.postprocessing import apply_filters, _get_pixel_size
 
                 filters_to_apply = cell_filters
@@ -647,8 +647,8 @@ def pipeline(
                     current_ops = load_ops(ops_file)
                     pixel_size = _get_pixel_size(current_ops)
                     if pixel_size is not None:
-                        filters_to_apply = [{"name": "max_diameter", "max_diameter_um": 30}]
-                        print(f"  Applying default diameter filter (max 30 µm, pixel_size={pixel_size:.2f} µm/px)")
+                        filters_to_apply = [{"name": "max_diameter", "min_diameter_um": 4, "max_diameter_um": 35}]
+                        print(f"  Applying default diameter filter (4-35 µm, pixel_size={pixel_size:.2f} µm/px)")
 
                 if filters_to_apply:
                     print(f"  Applying cell filters...")

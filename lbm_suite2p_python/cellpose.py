@@ -123,6 +123,72 @@ def _normalize_image(img, percentile_low=1, percentile_high=99):
     return np.clip((img - low) / (high - low), 0, 1).astype(np.float32)
 
 
+def _generate_roi_colors(n_rois, seed=42):
+    """generate distinct colors for rois using hsv colorspace."""
+    np.random.seed(seed)
+    colors = np.zeros((n_rois + 1, 3))
+    for i in range(1, n_rois + 1):
+        h = np.random.rand()
+        s = 0.8
+        v = 0.9
+        # hsv to rgb conversion
+        c = v * s
+        x = c * (1 - abs((h * 6) % 2 - 1))
+        m = v - c
+        if h < 1/6:
+            r, g, b = c, x, 0
+        elif h < 2/6:
+            r, g, b = x, c, 0
+        elif h < 3/6:
+            r, g, b = 0, c, x
+        elif h < 4/6:
+            r, g, b = 0, x, c
+        elif h < 5/6:
+            r, g, b = x, 0, c
+        else:
+            r, g, b = c, 0, x
+        colors[i] = [r + m, g + m, b + m]
+    return colors
+
+
+def _create_mask_overlay(img, masks, alpha=0.4):
+    """create rgb overlay of masks on normalized grayscale image."""
+    img_norm = _normalize_image(img)
+    rgb = np.stack([img_norm] * 3, axis=-1)
+
+    if masks.max() > 0:
+        n_rois = int(masks.max())
+        colors = _generate_roi_colors(n_rois)
+        mask_rgb = colors[masks]
+        mask_area = masks > 0
+        rgb[mask_area] = (1 - alpha) * rgb[mask_area] + alpha * mask_rgb[mask_area]
+
+    return np.clip(rgb * 255, 0, 255).astype(np.uint8)
+
+
+def _create_outline_overlay(img, masks, outline_color=(1, 1, 0)):
+    """create rgb overlay of outlines on normalized grayscale image."""
+    from scipy import ndimage
+
+    img_norm = _normalize_image(img)
+    rgb = np.stack([img_norm] * 3, axis=-1)
+
+    if masks.max() > 0:
+        # compute outlines
+        outlines = np.zeros_like(masks, dtype=bool)
+        for roi_id in range(1, masks.max() + 1):
+            roi_mask = masks == roi_id
+            dilated = ndimage.binary_dilation(roi_mask)
+            boundary = dilated & ~roi_mask
+            outlines |= boundary
+
+        # apply outline color
+        for c in range(3):
+            rgb[:, :, c][outlines] = outline_color[c]
+
+    return np.clip(rgb * 255, 0, 255).astype(np.uint8)
+
+
 def _masks_to_stat(masks, img=None):
     """
     Convert Cellpose masks to Suite2p-style stat array.
@@ -215,6 +281,8 @@ def _save_cellpose_output(
     - stat.npy: Suite2p-compatible ROI statistics
     - cellpose_seg.npy: full Cellpose output (GUI compatible)
     - projection.tif: the image used for segmentation
+    - projection_masks.png: masks overlaid on normalized input image
+    - projection_outlines.png: outlines overlaid on normalized input image
     """
     import tifffile
 
@@ -266,6 +334,17 @@ def _save_cellpose_output(
         "est_diam": None,
     }
     np.save(save_dir / f"cellpose_seg{plane_suffix}.npy", seg_data)
+
+    # save visualization pngs
+    from PIL import Image
+
+    # masks overlay on normalized input image
+    mask_overlay = _create_mask_overlay(img, masks)
+    Image.fromarray(mask_overlay).save(save_dir / f"projection{plane_suffix}_masks.png")
+
+    # outlines overlay on normalized input image
+    outline_overlay = _create_outline_overlay(img, masks)
+    Image.fromarray(outline_overlay).save(save_dir / f"projection{plane_suffix}_outlines.png")
 
     # save metadata
     meta = metadata or {}
@@ -421,14 +500,16 @@ def cellpose(
     Output structure::
 
         save_path/
-        ├── masks_plane00.tif       # Label image for plane 0
-        ├── masks_plane00.npy       # Same as numpy array
-        ├── stat_plane00.npy        # Suite2p-compatible ROI stats
-        ├── iscell_plane00.npy      # Cell classification (all accepted)
-        ├── projection_plane00.tif  # Image used for segmentation
-        ├── cellpose_seg_plane00.npy  # Cellpose GUI-compatible output
-        ├── flows_plane00.npy       # Flow fields
-        └── cellpose_meta.npy       # Processing metadata
+        ├── masks_plane00.tif            # Label image for plane 0
+        ├── masks_plane00.npy            # Same as numpy array
+        ├── stat_plane00.npy             # Suite2p-compatible ROI stats
+        ├── iscell_plane00.npy           # Cell classification (all accepted)
+        ├── projection_plane00.tif       # Image used for segmentation
+        ├── projection_plane00_masks.png # Masks overlaid on normalized input
+        ├── projection_plane00_outlines.png  # Outlines on normalized input
+        ├── cellpose_seg_plane00.npy     # Cellpose GUI-compatible output
+        ├── flows_plane00.npy            # Flow fields
+        └── cellpose_meta.npy            # Processing metadata
 
     The outputs are compatible with:
     - Cellpose GUI (load cellpose_seg*.npy)
@@ -543,6 +624,23 @@ def cellpose(
             iscell = np.load(save_path / f"iscell{suffix}.npy")
             n_rois = len(stat)
             print(f"  Found {n_rois} existing ROIs")
+
+            # generate pngs if missing
+            masks_png = save_path / f"projection{suffix}_masks.png"
+            outlines_png = save_path / f"projection{suffix}_outlines.png"
+            if not masks_png.exists() or not outlines_png.exists():
+                import tifffile
+                from PIL import Image
+                proj_file = save_path / f"projection{suffix}.tif"
+                if proj_file.exists():
+                    proj = tifffile.imread(proj_file)
+                    print(f"  Generating visualization PNGs...")
+                    if not masks_png.exists():
+                        mask_overlay = _create_mask_overlay(proj, masks)
+                        Image.fromarray(mask_overlay).save(masks_png)
+                    if not outlines_png.exists():
+                        outline_overlay = _create_outline_overlay(proj, masks)
+                        Image.fromarray(outline_overlay).save(outlines_png)
         else:
             # compute projection
             print(f"  Computing {projection} projection...")
