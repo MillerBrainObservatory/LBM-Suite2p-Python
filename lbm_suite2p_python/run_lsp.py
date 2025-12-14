@@ -673,7 +673,7 @@ def pipeline(
                         # Generate filter comparison plot
                         if removed_mask.sum() > 0:
                             try:
-                                from lbm_suite2p_python.zplane import plot_filtered_cells
+                                from lbm_suite2p_python.zplane import plot_filtered_cells, plot_filter_exclusions
                                 fig = plot_filtered_cells(
                                     plane_dir,
                                     iscell_original=iscell_original,
@@ -682,6 +682,18 @@ def pipeline(
                                 )
                                 import matplotlib.pyplot as plt
                                 plt.close(fig)
+
+                                # per-filter exclusion plots and metadata
+                                filter_metadata = plot_filter_exclusions(
+                                    plane_dir=plane_dir,
+                                    iscell_filtered=iscell_filtered,
+                                    filter_results=filter_results,
+                                    save_dir=plane_dir,
+                                )
+                                # save filter metadata to ops
+                                updated_ops = load_ops(ops_file)
+                                updated_ops["filter_metadata"] = filter_metadata
+                                np.save(ops_file, updated_ops)
                             except Exception as e:
                                 print(f"  Warning: Filter plot failed: {e}")
                     except Exception as e:
