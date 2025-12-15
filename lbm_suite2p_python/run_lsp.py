@@ -784,7 +784,7 @@ def pipeline(
                 print(f"  Warning: plot_orthoslices failed: {e}")
 
             try:
-                plot_3d_roi_map(all_ops_files, save_path / "roi_map_3d.png", color_by="activity")
+                plot_3d_roi_map(all_ops_files, save_path / "roi_map_3d.png", color_by="snr")
             except Exception as e:
                 print(f"  Warning: plot_3d_roi_map failed: {e}")
 
