@@ -16,6 +16,8 @@ import matplotlib.gridspec as gridspec
 
 from scipy.ndimage import distance_transform_edt
 
+from mbo_utilities.metadata import get_param
+
 from lbm_suite2p_python.postprocessing import (
     load_ops,
     load_planar_results,
@@ -846,7 +848,7 @@ def plot_projection(
         stat = res["stat"]
         iscell_mask = res["iscell"][:, 0].astype(bool)
         im = ROI.stats_dicts_to_3d_array(
-            stat, Ly=ops["Ly"], Lx=ops["Lx"], label_id=True
+            stat, Ly=get_param(ops, "Ly", default=512), Lx=get_param(ops, "Lx", default=512), label_id=True
         )
         im[im == 0] = np.nan
         accepted_cells = np.sum(iscell_mask)
@@ -3211,13 +3213,14 @@ def plot_regional_zoom(
     """
     plane_dir = Path(plane_dir)
 
-    # Load results
+    # load results
     res = load_planar_results(plane_dir)
     ops = load_ops(plane_dir)
 
-    Ly, Lx = ops["Ly"], ops["Lx"]
+    Ly = get_param(ops, "Ly", default=512)
+    Lx = get_param(ops, "Lx", default=512)
 
-    # Get background image
+    # get background image
     if img_key in ops:
         img = ops[img_key]
     elif img_key == "max_proj" and "max_proj" not in ops:
@@ -3349,19 +3352,20 @@ def plot_filtered_cells(
     """
     plane_dir = Path(plane_dir)
 
-    # Load results
+    # load results
     res = load_planar_results(plane_dir)
     ops = load_ops(plane_dir)
 
-    Ly, Lx = ops["Ly"], ops["Lx"]
+    Ly = get_param(ops, "Ly", default=512)
+    Lx = get_param(ops, "Lx", default=512)
 
-    # Get background image
+    # get background image
     if img_key in ops:
         img = ops[img_key]
     else:
         img = ops.get("meanImg", np.zeros((Ly, Lx)))
 
-    # Normalize iscell arrays to 1D boolean
+    # normalize iscell arrays to 1D boolean
     if iscell_original.ndim == 2:
         iscell_original = iscell_original[:, 0]
     if iscell_filtered.ndim == 2:
@@ -3448,6 +3452,161 @@ def plot_filtered_cells(
         plt.show()
 
     return fig
+
+
+def plot_filter_exclusions(
+    plane_dir,
+    iscell_filtered,
+    filter_results: list,
+    stat=None,
+    ops=None,
+    img_key: str = "max_proj",
+    alpha: float = 0.5,
+    save_dir=None,
+    figsize: tuple = (12, 6),
+):
+    """
+    Create one PNG per filter showing cells it excluded.
+
+    For each filter that rejected cells, creates a visualization with:
+    - Accepted cells (green)
+    - Cells rejected by this specific filter (red)
+    - Title with filter name and parameters
+
+    Parameters
+    ----------
+    plane_dir : str or Path
+        Path to Suite2p plane directory.
+    iscell_filtered : np.ndarray
+        Final filtered iscell array (n_rois,) or (n_rois, 2).
+    filter_results : list of dict
+        Results from apply_filters(), each dict has 'name', 'removed_mask', 'info'.
+    stat : np.ndarray, optional
+        Suite2p stat array. If None, loads from plane_dir.
+    ops : dict, optional
+        Suite2p ops dict. If None, loads from plane_dir.
+    img_key : str, default "max_proj"
+        Key in ops for background image.
+    alpha : float, default 0.5
+        Overlay transparency.
+    save_dir : str or Path, optional
+        Directory to save PNGs. Defaults to plane_dir.
+    figsize : tuple, default (12, 6)
+        Figure size.
+
+    Returns
+    -------
+    dict
+        Filter metadata: {filter_name: {params, n_rejected, n_remaining}}
+    """
+    plane_dir = Path(plane_dir)
+    save_dir = Path(save_dir) if save_dir else plane_dir
+
+    # load data if needed
+    if stat is None:
+        stat = np.load(plane_dir / "stat.npy", allow_pickle=True)
+    if ops is None:
+        ops = load_ops(plane_dir)
+
+    Ly = get_param(ops, "Ly", default=512)
+    Lx = get_param(ops, "Lx", default=512)
+
+    # get background image
+    if img_key in ops:
+        img = ops[img_key]
+    else:
+        img = ops.get("meanImg", np.zeros((Ly, Lx)))
+
+    # normalize iscell
+    if iscell_filtered.ndim == 2:
+        iscell_filtered = iscell_filtered[:, 0]
+    accepted_mask = iscell_filtered.astype(bool)
+
+    # normalize image
+    img_norm = normalize99(img)
+    img_rgb = np.stack([img_norm] * 3, axis=-1).astype(np.float32)
+
+    # create accepted cells mask (used in all figures)
+    mask_accepted = stat_to_mask(stat[accepted_mask], Ly, Lx)
+
+    filter_metadata = {}
+
+    for result in filter_results:
+        name = result["name"]
+        removed_mask = result["removed_mask"]
+        info = result["info"]
+        config = result.get("config", {})
+        n_rejected = removed_mask.sum()
+
+        if n_rejected == 0:
+            continue
+
+        # build params from user config first (more meaningful), then computed info
+        params = {}
+        # user-specified params
+        for key in ["min_diameter_um", "max_diameter_um", "min_diameter_px", "max_diameter_px",
+                    "min_area_px", "max_area_px", "min_mult", "max_mult", "max_ratio"]:
+            if key in config and config[key] is not None:
+                val = config[key]
+                params[key] = round(val, 1) if isinstance(val, float) else val
+        # computed params (fallback if no user config)
+        if not params:
+            for key in ["min_px", "max_px", "min_ratio", "max_ratio", "lower_px", "upper_px"]:
+                if key in info and info[key] is not None:
+                    params[key] = round(info[key], 1)
+
+        # create mask for rejected cells
+        mask_rejected = stat_to_mask(stat[removed_mask], Ly, Lx)
+
+        # create figure
+        fig, ax = plt.subplots(figsize=figsize)
+
+        overlay = img_rgb.copy()
+
+        # draw accepted cells (green)
+        if mask_accepted.max() > 0:
+            mask_px = mask_accepted > 0
+            overlay[mask_px] = (1 - alpha) * overlay[mask_px] + alpha * np.array([0.2, 0.8, 0.2])
+
+        # draw rejected cells (red)
+        if mask_rejected.max() > 0:
+            mask_px = mask_rejected > 0
+            overlay[mask_px] = (1 - alpha) * overlay[mask_px] + alpha * np.array([0.9, 0.2, 0.2])
+
+        ax.imshow(overlay)
+        ax.axis("off")
+
+        # title with filter info
+        params_str = ", ".join(f"{k}={v}" for k, v in params.items())
+        title = f"{name}: {n_rejected} excluded"
+        if params_str:
+            title += f" ({params_str})"
+        ax.set_title(title, fontsize=12, fontweight="bold")
+
+        # legend
+        from matplotlib.patches import Patch
+        legend_elements = [
+            Patch(facecolor=(0.2, 0.8, 0.2), alpha=0.7, label=f"Accepted ({accepted_mask.sum()})"),
+            Patch(facecolor=(0.9, 0.2, 0.2), alpha=0.7, label=f"Excluded ({n_rejected})"),
+        ]
+        ax.legend(handles=legend_elements, loc="upper right", fontsize=10)
+
+        plt.tight_layout()
+
+        # save
+        save_path = save_dir / f"14_filter_{name}.png"
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
+        plt.close(fig)
+        print(f"  Saved {save_path.name}")
+
+        # store metadata
+        filter_metadata[name] = {
+            "params": params,
+            "n_rejected": int(n_rejected),
+            "n_remaining": int(accepted_mask.sum()),
+        }
+
+    return filter_metadata
 
 
 def plot_diameter_histogram(

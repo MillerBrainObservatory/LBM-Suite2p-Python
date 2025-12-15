@@ -1,5 +1,8 @@
 """MBO Default ops"""
 
+from mbo_utilities.metadata import get_param, get_voxel_size
+
+
 def s2p_ops():
     """ default options to run pipeline """
     return {
@@ -204,9 +207,13 @@ def default_ops(metadata=None, ops=None):
         ops = s2p_ops()
 
     if metadata is not None:
-        ops["fs"] = metadata["frame_rate"]
-        ops["dx"] = [metadata["pixel_resolution"][0]]
-        ops["dy"] = [metadata["pixel_resolution"][1]]
+        fs = get_param(metadata, "fs")
+        if fs is not None:
+            ops["fs"] = fs
+        voxel = get_voxel_size(metadata)
+        if voxel.dx != 1.0 or voxel.dy != 1.0:
+            ops["dx"] = voxel.dx
+            ops["dy"] = voxel.dy
 
     ops["nplanes"] = 1
     ops["nchannels"] = 1
