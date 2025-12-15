@@ -3,6 +3,10 @@
 
 This page compares how different calcium imaging analysis pipelines handle ΔF/F calculation, neuropil correction, and spike deconvolution.
 
+```{warning}
+**Unit Awareness:** Different pipelines use different units and conventions. Suite2p outputs raw fluorescence values while CaImAn outputs ΔF/F directly. Always check the documentation for each pipeline to understand what units your traces are in before comparing across tools.
+```
+
 ## ΔF/F Calculation Methods
 
 Different pipelines handle ΔF/F₀ differently:
@@ -19,7 +23,7 @@ CaImAn computes ΔF/F₀ using a **running low-percentile baseline**. By default
 
 **Neuropil/background:** CaImAn handles this as part of its CNMF model. Background and neuropil are explicitly separated into distinct spatial/temporal components, so the output traces are background subtracted during this factorization.
 
-```{figure} _images/dff_baseline_strategies_caiman.png
+```{figure} _images/dff/dff_baseline_strategies_caiman.png
 :alt: CaImAn default DF/F strategy
 :name: pc-fig-dff-caiman
 :width: 100%
@@ -39,7 +43,7 @@ F_corrected = F - 0.7 * Fneu
 
 The 0.7 is an empirically chosen scalar to account for the partial contamination. Essentially you subtract 70% of the signal contained in the surrounding neuropil.
 
-```{figure} _images/dff_oasis.png
+```{figure} _images/dff/dff_oasis.png
 :name: pc-fig-dff-oasis
 :width: 100%
 
@@ -89,6 +93,10 @@ Choosing an incorrect τ biases both spike amplitude and inferred firing rate.
 
 ## See Also
 
+```{seealso}
 - {doc}`User Guide <user_guide>` - Complete processing guide
+- {doc}`Processing Flow <processing_flow>` - Suite2p internal processing steps
+- {doc}`Postprocessing <postprocessing>` - ΔF/F and filtering functions
 - [Suite2p Documentation](https://suite2p.readthedocs.io/) - Suite2p parameter details
 - [CaImAn Documentation](https://caiman.readthedocs.io/) - CaImAn algorithm details
+```

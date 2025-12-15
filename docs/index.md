@@ -26,7 +26,7 @@ maxdepth: 1
 ---
 user_guide
 postprocessing
-cellpose_comparison
+processing_flow
 API Reference <api>
 glossary
 ```
@@ -37,7 +37,6 @@ caption: Additional Resources
 hidden: true
 maxdepth: 1
 ---
-discussions/index
 image_gallery
 pipeline_comparison
 ```

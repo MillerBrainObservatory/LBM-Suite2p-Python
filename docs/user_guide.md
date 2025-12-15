@@ -235,7 +235,7 @@ def compute_enhanced_mean_image(mean_img, diameter=12):
     return I
 ```
 
-```{figure} _images/02_max_projection.png
+```{figure} _images/outputs/02_max_projection.png
 :alt: Maximum Intensity Projection
 :name: ug-fig-max-proj
 :width: 50%
@@ -243,7 +243,7 @@ def compute_enhanced_mean_image(mean_img, diameter=12):
 **Maximum intensity projection** (`max_proj`) computed as `mov_hp.max(axis=0)` from the temporally high-pass filtered registered movie. Highlights the brightest pixels over time, useful for identifying highly active regions and checking for motion artifacts. This is the image used when `anatomical_only=4`.
 ```
 
-```{figure} _images/04_mean_enhanced.png
+```{figure} _images/outputs/04_mean_enhanced.png
 :alt: Enhanced Mean Image
 :name: ug-fig-mean-enhanced
 :width: 50%
@@ -255,7 +255,7 @@ def compute_enhanced_mean_image(mean_img, diameter=12):
 
 Each reference image has a corresponding segmentation overlay showing detected ROIs:
 
-```{figure} _images/04_mean_enhanced_segmentation.png
+```{figure} _images/outputs/04_mean_enhanced_segmentation.png
 :alt: Segmentation Overlay
 :name: ug-fig-segmentation
 :width: 50%
@@ -267,7 +267,7 @@ Each reference image has a corresponding segmentation overlay showing detected R
 
 The quality diagnostics panel provides a multi-metric view of ROI quality:
 
-```{figure} _images/05_quality_diagnostics.png
+```{figure} _images/outputs/05_quality_diagnostics.png
 :alt: Quality Diagnostics
 :name: ug-fig-quality-diag
 :width: 100%
@@ -283,7 +283,7 @@ Use these metrics to tune parameters like `max_overlap`, `threshold_scaling`, an
 
 #### Fluorescence Traces
 
-```{figure} _images/07_traces_raw.png
+```{figure} _images/outputs/07_traces_raw.png
 :alt: Raw Fluorescence Traces
 :name: ug-fig-traces-raw
 :width: 100%
@@ -291,7 +291,7 @@ Use these metrics to tune parameters like `max_overlap`, `threshold_scaling`, an
 **Raw fluorescence traces** for the top 20 neurons sorted by quality score. The y-axis shows fluorescence intensity (arbitrary units), x-axis shows time in seconds.
 ```
 
-```{figure} _images/08_traces_dff.png
+```{figure} _images/outputs/08_traces_dff.png
 :alt: ΔF/F Traces
 :name: ug-fig-traces-dff
 :width: 100%
@@ -430,7 +430,7 @@ The noise histograms (`10_noise_accepted.png`, `11_noise_rejected.png`) show **s
 | 1.0-2.0 %/√Hz | Fair | May need filtering or careful analysis |
 | > 2.0 %/√Hz | Poor | Consider excluding or investigating |
 
-```{figure} _images/noise_comp.png
+```{figure} _images/outputs/noise_comp.png
 :alt: High vs Low Noise Levels
 :name: ug-fig-noise-planar
 :width: 100%
@@ -487,7 +487,7 @@ When processing multiple planes with `lsp.pipeline()`, additional files are gene
 
 #### All Planes Masks
 
-```{figure} _images/all_planes_masks.png
+```{figure} _images/volume/all_planes_masks.png
 :alt: All Planes Masks
 :name: ug-fig-all-planes
 :width: 100%
@@ -497,7 +497,7 @@ When processing multiple planes with `lsp.pipeline()`, additional files are gene
 
 #### Orthogonal Slices
 
-```{figure} _images/orthoslices.png
+```{figure} _images/volume/orthoslices.png
 :alt: Orthoslices
 :name: ug-fig-orthoslices
 :width: 80%
@@ -507,7 +507,7 @@ When processing multiple planes with `lsp.pipeline()`, additional files are gene
 
 #### 3D ROI Map
 
-```{figure} _images/roi_map_3d_snr.png
+```{figure} _images/volume/roi_map_3d_snr.png
 :alt: 3D ROI Map
 :name: ug-fig-roi-3d
 :width: 80%
@@ -517,7 +517,7 @@ When processing multiple planes with `lsp.pipeline()`, additional files are gene
 
 #### Volume Trace Analysis
 
-```{figure} _images/volume_trace_analysis.png
+```{figure} _images/volume/volume_trace_analysis.png
 :alt: Volume Trace Analysis
 :name: ug-fig-vol-trace
 :width: 100%
@@ -532,7 +532,7 @@ This visualization helps identify depth-dependent signal quality and synchronize
 
 #### Rastermap (Volume-wide)
 
-```{figure} _images/rastermap.png
+```{figure} _images/outputs/rastermap.png
 :alt: Rastermap
 :name: ug-fig-rastermap-vol
 :width: 100%
@@ -738,7 +738,7 @@ Example dataset collected by Will Snyder with Dr. Charles Gilbert @ Rockefeller 
 
 To see the effect of each parameter on segmentation results, it's helpful to start with default parameters as a baseline.
 
-```{figure} _images/default_parameters.png
+```{figure} _images/parameters/default_parameters.png
 :name: fig-default-params
 :alt: Default parameter segmentation results
 
@@ -747,7 +747,7 @@ Default parameters yield **324** accepted and **737** rejected neurons.
 
 Visually it may be evident that we're missing a few obvious cells:
 
-```{figure} _images/default_parameters_subset.png
+```{figure} _images/parameters/default_parameters_subset.png
 :name: fig-default-params-subset
 :alt: Zoomed view showing missed cells
 
@@ -771,7 +771,7 @@ Multiplier for detection threshold. **Lower values detect more ROIs.**
 ops["threshold_scaling"] = 0.9  # More sensitive detection
 ```
 
-```{figure} _images/default_params_thr.png
+```{figure} _images/parameters/default_params_thr.png
 :name: fig-threshold-scaling
 :alt: Effect of threshold_scaling on detected cells
 
@@ -798,7 +798,7 @@ Determines bin size: `bin_size = tau * fs`
 ops["tau"] = 1.0  # For GCaMP6f/8 at 17 Hz → ~17 frames/bin
 ```
 
-```{figure} _images/default_parameters_tau.png
+```{figure} _images/parameters/default_parameters_tau.png
 :name: fig-tau-effect
 :alt: Effect of tau on detected cells
 
@@ -842,7 +842,7 @@ Maximum allowed spatial overlap between ROIs (0-1). If two masks overlap by a fr
 ops["max_overlap"] = 0.85  # Allow more overlap for dense regions
 ```
 
-```{figure} _images/default_parameters_max_overlap.png
+```{figure} _images/parameters/default_parameters_max_overlap.png
 :name: fig-max-overlap
 :alt: Effect of max_overlap on detected cells
 
@@ -855,7 +855,7 @@ Gaussian filter size applied during functional cell detection to reduce backgrou
 
 A good value for `spatial_hp_detect` will decrease the brightness of the background while increasing the contrast between background and neuron.
 
-```{figure} _images/default_parameters_spatial_hp_detect.png
+```{figure} _images/parameters/default_parameters_spatial_hp_detect.png
 :name: fig-spatial-hp
 :alt: Effect of spatial_hp_detect on detected cells
 
@@ -1185,48 +1185,19 @@ lsp.grid_search(
 
 ## Post-Processing Filters
 
-LBM-Suite2p-Python includes filters to refine cell selection:
+LBM-Suite2p-Python includes filters to refine cell selection after detection. These filters can remove ROIs based on size, shape, and activity metrics.
+
+```{seealso}
+For complete filter documentation and examples, see {doc}`Postprocessing <postprocessing>`.
+```
+
+**Quick example:**
 
 ```python
-from lbm_suite2p_python.postprocessing import (
-    filter_by_diameter,
-    filter_by_area,
-    filter_by_eccentricity,
-    compute_event_exceptionality
-)
+from lbm_suite2p_python.postprocessing import filter_by_diameter, filter_by_area
 
-# Load results
-results = load_planar_results(ops_path)
-iscell = results['iscell']
-stat = results['stat']
-ops = results['ops']
-
-# Filter by size relative to median
-iscell = filter_by_diameter(
-    iscell, stat, ops,
-    min_mult=0.3,  # Reject if <30% of median diameter
-    max_mult=3.0   # Reject if >300% of median diameter
-)
-
-# Filter by area
-iscell = filter_by_area(
-    iscell, stat,
-    min_mult=0.25,  # Reject if <25% of median area
-    max_mult=4.0    # Reject if >400% of median area
-)
-
-# Filter elongated ROIs
-iscell = filter_by_eccentricity(
-    iscell, stat,
-    max_ratio=5.0  # Reject if bounding box ratio >5:1
-)
-
-# Compute event exceptionality (for rare event detection)
-fitness, erfc, sd_r, md = compute_event_exceptionality(
-    results['spks'],
-    N=5,  # Consecutive samples
-    robust_std=False
-)
+iscell = filter_by_diameter(iscell, stat, ops, min_mult=0.3, max_mult=3.0)
+iscell = filter_by_area(iscell, stat, min_mult=0.25, max_mult=4.0)
 ```
 
 ---
@@ -1264,80 +1235,23 @@ Images are stitched horizontally, stat arrays concatenated.
 
 ## ΔF/F Calculation
 
-The gold-standard formula for measuring cellular activity is "Delta F over F₀", or the change in fluorescence intensity normalized by the baseline activity:
+The gold-standard formula for measuring cellular activity is ΔF/F₀ (delta F over F naught), which normalizes fluorescence change by baseline:
 
-```{math}
-:class: center large
-
-\Delta F/F_0 = \frac{F - F_0}{F_0}
-```
-
-Here, F₀ is a user-defined baseline that may be static (e.g., median over all frames) or dynamically estimated using a rolling window.
-
-::::{grid}
-:::{grid-item-card} Key Takeaways
-:columns: 12
-
-- $\Delta F/F$ reflects intracellular calcium levels, but often in a nonlinear way
-- GCaMP behaves differently due to its low baseline brightness and its nonlinearity
-- There is no single recipe on how to compute $\Delta F/F$
-- Computation of $\Delta F/F$ must be adapted to cell types, activity patterns, and noise
-
-:::
-::::
-
-```{figure} _images/plot_traces_dff_50n.png
-:alt: Cell Activity (ΔF/F)
-:name: ug-fig-dff-activity
-:width: 100%
-
-ΔF/F traces for 50 cells, sorted by similarity using the [Rastermap](https://github.com/MouseLand/rastermap) algorithm.
-```
-
-### Baseline F₀ Strategies
-
-Choosing the correct baseline strategy depends on many factors:
-
-- Cell type
-- Brain location
-- Frame-rate
-- Virus Kinetics
-- Scientific question
-
-| **Method**                         | **How It's Performed**                                                                 | **Pros**                                                      | **Cons**                                                             |
-|-----------------------------------|-----------------------------------------------------------------------------------------|----------------------------------------------------------------|------------------------------------------------------------------------|
-| **Percentile Baseline Subtraction**| Use a moving window to define F₀ as low percentile (e.g., 10–20th) of the trace.       | Adaptive baseline; handles long-term drift.                    | Choice of window size/percentile affects sensitivity.                |
-| **Z-Score Thresholding**          | Normalize trace by mean/SD, define events above N standard deviations.                | Removes baseline drift; good for noisy data.                   | Sensitive to noise if SD is low; assumes Gaussian distribution.      |
-| **dF/F Thresholding**             | Compute (F − F₀)/F₀ and define a fixed or adaptive threshold for events.              | Widely used; compatible with GCaMP, Fluo dyes.                | Sensitive to F₀ definition; arbitrary thresholds can bias results.  |
-| **Standard Deviation (SD) Masking**| Define active frames/regions where ΔF exceeds N×SD of baseline.                        | Objective thresholding for event detection.                    | Threshold choice heavily affects results.                            |
-| **Image Subtraction (Frame-to-Frame)**| Compute ΔF = Fₙ − Fₙ₋₁ or F − background to detect sudden changes.                   | Simple, fast; used for wave detection.                         | Sensitive to noise; misses gradual changes.                          |
-
-```{figure} _images/dff_baseline_strategies2.png
-:alt: Comparison of dF/F baseline strategies
-:name: ug-fig-dff-strategies
-:width: 100%
-
-Comparison of different ΔF/F₀ baseline correction methods across selected cells.
-```
-
-```{figure} _images/dff_baseline_strategies_dff.png
-:alt: Resulting DFF values from baseline strategies
-:name: ug-fig-dff-dff
-:width: 100%
-
-The resulting ΔF/F₀ traces can look different depending on the chosen baseline strategy.
-```
-
-```{figure} _images/dff_baseline_strategies_events.png
-:alt: Resulting DFF values from baseline strategies with Events
-:name: ug-fig-dff-dff-ev
-:width: 100%
-
-The resulting ΔF/F₀ traces with detected events overlaid.
-```
+$$\Delta F/F_0 = \frac{F - F_0}{F_0}$$
 
 ```{seealso}
-For a comparison of how different pipelines (CaImAn, Suite2p, EXTRACT) handle ΔF/F calculation, see {doc}`Pipeline Comparison <pipeline_comparison>`.
+For complete ΔF/F functions, noise estimation, and quality scoring, see {doc}`Postprocessing <postprocessing>`.
+
+For comparisons of how different pipelines (CaImAn, Suite2p, EXTRACT) handle ΔF/F, see {doc}`Pipeline Comparison <pipeline_comparison>`.
+```
+
+**Quick example:**
+
+```python
+from lbm_suite2p_python import dff_rolling_percentile
+
+# window_size = 10 × tau × framerate
+dff = dff_rolling_percentile(F, window_size=300, percentile=20)
 ```
 
 ---

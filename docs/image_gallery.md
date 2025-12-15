@@ -22,17 +22,17 @@ Scan-phase diagram
 ```
 -->
 
-```{figure} ./_images/ex_offset.svg
+```{figure} ./_images/diagrams/ex_offset.svg
 :alt: ex_offset
 :name: ex_offset
 ```
 
-```{figure} ./_images/ex_retile.svg
+```{figure} ./_images/diagrams/ex_retile.svg
 :alt: ex_retile
 :name: ex_retile
 ```
 
-```{figure} ./_images/ex_diagram.svg
+```{figure} ./_images/diagrams/ex_diagram.svg
 :alt: ex_diagram
 :name: ex_diagram
 ```
@@ -51,19 +51,19 @@ Scan-phase diagram
 ```
 -->
 
-```{figure} ./_images/ex_deinterleave.svg
+```{figure} ./_images/diagrams/ex_deinterleave.svg
 :alt: ex_deinterleave
 :name: ex_deinterleave
 ```
 
 <!-- General -->
 
-```{figure} ./_images/gen_param_v_arg.png
+```{figure} ./_images/diagrams/gen_param_v_arg.png
 :alt: gen_param_v_arg
 :name: gen_param_v_arg
 ```
 
-```{figure} ./_images/gen_array_page.gif
+```{figure} ./_images/diagrams/gen_array_page.gif
 :alt: gen_array_page
 :name: gen_array_page
 ```
