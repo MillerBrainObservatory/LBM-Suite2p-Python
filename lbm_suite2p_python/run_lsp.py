@@ -438,14 +438,14 @@ def pipeline(
     save_path = Path(save_path)
     save_path.mkdir(exist_ok=True, parents=True)
 
-    # === STEP 2: Configure ROI on the lazy array ===
+    # Configure ROI on the lazy array
     # This lets the array handle stitching/splitting internally
     if roi is not None and supports_roi(arr):
         arr.roi = roi
         roi_desc = {None: "stitch all", 0: "split all"}.get(roi, f"ROI {roi} only")
         print(f"  ROI mode: {roi_desc}")
 
-    # === STEP 3: Extract metadata and configure ops ===
+    # Extract metadata and configure ops
     metadata = dict(getattr(arr, "metadata", {}) or {})
 
     # Get dimensions from the array (which now reflects ROI setting)
@@ -502,7 +502,7 @@ def pipeline(
     print(f"  Planes: {[p+1 for p in planes_to_process]}")
     print(f"  Output: {save_path}")
 
-    # === STEP 4: Process each plane and ROI combination ===
+    # Process each plane and ROI combination
     all_ops_files = []
     has_multiple_rois = supports_roi(arr) and getattr(arr, "num_rois", 1) > 1
 
@@ -763,7 +763,7 @@ def pipeline(
             plane_elapsed = time.time() - plane_start
             print(f"  Completed {plane_tag} in {plane_elapsed:.1f}s")
 
-    # === STEP 5: Generate volumetric outputs if multiple planes ===
+    # Generate volumetric outputs if multiple planes
     if len(planes_to_process) > 1 and all_ops_files:
         print(f"\n{'='*60}")
         print("Generating volumetric statistics...")

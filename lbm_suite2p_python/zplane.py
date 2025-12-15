@@ -2507,7 +2507,7 @@ def plot_zplane_figures(
         n_rejected = F_rejected.shape[0]
         print(f"Plotting results for {n_accepted} accepted / {n_rejected} rejected ROIs")
 
-        # --- RASTERMAP (only for sufficient cell counts) ---
+        # Rastermap (only for sufficient cell counts)
         # rastermap sorts neurons by activity similarity for visualization
         # we cache the model to avoid recomputing, but validate it matches current data
         model = None
@@ -2591,7 +2591,7 @@ def plot_zplane_figures(
                         output_ops["isort"] = isort_global
                         F_accepted = F_accepted[isort]
 
-        # --- COMPUTE ΔF/F ---
+        # Compute dF/F
         fs = output_ops.get("fs", 1.0)
         tau = output_ops.get("tau", 1.0)
 
@@ -2640,7 +2640,7 @@ def plot_zplane_figures(
             dffp_rej_unsmoothed = np.zeros((0, F.shape[1]))
             dffp_rej = np.zeros((0, F.shape[1]))
 
-        # --- TRACE PLOTS (robust to any cell count >= 1) ---
+        # Trace plots (robust to any cell count >= 1)
         # Sort traces by quality score (SNR, skewness, shot noise) for visualization
         # Generate plots with 20, 50, and 100 cells if available
 
@@ -2711,7 +2711,7 @@ def plot_zplane_figures(
         else:
             print("  No rejected ROIs - skipping rejected trace plots")
 
-        # --- NOISE DISTRIBUTIONS (robust to any cell count >= 1) ---
+        # Noise distributions (robust to any cell count >= 1)
         # Use unsmoothed dF/F for shot noise (smoothing artificially reduces noise)
         if n_accepted > 0:
             dff_noise_acc = dff_shot_noise(dffp_acc_unsmoothed, fs)
@@ -2729,7 +2729,7 @@ def plot_zplane_figures(
                 title=f"Shot-Noise Distribution (Rejected, n={n_rejected})",
             )
 
-        # --- SEGMENTATION OVERLAYS ---
+        # Segmentation overlays
         # Suite2p stores images in two coordinate systems:
         # - FULL space: refImg, meanImg, meanImgE (same size as original Ly x Lx)
         # - CROPPED space: max_proj, Vcorr (size determined by yrange/xrange after registration)
@@ -2839,7 +2839,7 @@ def plot_zplane_figures(
                     title=f"Correlation Image - Accepted ROIs (n={n_accepted})"
                 )
 
-    # --- SUMMARY IMAGES (no masks) - always generated ---
+    # Summary images (no masks) - always generated
     fig_label = kwargs.get("fig_label", plane_dir.stem)
     for key in ["meanImg", "max_proj", "meanImgE"]:
         if key in output_ops and output_ops[key] is not None:
@@ -2855,7 +2855,7 @@ def plot_zplane_figures(
             except Exception as e:
                 print(f"  Failed to plot {key}: {e}")
 
-    # --- QUALITY DIAGNOSTICS ---
+    # Quality diagnostics
     try:
         plot_plane_diagnostics(plane_dir, save_path=expected_files["quality_diagnostics"])
     except Exception as e:

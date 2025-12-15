@@ -842,7 +842,7 @@ def plot_volume_diagnostics(
     cmap = plt.cm.viridis
     plane_colors = {p: cmap(i / max(1, n_planes - 1)) for i, p in enumerate(planes)}
 
-    # ========== Panel 1: ROI Counts per Plane ==========
+    # Panel 1: ROI counts per plane
     ax1 = fig.add_subplot(gs[0, 0])
     ax1.set_facecolor("black")
 
@@ -875,7 +875,7 @@ def plot_volume_diagnostics(
     ax1.spines["left"].set_color("white")
     ax1.legend(fontsize=7, facecolor="#1a1a1a", edgecolor="white", labelcolor="white", loc="upper right")
 
-    # ========== Panel 2: Mean Signal per Plane ==========
+    # Panel 2: mean signal per plane
     ax2 = fig.add_subplot(gs[0, 1])
     ax2.set_facecolor("black")
 
@@ -893,7 +893,7 @@ def plot_volume_diagnostics(
     ax2.spines["left"].set_color("white")
     ax2.legend(fontsize=7, facecolor="#1a1a1a", edgecolor="white", labelcolor="white")
 
-    # ========== Panel 3: SNR Distribution (violin or box per plane) ==========
+    # Panel 3: SNR distribution per plane
     ax3 = fig.add_subplot(gs[1, 0])
     ax3.set_facecolor("black")
 
@@ -928,7 +928,7 @@ def plot_volume_diagnostics(
     if len(all_snr) > 0:
         ax3.legend(fontsize=7, facecolor="#1a1a1a", edgecolor="white", labelcolor="white")
 
-    # ========== Panel 4: Size Distribution (box per plane) ==========
+    # Panel 4: size distribution per plane
     ax4 = fig.add_subplot(gs[1, 1])
     ax4.set_facecolor("black")
 
@@ -963,7 +963,7 @@ def plot_volume_diagnostics(
     if len(all_npix) > 0:
         ax4.legend(fontsize=7, facecolor="#1a1a1a", edgecolor="white", labelcolor="white")
 
-    # ========== Panel 5: Compactness Distribution per Plane ==========
+    # Panel 5: compactness distribution per plane
     ax5 = fig.add_subplot(gs[2, 0])
     ax5.set_facecolor("black")
 
@@ -1005,7 +1005,7 @@ def plot_volume_diagnostics(
     ax5.spines["bottom"].set_color("white")
     ax5.spines["left"].set_color("white")
 
-    # ========== Panel 6: Skewness Distribution per Plane ==========
+    # Panel 6: skewness distribution per plane
     ax6 = fig.add_subplot(gs[2, 1])
     ax6.set_facecolor("black")
 
@@ -1221,7 +1221,7 @@ def plot_orthoslices(
 
     # colorbar
     cbar = fig.colorbar(im1, ax=[ax1, ax2, ax3], shrink=0.6, pad=0.02, location="right")
-    cbar.set_label("Max Intensity", fontsize=10, color="white")
+    cbar.set_label("Intensity (a.u.)", fontsize=10, color="white")
     cbar.ax.tick_params(colors="white")
     cbar.outline.set_edgecolor("white")
 

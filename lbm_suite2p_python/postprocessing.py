@@ -1042,12 +1042,12 @@ def compute_trace_quality_score(
     baseline = np.maximum(baseline, 1e-6)
     dff = (F_corr - baseline) / baseline
 
-    # --- SNR ---
+    # SNR
     signal = np.std(dff, axis=1)
     noise = np.median(np.abs(np.diff(dff, axis=1)), axis=1) / 0.6745
     snr = signal / (noise + 1e-6)
 
-    # --- Skewness ---
+    # Skewness
     if stat is not None:
         # Use pre-computed skewness from Suite2p stat
         skewness = np.array([s.get('skew', np.nan) for s in stat])
@@ -1059,10 +1059,10 @@ def compute_trace_quality_score(
         # Compute from traces
         skewness = skew(dff, axis=1)
 
-    # --- Shot noise ---
+    # Shot noise
     shot_noise = dff_shot_noise(dff, fs)
 
-    # --- Normalize metrics to z-scores ---
+    # Normalize metrics to z-scores
     def safe_zscore(x):
         """Z-score with handling for constant arrays."""
         std = np.nanstd(x)
@@ -1075,7 +1075,7 @@ def compute_trace_quality_score(
     # Invert shot noise (lower noise = higher score)
     shot_noise_z = -safe_zscore(shot_noise)
 
-    # --- Compute weighted score ---
+    # Compute weighted score
     score = (
         weights['snr'] * snr_z +
         weights['skewness'] * skewness_z +
