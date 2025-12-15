@@ -1246,17 +1246,18 @@ def plot_multiplane_masks(
     suite2p_path: str | Path,
     stat: np.ndarray,
     iscell: np.ndarray,
-    nrows: int = 3,
-    ncols: int = 5,
-    figsize: tuple = (20, 12),
+    nrows: int = None,
+    ncols: int = None,
+    figsize: tuple = None,
     save_path: str | Path = None,
     cmap: str = "gray",
 ) -> plt.Figure:
     """
     Plot ROI masks from all planes in a publication-quality grid layout.
 
-    Creates a multi-panel figure showing detected ROIs overlaid on mean images
+    Creates a multi-panel figure showing detected ROIs overlaid on reference images
     for each z-plane, with accepted cells in green and rejected cells in red.
+    Background image is selected based on anatomical_only setting.
 
     Parameters
     ----------
@@ -1266,12 +1267,12 @@ def plot_multiplane_masks(
         Consolidated stat array with 'iplane' field indicating plane assignment.
     iscell : np.ndarray
         Cell classification array (n_rois, 2) where column 0 is binary classification.
-    nrows : int, default 3
-        Number of rows in the figure grid.
-    ncols : int, default 5
-        Number of columns in the figure grid.
-    figsize : tuple, default (20, 12)
-        Figure size in inches (width, height).
+    nrows : int, optional
+        Number of rows in the figure grid. Auto-calculated if None.
+    ncols : int, optional
+        Number of columns in the figure grid. Auto-calculated if None.
+    figsize : tuple, optional
+        Figure size in inches (width, height). Auto-calculated if None.
     save_path : str or Path, optional
         If provided, save figure to this path. Otherwise display interactively.
     cmap : str, default "gray"
@@ -1281,105 +1282,173 @@ def plot_multiplane_masks(
     -------
     fig : matplotlib.figure.Figure
         The generated figure object.
-
-    Examples
-    --------
-    >>> stat = np.load("merged/stat.npy", allow_pickle=True)
-    >>> iscell = np.load("merged/iscell.npy")
-    >>> fig = plot_multiplane_masks("path/to/suite2p", stat, iscell)
     """
+    from scipy import ndimage
+
     suite2p_path = Path(suite2p_path)
     plane_dirs = sorted(suite2p_path.glob("plane*_stitched"))
     if not plane_dirs:
         plane_dirs = sorted(suite2p_path.glob("plane*"))
     nplanes = len(plane_dirs)
 
-    # Use a clean, publication-ready style
-    with plt.style.context("default"):
-        fig, axes = plt.subplots(
-            nrows, ncols, figsize=figsize, facecolor="white",
-            gridspec_kw={"wspace": 0.05, "hspace": 0.15}
-        )
-        axes = axes.flatten()
+    if nplanes == 0:
+        fig = plt.figure(figsize=(8, 6), facecolor="black")
+        fig.text(0.5, 0.5, "No plane directories found", ha="center", va="center",
+                fontsize=14, color="white")
+        return fig
 
-        for idx, plane_dir in enumerate(plane_dirs):
-            if idx >= len(axes):
-                break
+    # auto-calculate grid size
+    if ncols is None:
+        ncols = min(5, nplanes)
+    if nrows is None:
+        nrows = int(np.ceil(nplanes / ncols))
 
-            ax = axes[idx]
+    # auto-calculate figure size (make panels ~3 inches each)
+    if figsize is None:
+        figsize = (ncols * 3.5, nrows * 3.5)
 
-            # Extract plane number from directory name for display
-            plane_name = plane_dir.name
-            digits = "".join(filter(str.isdigit, plane_name))
-            plane_num = int(digits) if digits else idx + 1
+    fig, axes = plt.subplots(
+        nrows, ncols, figsize=figsize, facecolor="black",
+        gridspec_kw={"wspace": 0.02, "hspace": 0.08}
+    )
+    if nrows == 1 and ncols == 1:
+        axes = np.array([axes])
+    axes = axes.flatten()
 
-            # Load plane ops for mean image
-            ops_file = plane_dir / "ops.npy"
-            if ops_file.exists():
-                plane_ops = np.load(ops_file, allow_pickle=True).item()
-                img = plane_ops.get("meanImg", plane_ops.get("meanImgE"))
-                if img is None:
-                    img = np.zeros((plane_ops.get("Ly", 512), plane_ops.get("Lx", 512)))
+    for idx, plane_dir in enumerate(plane_dirs):
+        if idx >= len(axes):
+            break
+
+        ax = axes[idx]
+        ax.set_facecolor("black")
+
+        # extract plane number from directory name for display
+        plane_name = plane_dir.name
+        digits = "".join(filter(str.isdigit, plane_name))
+        plane_num = int(digits) if digits else idx + 1
+
+        # load plane ops
+        ops_file = plane_dir / "ops.npy"
+        yshift, xshift = 0, 0  # coordinate shifts for cropped images
+        if ops_file.exists():
+            plane_ops = np.load(ops_file, allow_pickle=True).item()
+            Ly = plane_ops.get("Ly", 512)
+            Lx = plane_ops.get("Lx", 512)
+
+            # get crop ranges from registration
+            yrange = plane_ops.get("yrange", [0, Ly])
+            xrange = plane_ops.get("xrange", [0, Lx])
+
+            # select background image based on anatomical_only
+            anatomical_only = plane_ops.get("anatomical_only", 0)
+            if anatomical_only >= 4:
+                # max projection for anatomical mode (cropped space)
+                img = plane_ops.get("max_proj", None)
+                if img is not None:
+                    yshift, xshift = int(yrange[0]), int(xrange[0])
+                else:
+                    img = plane_ops.get("meanImg")
+            elif anatomical_only == 0:
+                # Vcorr for functional imaging (cropped space)
+                img = plane_ops.get("Vcorr", None)
+                if img is not None:
+                    yshift, xshift = int(yrange[0]), int(xrange[0])
+                else:
+                    img = plane_ops.get("meanImg")
             else:
-                img = np.zeros((512, 512))
+                # meanImg for other modes (full space)
+                img = plane_ops.get("meanImg", plane_ops.get("meanImgE"))
 
-            # Display background image with proper contrast
-            vmin, vmax = np.nanpercentile(img, [1, 99])
-            ax.imshow(img, cmap=cmap, aspect="equal", vmin=vmin, vmax=vmax)
-
-            # Get ROIs for this plane (iplane is 0-indexed from enumeration)
-            plane_mask = np.array([s.get("iplane", 0) == idx for s in stat])
-            plane_stat = stat[plane_mask]
-            plane_iscell = iscell[plane_mask]
-
-            # Draw accepted cells (green)
-            accepted_idx = plane_iscell[:, 0] == 1
-            for s in plane_stat[accepted_idx]:
-                ypix, xpix = s["ypix"], s["xpix"]
-                ax.scatter(xpix, ypix, c="lime", s=0.3, alpha=0.7, linewidths=0)
-
-            # Draw rejected cells (red, more transparent)
-            rejected_idx = plane_iscell[:, 0] == 0
-            for s in plane_stat[rejected_idx]:
-                ypix, xpix = s["ypix"], s["xpix"]
-                ax.scatter(xpix, ypix, c="red", s=0.2, alpha=0.4, linewidths=0)
-
-            n_acc = accepted_idx.sum()
-            n_rej = rejected_idx.sum()
-
-            # Clean title with plane info
-            ax.set_title(
-                f"Plane {plane_num:02d}\n{n_acc} / {n_rej}",
-                fontsize=9, fontweight="bold", pad=3
-            )
-            ax.axis("off")
-
-        # Hide unused subplots
-        for idx in range(nplanes, len(axes)):
-            axes[idx].axis("off")
-
-        # Add legend
-        from matplotlib.lines import Line2D
-        legend_elements = [
-            Line2D([0], [0], marker="o", color="w", markerfacecolor="lime",
-                   markersize=8, label="Accepted"),
-            Line2D([0], [0], marker="o", color="w", markerfacecolor="red",
-                   markersize=8, label="Rejected"),
-        ]
-        fig.legend(
-            handles=legend_elements, loc="lower center", ncol=2,
-            fontsize=10, frameon=False, bbox_to_anchor=(0.5, 0.02)
-        )
-
-        plt.tight_layout(rect=[0, 0.05, 1, 1])
-
-        if save_path:
-            save_path = Path(save_path)
-            save_path.parent.mkdir(parents=True, exist_ok=True)
-            plt.savefig(save_path, dpi=200, bbox_inches="tight", facecolor="white")
-            plt.close(fig)
+            if img is None:
+                img = np.zeros((Ly, Lx))
         else:
-            plt.show()
+            img = np.zeros((512, 512))
+            Ly, Lx = 512, 512
+
+        # display background image with proper contrast
+        img_h, img_w = img.shape[:2]
+        vmin, vmax = np.nanpercentile(img, [1, 99.5])
+        ax.imshow(img, cmap=cmap, aspect="equal", vmin=vmin, vmax=vmax)
+
+        # get ROIs for this plane (iplane is 0-indexed from enumeration)
+        plane_mask = np.array([s.get("iplane", 0) == idx for s in stat])
+        plane_stat = stat[plane_mask]
+        plane_iscell = iscell[plane_mask]
+
+        # create mask images for accepted and rejected cells
+        accepted_mask = np.zeros((img_h, img_w), dtype=bool)
+        rejected_mask = np.zeros((img_h, img_w), dtype=bool)
+
+        accepted_idx = plane_iscell[:, 0] == 1
+        rejected_idx = plane_iscell[:, 0] == 0
+
+        for s in plane_stat[accepted_idx]:
+            # shift coordinates from full to cropped space
+            ypix = s["ypix"] - yshift
+            xpix = s["xpix"] - xshift
+            valid = (ypix >= 0) & (ypix < img_h) & (xpix >= 0) & (xpix < img_w)
+            accepted_mask[ypix[valid], xpix[valid]] = True
+
+        for s in plane_stat[rejected_idx]:
+            # shift coordinates from full to cropped space
+            ypix = s["ypix"] - yshift
+            xpix = s["xpix"] - xshift
+            valid = (ypix >= 0) & (ypix < img_h) & (xpix >= 0) & (xpix < img_w)
+            rejected_mask[ypix[valid], xpix[valid]] = True
+
+        # compute outlines
+        acc_outline = ndimage.binary_dilation(accepted_mask) & ~accepted_mask
+        rej_outline = ndimage.binary_dilation(rejected_mask) & ~rejected_mask
+
+        # create rgba overlay
+        overlay = np.zeros((img_h, img_w, 4), dtype=np.float32)
+
+        # accepted cells: green fill with outline
+        overlay[accepted_mask, :] = [0.2, 0.8, 0.2, 0.3]  # green fill
+        overlay[acc_outline, :] = [0.4, 1.0, 0.4, 0.9]  # bright green outline
+
+        # rejected cells: red fill with outline
+        overlay[rejected_mask, :] = [0.8, 0.2, 0.2, 0.2]  # red fill
+        overlay[rej_outline, :] = [1.0, 0.3, 0.3, 0.6]  # red outline
+
+        ax.imshow(overlay)
+
+        n_acc = accepted_idx.sum()
+        n_rej = rejected_idx.sum()
+
+        # title with plane info (white on black)
+        ax.set_title(
+            f"Plane {plane_num:02d}  ({n_acc}/{n_rej})",
+            fontsize=10, fontweight="bold", color="white", pad=4
+        )
+        ax.axis("off")
+
+    # hide unused subplots
+    for idx in range(nplanes, len(axes)):
+        axes[idx].set_visible(False)
+
+    # add legend
+    from matplotlib.lines import Line2D
+    from matplotlib.patches import Patch
+    legend_elements = [
+        Patch(facecolor=(0.2, 0.8, 0.2, 0.5), edgecolor=(0.4, 1.0, 0.4, 1.0),
+              linewidth=2, label="Accepted"),
+        Patch(facecolor=(0.8, 0.2, 0.2, 0.3), edgecolor=(1.0, 0.3, 0.3, 1.0),
+              linewidth=2, label="Rejected"),
+    ]
+    fig.legend(
+        handles=legend_elements, loc="lower center", ncol=2,
+        fontsize=10, frameon=False, bbox_to_anchor=(0.5, 0.01),
+        labelcolor="white"
+    )
+
+    plt.tight_layout(rect=[0, 0.04, 1, 1])
+
+    if save_path:
+        save_path = Path(save_path)
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(save_path, dpi=200, bbox_inches="tight", facecolor="black")
+        plt.close(fig)
 
     return fig
 
@@ -2971,7 +3040,52 @@ def mask_overlay(img, mask, alpha=0.5):
     return rgb
 
 
-def stat_to_mask(stat, Ly, Lx):
+def get_background_image(ops, img_key="max_proj"):
+    """
+    Get background image and coordinate offsets from ops.
+
+    Handles the coordinate space difference between full-FOV images
+    (meanImg, meanImgE, refImg) and cropped images (max_proj, Vcorr).
+
+    Parameters
+    ----------
+    ops : dict
+        Suite2p ops dictionary.
+    img_key : str
+        Key for desired image: 'max_proj', 'Vcorr', 'meanImg', 'meanImgE'.
+
+    Returns
+    -------
+    img : np.ndarray
+        Background image.
+    yoff : int
+        Y offset to subtract from stat coordinates.
+    xoff : int
+        X offset to subtract from stat coordinates.
+    """
+    Ly = ops.get("Ly", 512)
+    Lx = ops.get("Lx", 512)
+    yrange = ops.get("yrange", [0, Ly])
+    xrange = ops.get("xrange", [0, Lx])
+
+    # cropped images need coordinate adjustment
+    cropped_keys = {"max_proj", "Vcorr"}
+
+    if img_key in ops:
+        img = ops[img_key]
+        if img_key in cropped_keys:
+            yoff, xoff = int(yrange[0]), int(xrange[0])
+        else:
+            yoff, xoff = 0, 0
+    else:
+        # fallback to meanImg (full space)
+        img = ops.get("meanImg", np.zeros((Ly, Lx)))
+        yoff, xoff = 0, 0
+
+    return img, yoff, xoff
+
+
+def stat_to_mask(stat, Ly, Lx, yoff=0, xoff=0):
     """
     Convert Suite2p stat array to a 2D labeled mask.
 
@@ -2987,6 +3101,10 @@ def stat_to_mask(stat, Ly, Lx):
         Image height in pixels.
     Lx : int
         Image width in pixels.
+    yoff : int, optional
+        Y offset to subtract from stat coordinates (for cropped images).
+    xoff : int, optional
+        X offset to subtract from stat coordinates (for cropped images).
 
     Returns
     -------
@@ -3007,7 +3125,8 @@ def stat_to_mask(stat, Ly, Lx):
     """
     mask = np.zeros((Ly, Lx), dtype=np.uint16)
     for i, s in enumerate(stat):
-        ypix, xpix = s['ypix'], s['xpix']
+        ypix = s['ypix'] - yoff
+        xpix = s['xpix'] - xoff
         valid = (ypix >= 0) & (ypix < Ly) & (xpix >= 0) & (xpix < Lx)
         mask[ypix[valid], xpix[valid]] = i + 1
     return mask
@@ -3217,16 +3336,9 @@ def plot_regional_zoom(
     res = load_planar_results(plane_dir)
     ops = load_ops(plane_dir)
 
-    Ly = get_param(ops, "Ly", default=512)
-    Lx = get_param(ops, "Lx", default=512)
-
-    # get background image
-    if img_key in ops:
-        img = ops[img_key]
-    elif img_key == "max_proj" and "max_proj" not in ops:
-        img = ops.get("meanImg", np.zeros((Ly, Lx)))
-    else:
-        img = ops.get("meanImg", np.zeros((Ly, Lx)))
+    # get background image with coordinate offsets
+    img, yoff, xoff = get_background_image(ops, img_key)
+    img_h, img_w = img.shape[:2]
 
     # Get stat and optionally filter by iscell
     stat = res["stat"]
@@ -3236,21 +3348,21 @@ def plot_regional_zoom(
 
     n_cells = len(stat)
 
-    # Create mask from stat
-    mask = stat_to_mask(stat, Ly, Lx)
+    # Create mask from stat (with coordinate offset for cropped images)
+    mask = stat_to_mask(stat, img_h, img_w, yoff, xoff)
 
     # Create overlay
     overlay = mask_overlay(img, mask, alpha=alpha)
 
     # Define corner and edge regions
-    cy, cx = Ly // 2, Lx // 2
+    cy, cx = img_h // 2, img_w // 2
     zs = zoom_size
 
     regions = {
         "Top-Left": (0, zs, 0, zs),
-        "Top-Right": (0, zs, Lx - zs, Lx),
-        "Bottom-Left": (Ly - zs, Ly, 0, zs),
-        "Bottom-Right": (Ly - zs, Ly, Lx - zs, Lx),
+        "Top-Right": (0, zs, img_w - zs, img_w),
+        "Bottom-Left": (img_h - zs, img_h, 0, zs),
+        "Bottom-Right": (img_h - zs, img_h, img_w - zs, img_w),
         "Center": (cy - zs // 2, cy + zs // 2, cx - zs // 2, cx + zs // 2),
     }
 
@@ -3356,14 +3468,9 @@ def plot_filtered_cells(
     res = load_planar_results(plane_dir)
     ops = load_ops(plane_dir)
 
-    Ly = get_param(ops, "Ly", default=512)
-    Lx = get_param(ops, "Lx", default=512)
-
-    # get background image
-    if img_key in ops:
-        img = ops[img_key]
-    else:
-        img = ops.get("meanImg", np.zeros((Ly, Lx)))
+    # get background image with coordinate offsets
+    img, yoff, xoff = get_background_image(ops, img_key)
+    img_h, img_w = img.shape[:2]
 
     # normalize iscell arrays to 1D boolean
     if iscell_original.ndim == 2:
@@ -3384,9 +3491,9 @@ def plot_filtered_cells(
     n_removed = removed_mask.sum()
     n_original = iscell_original.sum()
 
-    # Create masks for visualization
-    mask_kept = stat_to_mask(stat[kept_mask], Ly, Lx)
-    mask_removed = stat_to_mask(stat[removed_mask], Ly, Lx)
+    # Create masks for visualization (with coordinate offset for cropped images)
+    mask_kept = stat_to_mask(stat[kept_mask], img_h, img_w, yoff, xoff)
+    mask_removed = stat_to_mask(stat[removed_mask], img_h, img_w, yoff, xoff)
 
     # Normalize image
     img_norm = normalize99(img)
@@ -3508,14 +3615,9 @@ def plot_filter_exclusions(
     if ops is None:
         ops = load_ops(plane_dir)
 
-    Ly = get_param(ops, "Ly", default=512)
-    Lx = get_param(ops, "Lx", default=512)
-
-    # get background image
-    if img_key in ops:
-        img = ops[img_key]
-    else:
-        img = ops.get("meanImg", np.zeros((Ly, Lx)))
+    # get background image with coordinate offsets
+    img, yoff, xoff = get_background_image(ops, img_key)
+    img_h, img_w = img.shape[:2]
 
     # normalize iscell
     if iscell_filtered.ndim == 2:
@@ -3527,7 +3629,7 @@ def plot_filter_exclusions(
     img_rgb = np.stack([img_norm] * 3, axis=-1).astype(np.float32)
 
     # create accepted cells mask (used in all figures)
-    mask_accepted = stat_to_mask(stat[accepted_mask], Ly, Lx)
+    mask_accepted = stat_to_mask(stat[accepted_mask], img_h, img_w, yoff, xoff)
 
     filter_metadata = {}
 
@@ -3556,7 +3658,7 @@ def plot_filter_exclusions(
                     params[key] = round(info[key], 1)
 
         # create mask for rejected cells
-        mask_rejected = stat_to_mask(stat[removed_mask], Ly, Lx)
+        mask_rejected = stat_to_mask(stat[removed_mask], img_h, img_w, yoff, xoff)
 
         # create figure
         fig, ax = plt.subplots(figsize=figsize)

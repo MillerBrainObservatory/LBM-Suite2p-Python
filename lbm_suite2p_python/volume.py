@@ -1072,8 +1072,8 @@ def plot_orthoslices(
     Generate orthogonal maximum intensity projections (XY, XZ, YZ) of the volume.
 
     Creates a 3-panel figure showing the volume from three orthogonal views,
-    with proper interpolation to isotropic resolution. Z-axis is displayed
-    in micrometers (depth) using voxel size metadata.
+    with proper interpolation to isotropic resolution. Axes are displayed
+    in micrometers using voxel size metadata.
 
     Parameters
     ----------
@@ -1102,12 +1102,21 @@ def plot_orthoslices(
 
     # get voxel size from first ops file
     first_ops = load_ops(ops_files[0])
+    dx_um, dy_um, dz_um = 1.0, 1.0, 15.0  # defaults (15um is typical z-step)
     try:
         from mbo_utilities.metadata import get_voxel_size
         voxel = get_voxel_size(first_ops)
-        dx_um, dy_um, dz_um = voxel.dx, voxel.dy, voxel.dz
+        # only use voxel sizes if they're not the default 1.0 placeholder
+        if voxel.dx > 0 and voxel.dx != 1.0:
+            dx_um = voxel.dx
+        if voxel.dy > 0 and voxel.dy != 1.0:
+            dy_um = voxel.dy
+        if voxel.dz > 0 and voxel.dz != 1.0:
+            dz_um = voxel.dz
     except (ImportError, Exception):
-        # fallback if mbo_utilities not available or metadata missing
+        pass
+    # fallback to ops fields
+    if dx_um == 1.0:
         pixel_res = first_ops.get("pixel_resolution", first_ops.get("um_per_pixel", None))
         if pixel_res is not None:
             if isinstance(pixel_res, (int, float)):
@@ -1115,9 +1124,10 @@ def plot_orthoslices(
             else:
                 dx_um = float(pixel_res[0]) if len(pixel_res) > 0 else 1.0
                 dy_um = float(pixel_res[1]) if len(pixel_res) > 1 else dx_um
-        else:
-            dx_um, dy_um = 1.0, 1.0
-        dz_um = float(first_ops.get("dz", first_ops.get("z_step", 15.0)))
+    if dz_um == 15.0:  # still default
+        dz_from_ops = first_ops.get("dz", first_ops.get("z_step", None))
+        if dz_from_ops is not None and dz_from_ops != 1.0:
+            dz_um = float(dz_from_ops)
 
     # collect images from all planes
     images = []
@@ -1143,78 +1153,68 @@ def plot_orthoslices(
     volume = np.stack(images, axis=0)
     nz, ny, nx = volume.shape
 
-    # compute z-depth for each plane in microns
-    z_depths_um = np.arange(nz) * dz_um
-    total_z_um = z_depths_um[-1] if nz > 1 else dz_um
+    # compute volume dimensions in microns
+    vol_x_um = nx * dx_um
+    vol_y_um = ny * dy_um
+    vol_z_um = (nz - 1) * dz_um if nz > 1 else dz_um
 
     # interpolate volume to isotropic resolution for proper orthoslices
-    # target resolution: use xy resolution, resample z accordingly
     xy_res = (dx_um + dy_um) / 2
     z_zoom = dz_um / xy_res if xy_res > 0 else 1.0
-
-    # resample volume along z for proper aspect ratio (limit to reasonable size)
-    z_zoom = min(z_zoom, 10.0)  # cap at 10x to avoid memory issues
+    z_zoom = min(z_zoom, 10.0)  # cap to avoid memory issues
     if z_zoom > 1.1:
         volume_resampled = zoom(volume, (z_zoom, 1, 1), order=1)
     else:
         volume_resampled = volume
 
-    nz_r, ny_r, nx_r = volume_resampled.shape
-
-    # compute projections from resampled volume
-    xy_proj = np.max(volume, axis=0)  # use original for xy (no interpolation needed)
-    xz_proj = np.max(volume_resampled, axis=1)  # resampled for proper z scale
+    # compute projections
+    xy_proj = np.max(volume, axis=0)
+    xz_proj = np.max(volume_resampled, axis=1)
     yz_proj = np.max(volume_resampled, axis=2)
 
     # create figure
     fig = plt.figure(figsize=figsize, facecolor="black")
     gs = fig.add_gridspec(1, 3, wspace=0.15, left=0.05, right=0.95, top=0.88, bottom=0.1)
 
-    # determine axis labels based on valid voxel size
-    has_valid_xy = dx_um > 0 and dx_um != 1.0
-    x_label = "X (μm)" if has_valid_xy else "X (pixels)"
-    y_label = "Y (μm)" if has_valid_xy else "Y (pixels)"
-    z_label = "Z depth (μm)"
+    # extents for proper axis scaling (all in microns)
+    xy_extent = [0, vol_x_um, vol_y_um, 0]
+    xz_extent = [0, vol_x_um, vol_z_um, 0]
+    yz_extent = [0, vol_z_um, vol_y_um, 0]
 
-    # extents for proper axis scaling
-    xy_extent = [0, nx * dx_um, ny * dy_um, 0] if has_valid_xy else None
-    xz_extent = [0, nx * dx_um, total_z_um, 0] if has_valid_xy else [0, nx, total_z_um, 0]
-    yz_extent = [0, total_z_um, ny * dy_um, 0] if has_valid_xy else [0, total_z_um, ny, 0]
-
-    # panel 1: XY projection (top-down view)
+    # panel 1: XY projection
     ax1 = fig.add_subplot(gs[0, 0])
     ax1.set_facecolor("black")
     im1 = ax1.imshow(xy_proj, cmap="magma", aspect="equal", extent=xy_extent,
                      vmin=np.percentile(xy_proj, 1), vmax=np.percentile(xy_proj, 99.5))
-    ax1.set_xlabel(x_label, fontsize=10, fontweight="bold", color="white")
-    ax1.set_ylabel(y_label, fontsize=10, fontweight="bold", color="white")
-    ax1.set_title("XY Projection (top view)", fontsize=11, fontweight="bold", color="white")
+    ax1.set_xlabel("X (μm)", fontsize=10, fontweight="bold", color="white")
+    ax1.set_ylabel("Y (μm)", fontsize=10, fontweight="bold", color="white")
+    ax1.set_title("XY Projection", fontsize=11, fontweight="bold", color="white")
     ax1.tick_params(colors="white", labelsize=8)
     for spine in ax1.spines.values():
         spine.set_color("white")
 
-    # panel 2: XZ projection (front view) - with interpolated z
+    # panel 2: XZ projection
     ax2 = fig.add_subplot(gs[0, 1])
     ax2.set_facecolor("black")
     im2 = ax2.imshow(xz_proj, cmap="magma", aspect="auto", extent=xz_extent,
                      vmin=np.percentile(xz_proj, 1), vmax=np.percentile(xz_proj, 99.5),
                      interpolation="bilinear")
-    ax2.set_xlabel(x_label, fontsize=10, fontweight="bold", color="white")
-    ax2.set_ylabel(z_label, fontsize=10, fontweight="bold", color="white")
-    ax2.set_title("XZ Projection (front view)", fontsize=11, fontweight="bold", color="white")
+    ax2.set_xlabel("X (μm)", fontsize=10, fontweight="bold", color="white")
+    ax2.set_ylabel("Z (μm)", fontsize=10, fontweight="bold", color="white")
+    ax2.set_title("XZ Projection", fontsize=11, fontweight="bold", color="white")
     ax2.tick_params(colors="white", labelsize=8)
     for spine in ax2.spines.values():
         spine.set_color("white")
 
-    # panel 3: YZ projection (side view) - with interpolated z
+    # panel 3: YZ projection
     ax3 = fig.add_subplot(gs[0, 2])
     ax3.set_facecolor("black")
     im3 = ax3.imshow(yz_proj.T, cmap="magma", aspect="auto", extent=yz_extent,
                      vmin=np.percentile(yz_proj, 1), vmax=np.percentile(yz_proj, 99.5),
                      interpolation="bilinear")
-    ax3.set_xlabel(z_label, fontsize=10, fontweight="bold", color="white")
-    ax3.set_ylabel(y_label, fontsize=10, fontweight="bold", color="white")
-    ax3.set_title("YZ Projection (side view)", fontsize=11, fontweight="bold", color="white")
+    ax3.set_xlabel("Z (μm)", fontsize=10, fontweight="bold", color="white")
+    ax3.set_ylabel("Y (μm)", fontsize=10, fontweight="bold", color="white")
+    ax3.set_title("YZ Projection", fontsize=11, fontweight="bold", color="white")
     ax3.tick_params(colors="white", labelsize=8)
     for spine in ax3.spines.values():
         spine.set_color("white")
@@ -1225,11 +1225,8 @@ def plot_orthoslices(
     cbar.ax.tick_params(colors="white")
     cbar.outline.set_edgecolor("white")
 
-    # title with volume dimensions
-    vol_x = nx * dx_um if has_valid_xy else nx
-    vol_y = ny * dy_um if has_valid_xy else ny
-    units = "μm" if has_valid_xy else "px"
-    title = f"Orthogonal Projections: {nz} planes, {vol_x:.0f}×{vol_y:.0f}×{total_z_um:.0f} {units}"
+    # title with volume dimensions in microns
+    title = f"Orthogonal Projections: {nz} planes, {vol_x_um:.0f}×{vol_y_um:.0f}×{vol_z_um:.0f} μm"
     fig.suptitle(title, fontsize=12, fontweight="bold", color="white", y=0.96)
 
     if save_path:
@@ -1283,23 +1280,32 @@ def plot_3d_roi_map(
 
     # Get voxel size from first ops file
     first_ops = load_ops(ops_files[0])
+    dx_um, dy_um, dz_um = 1.0, 1.0, 15.0  # defaults (15um is typical z-step)
     try:
         from mbo_utilities.metadata import get_voxel_size
         voxel = get_voxel_size(first_ops)
-        dx_um, dy_um, dz_um = voxel.dx, voxel.dy, voxel.dz
-    except ImportError:
-        # Fallback if mbo_utilities not available
-        pixel_res = first_ops.get("pixel_resolution", [1.0, 1.0])
-        if isinstance(pixel_res, (int, float)):
-            dx_um, dy_um = float(pixel_res), float(pixel_res)
-        else:
-            dx_um = float(pixel_res[0]) if len(pixel_res) > 0 else 1.0
-            dy_um = float(pixel_res[1]) if len(pixel_res) > 1 else dx_um
-        dz_um = float(first_ops.get("dz", first_ops.get("z_step", 15.0)))
-
-    # Check if we have valid (non-default) voxel sizes
-    has_valid_xy = dx_um != 1.0 or dy_um != 1.0
-    has_valid_z = dz_um != 1.0
+        # only use voxel sizes if they're not the default 1.0 placeholder
+        if voxel.dx > 0 and voxel.dx != 1.0:
+            dx_um = voxel.dx
+        if voxel.dy > 0 and voxel.dy != 1.0:
+            dy_um = voxel.dy
+        if voxel.dz > 0 and voxel.dz != 1.0:
+            dz_um = voxel.dz
+    except (ImportError, Exception):
+        pass
+    # fallback to ops fields
+    if dx_um == 1.0:
+        pixel_res = first_ops.get("pixel_resolution", first_ops.get("um_per_pixel", None))
+        if pixel_res is not None:
+            if isinstance(pixel_res, (int, float)):
+                dx_um, dy_um = float(pixel_res), float(pixel_res)
+            else:
+                dx_um = float(pixel_res[0]) if len(pixel_res) > 0 else 1.0
+                dy_um = float(pixel_res[1]) if len(pixel_res) > 1 else dx_um
+    if dz_um == 15.0:  # still default
+        dz_from_ops = first_ops.get("dz", first_ops.get("z_step", None))
+        if dz_from_ops is not None and dz_from_ops != 1.0:
+            dz_um = float(dz_from_ops)
 
     # Collect ROI data from all planes
     all_x = []
@@ -1311,19 +1317,13 @@ def plot_3d_roi_map(
     # For rejected ROIs
     rej_x, rej_y, rej_z = [], [], []
 
-    for ops_file in ops_files:
+    for plane_idx, ops_file in enumerate(ops_files):
         ops_file = Path(ops_file)
         ops = load_ops(ops_file)
         plane_dir = ops_file.parent
 
-        # Get plane number
-        raw_plane = ops.get("plane", len(all_x))
-        if isinstance(raw_plane, (int, np.integer)):
-            plane_num = int(raw_plane)
-        else:
-            s = str(raw_plane)
-            digits = "".join([c for c in s if c.isdigit()])
-            plane_num = int(digits) if digits else 0
+        # Use enumeration index for z-depth (planes are ordered)
+        plane_num = plane_idx
 
         # Load required files
         stat_file = plane_dir / "stat.npy"
@@ -1342,6 +1342,7 @@ def plot_3d_roi_map(
             continue
 
         # Get color values based on color_by
+        z_um = plane_num * dz_um  # z-depth in microns for this plane
         if color_by == "snr":
             F_file = plane_dir / "F.npy"
             Fneu_file = plane_dir / "Fneu.npy"
@@ -1356,18 +1357,29 @@ def plot_3d_roi_map(
                 noise = np.median(np.abs(np.diff(dff, axis=1)), axis=1) / 0.6745
                 color_vals = signal / (noise + 1e-6)
             else:
-                color_vals = np.ones(len(stat)) * plane_num
+                # no F data - use zeros
+                color_vals = np.zeros(len(stat))
         elif color_by == "size":
             color_vals = np.array([s.get("npix", 100) for s in stat])
         elif color_by == "activity":
             F_file = plane_dir / "F.npy"
+            Fneu_file = plane_dir / "Fneu.npy"
             if F_file.exists():
                 F = np.load(F_file, allow_pickle=True)
-                color_vals = np.std(F, axis=1)
+                Fneu = np.load(Fneu_file, allow_pickle=True) if Fneu_file.exists() else np.zeros_like(F)
+                F_corr = F - 0.7 * Fneu
+                # compute zscore: (x - mean) / std
+                mean_f = np.mean(F_corr, axis=1, keepdims=True)
+                std_f = np.std(F_corr, axis=1, keepdims=True)
+                std_f = np.maximum(std_f, 1e-6)
+                zscore = (F_corr - mean_f) / std_f
+                # use max zscore as activity metric
+                color_vals = np.max(zscore, axis=1)
             else:
-                color_vals = np.ones(len(stat)) * plane_num
-        else:  # plane
-            color_vals = np.ones(len(stat)) * plane_num
+                # no F data - use zeros
+                color_vals = np.zeros(len(stat))
+        else:  # plane - use z-depth in microns
+            color_vals = np.ones(len(stat)) * z_um
 
         # Extract centroids and convert to microns
         for i, s in enumerate(stat):
@@ -1376,7 +1388,7 @@ def plot_3d_roi_map(
             # Convert pixels to microns
             x_um = x_px * dx_um
             y_um = y_px * dy_um
-            z_um = plane_num * dz_um
+            # z_um already calculated above as plane_num * dz_um
 
             if iscell[i]:
                 all_x.append(x_um)
@@ -1420,7 +1432,7 @@ def plot_3d_roi_map(
     # Choose colormap based on color_by
     if color_by == "plane":
         cmap = "viridis"
-        clabel = "Z-Plane"
+        clabel = "Z-depth (μm)"
     elif color_by == "snr":
         cmap = "plasma"
         clabel = "SNR"
@@ -1434,7 +1446,7 @@ def plot_3d_roi_map(
         all_colors = np.clip(all_colors, vmin, vmax)
     else:  # activity
         cmap = "magma"
-        clabel = "Activity (std)"
+        clabel = "Z-score"
         vmin, vmax = np.percentile(all_colors, [5, 95])
         all_colors = np.clip(all_colors, vmin, vmax)
 
@@ -1448,14 +1460,10 @@ def plot_3d_roi_map(
     cbar.ax.tick_params(colors="white")
     cbar.outline.set_edgecolor("white")
 
-    # Style axes with appropriate units based on valid voxel size
-    x_label = "X (μm)" if has_valid_xy else "X (pixels)"
-    y_label = "Y (μm)" if has_valid_xy else "Y (pixels)"
-    z_label = "Z (μm)" if has_valid_z else "Z (plane)"
-
-    ax.set_xlabel(x_label, fontsize=10, fontweight="bold", color="white", labelpad=10)
-    ax.set_ylabel(y_label, fontsize=10, fontweight="bold", color="white", labelpad=10)
-    ax.set_zlabel(z_label, fontsize=10, fontweight="bold", color="white", labelpad=10)
+    # Style axes - always show in microns
+    ax.set_xlabel("X (μm)", fontsize=10, fontweight="bold", color="white", labelpad=10)
+    ax.set_ylabel("Y (μm)", fontsize=10, fontweight="bold", color="white", labelpad=10)
+    ax.set_zlabel("Z (μm)", fontsize=10, fontweight="bold", color="white", labelpad=10)
 
     ax.tick_params(colors="white", labelsize=8)
     ax.xaxis.label.set_color("white")
@@ -1467,20 +1475,16 @@ def plot_3d_roi_map(
     ax.yaxis._axinfo["grid"]["color"] = (1, 1, 1, 0.2)
     ax.zaxis._axinfo["grid"]["color"] = (1, 1, 1, 0.2)
 
-    # Title with volume dimensions
+    # Title with volume dimensions in microns
     n_cells = len(all_x)
     n_planes = len(np.unique(all_z))
     x_range = all_x.max() - all_x.min()
     y_range = all_y.max() - all_y.min()
     z_range = all_z.max() - all_z.min()
 
-    if has_valid_xy and has_valid_z:
-        vol_str = f"Volume: {x_range:.0f} × {y_range:.0f} × {z_range:.0f} μm"
-    else:
-        vol_str = f"Volume: {x_range:.0f} × {y_range:.0f} × {z_range:.0f}"
-
     fig.suptitle(
-        f"3D ROI Distribution: {n_cells} cells across {n_planes} planes\n{vol_str}",
+        f"3D ROI Distribution: {n_cells} cells across {n_planes} planes\n"
+        f"Volume: {x_range:.0f} × {y_range:.0f} × {z_range:.0f} μm",
         fontsize=12, fontweight="bold", color="white", y=0.95
     )
 
