@@ -1306,7 +1306,7 @@ def plot_multiplane_masks(
 
             ax = axes[idx]
 
-            # Extract plane number from directory name
+            # Extract plane number from directory name for display
             plane_name = plane_dir.name
             digits = "".join(filter(str.isdigit, plane_name))
             plane_num = int(digits) if digits else idx + 1
@@ -1325,8 +1325,8 @@ def plot_multiplane_masks(
             vmin, vmax = np.nanpercentile(img, [1, 99])
             ax.imshow(img, cmap=cmap, aspect="equal", vmin=vmin, vmax=vmax)
 
-            # Get ROIs for this plane
-            plane_mask = np.array([s.get("iplane", 0) == plane_num for s in stat])
+            # Get ROIs for this plane (iplane is 0-indexed from enumeration)
+            plane_mask = np.array([s.get("iplane", 0) == idx for s in stat])
             plane_stat = stat[plane_mask]
             plane_iscell = iscell[plane_mask]
 

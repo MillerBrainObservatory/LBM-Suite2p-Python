@@ -183,6 +183,9 @@ def plot_volume_signal(zstats, savepath):
 
     ax.legend(fontsize=8, facecolor="#1a1a1a", edgecolor="white", labelcolor="white")
 
+    savepath = Path(savepath)
+    if savepath.is_dir():
+        savepath = savepath / "mean_volume_signal.png"
     plt.savefig(savepath, bbox_inches="tight", facecolor="black", dpi=150)
     plt.close(fig)
 
@@ -1069,8 +1072,8 @@ def plot_orthoslices(
     Generate orthogonal maximum intensity projections (XY, XZ, YZ) of the volume.
 
     Creates a 3-panel figure showing the volume from three orthogonal views,
-    which is standard in microscopy for visualizing 3D structure. Axes are
-    displayed in micrometers when valid voxel size metadata is available.
+    with proper interpolation to isotropic resolution. Z-axis is displayed
+    in micrometers (depth) using voxel size metadata.
 
     Parameters
     ----------
@@ -1088,6 +1091,7 @@ def plot_orthoslices(
     fig : matplotlib.figure.Figure
         The generated figure object.
     """
+    from scipy.ndimage import zoom
     from lbm_suite2p_python.postprocessing import load_ops
 
     if not ops_files:
@@ -1096,53 +1100,38 @@ def plot_orthoslices(
                 fontsize=16, fontweight="bold", color="white")
         return fig
 
-    # Get voxel size from first ops file
+    # get voxel size from first ops file
     first_ops = load_ops(ops_files[0])
     try:
         from mbo_utilities.metadata import get_voxel_size
         voxel = get_voxel_size(first_ops)
         dx_um, dy_um, dz_um = voxel.dx, voxel.dy, voxel.dz
-    except ImportError:
-        # Fallback if mbo_utilities not available
-        pixel_res = first_ops.get("pixel_resolution", [1.0, 1.0])
-        if isinstance(pixel_res, (int, float)):
-            dx_um, dy_um = float(pixel_res), float(pixel_res)
+    except (ImportError, Exception):
+        # fallback if mbo_utilities not available or metadata missing
+        pixel_res = first_ops.get("pixel_resolution", first_ops.get("um_per_pixel", None))
+        if pixel_res is not None:
+            if isinstance(pixel_res, (int, float)):
+                dx_um, dy_um = float(pixel_res), float(pixel_res)
+            else:
+                dx_um = float(pixel_res[0]) if len(pixel_res) > 0 else 1.0
+                dy_um = float(pixel_res[1]) if len(pixel_res) > 1 else dx_um
         else:
-            dx_um = float(pixel_res[0]) if len(pixel_res) > 0 else 1.0
-            dy_um = float(pixel_res[1]) if len(pixel_res) > 1 else dx_um
+            dx_um, dy_um = 1.0, 1.0
         dz_um = float(first_ops.get("dz", first_ops.get("z_step", 15.0)))
 
-    # Check if we have valid (non-default) voxel sizes
-    has_valid_xy = dx_um != 1.0 or dy_um != 1.0
-    has_valid_z = dz_um != 1.0
-
-    # Collect images from all planes
+    # collect images from all planes
     images = []
-    plane_nums = []
-
     for ops_file in ops_files:
         ops_file = Path(ops_file)
         ops = load_ops(ops_file)
 
-        # Get image
         img_key = "meanImg" if use_mean else "refImg"
         img = ops.get(img_key)
         if img is None or not isinstance(img, np.ndarray):
             img = ops.get("meanImg" if not use_mean else "refImg")
         if img is None or not isinstance(img, np.ndarray):
             continue
-
-        # Get plane number
-        raw_plane = ops.get("plane", len(images))
-        if isinstance(raw_plane, (int, np.integer)):
-            plane_num = int(raw_plane)
-        else:
-            s = str(raw_plane)
-            digits = "".join([c for c in s if c.isdigit()])
-            plane_num = int(digits) if digits else len(images)
-
         images.append(img)
-        plane_nums.append(plane_num)
 
     if not images:
         fig = plt.figure(figsize=figsize, facecolor="black")
@@ -1150,49 +1139,49 @@ def plot_orthoslices(
                 fontsize=16, fontweight="bold", color="white")
         return fig
 
-    # Sort by plane number
-    sort_idx = np.argsort(plane_nums)
-    images = [images[i] for i in sort_idx]
-    plane_nums = [plane_nums[i] for i in sort_idx]
-
-    # Stack into 3D volume (Z, Y, X)
+    # stack into 3D volume (Z, Y, X)
     volume = np.stack(images, axis=0)
     nz, ny, nx = volume.shape
 
-    # Compute projections
-    xy_proj = np.max(volume, axis=0)  # Max along Z -> XY view
-    xz_proj = np.max(volume, axis=1)  # Max along Y -> XZ view
-    yz_proj = np.max(volume, axis=2)  # Max along X -> YZ view
+    # compute z-depth for each plane in microns
+    z_depths_um = np.arange(nz) * dz_um
+    total_z_um = z_depths_um[-1] if nz > 1 else dz_um
 
-    # Create figure
+    # interpolate volume to isotropic resolution for proper orthoslices
+    # target resolution: use xy resolution, resample z accordingly
+    xy_res = (dx_um + dy_um) / 2
+    z_zoom = dz_um / xy_res if xy_res > 0 else 1.0
+
+    # resample volume along z for proper aspect ratio (limit to reasonable size)
+    z_zoom = min(z_zoom, 10.0)  # cap at 10x to avoid memory issues
+    if z_zoom > 1.1:
+        volume_resampled = zoom(volume, (z_zoom, 1, 1), order=1)
+    else:
+        volume_resampled = volume
+
+    nz_r, ny_r, nx_r = volume_resampled.shape
+
+    # compute projections from resampled volume
+    xy_proj = np.max(volume, axis=0)  # use original for xy (no interpolation needed)
+    xz_proj = np.max(volume_resampled, axis=1)  # resampled for proper z scale
+    yz_proj = np.max(volume_resampled, axis=2)
+
+    # create figure
     fig = plt.figure(figsize=figsize, facecolor="black")
-
-    # Calculate aspect ratios for proper scaling
-    z_scale = dz_um
-    xy_scale = (dx_um + dy_um) / 2  # Average XY scale
-
     gs = fig.add_gridspec(1, 3, wspace=0.15, left=0.05, right=0.95, top=0.88, bottom=0.1)
 
-    # Determine axis labels and extent based on valid voxel size
-    if has_valid_xy:
-        x_label = "X (μm)"
-        y_label = "Y (μm)"
-        xy_extent = [0, nx * dx_um, ny * dy_um, 0]
-        xz_extent = [0, nx * dx_um, nz * dz_um, 0]
-        yz_extent = [0, nz * dz_um, ny * dy_um, 0]
-    else:
-        x_label = "X (pixels)"
-        y_label = "Y (pixels)"
-        xy_extent = None
-        xz_extent = None
-        yz_extent = None
+    # determine axis labels based on valid voxel size
+    has_valid_xy = dx_um > 0 and dx_um != 1.0
+    x_label = "X (μm)" if has_valid_xy else "X (pixels)"
+    y_label = "Y (μm)" if has_valid_xy else "Y (pixels)"
+    z_label = "Z depth (μm)"
 
-    if has_valid_z:
-        z_label = "Z (μm)"
-    else:
-        z_label = "Z (plane)"
+    # extents for proper axis scaling
+    xy_extent = [0, nx * dx_um, ny * dy_um, 0] if has_valid_xy else None
+    xz_extent = [0, nx * dx_um, total_z_um, 0] if has_valid_xy else [0, nx, total_z_um, 0]
+    yz_extent = [0, total_z_um, ny * dy_um, 0] if has_valid_xy else [0, total_z_um, ny, 0]
 
-    # Panel 1: XY projection (top-down view)
+    # panel 1: XY projection (top-down view)
     ax1 = fig.add_subplot(gs[0, 0])
     ax1.set_facecolor("black")
     im1 = ax1.imshow(xy_proj, cmap="magma", aspect="equal", extent=xy_extent,
@@ -1204,11 +1193,12 @@ def plot_orthoslices(
     for spine in ax1.spines.values():
         spine.set_color("white")
 
-    # Panel 2: XZ projection (side view)
+    # panel 2: XZ projection (front view) - with interpolated z
     ax2 = fig.add_subplot(gs[0, 1])
     ax2.set_facecolor("black")
-    im2 = ax2.imshow(xz_proj, cmap="magma", aspect=z_scale/xy_scale, extent=xz_extent,
-                     vmin=np.percentile(xz_proj, 1), vmax=np.percentile(xz_proj, 99.5))
+    im2 = ax2.imshow(xz_proj, cmap="magma", aspect="auto", extent=xz_extent,
+                     vmin=np.percentile(xz_proj, 1), vmax=np.percentile(xz_proj, 99.5),
+                     interpolation="bilinear")
     ax2.set_xlabel(x_label, fontsize=10, fontweight="bold", color="white")
     ax2.set_ylabel(z_label, fontsize=10, fontweight="bold", color="white")
     ax2.set_title("XZ Projection (front view)", fontsize=11, fontweight="bold", color="white")
@@ -1216,11 +1206,12 @@ def plot_orthoslices(
     for spine in ax2.spines.values():
         spine.set_color("white")
 
-    # Panel 3: YZ projection (side view)
+    # panel 3: YZ projection (side view) - with interpolated z
     ax3 = fig.add_subplot(gs[0, 2])
     ax3.set_facecolor("black")
-    im3 = ax3.imshow(yz_proj.T, cmap="magma", aspect=xy_scale/z_scale, extent=yz_extent,
-                     vmin=np.percentile(yz_proj, 1), vmax=np.percentile(yz_proj, 99.5))
+    im3 = ax3.imshow(yz_proj.T, cmap="magma", aspect="auto", extent=yz_extent,
+                     vmin=np.percentile(yz_proj, 1), vmax=np.percentile(yz_proj, 99.5),
+                     interpolation="bilinear")
     ax3.set_xlabel(z_label, fontsize=10, fontweight="bold", color="white")
     ax3.set_ylabel(y_label, fontsize=10, fontweight="bold", color="white")
     ax3.set_title("YZ Projection (side view)", fontsize=11, fontweight="bold", color="white")
@@ -1228,21 +1219,17 @@ def plot_orthoslices(
     for spine in ax3.spines.values():
         spine.set_color("white")
 
-    # Add colorbar
+    # colorbar
     cbar = fig.colorbar(im1, ax=[ax1, ax2, ax3], shrink=0.6, pad=0.02, location="right")
     cbar.set_label("Max Intensity", fontsize=10, color="white")
     cbar.ax.tick_params(colors="white")
     cbar.outline.set_edgecolor("white")
 
-    # Title with volume dimensions in appropriate units
-    if has_valid_xy and has_valid_z:
-        vol_x = nx * dx_um
-        vol_y = ny * dy_um
-        vol_z = nz * dz_um
-        title = f"Orthogonal Projections: {nz} planes, {vol_x:.0f}×{vol_y:.0f}×{vol_z:.0f} μm"
-    else:
-        title = f"Orthogonal Projections: {nz} planes, {ny}×{nx} pixels"
-
+    # title with volume dimensions
+    vol_x = nx * dx_um if has_valid_xy else nx
+    vol_y = ny * dy_um if has_valid_xy else ny
+    units = "μm" if has_valid_xy else "px"
+    title = f"Orthogonal Projections: {nz} planes, {vol_x:.0f}×{vol_y:.0f}×{total_z_um:.0f} {units}"
     fig.suptitle(title, fontsize=12, fontweight="bold", color="white", y=0.96)
 
     if save_path:

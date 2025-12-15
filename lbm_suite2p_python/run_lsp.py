@@ -27,8 +27,6 @@ logger = get_logger("run_lsp")
 
 from lbm_suite2p_python._benchmarking import get_cpu_percent, get_ram_used
 from lbm_suite2p_python.volume import (
-    plot_volume_signal,
-    plot_volume_neuron_counts,
     plot_volume_diagnostics,
     plot_orthoslices,
     plot_3d_roi_map,
@@ -770,19 +768,128 @@ def pipeline(
             np.save(save_path / "volume_stats.npy", volume_stats)
 
             try:
-                plot_volume_signal(volume_stats, save_path)
-            except Exception as e:
-                print(f"  Warning: plot_volume_signal failed: {e}")
-
-            try:
-                plot_volume_neuron_counts(volume_stats, save_path)
-            except Exception as e:
-                print(f"  Warning: plot_volume_neuron_counts failed: {e}")
-
-            try:
-                plot_volume_diagnostics(all_ops_files, save_path)
+                plot_volume_diagnostics(all_ops_files, save_path / "volume_quality_diagnostics.png")
             except Exception as e:
                 print(f"  Warning: plot_volume_diagnostics failed: {e}")
+
+            try:
+                plot_orthoslices(all_ops_files, save_path / "orthoslices.png")
+            except Exception as e:
+                print(f"  Warning: plot_orthoslices failed: {e}")
+
+            try:
+                plot_3d_roi_map(all_ops_files, save_path / "roi_map_3d.png", color_by="activity")
+            except Exception as e:
+                print(f"  Warning: plot_3d_roi_map failed: {e}")
+
+            # load planar results for additional volumetric figures
+            try:
+                from lbm_suite2p_python.zplane import (
+                    plot_multiplane_masks,
+                    plot_plane_quality_metrics,
+                    plot_trace_analysis,
+                    create_volume_summary_table,
+                    plot_rastermap,
+                )
+
+                res_z = []
+                for i, ops_path in enumerate(all_ops_files):
+                    try:
+                        res = load_planar_results(ops_path, z_plane=i)
+                        res_z.append(res)
+                    except Exception:
+                        pass
+
+                if res_z:
+                    # consolidate data
+                    all_stat_list = []
+                    for res in res_z:
+                        z_plane_arr = res["z_plane"]
+                        for i, s in enumerate(res["stat"]):
+                            if "iplane" not in s:
+                                s["iplane"] = int(z_plane_arr[i]) if i < len(z_plane_arr) else 0
+                            all_stat_list.append(s)
+                    all_stat = np.array(all_stat_list, dtype=object)
+                    all_iscell = np.vstack([res["iscell"] for res in res_z])
+                    all_F = np.concatenate([res["F"] for res in res_z], axis=0)
+                    all_Fneu = np.concatenate([res["Fneu"] for res in res_z], axis=0)
+                    first_ops = load_ops(all_ops_files[0])
+
+                    # multiplane masks
+                    if len(res_z) > 1:
+                        try:
+                            plot_multiplane_masks(
+                                suite2p_path=save_path,
+                                stat=all_stat,
+                                iscell=all_iscell,
+                                save_path=save_path / "all_planes_masks.png",
+                            )
+                        except Exception as e:
+                            print(f"  Warning: plot_multiplane_masks failed: {e}")
+
+                    # quality metrics
+                    try:
+                        plot_plane_quality_metrics(
+                            stat=all_stat,
+                            iscell=all_iscell,
+                            save_path=save_path / "volume_quality_metrics.png",
+                        )
+                    except Exception as e:
+                        print(f"  Warning: plot_plane_quality_metrics failed: {e}")
+
+                    # trace analysis
+                    try:
+                        plot_trace_analysis(
+                            F=all_F,
+                            Fneu=all_Fneu,
+                            stat=all_stat,
+                            iscell=all_iscell,
+                            ops=first_ops,
+                            save_path=save_path / "volume_trace_analysis.png",
+                        )
+                    except Exception as e:
+                        print(f"  Warning: plot_trace_analysis failed: {e}")
+
+                    # summary table
+                    try:
+                        create_volume_summary_table(
+                            stat=all_stat,
+                            iscell=all_iscell,
+                            F=all_F,
+                            Fneu=all_Fneu,
+                            ops=first_ops,
+                            save_path=save_path / "volume_summary.csv",
+                        )
+                    except Exception as e:
+                        print(f"  Warning: create_volume_summary_table failed: {e}")
+
+                    # rastermap
+                    try:
+                        from rastermap import Rastermap
+                        frame_counts = [res["spks"].shape[1] for res in res_z]
+                        min_frames = min(frame_counts)
+                        for res in res_z:
+                            res["spks"] = res["spks"][:, :min_frames]
+                        all_spks = np.concatenate([res["spks"] for res in res_z], axis=0)
+
+                        model = Rastermap(
+                            n_clusters=100, n_PCs=100, locality=0.75, time_lag_window=15
+                        ).fit(all_spks)
+                        np.save(save_path / "rastermap_model.npy", model)
+                        plot_rastermap(
+                            all_spks, model,
+                            neuron_bin_size=20,
+                            xmax=min(2000, all_spks.shape[1]),
+                            save_path=save_path / "rastermap.png",
+                            title="Rastermap Sorted Activity",
+                        )
+                    except ImportError:
+                        pass
+                    except Exception as e:
+                        print(f"  Warning: rastermap failed: {e}")
+
+            except Exception as e:
+                print(f"  Warning: additional volumetric figures failed: {e}")
 
         except Exception as e:
             print(f"Warning: Volume output generation failed: {e}")
