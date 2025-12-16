@@ -8,13 +8,14 @@ import math
 
 import matplotlib.offsetbox
 from matplotlib import pyplot as plt
-from matplotlib.animation import FuncAnimation
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 from matplotlib.offsetbox import VPacker, HPacker, DrawingArea
 import matplotlib.gridspec as gridspec
 
 from scipy.ndimage import distance_transform_edt
+
+from mbo_utilities.metadata import get_param
 
 from lbm_suite2p_python.postprocessing import (
     load_ops,
@@ -55,8 +56,20 @@ def infer_units(f: np.ndarray) -> str:
 
 
 def format_time(t):
+    """
+    Format a time value in seconds to a human-readable string.
+
+    Parameters
+    ----------
+    t : float
+        Time in seconds.
+
+    Returns
+    -------
+    str
+        Formatted time string (e.g., "30 s", "5 min", "2 h").
+    """
     if t < 60:
-        # make sure we dont show 0 seconds
         return f"{int(np.ceil(t))} s"
     elif t < 3600:
         return f"{int(round(t / 60))} min"
@@ -65,7 +78,21 @@ def format_time(t):
 
 
 def get_color_permutation(n):
-    # choose a step from n//2+1 up to n-1 that is coprime with n
+    """
+    Generate a permutation of indices for visually distinct color ordering.
+
+    Uses a coprime step to spread colors evenly across the color space.
+
+    Parameters
+    ----------
+    n : int
+        Number of items to permute.
+
+    Returns
+    -------
+    list
+        Permuted indices [0, n-1].
+    """
     for s in range(n // 2 + 1, n):
         if math.gcd(s, n) == 1:
             return [(i * s) % n for i in range(n)]
@@ -484,217 +511,25 @@ def plot_traces(
         plt.show()
     return None
 
-def animate_traces(
-    f,
-    save_path="./scrolling.mp4",
-    fps=17.0,
-    start_neurons=20,
-    window=120,
-    title="",
-    gap=None,
-    lw=0.5,
-    cmap="tab10",
-    anim_fps=60,
-    expand_after=5,
-    speed_factor=1.0,
-    expansion_factor=2.0,
-    smooth_factor=1,
-):
-    """WIP"""
-    n_neurons, n_timepoints = f.shape
-    data_time = np.arange(n_timepoints) / fps
-    T_data = data_time[-1]
-    current_frame = min(int(window * fps), n_timepoints - 1)
-    t_f_local = (T_data - window + expansion_factor * expand_after) / (
-        1 + expansion_factor
-    )
-
-    if gap is None:
-        p10 = np.percentile(f[:start_neurons, : current_frame + 1], 10, axis=1)
-        p90 = np.percentile(f[:start_neurons, : current_frame + 1], 90, axis=1)
-        gap = np.median(p90 - p10) * 1.2
-
-    cmap_inst = plt.get_cmap(cmap)
-    colors = cmap_inst(np.linspace(0, 1, n_neurons))
-    perm = np.random.permutation(n_neurons)
-    colors = colors[perm]
-
-    all_shifted = []
-    for i in range(start_neurons):
-        trace = f[i, : current_frame + 1]
-        baseline = np.percentile(trace, 8)
-        shifted = (trace - baseline) + i * gap
-        all_shifted.append(shifted)
-
-    all_y = np.concatenate(all_shifted)
-    y_min = np.min(all_y)
-    y_max = np.max(all_y)
-
-    rounded_dff = np.round(y_max - y_min) * 0.1
-    dff_label = f"{rounded_dff:.0f} % ΔF/F₀"
-
-    fig, ax = plt.subplots(figsize=(10, 6), facecolor="black")
-    ax.set_facecolor("black")
-    ax.tick_params(axis="x", labelbottom=False, length=0)
-    ax.tick_params(axis="y", labelleft=False, length=0)
-
-    for spine in ax.spines.values():
-        spine.set_visible(False)
-
-    fills = []
-    linekw = dict(color="white", linewidth=3)
-    hsb = AnchoredHScaleBar(
-        size=0.1,
-        label=format_time(0.1 * window),
-        loc=4,
-        frameon=False,
-        pad=0.6,
-        sep=4,
-        linekw=linekw,
-        ax=ax,
-    )
-
-    hsb.set_bbox_to_anchor((0.97, -0.1), transform=ax.transAxes)  # noqa
-
-    ax.add_artist(hsb)
-
-    vsb = AnchoredVScaleBar(
-        height=0.1,
-        label=dff_label,
-        loc="lower right",  # noqa
-        frameon=False,
-        pad=0,
-        sep=4,
-        linekw=linekw,
-        ax=ax,
-        spacer_width=0,
-    )
-    ax.add_artist(vsb)
-
-    lines = []
-    for i in range(n_neurons):
-        (line,) = ax.plot([], [], color=colors[i], lw=lw, zorder=-i)
-        lines.append(line)
-
-    def init():
-        for ix in range(n_neurons):
-            if ix < start_neurons:
-                _trace = f[ix, : current_frame + 1]
-                _baseline = np.percentile(_trace, 8)
-                _shifted = (_trace - _baseline) + ix * gap
-                lines[ix].set_data(data_time[: current_frame + 1], _shifted)
-            else:
-                lines[ix].set_data([], [])
-        extra = 0.05 * window
-        ax.set_xlim(0, window + extra)
-        ax.set_ylim(y_min - 0.05 * abs(y_min), y_max + 0.05 * abs(y_max))
-        return lines + [hsb, vsb]
-
-    def update(frame):
-        t = speed_factor * frame / anim_fps
-
-        if t < expand_after:
-            x_min = t
-            x_max = t + window
-            n_visible = start_neurons
-        else:
-            u = min(1.0, (t - expand_after) / (t_f_local - expand_after))
-            ease = 3 * u**2 - 2 * u**3  # smoothstep easing
-            x_min = t
-
-            window_start = window
-            window_end = window + expansion_factor * (T_data - window - expand_after)
-            current_window = window_start + (window_end - window_start) * ease
-
-            x_max = x_min + current_window
-
-            n_visible = start_neurons + int((n_neurons - start_neurons) * ease)
-            n_visible = min(n_neurons, n_visible)
-
-        i_lower = int(x_min * fps)
-        i_upper = int(x_max * fps)
-        i_upper = max(i_upper, i_lower + 1)
-
-        for ix in range(n_neurons):
-            if ix < n_visible:
-                _trace = f[ix, i_lower:i_upper]
-                _baseline = np.percentile(_trace, 8)
-                _shifted = (_trace - _baseline) + ix * gap
-                lines[ix].set_data(data_time[i_lower:i_upper], _shifted)
-            else:
-                lines[ix].set_data([], [])
-
-        for fill in fills:
-            fill.remove()
-        fills.clear()
-
-        for ix in range(n_visible - 1):
-            trace1 = f[ix, i_lower:i_upper]
-            baseline1 = np.percentile(trace1, 8)
-            shifted1 = (trace1 - baseline1) + ix * gap
-
-            trace2 = f[ix + 1, i_lower:i_upper]
-            baseline2 = np.percentile(trace2, 8)
-            shifted2 = (trace2 - baseline2) + (ix + 1) * gap
-
-            fill = ax.fill_between(
-                data_time[i_lower:i_upper],
-                shifted1,
-                shifted2,
-                where=shifted1 > shifted2,
-                color="black",
-                zorder=-ix - 1,
-            )
-            fills.append(fill)
-
-        _all_shifted = [
-            (f[ix, i_lower:i_upper] - np.percentile(f[ix, i_lower:i_upper], 8))
-            + ix * gap
-            for ix in range(n_visible)
-        ]
-        _all_y = np.concatenate(_all_shifted)
-        y_min_new, y_max_new = np.min(_all_y), np.max(_all_y)
-
-        extra_axis = 0.05 * (x_max - x_min)
-        ax.set_xlim(x_min, x_max + extra_axis)
-        ax.set_ylim(
-            y_min_new - 0.05 * abs(y_min_new), y_max_new + 0.05 * abs(y_max_new)
-        )
-
-        if title:
-            ax.set_title(title, fontsize=16, fontweight="bold", color="white")
-
-        _dff_rounded = np.round(y_max_new - y_min_new) * 0.1
-
-        if _dff_rounded > 300:
-            vsb.set_visible(False)
-        else:
-            _dff_label = f"{_dff_rounded:.0f} % ΔF/F₀"
-            vsb.txt.set_text(_dff_label)
-        hsb.txt.set_text(format_time(0.1 * (x_max - x_min)))
-        ax.set_ylabel(
-            f"Neuron Count: {n_visible}", fontsize=8, fontweight="bold", labelpad=2
-        )
-
-        return lines + [hsb, vsb] + fills
-
-    effective_anim_fps = anim_fps * smooth_factor
-    total_frames = int(np.ceil((T_data / speed_factor)))
-
-    ani = FuncAnimation(
-        fig,
-        update,
-        frames=total_frames,
-        init_func=init,
-        interval=1000 / effective_anim_fps,
-        blit=True,
-    )
-    ani.save(save_path, fps=anim_fps)
-    plt.show()
-
 
 def feather_mask(mask, max_alpha=0.75, edge_width=3):
-    # mask alpha using distance transform
+    """
+    Create a feathered alpha mask with soft edges.
+
+    Parameters
+    ----------
+    mask : numpy.ndarray
+        Binary or labeled mask (non-zero = foreground).
+    max_alpha : float, optional
+        Maximum alpha value at mask center. Default is 0.75.
+    edge_width : int, optional
+        Width of the feathered edge in pixels. Default is 3.
+
+    Returns
+    -------
+    numpy.ndarray
+        Alpha mask with values in [0, max_alpha].
+    """
     dist_out = distance_transform_edt(mask == 0)
     alpha = np.clip((edge_width - dist_out) / edge_width, 0, 1)
     return alpha * max_alpha
@@ -846,7 +681,7 @@ def plot_projection(
         stat = res["stat"]
         iscell_mask = res["iscell"][:, 0].astype(bool)
         im = ROI.stats_dicts_to_3d_array(
-            stat, Ly=ops["Ly"], Lx=ops["Lx"], label_id=True
+            stat, Ly=get_param(ops, "Ly", default=512), Lx=get_param(ops, "Lx", default=512), label_id=True
         )
         im[im == 0] = np.nan
         accepted_cells = np.sum(iscell_mask)
@@ -1244,17 +1079,18 @@ def plot_multiplane_masks(
     suite2p_path: str | Path,
     stat: np.ndarray,
     iscell: np.ndarray,
-    nrows: int = 3,
-    ncols: int = 5,
-    figsize: tuple = (20, 12),
+    nrows: int = None,
+    ncols: int = None,
+    figsize: tuple = None,
     save_path: str | Path = None,
     cmap: str = "gray",
 ) -> plt.Figure:
     """
     Plot ROI masks from all planes in a publication-quality grid layout.
 
-    Creates a multi-panel figure showing detected ROIs overlaid on mean images
+    Creates a multi-panel figure showing detected ROIs overlaid on reference images
     for each z-plane, with accepted cells in green and rejected cells in red.
+    Background image is selected based on anatomical_only setting.
 
     Parameters
     ----------
@@ -1264,12 +1100,12 @@ def plot_multiplane_masks(
         Consolidated stat array with 'iplane' field indicating plane assignment.
     iscell : np.ndarray
         Cell classification array (n_rois, 2) where column 0 is binary classification.
-    nrows : int, default 3
-        Number of rows in the figure grid.
-    ncols : int, default 5
-        Number of columns in the figure grid.
-    figsize : tuple, default (20, 12)
-        Figure size in inches (width, height).
+    nrows : int, optional
+        Number of rows in the figure grid. Auto-calculated if None.
+    ncols : int, optional
+        Number of columns in the figure grid. Auto-calculated if None.
+    figsize : tuple, optional
+        Figure size in inches (width, height). Auto-calculated if None.
     save_path : str or Path, optional
         If provided, save figure to this path. Otherwise display interactively.
     cmap : str, default "gray"
@@ -1279,105 +1115,173 @@ def plot_multiplane_masks(
     -------
     fig : matplotlib.figure.Figure
         The generated figure object.
-
-    Examples
-    --------
-    >>> stat = np.load("merged/stat.npy", allow_pickle=True)
-    >>> iscell = np.load("merged/iscell.npy")
-    >>> fig = plot_multiplane_masks("path/to/suite2p", stat, iscell)
     """
+    from scipy import ndimage
+
     suite2p_path = Path(suite2p_path)
     plane_dirs = sorted(suite2p_path.glob("plane*_stitched"))
     if not plane_dirs:
         plane_dirs = sorted(suite2p_path.glob("plane*"))
     nplanes = len(plane_dirs)
 
-    # Use a clean, publication-ready style
-    with plt.style.context("default"):
-        fig, axes = plt.subplots(
-            nrows, ncols, figsize=figsize, facecolor="white",
-            gridspec_kw={"wspace": 0.05, "hspace": 0.15}
-        )
-        axes = axes.flatten()
+    if nplanes == 0:
+        fig = plt.figure(figsize=(8, 6), facecolor="black")
+        fig.text(0.5, 0.5, "No plane directories found", ha="center", va="center",
+                fontsize=14, color="white")
+        return fig
 
-        for idx, plane_dir in enumerate(plane_dirs):
-            if idx >= len(axes):
-                break
+    # auto-calculate grid size
+    if ncols is None:
+        ncols = min(5, nplanes)
+    if nrows is None:
+        nrows = int(np.ceil(nplanes / ncols))
 
-            ax = axes[idx]
+    # auto-calculate figure size (make panels ~5 inches each for better visibility)
+    if figsize is None:
+        figsize = (ncols * 5, nrows * 5)
 
-            # Extract plane number from directory name
-            plane_name = plane_dir.name
-            digits = "".join(filter(str.isdigit, plane_name))
-            plane_num = int(digits) if digits else idx + 1
+    fig, axes = plt.subplots(
+        nrows, ncols, figsize=figsize, facecolor="black",
+        gridspec_kw={"wspace": 0.02, "hspace": 0.08}
+    )
+    if nrows == 1 and ncols == 1:
+        axes = np.array([axes])
+    axes = axes.flatten()
 
-            # Load plane ops for mean image
-            ops_file = plane_dir / "ops.npy"
-            if ops_file.exists():
-                plane_ops = np.load(ops_file, allow_pickle=True).item()
-                img = plane_ops.get("meanImg", plane_ops.get("meanImgE"))
-                if img is None:
-                    img = np.zeros((plane_ops.get("Ly", 512), plane_ops.get("Lx", 512)))
+    for idx, plane_dir in enumerate(plane_dirs):
+        if idx >= len(axes):
+            break
+
+        ax = axes[idx]
+        ax.set_facecolor("black")
+
+        # extract plane number from directory name for display
+        plane_name = plane_dir.name
+        digits = "".join(filter(str.isdigit, plane_name))
+        plane_num = int(digits) if digits else idx + 1
+
+        # load plane ops
+        ops_file = plane_dir / "ops.npy"
+        yshift, xshift = 0, 0  # coordinate shifts for cropped images
+        if ops_file.exists():
+            plane_ops = np.load(ops_file, allow_pickle=True).item()
+            Ly = plane_ops.get("Ly", 512)
+            Lx = plane_ops.get("Lx", 512)
+
+            # get crop ranges from registration
+            yrange = plane_ops.get("yrange", [0, Ly])
+            xrange = plane_ops.get("xrange", [0, Lx])
+
+            # select background image based on anatomical_only
+            anatomical_only = plane_ops.get("anatomical_only", 0)
+            if anatomical_only >= 4:
+                # max projection for anatomical mode (cropped space)
+                img = plane_ops.get("max_proj", None)
+                if img is not None:
+                    yshift, xshift = int(yrange[0]), int(xrange[0])
+                else:
+                    img = plane_ops.get("meanImg")
+            elif anatomical_only == 0:
+                # Vcorr for functional imaging (cropped space)
+                img = plane_ops.get("Vcorr", None)
+                if img is not None:
+                    yshift, xshift = int(yrange[0]), int(xrange[0])
+                else:
+                    img = plane_ops.get("meanImg")
             else:
-                img = np.zeros((512, 512))
+                # meanImg for other modes (full space)
+                img = plane_ops.get("meanImg", plane_ops.get("meanImgE"))
 
-            # Display background image with proper contrast
-            vmin, vmax = np.nanpercentile(img, [1, 99])
-            ax.imshow(img, cmap=cmap, aspect="equal", vmin=vmin, vmax=vmax)
-
-            # Get ROIs for this plane
-            plane_mask = np.array([s.get("iplane", 0) == plane_num for s in stat])
-            plane_stat = stat[plane_mask]
-            plane_iscell = iscell[plane_mask]
-
-            # Draw accepted cells (green)
-            accepted_idx = plane_iscell[:, 0] == 1
-            for s in plane_stat[accepted_idx]:
-                ypix, xpix = s["ypix"], s["xpix"]
-                ax.scatter(xpix, ypix, c="lime", s=0.3, alpha=0.7, linewidths=0)
-
-            # Draw rejected cells (red, more transparent)
-            rejected_idx = plane_iscell[:, 0] == 0
-            for s in plane_stat[rejected_idx]:
-                ypix, xpix = s["ypix"], s["xpix"]
-                ax.scatter(xpix, ypix, c="red", s=0.2, alpha=0.4, linewidths=0)
-
-            n_acc = accepted_idx.sum()
-            n_rej = rejected_idx.sum()
-
-            # Clean title with plane info
-            ax.set_title(
-                f"Plane {plane_num:02d}\n{n_acc} / {n_rej}",
-                fontsize=9, fontweight="bold", pad=3
-            )
-            ax.axis("off")
-
-        # Hide unused subplots
-        for idx in range(nplanes, len(axes)):
-            axes[idx].axis("off")
-
-        # Add legend
-        from matplotlib.lines import Line2D
-        legend_elements = [
-            Line2D([0], [0], marker="o", color="w", markerfacecolor="lime",
-                   markersize=8, label="Accepted"),
-            Line2D([0], [0], marker="o", color="w", markerfacecolor="red",
-                   markersize=8, label="Rejected"),
-        ]
-        fig.legend(
-            handles=legend_elements, loc="lower center", ncol=2,
-            fontsize=10, frameon=False, bbox_to_anchor=(0.5, 0.02)
-        )
-
-        plt.tight_layout(rect=[0, 0.05, 1, 1])
-
-        if save_path:
-            save_path = Path(save_path)
-            save_path.parent.mkdir(parents=True, exist_ok=True)
-            plt.savefig(save_path, dpi=200, bbox_inches="tight", facecolor="white")
-            plt.close(fig)
+            if img is None:
+                img = np.zeros((Ly, Lx))
         else:
-            plt.show()
+            img = np.zeros((512, 512))
+            Ly, Lx = 512, 512
+
+        # display background image with proper contrast
+        img_h, img_w = img.shape[:2]
+        vmin, vmax = np.nanpercentile(img, [1, 99.5])
+        ax.imshow(img, cmap=cmap, aspect="equal", vmin=vmin, vmax=vmax)
+
+        # get ROIs for this plane (iplane is 0-indexed from enumeration)
+        plane_mask = np.array([s.get("iplane", 0) == idx for s in stat])
+        plane_stat = stat[plane_mask]
+        plane_iscell = iscell[plane_mask]
+
+        # create mask images for accepted and rejected cells
+        accepted_mask = np.zeros((img_h, img_w), dtype=bool)
+        rejected_mask = np.zeros((img_h, img_w), dtype=bool)
+
+        accepted_idx = plane_iscell[:, 0] == 1
+        rejected_idx = plane_iscell[:, 0] == 0
+
+        for s in plane_stat[accepted_idx]:
+            # shift coordinates from full to cropped space
+            ypix = s["ypix"] - yshift
+            xpix = s["xpix"] - xshift
+            valid = (ypix >= 0) & (ypix < img_h) & (xpix >= 0) & (xpix < img_w)
+            accepted_mask[ypix[valid], xpix[valid]] = True
+
+        for s in plane_stat[rejected_idx]:
+            # shift coordinates from full to cropped space
+            ypix = s["ypix"] - yshift
+            xpix = s["xpix"] - xshift
+            valid = (ypix >= 0) & (ypix < img_h) & (xpix >= 0) & (xpix < img_w)
+            rejected_mask[ypix[valid], xpix[valid]] = True
+
+        # compute outlines
+        acc_outline = ndimage.binary_dilation(accepted_mask) & ~accepted_mask
+        rej_outline = ndimage.binary_dilation(rejected_mask) & ~rejected_mask
+
+        # create rgba overlay
+        overlay = np.zeros((img_h, img_w, 4), dtype=np.float32)
+
+        # accepted cells: green fill with outline
+        overlay[accepted_mask, :] = [0.2, 0.8, 0.2, 0.3]  # green fill
+        overlay[acc_outline, :] = [0.4, 1.0, 0.4, 0.9]  # bright green outline
+
+        # rejected cells: red fill with outline
+        overlay[rejected_mask, :] = [0.8, 0.2, 0.2, 0.2]  # red fill
+        overlay[rej_outline, :] = [1.0, 0.3, 0.3, 0.6]  # red outline
+
+        ax.imshow(overlay)
+
+        n_acc = accepted_idx.sum()
+        n_rej = rejected_idx.sum()
+
+        # title with plane info (white on black)
+        ax.set_title(
+            f"Plane {plane_num:02d}  ({n_acc}/{n_rej})",
+            fontsize=14, fontweight="bold", color="white", pad=6
+        )
+        ax.axis("off")
+
+    # hide unused subplots
+    for idx in range(nplanes, len(axes)):
+        axes[idx].set_visible(False)
+
+    # add legend
+    from matplotlib.lines import Line2D
+    from matplotlib.patches import Patch
+    legend_elements = [
+        Patch(facecolor=(0.2, 0.8, 0.2, 0.5), edgecolor=(0.4, 1.0, 0.4, 1.0),
+              linewidth=2, label="Accepted"),
+        Patch(facecolor=(0.8, 0.2, 0.2, 0.3), edgecolor=(1.0, 0.3, 0.3, 1.0),
+              linewidth=2, label="Rejected"),
+    ]
+    fig.legend(
+        handles=legend_elements, loc="lower center", ncol=2,
+        fontsize=12, frameon=False, bbox_to_anchor=(0.5, 0.01),
+        labelcolor="white"
+    )
+
+    plt.tight_layout(rect=[0, 0.04, 1, 1])
+
+    if save_path:
+        save_path = Path(save_path)
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(save_path, dpi=300, bbox_inches="tight", facecolor="black")
+        plt.close(fig)
 
     return fig
 
@@ -2388,6 +2292,8 @@ def plot_zplane_figures(
         # Rastermap
         "model": plane_dir / "model.npy",
         "rastermap": plane_dir / "12_rastermap.png",
+        # Regional zoom
+        "regional_zoom": plane_dir / "13_regional_zoom.png",
     }
 
     output_ops = load_ops(expected_files["ops"])
@@ -2436,7 +2342,7 @@ def plot_zplane_figures(
         n_rejected = F_rejected.shape[0]
         print(f"Plotting results for {n_accepted} accepted / {n_rejected} rejected ROIs")
 
-        # --- RASTERMAP (only for sufficient cell counts) ---
+        # Rastermap (only for sufficient cell counts)
         # rastermap sorts neurons by activity similarity for visualization
         # we cache the model to avoid recomputing, but validate it matches current data
         model = None
@@ -2520,7 +2426,7 @@ def plot_zplane_figures(
                         output_ops["isort"] = isort_global
                         F_accepted = F_accepted[isort]
 
-        # --- COMPUTE ΔF/F ---
+        # Compute dF/F
         fs = output_ops.get("fs", 1.0)
         tau = output_ops.get("tau", 1.0)
 
@@ -2569,7 +2475,7 @@ def plot_zplane_figures(
             dffp_rej_unsmoothed = np.zeros((0, F.shape[1]))
             dffp_rej = np.zeros((0, F.shape[1]))
 
-        # --- TRACE PLOTS (robust to any cell count >= 1) ---
+        # Trace plots (robust to any cell count >= 1)
         # Sort traces by quality score (SNR, skewness, shot noise) for visualization
         # Generate plots with 20, 50, and 100 cells if available
 
@@ -2640,7 +2546,7 @@ def plot_zplane_figures(
         else:
             print("  No rejected ROIs - skipping rejected trace plots")
 
-        # --- NOISE DISTRIBUTIONS (robust to any cell count >= 1) ---
+        # Noise distributions (robust to any cell count >= 1)
         # Use unsmoothed dF/F for shot noise (smoothing artificially reduces noise)
         if n_accepted > 0:
             dff_noise_acc = dff_shot_noise(dffp_acc_unsmoothed, fs)
@@ -2658,7 +2564,7 @@ def plot_zplane_figures(
                 title=f"Shot-Noise Distribution (Rejected, n={n_rejected})",
             )
 
-        # --- SEGMENTATION OVERLAYS ---
+        # Segmentation overlays
         # Suite2p stores images in two coordinate systems:
         # - FULL space: refImg, meanImg, meanImgE (same size as original Ly x Lx)
         # - CROPPED space: max_proj, Vcorr (size determined by yrange/xrange after registration)
@@ -2768,7 +2674,7 @@ def plot_zplane_figures(
                     title=f"Correlation Image - Accepted ROIs (n={n_accepted})"
                 )
 
-    # --- SUMMARY IMAGES (no masks) - always generated ---
+    # Summary images (no masks) - always generated
     fig_label = kwargs.get("fig_label", plane_dir.stem)
     for key in ["meanImg", "max_proj", "meanImgE"]:
         if key in output_ops and output_ops[key] is not None:
@@ -2784,11 +2690,22 @@ def plot_zplane_figures(
             except Exception as e:
                 print(f"  Failed to plot {key}: {e}")
 
-    # --- QUALITY DIAGNOSTICS ---
+    # Quality diagnostics
     try:
         plot_plane_diagnostics(plane_dir, save_path=expected_files["quality_diagnostics"])
     except Exception as e:
         print(f"  Failed to generate quality diagnostics: {e}")
+
+    # Regional zoom
+    try:
+        plot_regional_zoom(
+            plane_dir,
+            zoom_size=150,
+            img_key="meanImgE",
+            save_path=expected_files["regional_zoom"],
+        )
+    except Exception as e:
+        print(f"  Failed to generate regional zoom: {e}")
 
     return output_ops
 
@@ -2969,7 +2886,52 @@ def mask_overlay(img, mask, alpha=0.5):
     return rgb
 
 
-def stat_to_mask(stat, Ly, Lx):
+def get_background_image(ops, img_key="max_proj"):
+    """
+    Get background image and coordinate offsets from ops.
+
+    Handles the coordinate space difference between full-FOV images
+    (meanImg, meanImgE, refImg) and cropped images (max_proj, Vcorr).
+
+    Parameters
+    ----------
+    ops : dict
+        Suite2p ops dictionary.
+    img_key : str
+        Key for desired image: 'max_proj', 'Vcorr', 'meanImg', 'meanImgE'.
+
+    Returns
+    -------
+    img : np.ndarray
+        Background image.
+    yoff : int
+        Y offset to subtract from stat coordinates.
+    xoff : int
+        X offset to subtract from stat coordinates.
+    """
+    Ly = ops.get("Ly", 512)
+    Lx = ops.get("Lx", 512)
+    yrange = ops.get("yrange", [0, Ly])
+    xrange = ops.get("xrange", [0, Lx])
+
+    # cropped images need coordinate adjustment
+    cropped_keys = {"max_proj", "Vcorr"}
+
+    if img_key in ops:
+        img = ops[img_key]
+        if img_key in cropped_keys:
+            yoff, xoff = int(yrange[0]), int(xrange[0])
+        else:
+            yoff, xoff = 0, 0
+    else:
+        # fallback to meanImg (full space)
+        img = ops.get("meanImg", np.zeros((Ly, Lx)))
+        yoff, xoff = 0, 0
+
+    return img, yoff, xoff
+
+
+def stat_to_mask(stat, Ly, Lx, yoff=0, xoff=0):
     """
     Convert Suite2p stat array to a 2D labeled mask.
 
@@ -2985,6 +2947,10 @@ def stat_to_mask(stat, Ly, Lx):
         Image height in pixels.
     Lx : int
         Image width in pixels.
+    yoff : int, optional
+        Y offset to subtract from stat coordinates (for cropped images).
+    xoff : int, optional
+        X offset to subtract from stat coordinates (for cropped images).
 
     Returns
     -------
@@ -3005,7 +2971,8 @@ def stat_to_mask(stat, Ly, Lx):
     """
     mask = np.zeros((Ly, Lx), dtype=np.uint16)
     for i, s in enumerate(stat):
-        ypix, xpix = s['ypix'], s['xpix']
+        ypix = s['ypix'] - yoff
+        xpix = s['xpix'] - xoff
         valid = (ypix >= 0) & (ypix < Ly) & (xpix >= 0) & (xpix < Lx)
         mask[ypix[valid], xpix[valid]] = i + 1
     return mask
@@ -3211,19 +3178,13 @@ def plot_regional_zoom(
     """
     plane_dir = Path(plane_dir)
 
-    # Load results
+    # load results
     res = load_planar_results(plane_dir)
     ops = load_ops(plane_dir)
 
-    Ly, Lx = ops["Ly"], ops["Lx"]
-
-    # Get background image
-    if img_key in ops:
-        img = ops[img_key]
-    elif img_key == "max_proj" and "max_proj" not in ops:
-        img = ops.get("meanImg", np.zeros((Ly, Lx)))
-    else:
-        img = ops.get("meanImg", np.zeros((Ly, Lx)))
+    # get background image with coordinate offsets
+    img, yoff, xoff = get_background_image(ops, img_key)
+    img_h, img_w = img.shape[:2]
 
     # Get stat and optionally filter by iscell
     stat = res["stat"]
@@ -3233,21 +3194,21 @@ def plot_regional_zoom(
 
     n_cells = len(stat)
 
-    # Create mask from stat
-    mask = stat_to_mask(stat, Ly, Lx)
+    # Create mask from stat (with coordinate offset for cropped images)
+    mask = stat_to_mask(stat, img_h, img_w, yoff, xoff)
 
     # Create overlay
     overlay = mask_overlay(img, mask, alpha=alpha)
 
     # Define corner and edge regions
-    cy, cx = Ly // 2, Lx // 2
+    cy, cx = img_h // 2, img_w // 2
     zs = zoom_size
 
     regions = {
         "Top-Left": (0, zs, 0, zs),
-        "Top-Right": (0, zs, Lx - zs, Lx),
-        "Bottom-Left": (Ly - zs, Ly, 0, zs),
-        "Bottom-Right": (Ly - zs, Ly, Lx - zs, Lx),
+        "Top-Right": (0, zs, img_w - zs, img_w),
+        "Bottom-Left": (img_h - zs, img_h, 0, zs),
+        "Bottom-Right": (img_h - zs, img_h, img_w - zs, img_w),
         "Center": (cy - zs // 2, cy + zs // 2, cx - zs // 2, cx + zs // 2),
     }
 
@@ -3349,19 +3310,15 @@ def plot_filtered_cells(
     """
     plane_dir = Path(plane_dir)
 
-    # Load results
+    # load results
     res = load_planar_results(plane_dir)
     ops = load_ops(plane_dir)
 
-    Ly, Lx = ops["Ly"], ops["Lx"]
+    # get background image with coordinate offsets
+    img, yoff, xoff = get_background_image(ops, img_key)
+    img_h, img_w = img.shape[:2]
 
-    # Get background image
-    if img_key in ops:
-        img = ops[img_key]
-    else:
-        img = ops.get("meanImg", np.zeros((Ly, Lx)))
-
-    # Normalize iscell arrays to 1D boolean
+    # normalize iscell arrays to 1D boolean
     if iscell_original.ndim == 2:
         iscell_original = iscell_original[:, 0]
     if iscell_filtered.ndim == 2:
@@ -3380,9 +3337,9 @@ def plot_filtered_cells(
     n_removed = removed_mask.sum()
     n_original = iscell_original.sum()
 
-    # Create masks for visualization
-    mask_kept = stat_to_mask(stat[kept_mask], Ly, Lx)
-    mask_removed = stat_to_mask(stat[removed_mask], Ly, Lx)
+    # Create masks for visualization (with coordinate offset for cropped images)
+    mask_kept = stat_to_mask(stat[kept_mask], img_h, img_w, yoff, xoff)
+    mask_removed = stat_to_mask(stat[removed_mask], img_h, img_w, yoff, xoff)
 
     # Normalize image
     img_norm = normalize99(img)
@@ -3448,6 +3405,156 @@ def plot_filtered_cells(
         plt.show()
 
     return fig
+
+
+def plot_filter_exclusions(
+    plane_dir,
+    iscell_filtered,
+    filter_results: list,
+    stat=None,
+    ops=None,
+    img_key: str = "max_proj",
+    alpha: float = 0.5,
+    save_dir=None,
+    figsize: tuple = (12, 6),
+):
+    """
+    Create one PNG per filter showing cells it excluded.
+
+    For each filter that rejected cells, creates a visualization with:
+    - Accepted cells (green)
+    - Cells rejected by this specific filter (red)
+    - Title with filter name and parameters
+
+    Parameters
+    ----------
+    plane_dir : str or Path
+        Path to Suite2p plane directory.
+    iscell_filtered : np.ndarray
+        Final filtered iscell array (n_rois,) or (n_rois, 2).
+    filter_results : list of dict
+        Results from apply_filters(), each dict has 'name', 'removed_mask', 'info'.
+    stat : np.ndarray, optional
+        Suite2p stat array. If None, loads from plane_dir.
+    ops : dict, optional
+        Suite2p ops dict. If None, loads from plane_dir.
+    img_key : str, default "max_proj"
+        Key in ops for background image.
+    alpha : float, default 0.5
+        Overlay transparency.
+    save_dir : str or Path, optional
+        Directory to save PNGs. Defaults to plane_dir.
+    figsize : tuple, default (12, 6)
+        Figure size.
+
+    Returns
+    -------
+    dict
+        Filter metadata: {filter_name: {params, n_rejected, n_remaining}}
+    """
+    plane_dir = Path(plane_dir)
+    save_dir = Path(save_dir) if save_dir else plane_dir
+
+    # load data if needed
+    if stat is None:
+        stat = np.load(plane_dir / "stat.npy", allow_pickle=True)
+    if ops is None:
+        ops = load_ops(plane_dir)
+
+    # get background image with coordinate offsets
+    img, yoff, xoff = get_background_image(ops, img_key)
+    img_h, img_w = img.shape[:2]
+
+    # normalize iscell
+    if iscell_filtered.ndim == 2:
+        iscell_filtered = iscell_filtered[:, 0]
+    accepted_mask = iscell_filtered.astype(bool)
+
+    # normalize image
+    img_norm = normalize99(img)
+    img_rgb = np.stack([img_norm] * 3, axis=-1).astype(np.float32)
+
+    # create accepted cells mask (used in all figures)
+    mask_accepted = stat_to_mask(stat[accepted_mask], img_h, img_w, yoff, xoff)
+
+    filter_metadata = {}
+
+    for result in filter_results:
+        name = result["name"]
+        removed_mask = result["removed_mask"]
+        info = result["info"]
+        config = result.get("config", {})
+        n_rejected = removed_mask.sum()
+
+        if n_rejected == 0:
+            continue
+
+        # build params from user config first (more meaningful), then computed info
+        params = {}
+        # user-specified params
+        for key in ["min_diameter_um", "max_diameter_um", "min_diameter_px", "max_diameter_px",
+                    "min_area_px", "max_area_px", "min_mult", "max_mult", "max_ratio"]:
+            if key in config and config[key] is not None:
+                val = config[key]
+                params[key] = round(val, 1) if isinstance(val, float) else val
+        # computed params (fallback if no user config)
+        if not params:
+            for key in ["min_px", "max_px", "min_ratio", "max_ratio", "lower_px", "upper_px"]:
+                if key in info and info[key] is not None:
+                    params[key] = round(info[key], 1)
+
+        # create mask for rejected cells
+        mask_rejected = stat_to_mask(stat[removed_mask], img_h, img_w, yoff, xoff)
+
+        # create figure
+        fig, ax = plt.subplots(figsize=figsize)
+
+        overlay = img_rgb.copy()
+
+        # draw accepted cells (green)
+        if mask_accepted.max() > 0:
+            mask_px = mask_accepted > 0
+            overlay[mask_px] = (1 - alpha) * overlay[mask_px] + alpha * np.array([0.2, 0.8, 0.2])
+
+        # draw rejected cells (red)
+        if mask_rejected.max() > 0:
+            mask_px = mask_rejected > 0
+            overlay[mask_px] = (1 - alpha) * overlay[mask_px] + alpha * np.array([0.9, 0.2, 0.2])
+
+        ax.imshow(overlay)
+        ax.axis("off")
+
+        # title with filter info
+        params_str = ", ".join(f"{k}={v}" for k, v in params.items())
+        title = f"{name}: {n_rejected} excluded"
+        if params_str:
+            title += f" ({params_str})"
+        ax.set_title(title, fontsize=12, fontweight="bold")
+
+        # legend
+        from matplotlib.patches import Patch
+        legend_elements = [
+            Patch(facecolor=(0.2, 0.8, 0.2), alpha=0.7, label=f"Accepted ({accepted_mask.sum()})"),
+            Patch(facecolor=(0.9, 0.2, 0.2), alpha=0.7, label=f"Excluded ({n_rejected})"),
+        ]
+        ax.legend(handles=legend_elements, loc="upper right", fontsize=10)
+
+        plt.tight_layout()
+
+        # save
+        save_path = save_dir / f"14_filter_{name}.png"
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
+        plt.close(fig)
+        print(f"  Saved {save_path.name}")
+
+        # store metadata
+        filter_metadata[name] = {
+            "params": params,
+            "n_rejected": int(n_rejected),
+            "n_remaining": int(accepted_mask.sum()),
+        }
+
+    return filter_metadata
 
 
 def plot_diameter_histogram(

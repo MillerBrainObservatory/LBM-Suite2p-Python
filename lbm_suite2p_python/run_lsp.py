@@ -20,6 +20,7 @@ from lbm_suite2p_python.postprocessing import (
     dff_rolling_percentile,
 )
 from mbo_utilities.log import get as get_logger
+from mbo_utilities.metadata import get_param, get_voxel_size
 
 from lbm_suite2p_python.zplane import save_pc_panels_and_metrics, plot_zplane_figures
 
@@ -27,8 +28,6 @@ logger = get_logger("run_lsp")
 
 from lbm_suite2p_python._benchmarking import get_cpu_percent, get_ram_used
 from lbm_suite2p_python.volume import (
-    plot_volume_signal,
-    plot_volume_neuron_counts,
     plot_volume_diagnostics,
     plot_orthoslices,
     plot_3d_roi_map,
@@ -215,8 +214,8 @@ def pipeline(
         - 'diameter': min_mult, max_mult (relative to ops['diameter'])
 
         **Default behavior**: If cell_filters is None and pixel resolution is available
-        in the metadata, a default filter of ``max_diameter_um=30`` is applied automatically.
-        To disable this, pass ``cell_filters=[]`` (empty list).
+        in the metadata, a default filter of ``min_diameter_um=4, max_diameter_um=35`` is
+        applied automatically. To disable this, pass ``cell_filters=[]`` (empty list).
 
         Example::
 
@@ -439,14 +438,14 @@ def pipeline(
     save_path = Path(save_path)
     save_path.mkdir(exist_ok=True, parents=True)
 
-    # === STEP 2: Configure ROI on the lazy array ===
+    # Configure ROI on the lazy array
     # This lets the array handle stitching/splitting internally
     if roi is not None and supports_roi(arr):
         arr.roi = roi
         roi_desc = {None: "stitch all", 0: "split all"}.get(roi, f"ROI {roi} only")
         print(f"  ROI mode: {roi_desc}")
 
-    # === STEP 3: Extract metadata and configure ops ===
+    # Extract metadata and configure ops
     metadata = dict(getattr(arr, "metadata", {}) or {})
 
     # Get dimensions from the array (which now reflects ROI setting)
@@ -466,7 +465,7 @@ def pipeline(
     if hasattr(arr, "use_fft"):
         print(f"  FFT subpixel: {arr.use_fft}")
 
-    fs = metadata.get("fs", metadata.get("frame_rate"))
+    fs = get_param(metadata, "fs")
     if fs:
         print(f"  Frame rate: {fs:.2f} Hz")
     if supports_roi(arr):
@@ -480,25 +479,17 @@ def pipeline(
         base_ops.update(ops)
         ops = base_ops
 
-    # Auto-populate from metadata
+    # auto-populate from metadata
     if fs:
         ops["fs"] = fs
 
-    # Get pixel resolution from metadata (check aliases)
-    pr = metadata.get("pixel_resolution")
-    if pr is None:
-        # Check common aliases: dx/dy, PhysicalSizeX/Y, umPerPixX/Y
-        dx = metadata.get("dx") or metadata.get("umPerPixX") or metadata.get("PhysicalSizeX")
-        dy = metadata.get("dy") or metadata.get("umPerPixY") or metadata.get("PhysicalSizeY")
-        if dx is not None and dy is not None:
-            pr = [dx, dy]
-            metadata["pixel_resolution"] = pr  # Set it so mbo_utilities doesn't warn
-
-    # Handle numpy arrays, lists, and tuples for pixel_resolution
-    if pr is not None and hasattr(pr, "__len__") and len(pr) >= 2:
-        ops["dx"] = float(pr[0])
-        ops["dy"] = float(pr[1])
-        ops["pixel_resolution"] = [float(pr[0]), float(pr[1])]  # Also set for write_ops
+    # get pixel resolution from metadata using mbo_utilities
+    voxel = get_voxel_size(metadata)
+    # only set if we got real values (not defaults of 1.0)
+    if voxel.dx != 1.0 or voxel.dy != 1.0:
+        ops["dx"] = voxel.dx
+        ops["dy"] = voxel.dy
+        ops["pixel_resolution"] = [voxel.dx, voxel.dy]
 
     ops["Ly"] = Ly
     ops["Lx"] = Lx
@@ -511,7 +502,7 @@ def pipeline(
     print(f"  Planes: {[p+1 for p in planes_to_process]}")
     print(f"  Output: {save_path}")
 
-    # === STEP 4: Process each plane and ROI combination ===
+    # Process each plane and ROI combination
     all_ops_files = []
     has_multiple_rois = supports_roi(arr) and getattr(arr, "num_rois", 1) > 1
 
@@ -637,18 +628,19 @@ def pipeline(
                 )
                 np.save(ops_file, updated_ops)
 
-                # Apply cell filters
-                # Default: filter by max_diameter_um=30 if pixel resolution available
-                from lbm_suite2p_python.postprocessing import apply_filters, _get_pixel_size
+                # apply cell filters
+                # default: filter by 4-35µm diameter if pixel resolution available
+                from lbm_suite2p_python.postprocessing import apply_filters
 
                 filters_to_apply = cell_filters
                 if filters_to_apply is None:
-                    # Check if pixel resolution is available for default filter
+                    # check if pixel resolution is available for default filter
                     current_ops = load_ops(ops_file)
-                    pixel_size = _get_pixel_size(current_ops)
+                    voxel = get_voxel_size(current_ops)
+                    pixel_size = (voxel.dx + voxel.dy) / 2 if voxel.dx != 1.0 or voxel.dy != 1.0 else None
                     if pixel_size is not None:
-                        filters_to_apply = [{"name": "max_diameter", "max_diameter_um": 30}]
-                        print(f"  Applying default diameter filter (max 30 µm, pixel_size={pixel_size:.2f} µm/px)")
+                        filters_to_apply = [{"name": "max_diameter", "min_diameter_um": 4, "max_diameter_um": 35}]
+                        print(f"  Applying default diameter filter (4-35 µm, pixel_size={pixel_size:.2f} µm/px)")
 
                 if filters_to_apply:
                     print(f"  Applying cell filters...")
@@ -679,7 +671,7 @@ def pipeline(
                         # Generate filter comparison plot
                         if removed_mask.sum() > 0:
                             try:
-                                from lbm_suite2p_python.zplane import plot_filtered_cells
+                                from lbm_suite2p_python.zplane import plot_filtered_cells, plot_filter_exclusions
                                 fig = plot_filtered_cells(
                                     plane_dir,
                                     iscell_original=iscell_original,
@@ -688,6 +680,18 @@ def pipeline(
                                 )
                                 import matplotlib.pyplot as plt
                                 plt.close(fig)
+
+                                # per-filter exclusion plots and metadata
+                                filter_metadata = plot_filter_exclusions(
+                                    plane_dir=plane_dir,
+                                    iscell_filtered=iscell_filtered,
+                                    filter_results=filter_results,
+                                    save_dir=plane_dir,
+                                )
+                                # save filter metadata to ops
+                                updated_ops = load_ops(ops_file)
+                                updated_ops["filter_metadata"] = filter_metadata
+                                np.save(ops_file, updated_ops)
                             except Exception as e:
                                 print(f"  Warning: Filter plot failed: {e}")
                     except Exception as e:
@@ -759,7 +763,7 @@ def pipeline(
             plane_elapsed = time.time() - plane_start
             print(f"  Completed {plane_tag} in {plane_elapsed:.1f}s")
 
-    # === STEP 5: Generate volumetric outputs if multiple planes ===
+    # Generate volumetric outputs if multiple planes
     if len(planes_to_process) > 1 and all_ops_files:
         print(f"\n{'='*60}")
         print("Generating volumetric statistics...")
@@ -770,19 +774,128 @@ def pipeline(
             np.save(save_path / "volume_stats.npy", volume_stats)
 
             try:
-                plot_volume_signal(volume_stats, save_path)
-            except Exception as e:
-                print(f"  Warning: plot_volume_signal failed: {e}")
-
-            try:
-                plot_volume_neuron_counts(volume_stats, save_path)
-            except Exception as e:
-                print(f"  Warning: plot_volume_neuron_counts failed: {e}")
-
-            try:
-                plot_volume_diagnostics(all_ops_files, save_path)
+                plot_volume_diagnostics(all_ops_files, save_path / "volume_quality_diagnostics.png")
             except Exception as e:
                 print(f"  Warning: plot_volume_diagnostics failed: {e}")
+
+            try:
+                plot_orthoslices(all_ops_files, save_path / "orthoslices.png")
+            except Exception as e:
+                print(f"  Warning: plot_orthoslices failed: {e}")
+
+            try:
+                plot_3d_roi_map(all_ops_files, save_path / "roi_map_3d.png", color_by="snr")
+            except Exception as e:
+                print(f"  Warning: plot_3d_roi_map failed: {e}")
+
+            # load planar results for additional volumetric figures
+            try:
+                from lbm_suite2p_python.zplane import (
+                    plot_multiplane_masks,
+                    plot_plane_quality_metrics,
+                    plot_trace_analysis,
+                    create_volume_summary_table,
+                    plot_rastermap,
+                )
+
+                res_z = []
+                for i, ops_path in enumerate(all_ops_files):
+                    try:
+                        res = load_planar_results(ops_path, z_plane=i)
+                        res_z.append(res)
+                    except Exception:
+                        pass
+
+                if res_z:
+                    # consolidate data
+                    all_stat_list = []
+                    for res in res_z:
+                        z_plane_arr = res["z_plane"]
+                        for i, s in enumerate(res["stat"]):
+                            if "iplane" not in s:
+                                s["iplane"] = int(z_plane_arr[i]) if i < len(z_plane_arr) else 0
+                            all_stat_list.append(s)
+                    all_stat = np.array(all_stat_list, dtype=object)
+                    all_iscell = np.vstack([res["iscell"] for res in res_z])
+                    all_F = np.concatenate([res["F"] for res in res_z], axis=0)
+                    all_Fneu = np.concatenate([res["Fneu"] for res in res_z], axis=0)
+                    first_ops = load_ops(all_ops_files[0])
+
+                    # multiplane masks
+                    if len(res_z) > 1:
+                        try:
+                            plot_multiplane_masks(
+                                suite2p_path=save_path,
+                                stat=all_stat,
+                                iscell=all_iscell,
+                                save_path=save_path / "all_planes_masks.png",
+                            )
+                        except Exception as e:
+                            print(f"  Warning: plot_multiplane_masks failed: {e}")
+
+                    # quality metrics
+                    try:
+                        plot_plane_quality_metrics(
+                            stat=all_stat,
+                            iscell=all_iscell,
+                            save_path=save_path / "volume_quality_metrics.png",
+                        )
+                    except Exception as e:
+                        print(f"  Warning: plot_plane_quality_metrics failed: {e}")
+
+                    # trace analysis
+                    try:
+                        plot_trace_analysis(
+                            F=all_F,
+                            Fneu=all_Fneu,
+                            stat=all_stat,
+                            iscell=all_iscell,
+                            ops=first_ops,
+                            save_path=save_path / "volume_trace_analysis.png",
+                        )
+                    except Exception as e:
+                        print(f"  Warning: plot_trace_analysis failed: {e}")
+
+                    # summary table
+                    try:
+                        create_volume_summary_table(
+                            stat=all_stat,
+                            iscell=all_iscell,
+                            F=all_F,
+                            Fneu=all_Fneu,
+                            ops=first_ops,
+                            save_path=save_path / "volume_summary.csv",
+                        )
+                    except Exception as e:
+                        print(f"  Warning: create_volume_summary_table failed: {e}")
+
+                    # rastermap
+                    try:
+                        from rastermap import Rastermap
+                        frame_counts = [res["spks"].shape[1] for res in res_z]
+                        min_frames = min(frame_counts)
+                        for res in res_z:
+                            res["spks"] = res["spks"][:, :min_frames]
+                        all_spks = np.concatenate([res["spks"] for res in res_z], axis=0)
+
+                        model = Rastermap(
+                            n_clusters=100, n_PCs=100, locality=0.75, time_lag_window=15
+                        ).fit(all_spks)
+                        np.save(save_path / "rastermap_model.npy", model)
+                        plot_rastermap(
+                            all_spks, model,
+                            neuron_bin_size=20,
+                            xmax=min(2000, all_spks.shape[1]),
+                            save_path=save_path / "rastermap.png",
+                            title="Rastermap Sorted Activity",
+                        )
+                    except ImportError:
+                        pass
+                    except Exception as e:
+                        print(f"  Warning: rastermap failed: {e}")
+
+            except Exception as e:
+                print(f"  Warning: additional volumetric figures failed: {e}")
 
         except Exception as e:
             print(f"Warning: Volume output generation failed: {e}")
@@ -1436,10 +1549,15 @@ def run_plane_bin(ops) -> bool:
         ops["nframes_chan2"] = n_align
 
     if "diameter" in ops:
+        # save user's input diameter before suite2p/cellpose overwrites it
+        # cellpose estimates actual cell diameters and saves median to ops["diameter"]
+        ops["diameter_user"] = ops["diameter"]
         if ops["diameter"] is not None and np.isnan(ops["diameter"]):
             ops["diameter"] = 8
+            ops["diameter_user"] = 8
         if (ops["diameter"] in (None, 0)) and ops.get("anatomical_only", 0) > 0:
             ops["diameter"] = 8
+            ops["diameter_user"] = 8
             print("Warning: diameter was not set, defaulting to 8.")
 
     reg_file_chan2 = ops_parent / "data_chan2_reg.bin" if use_chan2 else None
@@ -1711,6 +1829,11 @@ def run_plane(
     ops_user = load_ops(ops) if ops else {}
     ops = {**ops_default, **ops_user, "data_path": str(input_path.resolve())}
 
+    # save user's diameter before any modifications
+    # suite2p/cellpose will overwrite ops["diameter"] with measured median
+    if "diameter" in ops:
+        ops["diameter_user"] = ops["diameter"]
+
     # suite2p diameter handling
     if (
         isinstance(ops["diameter"], list)
@@ -1886,22 +2009,21 @@ def run_plane(
         ops["align_by_chan"] = 2
 
     if "nframes" not in ops:
+        # try ops["metadata"] first, then metadata dict
+        nframes = None
         if "metadata" in ops and "shape" in ops["metadata"]:
-            ops["nframes"] = ops["metadata"]["shape"][0]
-        elif "num_frames" in metadata:
-            ops["nframes"] = metadata["num_frames"]
-        elif "nframes" in metadata:
-            ops["nframes"] = metadata["nframes"]
-        elif "shape" in metadata:
-            ops["nframes"] = metadata["shape"][0]
-        elif file is not None and hasattr(file, "shape") and len(file.shape) >= 1:
-            # WARNING: This may trigger lazy loading of the entire file!
+            nframes = ops["metadata"]["shape"][0]
+        if nframes is None:
+            nframes = get_param(metadata, "nframes")
+        if nframes is None and file is not None and hasattr(file, "shape") and len(file.shape) >= 1:
+            # warning: may trigger lazy loading
             print(f"Warning: nframes not found in metadata, loading file to determine shape (plane {plane})...")
-            ops["nframes"] = file.shape[0]
-        else:
+            nframes = file.shape[0]
+        if nframes is None:
             raise KeyError(
                 "missing frame count (nframes) in ops or metadata, and cannot infer from data"
             )
+        ops["nframes"] = nframes
 
     try:
         processed = run_plane_bin(ops)

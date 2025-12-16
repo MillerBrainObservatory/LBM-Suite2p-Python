@@ -6,6 +6,8 @@ import numpy as np
 from scipy.ndimage import percentile_filter
 from scipy.stats import norm
 
+from mbo_utilities.metadata import get_voxel_size
+
 
 def _normalize_iscell(iscell):
     """Ensure iscell is 1D boolean array."""
@@ -55,25 +57,6 @@ def _load_plane_data(plane_dir, iscell=None, stat=None, ops=None):
                 ops = np.load(ops_path, allow_pickle=True).item()
 
     return iscell, stat, ops, plane_dir
-
-
-def _get_pixel_size(ops):
-    """Extract pixel size in microns from ops dictionary."""
-    if ops is None:
-        return None
-
-    if "umPerPix" in ops:
-        return ops["umPerPix"]
-    elif "um_per_pixel" in ops:
-        return ops["um_per_pixel"]
-    elif "pixel_resolution" in ops and ops["pixel_resolution"]:
-        pr = ops["pixel_resolution"]
-        if isinstance(pr, (list, tuple)) and len(pr) >= 2:
-            return np.mean([pr[0], pr[1]])
-        return float(pr)
-    elif "umPerPixX" in ops and "umPerPixY" in ops:
-        return np.mean([ops["umPerPixX"], ops["umPerPixY"]])
-    return None
 
 
 def _save_filtered_iscell(plane_dir, iscell_filtered, iscell_original=None):
@@ -269,9 +252,10 @@ def filter_by_max_diameter(
         raise ValueError("Must specify at least one of: max_diameter_um, max_diameter_px, "
                          "min_diameter_um, min_diameter_px")
 
-    # Get pixel size for unit conversion
-    if pixel_size_um is None:
-        pixel_size_um = _get_pixel_size(ops)
+    # get pixel size for unit conversion
+    if pixel_size_um is None and ops is not None:
+        voxel = get_voxel_size(ops)
+        pixel_size_um = (voxel.dx + voxel.dy) / 2 if voxel.dx != 1.0 or voxel.dy != 1.0 else None
 
     # Get radii from stat
     if "radius" not in stat[0]:
@@ -619,6 +603,7 @@ def apply_filters(
         total_removed |= removed
         filter_results.append({
             "name": name,
+            "config": config,  # original user params (without 'name' and 'save')
             "removed_mask": removed,
             "info": info,
         })
@@ -846,18 +831,17 @@ def dff_rolling_percentile(
     Notes
     -----
     Window size recommendations:
-    - Baseline window (~10 × tau × fs): Should span multiple transients so the
+
+    * Baseline window (~10 × tau × fs): Should span multiple transients so the
       percentile filter can find baseline between events.
-    - Smooth window (~0.5 × tau × fs): Should be shorter than typical transients
+    * Smooth window (~0.5 × tau × fs): Should be shorter than typical transients
       to preserve them while averaging out noise.
 
-    For GCaMP6s (tau ≈ 1.0s) at 30 Hz:
-    - window_size ≈ 300 frames (10 seconds)
-    - smooth_window ≈ 15 frames (0.5 seconds)
+    For GCaMP6s (tau ~ 1.0s) at 30 Hz: window_size ~ 300 frames (10 seconds),
+    smooth_window ~ 15 frames (0.5 seconds).
 
-    For GCaMP6f (tau ≈ 0.4s) at 30 Hz:
-    - window_size ≈ 120 frames (4 seconds)
-    - smooth_window ≈ 6 frames (0.2 seconds)
+    For GCaMP6f (tau ~ 0.4s) at 30 Hz: window_size ~ 120 frames (4 seconds),
+    smooth_window ~ 6 frames (0.2 seconds).
     """
     from scipy.ndimage import uniform_filter1d
 
@@ -1057,12 +1041,12 @@ def compute_trace_quality_score(
     baseline = np.maximum(baseline, 1e-6)
     dff = (F_corr - baseline) / baseline
 
-    # --- SNR ---
+    # SNR
     signal = np.std(dff, axis=1)
     noise = np.median(np.abs(np.diff(dff, axis=1)), axis=1) / 0.6745
     snr = signal / (noise + 1e-6)
 
-    # --- Skewness ---
+    # Skewness
     if stat is not None:
         # Use pre-computed skewness from Suite2p stat
         skewness = np.array([s.get('skew', np.nan) for s in stat])
@@ -1074,10 +1058,10 @@ def compute_trace_quality_score(
         # Compute from traces
         skewness = skew(dff, axis=1)
 
-    # --- Shot noise ---
+    # Shot noise
     shot_noise = dff_shot_noise(dff, fs)
 
-    # --- Normalize metrics to z-scores ---
+    # Normalize metrics to z-scores
     def safe_zscore(x):
         """Z-score with handling for constant arrays."""
         std = np.nanstd(x)
@@ -1090,7 +1074,7 @@ def compute_trace_quality_score(
     # Invert shot noise (lower noise = higher score)
     shot_noise_z = -safe_zscore(shot_noise)
 
-    # --- Compute weighted score ---
+    # Compute weighted score
     score = (
         weights['snr'] * snr_z +
         weights['skewness'] * skewness_z +
@@ -1237,7 +1221,20 @@ def load_planar_results(ops: dict | str | Path, z_plane: list | int = None) -> d
 
 
 def load_ops(ops_input: str | Path | list[str | Path]) -> dict:
-    """Simple utility load a suite2p npy file"""
+    """
+    Load a Suite2p ops.npy file.
+
+    Parameters
+    ----------
+    ops_input : str, Path, or dict
+        Path to ops.npy file, or an already-loaded ops dict.
+
+    Returns
+    -------
+    dict
+        Suite2p operations dictionary containing pipeline parameters
+        and results metadata.
+    """
     if isinstance(ops_input, (str, Path)):
         return np.load(ops_input, allow_pickle=True).item()
     elif isinstance(ops_input, dict):

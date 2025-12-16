@@ -17,6 +17,17 @@ from lbm_suite2p_python.cellpose import (
     open_in_gui,
     save_comparison,
 )
+from lbm_suite2p_python.conversion import (
+    detect_format,
+    validate_format,
+    to_suite2p,
+    to_cellpose,
+    convert,
+    suite2p_to_cellpose,
+    export_for_gui,
+    import_from_gui,
+    compare_detections,
+)
 
 try:
     __version__ = version("lbm_suite2p_python")
@@ -40,6 +51,7 @@ __all__ = [
     "plot_volume_diagnostics",
     "plot_orthoslices",
     "plot_3d_roi_map",
+    "plot_3d_rastermap_clusters",
     "plot_projection",
     "plot_execution_time",
     "plot_noise_distribution",
@@ -83,6 +95,16 @@ __all__ = [
     "load_seg_file",
     "open_in_gui",
     "save_comparison",
+    # Format conversion
+    "detect_format",
+    "validate_format",
+    "to_suite2p",
+    "to_cellpose",
+    "convert",
+    "suite2p_to_cellpose",
+    "export_for_gui",
+    "import_from_gui",
+    "compare_detections",
 ]
 
 # Re-export with public name

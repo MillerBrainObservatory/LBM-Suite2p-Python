@@ -3,6 +3,12 @@
 
 This guide covers the postprocessing functions available in LBM-Suite2p-Python for analyzing and refining calcium imaging traces after Suite2p extraction.
 
+```{seealso}
+- {doc}`User Guide <user_guide>` - Complete pipeline examples and parameter tuning
+- {doc}`Processing Flow <processing_flow>` - Suite2p internal processing steps
+- {doc}`Pipeline Comparison <pipeline_comparison>` - How CaImAn, Suite2p, EXTRACT compare
+```
+
 ```{toctree}
 :maxdepth: 2
 ```
@@ -34,7 +40,7 @@ dff = dff_rolling_percentile(
 - `tau`, `fs`: Auto-calculate window sizes from indicator kinetics
 - `smooth_window`: Optional temporal smoothing (~0.5 × tau × fs)
 
-```{figure} _images/dff_methods_comparison.png
+```{figure} _images/dff/dff_methods_comparison.png
 :alt: Comparison of dF/F methods
 :name: fig-dff-methods
 :width: 100%
@@ -46,7 +52,7 @@ Comparison of different ΔF/F calculation methods. Rolling percentile (20th) pro
 
 The window size critically affects baseline estimation:
 
-```{figure} _images/dff_window_size_effect.png
+```{figure} _images/dff/dff_window_size_effect.png
 :alt: Effect of window size on dF/F
 :name: fig-dff-window
 :width: 100%
@@ -93,7 +99,7 @@ The shot noise metric from [Rupprecht et al. (2021)](https://gcamp6f.com/2021/10
 
 $$\nu = \frac{\mathrm{median}_t\left( \left| \Delta F/F_{t+1} - \Delta F/F_t \right| \right)}{\sqrt{f_r}}$$
 
-```{figure} _images/shot_noise_analysis.png
+```{figure} _images/dff/shot_noise_analysis.png
 :alt: Shot noise analysis
 :name: fig-shot-noise
 :width: 100%
@@ -138,7 +144,7 @@ scores = result['score']          # Combined scores
 - **Skewness**: Positive skew indicates calcium transients (higher = better)
 - **Shot noise**: Frame-to-frame variability (lower = better, inverted in score)
 
-```{figure} _images/quality_score_breakdown.png
+```{figure} _images/dff/quality_score_breakdown.png
 :alt: Quality score breakdown
 :name: fig-quality-score
 :width: 100%
@@ -160,7 +166,7 @@ stat_sorted = stat[sort_idx]
 iscell_sorted = iscell[sort_idx]
 ```
 
-```{figure} _images/trace_sorting_comparison.png
+```{figure} _images/dff/trace_sorting_comparison.png
 :alt: Trace sorting comparison
 :name: fig-trace-sorting
 :width: 100%
@@ -186,7 +192,7 @@ F_norm = normalize_traces(F, mode="per_neuron")
 F_norm = normalize_traces(F, mode="percentile")
 ```
 
-```{figure} _images/trace_normalization.png
+```{figure} _images/dff/trace_normalization.png
 :alt: Trace normalization methods
 :name: fig-normalization
 :width: 100%
@@ -289,7 +295,7 @@ best_neurons = np.argsort(fitness)[:20]
 - `sd_r`: Noise standard deviation estimates
 - `md`: Mode estimates (baseline)
 
-```{figure} _images/event_exceptionality.png
+```{figure} _images/dff/event_exceptionality.png
 :alt: Event exceptionality detection
 :name: fig-exceptionality
 :width: 100%

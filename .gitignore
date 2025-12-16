@@ -172,3 +172,6 @@ cython_debug/
 
 docs/examples/notebooks/*.ipynb
 data/
+
+# notebooks copied during docs build
+docs/*.ipynb

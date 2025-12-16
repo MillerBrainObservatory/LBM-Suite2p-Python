@@ -34,7 +34,7 @@ def _merge_images(
 ):
     merged = {}
 
-    # --- determine global dimensions
+    # Determine global dimensions
     Ly = max(ops["Ly"] for ops in ops_list)
     widths = [ops["Lx"] for ops in ops_list]
     total_Lx = sum(widths)
@@ -187,7 +187,7 @@ def merge_mrois(input_dir, output_dir, overwrite=True):
 
         out_dir.mkdir(exist_ok=True)
 
-        # --- load per-ROI results
+        # Load per-ROI results
         ops_list, stat_list, iscell_list = [], [], []
         F_list, Fneu_list, spks_list = [], [], []
         bin_paths = []
@@ -219,13 +219,13 @@ def merge_mrois(input_dir, output_dir, overwrite=True):
             print(f"No valid ROIs found for {plane}, skipping merge")
             continue
 
-        # --- dimensions
+        # Dimensions
         Ly = ops_list[0]["Ly"]
         widths = [ops.get("xrange", [0, ops["Lx"]])[1] -
                   ops.get("xrange", [0, ops["Lx"]])[0] for ops in ops_list]
         total_Lx = int(sum(widths))
 
-        # --- merge stat + traces
+        # Merge stat and traces
         stat = None
         if stat_list:
             for i, st in enumerate(stat_list):
@@ -246,7 +246,7 @@ def merge_mrois(input_dir, output_dir, overwrite=True):
         Fneu = np.concatenate(Fneu_list, 0) if Fneu_list else None
         spks = np.concatenate(spks_list, 0) if spks_list else None
 
-        # --- merge binary
+        # Merge binary
         merged_bin = out_dir / "data.bin"
         if bin_paths:
             arrays = [Suite2pArray(p) for p in bin_paths]
@@ -261,7 +261,7 @@ def merge_mrois(input_dir, output_dir, overwrite=True):
         else:
             merged_bin = None
 
-        # --- merged ops header
+        # Merged ops header
         merged_ops = dict(ops_list[0])
         merged_ops.update({
             "Ly": Ly,

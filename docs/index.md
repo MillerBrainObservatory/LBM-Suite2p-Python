@@ -24,9 +24,11 @@ See the {doc}`user guide <user_guide>` for complete examples and parameter tunin
 ---
 maxdepth: 1
 ---
+quickstart
 user_guide
+projections
 postprocessing
-cellpose_comparison
+processing_flow
 API Reference <api>
 glossary
 ```
@@ -37,7 +39,6 @@ caption: Additional Resources
 hidden: true
 maxdepth: 1
 ---
-discussions/index
 image_gallery
 pipeline_comparison
 ```

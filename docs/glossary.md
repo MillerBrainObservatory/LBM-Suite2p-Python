@@ -47,5 +47,7 @@ Non-rigid-registration
 pixel-resolution
   The length of each pixel, in micron (px/um).
 
+roi_stats
+  Dictionary containing per-ROI statistics computed during detection, including area, compactness, skewness, and spatial coordinates.
 
 ```

@@ -183,6 +183,9 @@ def plot_volume_signal(zstats, savepath):
 
     ax.legend(fontsize=8, facecolor="#1a1a1a", edgecolor="white", labelcolor="white")
 
+    savepath = Path(savepath)
+    if savepath.is_dir():
+        savepath = savepath / "mean_volume_signal.png"
     plt.savefig(savepath, bbox_inches="tight", facecolor="black", dpi=150)
     plt.close(fig)
 
@@ -839,7 +842,7 @@ def plot_volume_diagnostics(
     cmap = plt.cm.viridis
     plane_colors = {p: cmap(i / max(1, n_planes - 1)) for i, p in enumerate(planes)}
 
-    # ========== Panel 1: ROI Counts per Plane ==========
+    # Panel 1: ROI counts per plane
     ax1 = fig.add_subplot(gs[0, 0])
     ax1.set_facecolor("black")
 
@@ -872,7 +875,7 @@ def plot_volume_diagnostics(
     ax1.spines["left"].set_color("white")
     ax1.legend(fontsize=7, facecolor="#1a1a1a", edgecolor="white", labelcolor="white", loc="upper right")
 
-    # ========== Panel 2: Mean Signal per Plane ==========
+    # Panel 2: mean signal per plane
     ax2 = fig.add_subplot(gs[0, 1])
     ax2.set_facecolor("black")
 
@@ -890,7 +893,7 @@ def plot_volume_diagnostics(
     ax2.spines["left"].set_color("white")
     ax2.legend(fontsize=7, facecolor="#1a1a1a", edgecolor="white", labelcolor="white")
 
-    # ========== Panel 3: SNR Distribution (violin or box per plane) ==========
+    # Panel 3: SNR distribution per plane
     ax3 = fig.add_subplot(gs[1, 0])
     ax3.set_facecolor("black")
 
@@ -925,7 +928,7 @@ def plot_volume_diagnostics(
     if len(all_snr) > 0:
         ax3.legend(fontsize=7, facecolor="#1a1a1a", edgecolor="white", labelcolor="white")
 
-    # ========== Panel 4: Size Distribution (box per plane) ==========
+    # Panel 4: size distribution per plane
     ax4 = fig.add_subplot(gs[1, 1])
     ax4.set_facecolor("black")
 
@@ -960,7 +963,7 @@ def plot_volume_diagnostics(
     if len(all_npix) > 0:
         ax4.legend(fontsize=7, facecolor="#1a1a1a", edgecolor="white", labelcolor="white")
 
-    # ========== Panel 5: Compactness Distribution per Plane ==========
+    # Panel 5: compactness distribution per plane
     ax5 = fig.add_subplot(gs[2, 0])
     ax5.set_facecolor("black")
 
@@ -1002,7 +1005,7 @@ def plot_volume_diagnostics(
     ax5.spines["bottom"].set_color("white")
     ax5.spines["left"].set_color("white")
 
-    # ========== Panel 6: Skewness Distribution per Plane ==========
+    # Panel 6: skewness distribution per plane
     ax6 = fig.add_subplot(gs[2, 1])
     ax6.set_facecolor("black")
 
@@ -1069,8 +1072,8 @@ def plot_orthoslices(
     Generate orthogonal maximum intensity projections (XY, XZ, YZ) of the volume.
 
     Creates a 3-panel figure showing the volume from three orthogonal views,
-    which is standard in microscopy for visualizing 3D structure. Axes are
-    displayed in micrometers when valid voxel size metadata is available.
+    with proper interpolation to isotropic resolution. Axes are displayed
+    in micrometers using voxel size metadata.
 
     Parameters
     ----------
@@ -1088,6 +1091,7 @@ def plot_orthoslices(
     fig : matplotlib.figure.Figure
         The generated figure object.
     """
+    from scipy.ndimage import zoom
     from lbm_suite2p_python.postprocessing import load_ops
 
     if not ops_files:
@@ -1096,53 +1100,48 @@ def plot_orthoslices(
                 fontsize=16, fontweight="bold", color="white")
         return fig
 
-    # Get voxel size from first ops file
+    # get voxel size from first ops file
     first_ops = load_ops(ops_files[0])
+    dx_um, dy_um, dz_um = 1.0, 1.0, 15.0  # defaults (15um is typical z-step)
     try:
         from mbo_utilities.metadata import get_voxel_size
         voxel = get_voxel_size(first_ops)
-        dx_um, dy_um, dz_um = voxel.dx, voxel.dy, voxel.dz
-    except ImportError:
-        # Fallback if mbo_utilities not available
-        pixel_res = first_ops.get("pixel_resolution", [1.0, 1.0])
-        if isinstance(pixel_res, (int, float)):
-            dx_um, dy_um = float(pixel_res), float(pixel_res)
-        else:
-            dx_um = float(pixel_res[0]) if len(pixel_res) > 0 else 1.0
-            dy_um = float(pixel_res[1]) if len(pixel_res) > 1 else dx_um
-        dz_um = float(first_ops.get("dz", first_ops.get("z_step", 15.0)))
+        # only use voxel sizes if they're not the default 1.0 placeholder
+        if voxel.dx > 0 and voxel.dx != 1.0:
+            dx_um = voxel.dx
+        if voxel.dy > 0 and voxel.dy != 1.0:
+            dy_um = voxel.dy
+        if voxel.dz > 0 and voxel.dz != 1.0:
+            dz_um = voxel.dz
+    except (ImportError, Exception):
+        pass
+    # fallback to ops fields
+    if dx_um == 1.0:
+        pixel_res = first_ops.get("pixel_resolution", first_ops.get("um_per_pixel", None))
+        if pixel_res is not None:
+            if isinstance(pixel_res, (int, float)):
+                dx_um, dy_um = float(pixel_res), float(pixel_res)
+            else:
+                dx_um = float(pixel_res[0]) if len(pixel_res) > 0 else 1.0
+                dy_um = float(pixel_res[1]) if len(pixel_res) > 1 else dx_um
+    if dz_um == 15.0:  # still default
+        dz_from_ops = first_ops.get("dz", first_ops.get("z_step", None))
+        if dz_from_ops is not None and dz_from_ops != 1.0:
+            dz_um = float(dz_from_ops)
 
-    # Check if we have valid (non-default) voxel sizes
-    has_valid_xy = dx_um != 1.0 or dy_um != 1.0
-    has_valid_z = dz_um != 1.0
-
-    # Collect images from all planes
+    # collect images from all planes
     images = []
-    plane_nums = []
-
     for ops_file in ops_files:
         ops_file = Path(ops_file)
         ops = load_ops(ops_file)
 
-        # Get image
         img_key = "meanImg" if use_mean else "refImg"
         img = ops.get(img_key)
         if img is None or not isinstance(img, np.ndarray):
             img = ops.get("meanImg" if not use_mean else "refImg")
         if img is None or not isinstance(img, np.ndarray):
             continue
-
-        # Get plane number
-        raw_plane = ops.get("plane", len(images))
-        if isinstance(raw_plane, (int, np.integer)):
-            plane_num = int(raw_plane)
-        else:
-            s = str(raw_plane)
-            digits = "".join([c for c in s if c.isdigit()])
-            plane_num = int(digits) if digits else len(images)
-
         images.append(img)
-        plane_nums.append(plane_num)
 
     if not images:
         fig = plt.figure(figsize=figsize, facecolor="black")
@@ -1150,99 +1149,84 @@ def plot_orthoslices(
                 fontsize=16, fontweight="bold", color="white")
         return fig
 
-    # Sort by plane number
-    sort_idx = np.argsort(plane_nums)
-    images = [images[i] for i in sort_idx]
-    plane_nums = [plane_nums[i] for i in sort_idx]
-
-    # Stack into 3D volume (Z, Y, X)
+    # stack into 3D volume (Z, Y, X)
     volume = np.stack(images, axis=0)
     nz, ny, nx = volume.shape
 
-    # Compute projections
-    xy_proj = np.max(volume, axis=0)  # Max along Z -> XY view
-    xz_proj = np.max(volume, axis=1)  # Max along Y -> XZ view
-    yz_proj = np.max(volume, axis=2)  # Max along X -> YZ view
+    # compute volume dimensions in microns
+    vol_x_um = nx * dx_um
+    vol_y_um = ny * dy_um
+    vol_z_um = (nz - 1) * dz_um if nz > 1 else dz_um
 
-    # Create figure
+    # interpolate volume to isotropic resolution for proper orthoslices
+    xy_res = (dx_um + dy_um) / 2
+    z_zoom = dz_um / xy_res if xy_res > 0 else 1.0
+    z_zoom = min(z_zoom, 10.0)  # cap to avoid memory issues
+    if z_zoom > 1.1:
+        volume_resampled = zoom(volume, (z_zoom, 1, 1), order=1)
+    else:
+        volume_resampled = volume
+
+    # compute projections
+    xy_proj = np.max(volume, axis=0)
+    xz_proj = np.max(volume_resampled, axis=1)
+    yz_proj = np.max(volume_resampled, axis=2)
+
+    # create figure
     fig = plt.figure(figsize=figsize, facecolor="black")
-
-    # Calculate aspect ratios for proper scaling
-    z_scale = dz_um
-    xy_scale = (dx_um + dy_um) / 2  # Average XY scale
-
     gs = fig.add_gridspec(1, 3, wspace=0.15, left=0.05, right=0.95, top=0.88, bottom=0.1)
 
-    # Determine axis labels and extent based on valid voxel size
-    if has_valid_xy:
-        x_label = "X (μm)"
-        y_label = "Y (μm)"
-        xy_extent = [0, nx * dx_um, ny * dy_um, 0]
-        xz_extent = [0, nx * dx_um, nz * dz_um, 0]
-        yz_extent = [0, nz * dz_um, ny * dy_um, 0]
-    else:
-        x_label = "X (pixels)"
-        y_label = "Y (pixels)"
-        xy_extent = None
-        xz_extent = None
-        yz_extent = None
+    # extents for proper axis scaling (all in microns)
+    xy_extent = [0, vol_x_um, vol_y_um, 0]
+    xz_extent = [0, vol_x_um, vol_z_um, 0]
+    yz_extent = [0, vol_z_um, vol_y_um, 0]
 
-    if has_valid_z:
-        z_label = "Z (μm)"
-    else:
-        z_label = "Z (plane)"
-
-    # Panel 1: XY projection (top-down view)
+    # panel 1: XY projection
     ax1 = fig.add_subplot(gs[0, 0])
     ax1.set_facecolor("black")
     im1 = ax1.imshow(xy_proj, cmap="magma", aspect="equal", extent=xy_extent,
                      vmin=np.percentile(xy_proj, 1), vmax=np.percentile(xy_proj, 99.5))
-    ax1.set_xlabel(x_label, fontsize=10, fontweight="bold", color="white")
-    ax1.set_ylabel(y_label, fontsize=10, fontweight="bold", color="white")
-    ax1.set_title("XY Projection (top view)", fontsize=11, fontweight="bold", color="white")
+    ax1.set_xlabel("X (μm)", fontsize=10, fontweight="bold", color="white")
+    ax1.set_ylabel("Y (μm)", fontsize=10, fontweight="bold", color="white")
+    ax1.set_title("XY Projection", fontsize=11, fontweight="bold", color="white")
     ax1.tick_params(colors="white", labelsize=8)
     for spine in ax1.spines.values():
         spine.set_color("white")
 
-    # Panel 2: XZ projection (side view)
+    # panel 2: XZ projection
     ax2 = fig.add_subplot(gs[0, 1])
     ax2.set_facecolor("black")
-    im2 = ax2.imshow(xz_proj, cmap="magma", aspect=z_scale/xy_scale, extent=xz_extent,
-                     vmin=np.percentile(xz_proj, 1), vmax=np.percentile(xz_proj, 99.5))
-    ax2.set_xlabel(x_label, fontsize=10, fontweight="bold", color="white")
-    ax2.set_ylabel(z_label, fontsize=10, fontweight="bold", color="white")
-    ax2.set_title("XZ Projection (front view)", fontsize=11, fontweight="bold", color="white")
+    im2 = ax2.imshow(xz_proj, cmap="magma", aspect="auto", extent=xz_extent,
+                     vmin=np.percentile(xz_proj, 1), vmax=np.percentile(xz_proj, 99.5),
+                     interpolation="bilinear")
+    ax2.set_xlabel("X (μm)", fontsize=10, fontweight="bold", color="white")
+    ax2.set_ylabel("Z (μm)", fontsize=10, fontweight="bold", color="white")
+    ax2.set_title("XZ Projection", fontsize=11, fontweight="bold", color="white")
     ax2.tick_params(colors="white", labelsize=8)
     for spine in ax2.spines.values():
         spine.set_color("white")
 
-    # Panel 3: YZ projection (side view)
+    # panel 3: YZ projection
     ax3 = fig.add_subplot(gs[0, 2])
     ax3.set_facecolor("black")
-    im3 = ax3.imshow(yz_proj.T, cmap="magma", aspect=xy_scale/z_scale, extent=yz_extent,
-                     vmin=np.percentile(yz_proj, 1), vmax=np.percentile(yz_proj, 99.5))
-    ax3.set_xlabel(z_label, fontsize=10, fontweight="bold", color="white")
-    ax3.set_ylabel(y_label, fontsize=10, fontweight="bold", color="white")
-    ax3.set_title("YZ Projection (side view)", fontsize=11, fontweight="bold", color="white")
+    im3 = ax3.imshow(yz_proj.T, cmap="magma", aspect="auto", extent=yz_extent,
+                     vmin=np.percentile(yz_proj, 1), vmax=np.percentile(yz_proj, 99.5),
+                     interpolation="bilinear")
+    ax3.set_xlabel("Z (μm)", fontsize=10, fontweight="bold", color="white")
+    ax3.set_ylabel("Y (μm)", fontsize=10, fontweight="bold", color="white")
+    ax3.set_title("YZ Projection", fontsize=11, fontweight="bold", color="white")
     ax3.tick_params(colors="white", labelsize=8)
     for spine in ax3.spines.values():
         spine.set_color("white")
 
-    # Add colorbar
+    # colorbar
     cbar = fig.colorbar(im1, ax=[ax1, ax2, ax3], shrink=0.6, pad=0.02, location="right")
-    cbar.set_label("Max Intensity", fontsize=10, color="white")
+    cbar.set_label("Intensity (a.u.)", fontsize=10, color="white")
     cbar.ax.tick_params(colors="white")
     cbar.outline.set_edgecolor("white")
 
-    # Title with volume dimensions in appropriate units
-    if has_valid_xy and has_valid_z:
-        vol_x = nx * dx_um
-        vol_y = ny * dy_um
-        vol_z = nz * dz_um
-        title = f"Orthogonal Projections: {nz} planes, {vol_x:.0f}×{vol_y:.0f}×{vol_z:.0f} μm"
-    else:
-        title = f"Orthogonal Projections: {nz} planes, {ny}×{nx} pixels"
-
+    # title with volume dimensions in microns
+    title = f"Orthogonal Projections: {nz} planes, {vol_x_um:.0f}×{vol_y_um:.0f}×{vol_z_um:.0f} μm"
     fig.suptitle(title, fontsize=12, fontweight="bold", color="white", y=0.96)
 
     if save_path:
@@ -1296,23 +1280,32 @@ def plot_3d_roi_map(
 
     # Get voxel size from first ops file
     first_ops = load_ops(ops_files[0])
+    dx_um, dy_um, dz_um = 1.0, 1.0, 15.0  # defaults (15um is typical z-step)
     try:
         from mbo_utilities.metadata import get_voxel_size
         voxel = get_voxel_size(first_ops)
-        dx_um, dy_um, dz_um = voxel.dx, voxel.dy, voxel.dz
-    except ImportError:
-        # Fallback if mbo_utilities not available
-        pixel_res = first_ops.get("pixel_resolution", [1.0, 1.0])
-        if isinstance(pixel_res, (int, float)):
-            dx_um, dy_um = float(pixel_res), float(pixel_res)
-        else:
-            dx_um = float(pixel_res[0]) if len(pixel_res) > 0 else 1.0
-            dy_um = float(pixel_res[1]) if len(pixel_res) > 1 else dx_um
-        dz_um = float(first_ops.get("dz", first_ops.get("z_step", 15.0)))
-
-    # Check if we have valid (non-default) voxel sizes
-    has_valid_xy = dx_um != 1.0 or dy_um != 1.0
-    has_valid_z = dz_um != 1.0
+        # only use voxel sizes if they're not the default 1.0 placeholder
+        if voxel.dx > 0 and voxel.dx != 1.0:
+            dx_um = voxel.dx
+        if voxel.dy > 0 and voxel.dy != 1.0:
+            dy_um = voxel.dy
+        if voxel.dz > 0 and voxel.dz != 1.0:
+            dz_um = voxel.dz
+    except (ImportError, Exception):
+        pass
+    # fallback to ops fields
+    if dx_um == 1.0:
+        pixel_res = first_ops.get("pixel_resolution", first_ops.get("um_per_pixel", None))
+        if pixel_res is not None:
+            if isinstance(pixel_res, (int, float)):
+                dx_um, dy_um = float(pixel_res), float(pixel_res)
+            else:
+                dx_um = float(pixel_res[0]) if len(pixel_res) > 0 else 1.0
+                dy_um = float(pixel_res[1]) if len(pixel_res) > 1 else dx_um
+    if dz_um == 15.0:  # still default
+        dz_from_ops = first_ops.get("dz", first_ops.get("z_step", None))
+        if dz_from_ops is not None and dz_from_ops != 1.0:
+            dz_um = float(dz_from_ops)
 
     # Collect ROI data from all planes
     all_x = []
@@ -1324,19 +1317,13 @@ def plot_3d_roi_map(
     # For rejected ROIs
     rej_x, rej_y, rej_z = [], [], []
 
-    for ops_file in ops_files:
+    for plane_idx, ops_file in enumerate(ops_files):
         ops_file = Path(ops_file)
         ops = load_ops(ops_file)
         plane_dir = ops_file.parent
 
-        # Get plane number
-        raw_plane = ops.get("plane", len(all_x))
-        if isinstance(raw_plane, (int, np.integer)):
-            plane_num = int(raw_plane)
-        else:
-            s = str(raw_plane)
-            digits = "".join([c for c in s if c.isdigit()])
-            plane_num = int(digits) if digits else 0
+        # Use enumeration index for z-depth (planes are ordered)
+        plane_num = plane_idx
 
         # Load required files
         stat_file = plane_dir / "stat.npy"
@@ -1355,6 +1342,7 @@ def plot_3d_roi_map(
             continue
 
         # Get color values based on color_by
+        z_um = plane_num * dz_um  # z-depth in microns for this plane
         if color_by == "snr":
             F_file = plane_dir / "F.npy"
             Fneu_file = plane_dir / "Fneu.npy"
@@ -1369,18 +1357,29 @@ def plot_3d_roi_map(
                 noise = np.median(np.abs(np.diff(dff, axis=1)), axis=1) / 0.6745
                 color_vals = signal / (noise + 1e-6)
             else:
-                color_vals = np.ones(len(stat)) * plane_num
+                # no F data - use zeros
+                color_vals = np.zeros(len(stat))
         elif color_by == "size":
             color_vals = np.array([s.get("npix", 100) for s in stat])
         elif color_by == "activity":
             F_file = plane_dir / "F.npy"
+            Fneu_file = plane_dir / "Fneu.npy"
             if F_file.exists():
                 F = np.load(F_file, allow_pickle=True)
-                color_vals = np.std(F, axis=1)
+                Fneu = np.load(Fneu_file, allow_pickle=True) if Fneu_file.exists() else np.zeros_like(F)
+                F_corr = F - 0.7 * Fneu
+                # compute zscore: (x - mean) / std
+                mean_f = np.mean(F_corr, axis=1, keepdims=True)
+                std_f = np.std(F_corr, axis=1, keepdims=True)
+                std_f = np.maximum(std_f, 1e-6)
+                zscore = (F_corr - mean_f) / std_f
+                # use max zscore as activity metric
+                color_vals = np.max(zscore, axis=1)
             else:
-                color_vals = np.ones(len(stat)) * plane_num
-        else:  # plane
-            color_vals = np.ones(len(stat)) * plane_num
+                # no F data - use zeros
+                color_vals = np.zeros(len(stat))
+        else:  # plane - use z-depth in microns
+            color_vals = np.ones(len(stat)) * z_um
 
         # Extract centroids and convert to microns
         for i, s in enumerate(stat):
@@ -1389,7 +1388,7 @@ def plot_3d_roi_map(
             # Convert pixels to microns
             x_um = x_px * dx_um
             y_um = y_px * dy_um
-            z_um = plane_num * dz_um
+            # z_um already calculated above as plane_num * dz_um
 
             if iscell[i]:
                 all_x.append(x_um)
@@ -1433,7 +1432,7 @@ def plot_3d_roi_map(
     # Choose colormap based on color_by
     if color_by == "plane":
         cmap = "viridis"
-        clabel = "Z-Plane"
+        clabel = "Z-depth (μm)"
     elif color_by == "snr":
         cmap = "plasma"
         clabel = "SNR"
@@ -1447,7 +1446,7 @@ def plot_3d_roi_map(
         all_colors = np.clip(all_colors, vmin, vmax)
     else:  # activity
         cmap = "magma"
-        clabel = "Activity (std)"
+        clabel = "Z-score"
         vmin, vmax = np.percentile(all_colors, [5, 95])
         all_colors = np.clip(all_colors, vmin, vmax)
 
@@ -1461,14 +1460,10 @@ def plot_3d_roi_map(
     cbar.ax.tick_params(colors="white")
     cbar.outline.set_edgecolor("white")
 
-    # Style axes with appropriate units based on valid voxel size
-    x_label = "X (μm)" if has_valid_xy else "X (pixels)"
-    y_label = "Y (μm)" if has_valid_xy else "Y (pixels)"
-    z_label = "Z (μm)" if has_valid_z else "Z (plane)"
-
-    ax.set_xlabel(x_label, fontsize=10, fontweight="bold", color="white", labelpad=10)
-    ax.set_ylabel(y_label, fontsize=10, fontweight="bold", color="white", labelpad=10)
-    ax.set_zlabel(z_label, fontsize=10, fontweight="bold", color="white", labelpad=10)
+    # Style axes - always show in microns
+    ax.set_xlabel("X (μm)", fontsize=10, fontweight="bold", color="white", labelpad=10)
+    ax.set_ylabel("Y (μm)", fontsize=10, fontweight="bold", color="white", labelpad=10)
+    ax.set_zlabel("Z (μm)", fontsize=10, fontweight="bold", color="white", labelpad=10)
 
     ax.tick_params(colors="white", labelsize=8)
     ax.xaxis.label.set_color("white")
@@ -1480,20 +1475,16 @@ def plot_3d_roi_map(
     ax.yaxis._axinfo["grid"]["color"] = (1, 1, 1, 0.2)
     ax.zaxis._axinfo["grid"]["color"] = (1, 1, 1, 0.2)
 
-    # Title with volume dimensions
+    # Title with volume dimensions in microns
     n_cells = len(all_x)
     n_planes = len(np.unique(all_z))
     x_range = all_x.max() - all_x.min()
     y_range = all_y.max() - all_y.min()
     z_range = all_z.max() - all_z.min()
 
-    if has_valid_xy and has_valid_z:
-        vol_str = f"Volume: {x_range:.0f} × {y_range:.0f} × {z_range:.0f} μm"
-    else:
-        vol_str = f"Volume: {x_range:.0f} × {y_range:.0f} × {z_range:.0f}"
-
     fig.suptitle(
-        f"3D ROI Distribution: {n_cells} cells across {n_planes} planes\n{vol_str}",
+        f"3D ROI Distribution: {n_cells} cells across {n_planes} planes\n"
+        f"Volume: {x_range:.0f} × {y_range:.0f} × {z_range:.0f} μm",
         fontsize=12, fontweight="bold", color="white", y=0.95
     )
 
@@ -1501,6 +1492,356 @@ def plot_3d_roi_map(
         ax.legend(fontsize=9, facecolor="#1a1a1a", edgecolor="white", labelcolor="white")
 
     # Adjust view angle for better visualization
+    ax.view_init(elev=20, azim=45)
+
+    if save_path:
+        save_path = Path(save_path)
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(save_path, dpi=150, bbox_inches="tight", facecolor="black")
+        plt.close(fig)
+
+    return fig
+
+
+def plot_3d_rastermap_clusters(
+    suite2p_path: str | Path,
+    save_path: str | Path = None,
+    figsize: tuple = (14, 10),
+    n_clusters: int = 40,
+    show_rejected: bool = False,
+    rastermap_kwargs: dict = None,
+) -> plt.Figure:
+    """
+    Generate a 3D scatter plot of ROI centroids colored by rastermap cluster.
+
+    Loads volumetric suite2p output, runs rastermap clustering on fluorescence
+    data, and visualizes ROI positions in 3D colored by cluster assignment.
+    Checks for existing rastermap model file before running.
+
+    Parameters
+    ----------
+    suite2p_path : str or Path
+        Path to suite2p directory containing plane*_stitched folders or merged folder.
+    save_path : str or Path, optional
+        If provided, save figure to this path.
+    figsize : tuple, default (14, 10)
+        Figure size in inches.
+    n_clusters : int, default 40
+        Number of rastermap clusters. Ignored if loading existing model.
+    show_rejected : bool, default False
+        If True, also show rejected ROIs in gray.
+    rastermap_kwargs : dict, optional
+        Additional kwargs passed to Rastermap(). Ignored if loading existing model.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        The generated figure object.
+
+    Notes
+    -----
+    Looks for existing rastermap model at:
+    - suite2p_path/rastermap_model.npy
+    - suite2p_path/merged/rastermap_model.npy
+
+    If not found, runs rastermap on the consolidated fluorescence data
+    and saves the model for future use.
+
+    Examples
+    --------
+    >>> import lbm_suite2p_python as lsp
+    >>> fig = lsp.plot_3d_rastermap_clusters("path/to/suite2p")
+    >>> fig = lsp.plot_3d_rastermap_clusters("path/to/suite2p", n_clusters=50)
+    """
+    import logging
+    from lbm_suite2p_python.postprocessing import load_ops
+
+    logger = logging.getLogger(__name__)
+    suite2p_path = Path(suite2p_path)
+
+    # check if rastermap is available
+    try:
+        from rastermap import Rastermap
+        has_rastermap = True
+    except ImportError:
+        has_rastermap = False
+        logger.warning("rastermap not installed, cannot generate cluster visualization")
+
+    # find plane directories
+    plane_dirs = sorted(suite2p_path.glob("plane*_stitched"))
+    merged_dir = suite2p_path / "merged"
+
+    if merged_dir.exists() and (merged_dir / "stat.npy").exists():
+        # use merged directory
+        data_dirs = [merged_dir]
+        use_merged = True
+    elif plane_dirs:
+        data_dirs = plane_dirs
+        use_merged = False
+    else:
+        fig = plt.figure(figsize=figsize, facecolor="black")
+        fig.text(0.5, 0.5, "No plane directories or merged folder found",
+                ha="center", va="center", fontsize=14, fontweight="bold", color="white")
+        return fig
+
+    # check data is volumetric (4D = multiple planes)
+    if not use_merged and len(plane_dirs) < 2:
+        logger.warning("Only 1 plane found - this visualization is designed for volumetric (4D) data")
+
+    # look for existing rastermap model
+    model_paths = [
+        suite2p_path / "rastermap_model.npy",
+        merged_dir / "rastermap_model.npy",
+    ]
+    rastermap_model = None
+    for mp in model_paths:
+        if mp.exists():
+            try:
+                rastermap_model = np.load(mp, allow_pickle=True).item()
+                logger.info(f"Loaded existing rastermap model from {mp}")
+                break
+            except Exception as e:
+                logger.warning(f"Failed to load rastermap model from {mp}: {e}")
+
+    # get voxel size from first ops file
+    first_ops_file = None
+    for d in data_dirs:
+        ops_file = d / "ops.npy"
+        if ops_file.exists():
+            first_ops_file = ops_file
+            break
+
+    dx_um, dy_um, dz_um = 1.0, 1.0, 15.0
+    if first_ops_file:
+        first_ops = load_ops(first_ops_file)
+        try:
+            from mbo_utilities.metadata import get_voxel_size
+            voxel = get_voxel_size(first_ops)
+            if voxel.dx > 0 and voxel.dx != 1.0:
+                dx_um = voxel.dx
+            if voxel.dy > 0 and voxel.dy != 1.0:
+                dy_um = voxel.dy
+            if voxel.dz > 0 and voxel.dz != 1.0:
+                dz_um = voxel.dz
+        except (ImportError, Exception):
+            pass
+        if dx_um == 1.0:
+            pixel_res = first_ops.get("pixel_resolution", first_ops.get("um_per_pixel", None))
+            if pixel_res is not None:
+                if isinstance(pixel_res, (int, float)):
+                    dx_um, dy_um = float(pixel_res), float(pixel_res)
+                else:
+                    dx_um = float(pixel_res[0]) if len(pixel_res) > 0 else 1.0
+                    dy_um = float(pixel_res[1]) if len(pixel_res) > 1 else dx_um
+        if dz_um == 15.0:
+            dz_from_ops = first_ops.get("dz", first_ops.get("z_step", None))
+            if dz_from_ops is not None and dz_from_ops != 1.0:
+                dz_um = float(dz_from_ops)
+
+    # collect ROI data and fluorescence
+    all_x, all_y, all_z = [], [], []
+    all_F = []
+    rej_x, rej_y, rej_z = [], [], []
+
+    if use_merged:
+        # load from merged directory
+        stat_file = merged_dir / "stat.npy"
+        iscell_file = merged_dir / "iscell.npy"
+        F_file = merged_dir / "F.npy"
+        Fneu_file = merged_dir / "Fneu.npy"
+
+        if not all([stat_file.exists(), iscell_file.exists(), F_file.exists()]):
+            fig = plt.figure(figsize=figsize, facecolor="black")
+            fig.text(0.5, 0.5, "Missing required files in merged directory",
+                    ha="center", va="center", fontsize=14, fontweight="bold", color="white")
+            return fig
+
+        stat = np.load(stat_file, allow_pickle=True)
+        iscell = np.load(iscell_file)[:, 0].astype(bool)
+        F = np.load(F_file)
+        Fneu = np.load(Fneu_file) if Fneu_file.exists() else np.zeros_like(F)
+
+        for i, s in enumerate(stat):
+            med = s.get("med", [0, 0])
+            y_px, x_px = med[0], med[1]
+            plane_num = s.get("iplane", 0)
+
+            x_um = x_px * dx_um
+            y_um = y_px * dy_um
+            z_um = plane_num * dz_um
+
+            if iscell[i]:
+                all_x.append(x_um)
+                all_y.append(y_um)
+                all_z.append(z_um)
+            elif show_rejected:
+                rej_x.append(x_um)
+                rej_y.append(y_um)
+                rej_z.append(z_um)
+
+        # neuropil correction
+        F_corr = F - 0.7 * Fneu
+        all_F = F_corr[iscell]
+
+    else:
+        # load from individual plane directories
+        F_list = []
+
+        for plane_idx, plane_dir in enumerate(plane_dirs):
+            stat_file = plane_dir / "stat.npy"
+            iscell_file = plane_dir / "iscell.npy"
+            F_file = plane_dir / "F.npy"
+            Fneu_file = plane_dir / "Fneu.npy"
+
+            if not all([stat_file.exists(), iscell_file.exists(), F_file.exists()]):
+                continue
+
+            try:
+                stat = np.load(stat_file, allow_pickle=True)
+                iscell_raw = np.load(iscell_file)
+                iscell = iscell_raw[:, 0].astype(bool)
+                F = np.load(F_file)
+                Fneu = np.load(Fneu_file) if Fneu_file.exists() else np.zeros_like(F)
+            except Exception:
+                continue
+
+            z_um = plane_idx * dz_um
+            F_corr = F - 0.7 * Fneu
+
+            for i, s in enumerate(stat):
+                med = s.get("med", [0, 0])
+                y_px, x_px = med[0], med[1]
+                x_um = x_px * dx_um
+                y_um = y_px * dy_um
+
+                if iscell[i]:
+                    all_x.append(x_um)
+                    all_y.append(y_um)
+                    all_z.append(z_um)
+                elif show_rejected:
+                    rej_x.append(x_um)
+                    rej_y.append(y_um)
+                    rej_z.append(z_um)
+
+            F_list.append(F_corr[iscell])
+
+        if F_list:
+            all_F = np.vstack(F_list)
+
+    if len(all_x) == 0:
+        fig = plt.figure(figsize=figsize, facecolor="black")
+        fig.text(0.5, 0.5, "No accepted ROIs found",
+                ha="center", va="center", fontsize=14, fontweight="bold", color="white")
+        return fig
+
+    all_x = np.array(all_x)
+    all_y = np.array(all_y)
+    all_z = np.array(all_z)
+
+    # run or load rastermap
+    cluster_ids = None
+    n_actual_clusters = 0
+
+    if rastermap_model is not None:
+        # use existing model
+        embedding_clust = rastermap_model.get("embedding_clust", None)
+        if embedding_clust is not None:
+            cluster_ids = embedding_clust.flatten()
+            n_actual_clusters = len(np.unique(cluster_ids[~np.isnan(cluster_ids)]))
+            logger.info(f"Using {n_actual_clusters} clusters from saved model")
+    elif has_rastermap and len(all_F) > 0:
+        # run rastermap
+        logger.info(f"Running rastermap with n_clusters={n_clusters}")
+        try:
+            # zscore the data
+            from scipy.stats import zscore
+            spks = zscore(all_F.astype("float32"), axis=1)
+
+            # set up rastermap params
+            kwargs = {"n_clusters": n_clusters, "n_PCs": min(200, spks.shape[0] - 1), "verbose": False}
+            if rastermap_kwargs:
+                kwargs.update(rastermap_kwargs)
+
+            model = Rastermap(**kwargs).fit(spks)
+            cluster_ids = model.embedding_clust.flatten()
+            n_actual_clusters = model.n_clusters
+
+            # save model for future use
+            model_save = {
+                "embedding": model.embedding,
+                "isort": model.isort,
+                "embedding_clust": model.embedding_clust,
+                "n_clusters": model.n_clusters,
+            }
+            save_model_path = suite2p_path / "rastermap_model.npy"
+            np.save(save_model_path, model_save)
+            logger.info(f"Saved rastermap model to {save_model_path}")
+
+        except Exception as e:
+            logger.warning(f"Rastermap failed: {e}")
+            cluster_ids = None
+
+    # fallback to z-plane coloring if no clusters
+    if cluster_ids is None:
+        logger.warning("No rastermap clusters available, coloring by z-plane instead")
+        cluster_ids = all_z
+        n_actual_clusters = len(np.unique(all_z))
+        color_label = "Z-depth (μm)"
+        cmap = "viridis"
+    else:
+        color_label = "Cluster"
+        cmap = "tab20" if n_actual_clusters <= 20 else "nipy_spectral"
+
+    # create figure
+    fig = plt.figure(figsize=figsize, facecolor="black")
+    ax = fig.add_subplot(111, projection="3d", facecolor="black")
+
+    # style panes
+    ax.xaxis.pane.fill = False
+    ax.yaxis.pane.fill = False
+    ax.zaxis.pane.fill = False
+    ax.xaxis.pane.set_edgecolor("white")
+    ax.yaxis.pane.set_edgecolor("white")
+    ax.zaxis.pane.set_edgecolor("white")
+
+    # plot rejected ROIs first
+    if show_rejected and rej_x:
+        ax.scatter(rej_x, rej_y, rej_z, c="gray", s=10, alpha=0.3, label="Rejected")
+
+    # plot accepted ROIs colored by cluster
+    scatter = ax.scatter(all_x, all_y, all_z, c=cluster_ids, cmap=cmap,
+                        s=15, alpha=0.8, edgecolors="none")
+
+    # colorbar
+    cbar = fig.colorbar(scatter, ax=ax, shrink=0.6, pad=0.1)
+    cbar.set_label(color_label, fontsize=10, color="white")
+    cbar.ax.tick_params(colors="white")
+    cbar.outline.set_edgecolor("white")
+
+    # style axes
+    ax.set_xlabel("X (μm)", fontsize=10, fontweight="bold", color="white", labelpad=10)
+    ax.set_ylabel("Y (μm)", fontsize=10, fontweight="bold", color="white", labelpad=10)
+    ax.set_zlabel("Z (μm)", fontsize=10, fontweight="bold", color="white", labelpad=10)
+
+    ax.tick_params(colors="white", labelsize=8)
+    ax.xaxis._axinfo["grid"]["color"] = (1, 1, 1, 0.2)
+    ax.yaxis._axinfo["grid"]["color"] = (1, 1, 1, 0.2)
+    ax.zaxis._axinfo["grid"]["color"] = (1, 1, 1, 0.2)
+
+    # title
+    n_cells = len(all_x)
+    n_planes = len(np.unique(all_z))
+    x_range = all_x.max() - all_x.min()
+    y_range = all_y.max() - all_y.min()
+    z_range = all_z.max() - all_z.min()
+
+    title = f"Rastermap Clusters: {n_cells} cells, {n_actual_clusters} clusters, {n_planes} planes"
+    subtitle = f"Volume: {x_range:.0f} × {y_range:.0f} × {z_range:.0f} μm"
+    fig.suptitle(f"{title}\n{subtitle}", fontsize=12, fontweight="bold", color="white", y=0.95)
+
+    if show_rejected and rej_x:
+        ax.legend(fontsize=9, facecolor="#1a1a1a", edgecolor="white", labelcolor="white")
+
     ax.view_init(elev=20, azim=45)
 
     if save_path:
