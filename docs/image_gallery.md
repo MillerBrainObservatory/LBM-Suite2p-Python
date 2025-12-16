@@ -90,36 +90,20 @@ Components of trace quality scoring.
 
 ## Projection Types
 
-```{figure} ./_images/projections/01_mean_image.png
-:alt: Mean Image
-:name: gallery-mean-image
-:width: 80%
+```{figure} ./_images/projections/01_anatomical_modes.png
+:alt: Anatomical Modes
+:name: gallery-anatomical-modes
+:width: 100%
 
-Temporal mean of registered movie (`meanImg`).
+Anatomical detection modes: `meanImg`, `meanImgE`, `max_proj`.
 ```
 
-```{figure} ./_images/projections/02_mean_enhanced.png
-:alt: Enhanced Mean
-:name: gallery-mean-enhanced
-:width: 80%
-
-Enhanced mean with spatial high-pass filter (`meanImgE`).
-```
-
-```{figure} ./_images/projections/03_max_projection.png
-:alt: Max Projection
-:name: gallery-max-proj
-:width: 80%
-
-Maximum projection of HP-filtered movie (`max_proj`).
-```
-
-```{figure} ./_images/projections/06_spatial_hp_filter.png
+```{figure} ./_images/projections/02_spatial_hp_filter.png
 :alt: Spatial HP Filter
 :name: gallery-spatial-hp
 :width: 100%
 
-Effect of `spatial_hp_cp` parameter values.
+Effect of `spatial_hp_cp` parameter values on cell boundary enhancement.
 ```
 
 ## Parameter Effects

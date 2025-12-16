@@ -45,38 +45,40 @@ def apply_hp_filter(img, diameter, spatial_hp_cp):
     return img_hp
 
 
-def plot_with_zoom(img, title, save_path, zoom_frac=0.25, zoom_loc="center"):
-    """plot image with inset zoom box, black background, white text."""
-    fig, ax = plt.subplots(figsize=(8, 8), facecolor="black")
-    ax.set_facecolor("black")
-
-    img_norm = normalize99(img)
-    ax.imshow(img_norm, cmap="gray")
-    ax.set_title(title, fontsize=14, fontweight="bold", color="white", pad=10)
-    ax.axis("off")
-
-    h, w = img.shape
-    zoom_h, zoom_w = int(h * zoom_frac), int(w * zoom_frac)
-
-    if zoom_loc == "center":
-        y0, x0 = h // 2 - zoom_h // 2, w // 2 - zoom_w // 2
-    else:
-        y0, x0 = int(h * 0.3), int(w * 0.3)
-
-    # draw zoom box on main image
+def plot_grid_with_zoom(images, titles, save_path, zoom_frac=0.3):
+    """plot images in top row, zoomed regions in bottom row."""
     from matplotlib.patches import Rectangle
-    rect = Rectangle((x0, y0), zoom_w, zoom_h, linewidth=2, edgecolor="cyan", facecolor="none")
-    ax.add_patch(rect)
 
-    # inset axes for zoom
-    inset_ax = ax.inset_axes([0.65, 0.02, 0.33, 0.33])
-    inset_ax.imshow(img_norm[y0:y0+zoom_h, x0:x0+zoom_w], cmap="gray")
-    inset_ax.axis("off")
-    for spine in inset_ax.spines.values():
-        spine.set_edgecolor("cyan")
-        spine.set_linewidth(2)
-        spine.set_visible(True)
+    n = len(images)
+    fig, axes = plt.subplots(2, n, figsize=(5 * n, 10), facecolor="black")
 
+    for col, (img, title) in enumerate(zip(images, titles)):
+        img_norm = normalize99(img)
+        h, w = img.shape
+        zoom_h, zoom_w = int(h * zoom_frac), int(w * zoom_frac)
+        # bottom-left region
+        y0, x0 = int(h * 0.55), int(w * 0.15)
+
+        # top row: full image with box
+        ax_full = axes[0, col]
+        ax_full.set_facecolor("black")
+        ax_full.imshow(img_norm, cmap="gray")
+        ax_full.set_title(title, fontsize=14, fontweight="bold", color="white", pad=10)
+        ax_full.axis("off")
+        rect = Rectangle((x0, y0), zoom_w, zoom_h, linewidth=2, edgecolor="cyan", facecolor="none")
+        ax_full.add_patch(rect)
+
+        # bottom row: zoomed region
+        ax_zoom = axes[1, col]
+        ax_zoom.set_facecolor("black")
+        ax_zoom.imshow(img_norm[y0:y0+zoom_h, x0:x0+zoom_w], cmap="gray")
+        ax_zoom.axis("off")
+        for spine in ax_zoom.spines.values():
+            spine.set_edgecolor("cyan")
+            spine.set_linewidth(2)
+            spine.set_visible(True)
+
+    plt.tight_layout()
     plt.savefig(save_path, dpi=200, bbox_inches="tight", facecolor="black", edgecolor="none")
     plt.close()
     print(f"  saved: {save_path.name}")
@@ -86,13 +88,9 @@ def generate_projection_images(ops_path: Path, output_dir: Path, diameter: int =
     """
     generate projection images from an ops.npy file.
 
-    creates individual images with zoom insets:
-        01_mean_image.png - temporal mean (meanImg)
-        02_mean_enhanced.png - enhanced mean (meanImgE)
-        03_max_projection.png - max projection (max_proj)
-        04_reference_image.png - registration reference (refImg)
-        05_correlation_map.png - activity correlation (Vcorr)
-        06_spatial_hp_filter.png - comparison of hp filter values
+    creates:
+        01_anatomical_modes.png - meanImg, meanImgE, max_proj with zoom
+        02_spatial_hp_filter.png - spatial_hp_cp values 0, 0.5, 1, 3, 7, 15
     """
     import lbm_suite2p_python as lsp
 
@@ -105,8 +103,6 @@ def generate_projection_images(ops_path: Path, output_dir: Path, diameter: int =
     mean_img = ops.get("meanImg")
     mean_img_e = ops.get("meanImgE")
     max_proj = ops.get("max_proj")
-    ref_img = ops.get("refImg")
-    vcorr = ops.get("Vcorr")
 
     print(f"  meanImg: {mean_img.shape if mean_img is not None else None}")
     print(f"  max_proj: {max_proj.shape if max_proj is not None else None}")
@@ -116,62 +112,41 @@ def generate_projection_images(ops_path: Path, output_dir: Path, diameter: int =
     xrange = ops.get("xrange", [0, mean_img.shape[1] if mean_img is not None else 0])
 
     # crop full-size images to match max_proj
-    if mean_img is not None and mean_img.shape != max_proj.shape:
+    if mean_img is not None and max_proj is not None and mean_img.shape != max_proj.shape:
         mean_img = mean_img[yrange[0]:yrange[1], xrange[0]:xrange[1]]
-    if mean_img_e is not None and mean_img_e.shape != max_proj.shape:
+    if mean_img_e is not None and max_proj is not None and mean_img_e.shape != max_proj.shape:
         mean_img_e = mean_img_e[yrange[0]:yrange[1], xrange[0]:xrange[1]]
-    if ref_img is not None and ref_img.shape != max_proj.shape:
-        ref_img = ref_img[yrange[0]:yrange[1], xrange[0]:xrange[1]]
-    if vcorr is not None and vcorr.shape != max_proj.shape:
-        vcorr = vcorr[yrange[0]:yrange[1], xrange[0]:xrange[1]]
 
-    # generate individual images with zoom
+    # 1. anatomical modes: meanImg, meanImgE, max_proj
+    images = []
+    titles = []
     if mean_img is not None:
-        plot_with_zoom(mean_img, "meanImg", output_dir / "01_mean_image.png")
-
+        images.append(mean_img)
+        titles.append("meanImg")
     if mean_img_e is not None:
-        plot_with_zoom(mean_img_e, "meanImgE", output_dir / "02_mean_enhanced.png")
-
+        images.append(mean_img_e)
+        titles.append("meanImgE")
     if max_proj is not None:
-        plot_with_zoom(max_proj, "max_proj", output_dir / "03_max_projection.png")
+        images.append(max_proj)
+        titles.append("max_proj")
 
-    if ref_img is not None:
-        plot_with_zoom(ref_img, "refImg", output_dir / "04_reference_image.png")
+    if images:
+        plot_grid_with_zoom(images, titles, output_dir / "01_anatomical_modes.png")
 
-    if vcorr is not None:
-        plot_with_zoom(vcorr, "Vcorr", output_dir / "05_correlation_map.png")
-
-    # spatial_hp_cp comparison grid
+    # 2. spatial_hp_cp comparison
     base = max_proj if max_proj is not None else mean_img
     if base is not None:
-        hp_values = [0, 1, 2, 3, 5]
-        fig, axes = plt.subplots(2, 3, figsize=(15, 10), facecolor="black")
-        axes = axes.flatten()
-
-        for idx, hp in enumerate(hp_values):
-            ax = axes[idx]
-            ax.set_facecolor("black")
-
+        hp_values = [0, 0.5, 1, 3, 7, 15]
+        hp_images = []
+        hp_titles = []
+        for hp in hp_values:
             if hp == 0:
-                img = normalize99(base)
-                title = "spatial_hp_cp=0"
+                hp_images.append(base)
             else:
-                img = apply_hp_filter(base, diameter, hp)
-                title = f"spatial_hp_cp={hp}"
+                hp_images.append(apply_hp_filter(base, diameter, hp))
+            hp_titles.append(f"spatial_hp_cp={hp}")
 
-            ax.imshow(img, cmap="gray")
-            ax.set_title(title, fontsize=12, fontweight="bold", color="white")
-            ax.axis("off")
-
-        # hide last subplot
-        axes[-1].axis("off")
-        axes[-1].set_facecolor("black")
-
-        plt.tight_layout()
-        plt.savefig(output_dir / "06_spatial_hp_filter.png", dpi=200,
-                    bbox_inches="tight", facecolor="black", edgecolor="none")
-        plt.close()
-        print(f"  saved: 06_spatial_hp_filter.png")
+        plot_grid_with_zoom(hp_images, hp_titles, output_dir / "02_spatial_hp_filter.png")
 
     print(f"  projection images saved to {output_dir}")
 
