@@ -6,6 +6,17 @@ from lbm_suite2p_python.utils import *
 from lbm_suite2p_python.volume import *
 from lbm_suite2p_python.zplane import *
 from lbm_suite2p_python.postprocessing import *
+from lbm_suite2p_python.grid_search import (
+    grid_search,
+    collect_grid_results,
+    compute_combo_metrics,
+    get_best_parameters,
+    print_best_parameters,
+    plot_grid_metrics,
+    plot_grid_distributions,
+    plot_grid_masks,
+    save_grid_results,
+)
 from lbm_suite2p_python.cellpose import (
     cellpose,
     load_cellpose_results,
@@ -39,7 +50,17 @@ __all__ = [
     "pipeline",
     "run_volume",
     "run_plane",
+    # grid search
     "grid_search",
+    "collect_grid_results",
+    "compute_combo_metrics",
+    "get_best_parameters",
+    "print_best_parameters",
+    "plot_grid_metrics",
+    "plot_grid_distributions",
+    "plot_grid_masks",
+    "save_grid_results",
+    # volume
     "consolidate_volume",
     "add_processing_step",
     "plot_traces",
