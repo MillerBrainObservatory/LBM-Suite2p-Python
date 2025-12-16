@@ -1549,10 +1549,15 @@ def run_plane_bin(ops) -> bool:
         ops["nframes_chan2"] = n_align
 
     if "diameter" in ops:
+        # save user's input diameter before suite2p/cellpose overwrites it
+        # cellpose estimates actual cell diameters and saves median to ops["diameter"]
+        ops["diameter_user"] = ops["diameter"]
         if ops["diameter"] is not None and np.isnan(ops["diameter"]):
             ops["diameter"] = 8
+            ops["diameter_user"] = 8
         if (ops["diameter"] in (None, 0)) and ops.get("anatomical_only", 0) > 0:
             ops["diameter"] = 8
+            ops["diameter_user"] = 8
             print("Warning: diameter was not set, defaulting to 8.")
 
     reg_file_chan2 = ops_parent / "data_chan2_reg.bin" if use_chan2 else None
@@ -1823,6 +1828,11 @@ def run_plane(
     ops_default = default_ops()
     ops_user = load_ops(ops) if ops else {}
     ops = {**ops_default, **ops_user, "data_path": str(input_path.resolve())}
+
+    # save user's diameter before any modifications
+    # suite2p/cellpose will overwrite ops["diameter"] with measured median
+    if "diameter" in ops:
+        ops["diameter_user"] = ops["diameter"]
 
     # suite2p diameter handling
     if (
