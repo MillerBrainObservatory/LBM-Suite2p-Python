@@ -1501,3 +1501,353 @@ def plot_3d_roi_map(
         plt.close(fig)
 
     return fig
+
+
+def plot_3d_rastermap_clusters(
+    suite2p_path: str | Path,
+    save_path: str | Path = None,
+    figsize: tuple = (14, 10),
+    n_clusters: int = 40,
+    show_rejected: bool = False,
+    rastermap_kwargs: dict = None,
+) -> plt.Figure:
+    """
+    Generate a 3D scatter plot of ROI centroids colored by rastermap cluster.
+
+    Loads volumetric suite2p output, runs rastermap clustering on fluorescence
+    data, and visualizes ROI positions in 3D colored by cluster assignment.
+    Checks for existing rastermap model file before running.
+
+    Parameters
+    ----------
+    suite2p_path : str or Path
+        Path to suite2p directory containing plane*_stitched folders or merged folder.
+    save_path : str or Path, optional
+        If provided, save figure to this path.
+    figsize : tuple, default (14, 10)
+        Figure size in inches.
+    n_clusters : int, default 40
+        Number of rastermap clusters. Ignored if loading existing model.
+    show_rejected : bool, default False
+        If True, also show rejected ROIs in gray.
+    rastermap_kwargs : dict, optional
+        Additional kwargs passed to Rastermap(). Ignored if loading existing model.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        The generated figure object.
+
+    Notes
+    -----
+    Looks for existing rastermap model at:
+    - suite2p_path/rastermap_model.npy
+    - suite2p_path/merged/rastermap_model.npy
+
+    If not found, runs rastermap on the consolidated fluorescence data
+    and saves the model for future use.
+
+    Examples
+    --------
+    >>> import lbm_suite2p_python as lsp
+    >>> fig = lsp.plot_3d_rastermap_clusters("path/to/suite2p")
+    >>> fig = lsp.plot_3d_rastermap_clusters("path/to/suite2p", n_clusters=50)
+    """
+    import logging
+    from lbm_suite2p_python.postprocessing import load_ops
+
+    logger = logging.getLogger(__name__)
+    suite2p_path = Path(suite2p_path)
+
+    # check if rastermap is available
+    try:
+        from rastermap import Rastermap
+        has_rastermap = True
+    except ImportError:
+        has_rastermap = False
+        logger.warning("rastermap not installed, cannot generate cluster visualization")
+
+    # find plane directories
+    plane_dirs = sorted(suite2p_path.glob("plane*_stitched"))
+    merged_dir = suite2p_path / "merged"
+
+    if merged_dir.exists() and (merged_dir / "stat.npy").exists():
+        # use merged directory
+        data_dirs = [merged_dir]
+        use_merged = True
+    elif plane_dirs:
+        data_dirs = plane_dirs
+        use_merged = False
+    else:
+        fig = plt.figure(figsize=figsize, facecolor="black")
+        fig.text(0.5, 0.5, "No plane directories or merged folder found",
+                ha="center", va="center", fontsize=14, fontweight="bold", color="white")
+        return fig
+
+    # check data is volumetric (4D = multiple planes)
+    if not use_merged and len(plane_dirs) < 2:
+        logger.warning("Only 1 plane found - this visualization is designed for volumetric (4D) data")
+
+    # look for existing rastermap model
+    model_paths = [
+        suite2p_path / "rastermap_model.npy",
+        merged_dir / "rastermap_model.npy",
+    ]
+    rastermap_model = None
+    for mp in model_paths:
+        if mp.exists():
+            try:
+                rastermap_model = np.load(mp, allow_pickle=True).item()
+                logger.info(f"Loaded existing rastermap model from {mp}")
+                break
+            except Exception as e:
+                logger.warning(f"Failed to load rastermap model from {mp}: {e}")
+
+    # get voxel size from first ops file
+    first_ops_file = None
+    for d in data_dirs:
+        ops_file = d / "ops.npy"
+        if ops_file.exists():
+            first_ops_file = ops_file
+            break
+
+    dx_um, dy_um, dz_um = 1.0, 1.0, 15.0
+    if first_ops_file:
+        first_ops = load_ops(first_ops_file)
+        try:
+            from mbo_utilities.metadata import get_voxel_size
+            voxel = get_voxel_size(first_ops)
+            if voxel.dx > 0 and voxel.dx != 1.0:
+                dx_um = voxel.dx
+            if voxel.dy > 0 and voxel.dy != 1.0:
+                dy_um = voxel.dy
+            if voxel.dz > 0 and voxel.dz != 1.0:
+                dz_um = voxel.dz
+        except (ImportError, Exception):
+            pass
+        if dx_um == 1.0:
+            pixel_res = first_ops.get("pixel_resolution", first_ops.get("um_per_pixel", None))
+            if pixel_res is not None:
+                if isinstance(pixel_res, (int, float)):
+                    dx_um, dy_um = float(pixel_res), float(pixel_res)
+                else:
+                    dx_um = float(pixel_res[0]) if len(pixel_res) > 0 else 1.0
+                    dy_um = float(pixel_res[1]) if len(pixel_res) > 1 else dx_um
+        if dz_um == 15.0:
+            dz_from_ops = first_ops.get("dz", first_ops.get("z_step", None))
+            if dz_from_ops is not None and dz_from_ops != 1.0:
+                dz_um = float(dz_from_ops)
+
+    # collect ROI data and fluorescence
+    all_x, all_y, all_z = [], [], []
+    all_F = []
+    rej_x, rej_y, rej_z = [], [], []
+
+    if use_merged:
+        # load from merged directory
+        stat_file = merged_dir / "stat.npy"
+        iscell_file = merged_dir / "iscell.npy"
+        F_file = merged_dir / "F.npy"
+        Fneu_file = merged_dir / "Fneu.npy"
+
+        if not all([stat_file.exists(), iscell_file.exists(), F_file.exists()]):
+            fig = plt.figure(figsize=figsize, facecolor="black")
+            fig.text(0.5, 0.5, "Missing required files in merged directory",
+                    ha="center", va="center", fontsize=14, fontweight="bold", color="white")
+            return fig
+
+        stat = np.load(stat_file, allow_pickle=True)
+        iscell = np.load(iscell_file)[:, 0].astype(bool)
+        F = np.load(F_file)
+        Fneu = np.load(Fneu_file) if Fneu_file.exists() else np.zeros_like(F)
+
+        for i, s in enumerate(stat):
+            med = s.get("med", [0, 0])
+            y_px, x_px = med[0], med[1]
+            plane_num = s.get("iplane", 0)
+
+            x_um = x_px * dx_um
+            y_um = y_px * dy_um
+            z_um = plane_num * dz_um
+
+            if iscell[i]:
+                all_x.append(x_um)
+                all_y.append(y_um)
+                all_z.append(z_um)
+            elif show_rejected:
+                rej_x.append(x_um)
+                rej_y.append(y_um)
+                rej_z.append(z_um)
+
+        # neuropil correction
+        F_corr = F - 0.7 * Fneu
+        all_F = F_corr[iscell]
+
+    else:
+        # load from individual plane directories
+        F_list = []
+
+        for plane_idx, plane_dir in enumerate(plane_dirs):
+            stat_file = plane_dir / "stat.npy"
+            iscell_file = plane_dir / "iscell.npy"
+            F_file = plane_dir / "F.npy"
+            Fneu_file = plane_dir / "Fneu.npy"
+
+            if not all([stat_file.exists(), iscell_file.exists(), F_file.exists()]):
+                continue
+
+            try:
+                stat = np.load(stat_file, allow_pickle=True)
+                iscell_raw = np.load(iscell_file)
+                iscell = iscell_raw[:, 0].astype(bool)
+                F = np.load(F_file)
+                Fneu = np.load(Fneu_file) if Fneu_file.exists() else np.zeros_like(F)
+            except Exception:
+                continue
+
+            z_um = plane_idx * dz_um
+            F_corr = F - 0.7 * Fneu
+
+            for i, s in enumerate(stat):
+                med = s.get("med", [0, 0])
+                y_px, x_px = med[0], med[1]
+                x_um = x_px * dx_um
+                y_um = y_px * dy_um
+
+                if iscell[i]:
+                    all_x.append(x_um)
+                    all_y.append(y_um)
+                    all_z.append(z_um)
+                elif show_rejected:
+                    rej_x.append(x_um)
+                    rej_y.append(y_um)
+                    rej_z.append(z_um)
+
+            F_list.append(F_corr[iscell])
+
+        if F_list:
+            all_F = np.vstack(F_list)
+
+    if len(all_x) == 0:
+        fig = plt.figure(figsize=figsize, facecolor="black")
+        fig.text(0.5, 0.5, "No accepted ROIs found",
+                ha="center", va="center", fontsize=14, fontweight="bold", color="white")
+        return fig
+
+    all_x = np.array(all_x)
+    all_y = np.array(all_y)
+    all_z = np.array(all_z)
+
+    # run or load rastermap
+    cluster_ids = None
+    n_actual_clusters = 0
+
+    if rastermap_model is not None:
+        # use existing model
+        embedding_clust = rastermap_model.get("embedding_clust", None)
+        if embedding_clust is not None:
+            cluster_ids = embedding_clust.flatten()
+            n_actual_clusters = len(np.unique(cluster_ids[~np.isnan(cluster_ids)]))
+            logger.info(f"Using {n_actual_clusters} clusters from saved model")
+    elif has_rastermap and len(all_F) > 0:
+        # run rastermap
+        logger.info(f"Running rastermap with n_clusters={n_clusters}")
+        try:
+            # zscore the data
+            from scipy.stats import zscore
+            spks = zscore(all_F.astype("float32"), axis=1)
+
+            # set up rastermap params
+            kwargs = {"n_clusters": n_clusters, "n_PCs": min(200, spks.shape[0] - 1), "verbose": False}
+            if rastermap_kwargs:
+                kwargs.update(rastermap_kwargs)
+
+            model = Rastermap(**kwargs).fit(spks)
+            cluster_ids = model.embedding_clust.flatten()
+            n_actual_clusters = model.n_clusters
+
+            # save model for future use
+            model_save = {
+                "embedding": model.embedding,
+                "isort": model.isort,
+                "embedding_clust": model.embedding_clust,
+                "n_clusters": model.n_clusters,
+            }
+            save_model_path = suite2p_path / "rastermap_model.npy"
+            np.save(save_model_path, model_save)
+            logger.info(f"Saved rastermap model to {save_model_path}")
+
+        except Exception as e:
+            logger.warning(f"Rastermap failed: {e}")
+            cluster_ids = None
+
+    # fallback to z-plane coloring if no clusters
+    if cluster_ids is None:
+        logger.warning("No rastermap clusters available, coloring by z-plane instead")
+        cluster_ids = all_z
+        n_actual_clusters = len(np.unique(all_z))
+        color_label = "Z-depth (μm)"
+        cmap = "viridis"
+    else:
+        color_label = "Cluster"
+        cmap = "tab20" if n_actual_clusters <= 20 else "nipy_spectral"
+
+    # create figure
+    fig = plt.figure(figsize=figsize, facecolor="black")
+    ax = fig.add_subplot(111, projection="3d", facecolor="black")
+
+    # style panes
+    ax.xaxis.pane.fill = False
+    ax.yaxis.pane.fill = False
+    ax.zaxis.pane.fill = False
+    ax.xaxis.pane.set_edgecolor("white")
+    ax.yaxis.pane.set_edgecolor("white")
+    ax.zaxis.pane.set_edgecolor("white")
+
+    # plot rejected ROIs first
+    if show_rejected and rej_x:
+        ax.scatter(rej_x, rej_y, rej_z, c="gray", s=10, alpha=0.3, label="Rejected")
+
+    # plot accepted ROIs colored by cluster
+    scatter = ax.scatter(all_x, all_y, all_z, c=cluster_ids, cmap=cmap,
+                        s=15, alpha=0.8, edgecolors="none")
+
+    # colorbar
+    cbar = fig.colorbar(scatter, ax=ax, shrink=0.6, pad=0.1)
+    cbar.set_label(color_label, fontsize=10, color="white")
+    cbar.ax.tick_params(colors="white")
+    cbar.outline.set_edgecolor("white")
+
+    # style axes
+    ax.set_xlabel("X (μm)", fontsize=10, fontweight="bold", color="white", labelpad=10)
+    ax.set_ylabel("Y (μm)", fontsize=10, fontweight="bold", color="white", labelpad=10)
+    ax.set_zlabel("Z (μm)", fontsize=10, fontweight="bold", color="white", labelpad=10)
+
+    ax.tick_params(colors="white", labelsize=8)
+    ax.xaxis._axinfo["grid"]["color"] = (1, 1, 1, 0.2)
+    ax.yaxis._axinfo["grid"]["color"] = (1, 1, 1, 0.2)
+    ax.zaxis._axinfo["grid"]["color"] = (1, 1, 1, 0.2)
+
+    # title
+    n_cells = len(all_x)
+    n_planes = len(np.unique(all_z))
+    x_range = all_x.max() - all_x.min()
+    y_range = all_y.max() - all_y.min()
+    z_range = all_z.max() - all_z.min()
+
+    title = f"Rastermap Clusters: {n_cells} cells, {n_actual_clusters} clusters, {n_planes} planes"
+    subtitle = f"Volume: {x_range:.0f} × {y_range:.0f} × {z_range:.0f} μm"
+    fig.suptitle(f"{title}\n{subtitle}", fontsize=12, fontweight="bold", color="white", y=0.95)
+
+    if show_rejected and rej_x:
+        ax.legend(fontsize=9, facecolor="#1a1a1a", edgecolor="white", labelcolor="white")
+
+    ax.view_init(elev=20, azim=45)
+
+    if save_path:
+        save_path = Path(save_path)
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(save_path, dpi=150, bbox_inches="tight", facecolor="black")
+        plt.close(fig)
+
+    return fig

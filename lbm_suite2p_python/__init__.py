@@ -51,6 +51,7 @@ __all__ = [
     "plot_volume_diagnostics",
     "plot_orthoslices",
     "plot_3d_roi_map",
+    "plot_3d_rastermap_clusters",
     "plot_projection",
     "plot_execution_time",
     "plot_noise_distribution",
