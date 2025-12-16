@@ -1303,9 +1303,9 @@ def plot_multiplane_masks(
     if nrows is None:
         nrows = int(np.ceil(nplanes / ncols))
 
-    # auto-calculate figure size (make panels ~3 inches each)
+    # auto-calculate figure size (make panels ~5 inches each for better visibility)
     if figsize is None:
-        figsize = (ncols * 3.5, nrows * 3.5)
+        figsize = (ncols * 5, nrows * 5)
 
     fig, axes = plt.subplots(
         nrows, ncols, figsize=figsize, facecolor="black",
@@ -1419,7 +1419,7 @@ def plot_multiplane_masks(
         # title with plane info (white on black)
         ax.set_title(
             f"Plane {plane_num:02d}  ({n_acc}/{n_rej})",
-            fontsize=10, fontweight="bold", color="white", pad=4
+            fontsize=14, fontweight="bold", color="white", pad=6
         )
         ax.axis("off")
 
@@ -1438,7 +1438,7 @@ def plot_multiplane_masks(
     ]
     fig.legend(
         handles=legend_elements, loc="lower center", ncol=2,
-        fontsize=10, frameon=False, bbox_to_anchor=(0.5, 0.01),
+        fontsize=12, frameon=False, bbox_to_anchor=(0.5, 0.01),
         labelcolor="white"
     )
 
@@ -1447,7 +1447,7 @@ def plot_multiplane_masks(
     if save_path:
         save_path = Path(save_path)
         save_path.parent.mkdir(parents=True, exist_ok=True)
-        plt.savefig(save_path, dpi=200, bbox_inches="tight", facecolor="black")
+        plt.savefig(save_path, dpi=300, bbox_inches="tight", facecolor="black")
         plt.close(fig)
 
     return fig
@@ -2459,6 +2459,8 @@ def plot_zplane_figures(
         # Rastermap
         "model": plane_dir / "model.npy",
         "rastermap": plane_dir / "12_rastermap.png",
+        # Regional zoom
+        "regional_zoom": plane_dir / "13_regional_zoom.png",
     }
 
     output_ops = load_ops(expected_files["ops"])
@@ -2860,6 +2862,17 @@ def plot_zplane_figures(
         plot_plane_diagnostics(plane_dir, save_path=expected_files["quality_diagnostics"])
     except Exception as e:
         print(f"  Failed to generate quality diagnostics: {e}")
+
+    # Regional zoom
+    try:
+        plot_regional_zoom(
+            plane_dir,
+            zoom_size=150,
+            img_key="meanImgE",
+            save_path=expected_files["regional_zoom"],
+        )
+    except Exception as e:
+        print(f"  Failed to generate regional zoom: {e}")
 
     return output_ops
 
