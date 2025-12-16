@@ -831,18 +831,17 @@ def dff_rolling_percentile(
     Notes
     -----
     Window size recommendations:
-    - Baseline window (~10 × tau × fs): Should span multiple transients so the
+
+    * Baseline window (~10 × tau × fs): Should span multiple transients so the
       percentile filter can find baseline between events.
-    - Smooth window (~0.5 × tau × fs): Should be shorter than typical transients
+    * Smooth window (~0.5 × tau × fs): Should be shorter than typical transients
       to preserve them while averaging out noise.
 
-    For GCaMP6s (tau ≈ 1.0s) at 30 Hz:
-    - window_size ≈ 300 frames (10 seconds)
-    - smooth_window ≈ 15 frames (0.5 seconds)
+    For GCaMP6s (tau ~ 1.0s) at 30 Hz: window_size ~ 300 frames (10 seconds),
+    smooth_window ~ 15 frames (0.5 seconds).
 
-    For GCaMP6f (tau ≈ 0.4s) at 30 Hz:
-    - window_size ≈ 120 frames (4 seconds)
-    - smooth_window ≈ 6 frames (0.2 seconds)
+    For GCaMP6f (tau ~ 0.4s) at 30 Hz: window_size ~ 120 frames (4 seconds),
+    smooth_window ~ 6 frames (0.2 seconds).
     """
     from scipy.ndimage import uniform_filter1d
 
@@ -1222,7 +1221,20 @@ def load_planar_results(ops: dict | str | Path, z_plane: list | int = None) -> d
 
 
 def load_ops(ops_input: str | Path | list[str | Path]) -> dict:
-    """Simple utility load a suite2p npy file"""
+    """
+    Load a Suite2p ops.npy file.
+
+    Parameters
+    ----------
+    ops_input : str, Path, or dict
+        Path to ops.npy file, or an already-loaded ops dict.
+
+    Returns
+    -------
+    dict
+        Suite2p operations dictionary containing pipeline parameters
+        and results metadata.
+    """
     if isinstance(ops_input, (str, Path)):
         return np.load(ops_input, allow_pickle=True).item()
     elif isinstance(ops_input, dict):

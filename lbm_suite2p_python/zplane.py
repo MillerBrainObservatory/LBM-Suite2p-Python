@@ -8,7 +8,6 @@ import math
 
 import matplotlib.offsetbox
 from matplotlib import pyplot as plt
-from matplotlib.animation import FuncAnimation
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 from matplotlib.offsetbox import VPacker, HPacker, DrawingArea
@@ -57,8 +56,20 @@ def infer_units(f: np.ndarray) -> str:
 
 
 def format_time(t):
+    """
+    Format a time value in seconds to a human-readable string.
+
+    Parameters
+    ----------
+    t : float
+        Time in seconds.
+
+    Returns
+    -------
+    str
+        Formatted time string (e.g., "30 s", "5 min", "2 h").
+    """
     if t < 60:
-        # make sure we dont show 0 seconds
         return f"{int(np.ceil(t))} s"
     elif t < 3600:
         return f"{int(round(t / 60))} min"
@@ -67,7 +78,21 @@ def format_time(t):
 
 
 def get_color_permutation(n):
-    # choose a step from n//2+1 up to n-1 that is coprime with n
+    """
+    Generate a permutation of indices for visually distinct color ordering.
+
+    Uses a coprime step to spread colors evenly across the color space.
+
+    Parameters
+    ----------
+    n : int
+        Number of items to permute.
+
+    Returns
+    -------
+    list
+        Permuted indices [0, n-1].
+    """
     for s in range(n // 2 + 1, n):
         if math.gcd(s, n) == 1:
             return [(i * s) % n for i in range(n)]
@@ -486,217 +511,25 @@ def plot_traces(
         plt.show()
     return None
 
-def animate_traces(
-    f,
-    save_path="./scrolling.mp4",
-    fps=17.0,
-    start_neurons=20,
-    window=120,
-    title="",
-    gap=None,
-    lw=0.5,
-    cmap="tab10",
-    anim_fps=60,
-    expand_after=5,
-    speed_factor=1.0,
-    expansion_factor=2.0,
-    smooth_factor=1,
-):
-    """WIP"""
-    n_neurons, n_timepoints = f.shape
-    data_time = np.arange(n_timepoints) / fps
-    T_data = data_time[-1]
-    current_frame = min(int(window * fps), n_timepoints - 1)
-    t_f_local = (T_data - window + expansion_factor * expand_after) / (
-        1 + expansion_factor
-    )
-
-    if gap is None:
-        p10 = np.percentile(f[:start_neurons, : current_frame + 1], 10, axis=1)
-        p90 = np.percentile(f[:start_neurons, : current_frame + 1], 90, axis=1)
-        gap = np.median(p90 - p10) * 1.2
-
-    cmap_inst = plt.get_cmap(cmap)
-    colors = cmap_inst(np.linspace(0, 1, n_neurons))
-    perm = np.random.permutation(n_neurons)
-    colors = colors[perm]
-
-    all_shifted = []
-    for i in range(start_neurons):
-        trace = f[i, : current_frame + 1]
-        baseline = np.percentile(trace, 8)
-        shifted = (trace - baseline) + i * gap
-        all_shifted.append(shifted)
-
-    all_y = np.concatenate(all_shifted)
-    y_min = np.min(all_y)
-    y_max = np.max(all_y)
-
-    rounded_dff = np.round(y_max - y_min) * 0.1
-    dff_label = f"{rounded_dff:.0f} % ΔF/F₀"
-
-    fig, ax = plt.subplots(figsize=(10, 6), facecolor="black")
-    ax.set_facecolor("black")
-    ax.tick_params(axis="x", labelbottom=False, length=0)
-    ax.tick_params(axis="y", labelleft=False, length=0)
-
-    for spine in ax.spines.values():
-        spine.set_visible(False)
-
-    fills = []
-    linekw = dict(color="white", linewidth=3)
-    hsb = AnchoredHScaleBar(
-        size=0.1,
-        label=format_time(0.1 * window),
-        loc=4,
-        frameon=False,
-        pad=0.6,
-        sep=4,
-        linekw=linekw,
-        ax=ax,
-    )
-
-    hsb.set_bbox_to_anchor((0.97, -0.1), transform=ax.transAxes)  # noqa
-
-    ax.add_artist(hsb)
-
-    vsb = AnchoredVScaleBar(
-        height=0.1,
-        label=dff_label,
-        loc="lower right",  # noqa
-        frameon=False,
-        pad=0,
-        sep=4,
-        linekw=linekw,
-        ax=ax,
-        spacer_width=0,
-    )
-    ax.add_artist(vsb)
-
-    lines = []
-    for i in range(n_neurons):
-        (line,) = ax.plot([], [], color=colors[i], lw=lw, zorder=-i)
-        lines.append(line)
-
-    def init():
-        for ix in range(n_neurons):
-            if ix < start_neurons:
-                _trace = f[ix, : current_frame + 1]
-                _baseline = np.percentile(_trace, 8)
-                _shifted = (_trace - _baseline) + ix * gap
-                lines[ix].set_data(data_time[: current_frame + 1], _shifted)
-            else:
-                lines[ix].set_data([], [])
-        extra = 0.05 * window
-        ax.set_xlim(0, window + extra)
-        ax.set_ylim(y_min - 0.05 * abs(y_min), y_max + 0.05 * abs(y_max))
-        return lines + [hsb, vsb]
-
-    def update(frame):
-        t = speed_factor * frame / anim_fps
-
-        if t < expand_after:
-            x_min = t
-            x_max = t + window
-            n_visible = start_neurons
-        else:
-            u = min(1.0, (t - expand_after) / (t_f_local - expand_after))
-            ease = 3 * u**2 - 2 * u**3  # smoothstep easing
-            x_min = t
-
-            window_start = window
-            window_end = window + expansion_factor * (T_data - window - expand_after)
-            current_window = window_start + (window_end - window_start) * ease
-
-            x_max = x_min + current_window
-
-            n_visible = start_neurons + int((n_neurons - start_neurons) * ease)
-            n_visible = min(n_neurons, n_visible)
-
-        i_lower = int(x_min * fps)
-        i_upper = int(x_max * fps)
-        i_upper = max(i_upper, i_lower + 1)
-
-        for ix in range(n_neurons):
-            if ix < n_visible:
-                _trace = f[ix, i_lower:i_upper]
-                _baseline = np.percentile(_trace, 8)
-                _shifted = (_trace - _baseline) + ix * gap
-                lines[ix].set_data(data_time[i_lower:i_upper], _shifted)
-            else:
-                lines[ix].set_data([], [])
-
-        for fill in fills:
-            fill.remove()
-        fills.clear()
-
-        for ix in range(n_visible - 1):
-            trace1 = f[ix, i_lower:i_upper]
-            baseline1 = np.percentile(trace1, 8)
-            shifted1 = (trace1 - baseline1) + ix * gap
-
-            trace2 = f[ix + 1, i_lower:i_upper]
-            baseline2 = np.percentile(trace2, 8)
-            shifted2 = (trace2 - baseline2) + (ix + 1) * gap
-
-            fill = ax.fill_between(
-                data_time[i_lower:i_upper],
-                shifted1,
-                shifted2,
-                where=shifted1 > shifted2,
-                color="black",
-                zorder=-ix - 1,
-            )
-            fills.append(fill)
-
-        _all_shifted = [
-            (f[ix, i_lower:i_upper] - np.percentile(f[ix, i_lower:i_upper], 8))
-            + ix * gap
-            for ix in range(n_visible)
-        ]
-        _all_y = np.concatenate(_all_shifted)
-        y_min_new, y_max_new = np.min(_all_y), np.max(_all_y)
-
-        extra_axis = 0.05 * (x_max - x_min)
-        ax.set_xlim(x_min, x_max + extra_axis)
-        ax.set_ylim(
-            y_min_new - 0.05 * abs(y_min_new), y_max_new + 0.05 * abs(y_max_new)
-        )
-
-        if title:
-            ax.set_title(title, fontsize=16, fontweight="bold", color="white")
-
-        _dff_rounded = np.round(y_max_new - y_min_new) * 0.1
-
-        if _dff_rounded > 300:
-            vsb.set_visible(False)
-        else:
-            _dff_label = f"{_dff_rounded:.0f} % ΔF/F₀"
-            vsb.txt.set_text(_dff_label)
-        hsb.txt.set_text(format_time(0.1 * (x_max - x_min)))
-        ax.set_ylabel(
-            f"Neuron Count: {n_visible}", fontsize=8, fontweight="bold", labelpad=2
-        )
-
-        return lines + [hsb, vsb] + fills
-
-    effective_anim_fps = anim_fps * smooth_factor
-    total_frames = int(np.ceil((T_data / speed_factor)))
-
-    ani = FuncAnimation(
-        fig,
-        update,
-        frames=total_frames,
-        init_func=init,
-        interval=1000 / effective_anim_fps,
-        blit=True,
-    )
-    ani.save(save_path, fps=anim_fps)
-    plt.show()
-
 
 def feather_mask(mask, max_alpha=0.75, edge_width=3):
-    # mask alpha using distance transform
+    """
+    Create a feathered alpha mask with soft edges.
+
+    Parameters
+    ----------
+    mask : numpy.ndarray
+        Binary or labeled mask (non-zero = foreground).
+    max_alpha : float, optional
+        Maximum alpha value at mask center. Default is 0.75.
+    edge_width : int, optional
+        Width of the feathered edge in pixels. Default is 3.
+
+    Returns
+    -------
+    numpy.ndarray
+        Alpha mask with values in [0, max_alpha].
+    """
     dist_out = distance_transform_edt(mask == 0)
     alpha = np.clip((edge_width - dist_out) / edge_width, 0, 1)
     return alpha * max_alpha
