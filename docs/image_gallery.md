@@ -90,44 +90,36 @@ Components of trace quality scoring.
 
 ## Projection Types
 
-```{figure} ./_images/projections/01_raw_projections.png
-:alt: Suite2p output images
-:name: fig-raw-projections
-:width: 100%
+```{figure} ./_images/projections/01_mean_image.png
+:alt: Mean Image
+:name: gallery-mean-image
+:width: 80%
 
-Suite2p output images: mean, enhanced mean, max projection, reference, and correlation.
+Temporal mean of registered movie (`meanImg`).
 ```
 
-```{figure} ./_images/projections/02_anatomical_modes.png
-:alt: Anatomical detection modes
-:name: fig-anatomical-modes
-:width: 100%
+```{figure} ./_images/projections/02_mean_enhanced.png
+:alt: Enhanced Mean
+:name: gallery-mean-enhanced
+:width: 80%
 
-Cellpose input images for different `anatomical_only` settings (1-4).
+Enhanced mean with spatial high-pass filter (`meanImgE`).
 ```
 
-```{figure} ./_images/projections/03_spatial_hp_filter.png
-:alt: Spatial high-pass filter effect
+```{figure} ./_images/projections/03_max_projection.png
+:alt: Max Projection
+:name: gallery-max-proj
+:width: 80%
+
+Maximum projection of HP-filtered movie (`max_proj`).
+```
+
+```{figure} ./_images/projections/06_spatial_hp_filter.png
+:alt: Spatial HP Filter
 :name: gallery-spatial-hp
 :width: 100%
 
-Effect of `spatial_hp_cp` parameter on cell boundary enhancement.
-```
-
-```{figure} ./_images/projections/04_cellpose_final_input.png
-:alt: Final cellpose input comparison
-:name: fig-cellpose-input
-:width: 100%
-
-What Cellpose receives under different configuration settings.
-```
-
-```{figure} ./_images/projections/05_hp_filter_zoom.png
-:alt: High-pass filter detail
-:name: fig-hp-zoom
-:width: 100%
-
-Zoomed comparison of high-pass filter effect on cell boundaries.
+Effect of `spatial_hp_cp` parameter values.
 ```
 
 ## Parameter Effects
