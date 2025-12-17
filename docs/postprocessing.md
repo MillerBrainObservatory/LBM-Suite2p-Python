@@ -3,12 +3,6 @@
 
 This guide covers the postprocessing functions available in LBM-Suite2p-Python for analyzing and refining calcium imaging traces after Suite2p extraction.
 
-```{seealso}
-- {doc}`User Guide <user_guide>` - Complete pipeline examples and parameter tuning
-- {doc}`Processing Flow <processing_flow>` - Suite2p internal processing steps
-- {doc}`Pipeline Comparison <pipeline_comparison>` - How CaImAn, Suite2p, EXTRACT compare
-```
-
 ```{toctree}
 :maxdepth: 2
 ```
@@ -176,35 +170,124 @@ Comparison of traces in original order (left) vs sorted by quality score (right)
 
 ---
 
-## Trace Normalization
-
-### Normalize Traces
-
-Scale traces to [0, 1] range for visualization:
-
-```python
-from lbm_suite2p_python.postprocessing import normalize_traces
-
-# Min-max scaling per neuron
-F_norm = normalize_traces(F, mode="per_neuron")
-
-# Percentile-based scaling (more robust to outliers)
-F_norm = normalize_traces(F, mode="percentile")
-```
-
-```{figure} _images/dff/trace_normalization.png
-:alt: Trace normalization methods
-:name: fig-normalization
-:width: 100%
-
-Comparison of normalization methods. Percentile-based scaling (1st-99th) is more robust to outliers than min-max scaling.
-```
-
----
-
 ## ROI Filtering
 
-### Filter by Diameter
+### Pipeline-Integrated Filtering
+
+The `lsp.pipeline()` function automatically applies cell filters after suite2p detection. This is the recommended approach for most workflows.
+
+#### Default Filter Behavior
+
+By default, if pixel resolution is available in the metadata, `lsp.pipeline()` applies a diameter filter of **4-35 µm**:
+
+```python
+# default behavior - auto-applies 4-35 µm filter if pixel_size available
+results = lsp.pipeline("D:/data/raw")
+```
+
+#### Custom Filters via cell_filters
+
+Override the default with the `cell_filters` parameter:
+
+```python
+# custom filters
+results = lsp.pipeline(
+    "D:/data/raw",
+    cell_filters=[
+        {"name": "max_diameter", "min_diameter_um": 5, "max_diameter_um": 25},
+        {"name": "eccentricity", "max_ratio": 4.0},
+    ],
+)
+```
+
+#### Available Filters
+
+| Filter Name | Parameters | Description |
+|-------------|------------|-------------|
+| `max_diameter` | `min_diameter_um`, `max_diameter_um`, `min_diameter_px`, `max_diameter_px` | Filter by ROI diameter |
+| `area` | `min_area_px`, `max_area_px`, `min_mult`, `max_mult` | Filter by pixel count |
+| `eccentricity` | `max_ratio`, `min_ratio` | Filter by bounding box aspect ratio |
+| `diameter` | `min_mult`, `max_mult` | Filter relative to `ops["diameter"]` |
+
+#### Disable All Filtering
+
+To skip all cell filters, pass an empty list:
+
+```python
+results = lsp.pipeline("D:/data/raw", cell_filters=[])
+```
+
+### accept_all_cells Parameter
+
+Suite2p's internal classifier may reject ROIs based on morphological properties. Use `accept_all_cells=True` to accept all detected ROIs regardless of suite2p's classification:
+
+```python
+results = lsp.pipeline(
+    "D:/data/raw",
+    accept_all_cells=True,  # mark all suite2p-rejected ROIs as accepted
+    cell_filters=[],        # optionally skip additional filtering too
+)
+```
+
+**Important notes:**
+
+- This does **NOT** disable suite2p's internal detection filters (overlap removal, neuropil requirements, etc.) - those happen during detection
+- It only flips the `iscell` classification after detection completes
+- The original suite2p classification is saved as `iscell_suite2p.npy`
+- Cell probabilities (column 1 of iscell) are preserved
+
+**Use cases:**
+
+- Comparing your filtering to suite2p's classification
+- Manual curation workflows where you want all candidates
+- Debugging why certain ROIs were rejected
+
+### Filter Summary Figures
+
+When filters reject cells, the pipeline generates diagnostic figures:
+
+**Planar outputs** (in each plane directory):
+
+- `13_filtered_cells.png` - side-by-side before/after comparison
+- `14_filter_<name>.png` - per-filter exclusion visualization
+- `15_filter_summary.png` - combined summary showing all filtering stages
+
+**Volumetric output** (in suite2p root):
+
+- `volume_filter_summary.png` - stacked bar chart per plane + pie chart summary
+
+These figures distinguish between:
+
+- **suite2p rejected** - rejected by suite2p's classifier (red)
+- **filter rejected** - rejected by your `cell_filters` (orange)
+- **accepted** - final accepted cells (green)
+
+### Programmatic Filtering with apply_filters
+
+For more control, use `apply_filters()` directly:
+
+```python
+from lbm_suite2p_python.postprocessing import apply_filters
+
+iscell_filtered, removed_mask, filter_results = apply_filters(
+    plane_dir="path/to/plane01",
+    filters=[
+        {"name": "max_diameter", "min_diameter_um": 5, "max_diameter_um": 25},
+        {"name": "eccentricity", "max_ratio": 4.0},
+    ],
+    save=True,  # save updated iscell.npy
+)
+
+# filter_results contains per-filter info
+for result in filter_results:
+    print(f"{result['name']}: removed {result['removed_mask'].sum()} ROIs")
+```
+
+### Manual Filter Functions
+
+For fine-grained control, use the individual filter functions:
+
+#### Filter by Diameter
 
 Remove ROIs with abnormal sizes:
 
