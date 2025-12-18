@@ -89,7 +89,7 @@ def generate_projection_images(ops_path: Path, output_dir: Path, diameter: int =
     generate projection images from an ops.npy file.
 
     creates:
-        01_anatomical_modes.png - meanImg, meanImgE, max_proj with zoom
+        01_anatomical_modes.png - all 4 cellpose input modes with zoom
         02_spatial_hp_filter.png - spatial_hp_cp values 0, 0.5, 1, 3, 7, 15
     """
     import lbm_suite2p_python as lsp
@@ -117,18 +117,30 @@ def generate_projection_images(ops_path: Path, output_dir: Path, diameter: int =
     if mean_img_e is not None and max_proj is not None and mean_img_e.shape != max_proj.shape:
         mean_img_e = mean_img_e[yrange[0]:yrange[1], xrange[0]:xrange[1]]
 
-    # 1. anatomical modes: meanImg, meanImgE, max_proj
+    # 1. anatomical modes (cellpose inputs for anatomical_only=1,2,3,4)
     images = []
     titles = []
+
+    # mode 1: log(max_proj / mean_img) - activity relative to baseline
+    if mean_img is not None and max_proj is not None:
+        log_ratio = np.log(np.maximum(1e-3, max_proj / np.maximum(1e-3, mean_img)))
+        images.append(log_ratio)
+        titles.append("mode=1: log ratio")
+
+    # mode 2: mean_img
     if mean_img is not None:
         images.append(mean_img)
-        titles.append("meanImg")
+        titles.append("mode=2: mean")
+
+    # mode 3: meanImgE (enhanced mean)
     if mean_img_e is not None:
         images.append(mean_img_e)
-        titles.append("meanImgE")
+        titles.append("mode=3: enhanced mean")
+
+    # mode 4: max_proj
     if max_proj is not None:
         images.append(max_proj)
-        titles.append("max_proj")
+        titles.append("mode=4: max projection")
 
     if images:
         plot_grid_with_zoom(images, titles, output_dir / "01_anatomical_modes.png")
@@ -187,6 +199,7 @@ def organize_images(results_path: Path, docs_images_path: Path):
         "rastermap.png",
         "volume_trace_analysis.png",
         "volume_diagnostics.png",
+        "volume_filter_summary.png",
     ]
 
     planar_filenames = [
@@ -208,6 +221,9 @@ def organize_images(results_path: Path, docs_images_path: Path):
         "09_traces_rejected.png",
         "10_shot_noise_accepted.png",
         "11_shot_noise_rejected.png",
+        "13_filtered_cells.png",
+        "14_filter_*.png",
+        "15_filter_summary.png",
     ]
 
     # backwards-compatible aliases (copy new names to old names for docs)
