@@ -1641,6 +1641,7 @@ def plot_3d_rastermap_clusters(
     # collect ROI data and fluorescence
     all_x, all_y, all_z = [], [], []
     all_F = []
+    all_iscell = []  # track iscell for filtering saved rastermap
     rej_x, rej_y, rej_z = [], [], []
 
     if use_merged:
@@ -1682,10 +1683,12 @@ def plot_3d_rastermap_clusters(
         # neuropil correction
         F_corr = F - 0.7 * Fneu
         all_F = F_corr[iscell]
+        all_iscell = iscell
 
     else:
         # load from individual plane directories
         F_list = []
+        iscell_list = []
 
         for plane_idx, plane_dir in enumerate(plane_dirs):
             stat_file = plane_dir / "stat.npy"
@@ -1707,6 +1710,7 @@ def plot_3d_rastermap_clusters(
 
             z_um = plane_idx * dz_um
             F_corr = F - 0.7 * Fneu
+            iscell_list.append(iscell)
 
             for i, s in enumerate(stat):
                 med = s.get("med", [0, 0])
@@ -1727,6 +1731,8 @@ def plot_3d_rastermap_clusters(
 
         if F_list:
             all_F = np.vstack(F_list)
+        if iscell_list:
+            all_iscell = np.concatenate(iscell_list)
 
     if len(all_x) == 0:
         fig = plt.figure(figsize=figsize, facecolor="black")
@@ -1743,10 +1749,20 @@ def plot_3d_rastermap_clusters(
     n_actual_clusters = 0
 
     if rastermap_model is not None:
-        # use existing model
-        embedding_clust = rastermap_model.get("embedding_clust", None)
+        # use existing model (handle both dict and Rastermap object)
+        if hasattr(rastermap_model, "embedding_clust"):
+            embedding_clust = rastermap_model.embedding_clust
+        elif isinstance(rastermap_model, dict):
+            embedding_clust = rastermap_model.get("embedding_clust", None)
+        else:
+            embedding_clust = None
         if embedding_clust is not None:
             cluster_ids = embedding_clust.flatten()
+            # filter by iscell if model was trained on all ROIs
+            if len(cluster_ids) != len(all_x) and len(all_iscell) > 0:
+                if len(cluster_ids) == len(all_iscell):
+                    cluster_ids = cluster_ids[all_iscell]
+                    logger.info(f"Filtered cluster_ids from {len(embedding_clust)} to {len(cluster_ids)} accepted ROIs")
             n_actual_clusters = len(np.unique(cluster_ids[~np.isnan(cluster_ids)]))
             logger.info(f"Using {n_actual_clusters} clusters from saved model")
     elif has_rastermap and len(all_F) > 0:
@@ -1849,5 +1865,7 @@ def plot_3d_rastermap_clusters(
         save_path.parent.mkdir(parents=True, exist_ok=True)
         plt.savefig(save_path, dpi=150, bbox_inches="tight", facecolor="black")
         plt.close(fig)
+    else:
+        plt.show()
 
     return fig

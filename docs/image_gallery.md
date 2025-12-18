@@ -90,44 +90,20 @@ Components of trace quality scoring.
 
 ## Projection Types
 
-```{figure} ./_images/projections/01_raw_projections.png
-:alt: Suite2p output images
-:name: fig-raw-projections
+```{figure} ./_images/projections/01_anatomical_modes.png
+:alt: Anatomical Modes
+:name: gallery-anatomical-modes
 :width: 100%
 
-Suite2p output images: mean, enhanced mean, max projection, reference, and correlation.
+Anatomical detection modes: `meanImg`, `meanImgE`, `max_proj`.
 ```
 
-```{figure} ./_images/projections/02_anatomical_modes.png
-:alt: Anatomical detection modes
-:name: fig-anatomical-modes
-:width: 100%
-
-Cellpose input images for different `anatomical_only` settings (1-4).
-```
-
-```{figure} ./_images/projections/03_spatial_hp_filter.png
-:alt: Spatial high-pass filter effect
+```{figure} ./_images/projections/02_spatial_hp_filter.png
+:alt: Spatial HP Filter
 :name: gallery-spatial-hp
 :width: 100%
 
-Effect of `spatial_hp_cp` parameter on cell boundary enhancement.
-```
-
-```{figure} ./_images/projections/04_cellpose_final_input.png
-:alt: Final cellpose input comparison
-:name: fig-cellpose-input
-:width: 100%
-
-What Cellpose receives under different configuration settings.
-```
-
-```{figure} ./_images/projections/05_hp_filter_zoom.png
-:alt: High-pass filter detail
-:name: fig-hp-zoom
-:width: 100%
-
-Zoomed comparison of high-pass filter effect on cell boundaries.
+Effect of `spatial_hp_cp` parameter values on cell boundary enhancement.
 ```
 
 ## Parameter Effects

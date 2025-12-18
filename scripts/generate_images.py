@@ -45,48 +45,52 @@ def apply_hp_filter(img, diameter, spatial_hp_cp):
     return img_hp
 
 
-def plot_comparison(images, titles, save_path, suptitle=None, ncols=3):
-    """create comparison grid."""
+def plot_grid_with_zoom(images, titles, save_path, zoom_frac=0.3):
+    """plot images in top row, zoomed regions in bottom row."""
+    from matplotlib.patches import Rectangle
+
     n = len(images)
-    nrows = (n + ncols - 1) // ncols
+    fig, axes = plt.subplots(2, n, figsize=(5 * n, 10), facecolor="black")
 
-    fig, axes = plt.subplots(nrows, ncols, figsize=(5 * ncols, 5 * nrows))
-    axes = np.atleast_2d(axes)
+    for col, (img, title) in enumerate(zip(images, titles)):
+        img_norm = normalize99(img)
+        h, w = img.shape
+        zoom_h, zoom_w = int(h * zoom_frac), int(w * zoom_frac)
+        # bottom-left region
+        y0, x0 = int(h * 0.55), int(w * 0.15)
 
-    for idx, (img, title) in enumerate(zip(images, titles)):
-        row, col = idx // ncols, idx % ncols
-        ax = axes[row, col]
+        # top row: full image with box
+        ax_full = axes[0, col]
+        ax_full.set_facecolor("black")
+        ax_full.imshow(img_norm, cmap="gray")
+        ax_full.set_title(title, fontsize=14, fontweight="bold", color="white", pad=10)
+        ax_full.axis("off")
+        rect = Rectangle((x0, y0), zoom_w, zoom_h, linewidth=2, edgecolor="cyan", facecolor="none")
+        ax_full.add_patch(rect)
 
-        if img is not None:
-            ax.imshow(img, cmap="gray")
-            ax.set_title(title, fontsize=11, fontweight="bold")
-        else:
-            ax.text(0.5, 0.5, "N/A", ha="center", va="center", fontsize=14)
-            ax.set_title(title, fontsize=11)
-        ax.axis("off")
-
-    for idx in range(n, nrows * ncols):
-        axes[idx // ncols, idx % ncols].axis("off")
-
-    if suptitle:
-        fig.suptitle(suptitle, fontsize=14, fontweight="bold", y=1.02)
+        # bottom row: zoomed region
+        ax_zoom = axes[1, col]
+        ax_zoom.set_facecolor("black")
+        ax_zoom.imshow(img_norm[y0:y0+zoom_h, x0:x0+zoom_w], cmap="gray")
+        ax_zoom.axis("off")
+        for spine in ax_zoom.spines.values():
+            spine.set_edgecolor("cyan")
+            spine.set_linewidth(2)
+            spine.set_visible(True)
 
     plt.tight_layout()
-    plt.savefig(save_path, dpi=200, bbox_inches="tight", facecolor="white")
+    plt.savefig(save_path, dpi=200, bbox_inches="tight", facecolor="black", edgecolor="none")
     plt.close()
     print(f"  saved: {save_path.name}")
 
 
 def generate_projection_images(ops_path: Path, output_dir: Path, diameter: int = 4):
     """
-    generate projection comparison images from an ops.npy file.
+    generate projection images from an ops.npy file.
 
     creates:
-        01_raw_projections.png - suite2p output images
-        02_anatomical_modes.png - cellpose input modes
-        03_spatial_hp_filter.png - hp filter effect
-        04_cellpose_final_input.png - final cellpose inputs
-        05_hp_filter_zoom.png - zoomed hp detail
+        01_anatomical_modes.png - all 4 cellpose input modes with zoom
+        02_spatial_hp_filter.png - spatial_hp_cp values 0, 0.5, 1, 3, 7, 15
     """
     import lbm_suite2p_python as lsp
 
@@ -99,133 +103,62 @@ def generate_projection_images(ops_path: Path, output_dir: Path, diameter: int =
     mean_img = ops.get("meanImg")
     mean_img_e = ops.get("meanImgE")
     max_proj = ops.get("max_proj")
-    ref_img = ops.get("refImg")
-    vcorr = ops.get("Vcorr")
 
     print(f"  meanImg: {mean_img.shape if mean_img is not None else None}")
     print(f"  max_proj: {max_proj.shape if max_proj is not None else None}")
 
-    # 1. raw projections
-    raw_imgs = [
-        normalize99(mean_img) if mean_img is not None else None,
-        normalize99(mean_img_e) if mean_img_e is not None else None,
-        normalize99(max_proj) if max_proj is not None else None,
-        normalize99(ref_img) if ref_img is not None else None,
-        normalize99(vcorr) if vcorr is not None else None,
-    ]
-    raw_titles = [
-        "meanImg\n(mean of registered)",
-        "meanImgE\n(enhanced mean)",
-        "max_proj\n(max projection)",
-        "refImg\n(registration reference)",
-        "Vcorr\n(activity correlation)",
-    ]
-    plot_comparison(raw_imgs, raw_titles, output_dir / "01_raw_projections.png",
-                    "Suite2p Output Images")
-
-    # handle cropped images
+    # handle cropped images (max_proj uses yrange/xrange, others don't)
     yrange = ops.get("yrange", [0, mean_img.shape[0] if mean_img is not None else 0])
     xrange = ops.get("xrange", [0, mean_img.shape[1] if mean_img is not None else 0])
 
+    # crop full-size images to match max_proj
+    if mean_img is not None and max_proj is not None and mean_img.shape != max_proj.shape:
+        mean_img = mean_img[yrange[0]:yrange[1], xrange[0]:xrange[1]]
+    if mean_img_e is not None and max_proj is not None and mean_img_e.shape != max_proj.shape:
+        mean_img_e = mean_img_e[yrange[0]:yrange[1], xrange[0]:xrange[1]]
+
+    # 1. anatomical modes (cellpose inputs for anatomical_only=1,2,3,4)
+    images = []
+    titles = []
+
+    # mode 1: log(max_proj / mean_img) - activity relative to baseline
+    if mean_img is not None and max_proj is not None:
+        log_ratio = np.log(np.maximum(1e-3, max_proj / np.maximum(1e-3, mean_img)))
+        images.append(log_ratio)
+        titles.append("mode=1: log ratio")
+
+    # mode 2: mean_img
     if mean_img is not None:
-        mean_img_crop = mean_img[yrange[0]:yrange[1], xrange[0]:xrange[1]]
-    else:
-        mean_img_crop = None
+        images.append(mean_img)
+        titles.append("mode=2: mean")
 
+    # mode 3: meanImgE (enhanced mean)
     if mean_img_e is not None:
-        mean_img_e_crop = mean_img_e[yrange[0]:yrange[1], xrange[0]:xrange[1]]
-    else:
-        mean_img_e_crop = None
+        images.append(mean_img_e)
+        titles.append("mode=3: enhanced mean")
 
-    # 2. anatomical_only modes
-    mode1 = np.log(np.maximum(1e-3, max_proj / np.maximum(1e-3, mean_img_crop))) if (max_proj is not None and mean_img_crop is not None) else None
-    mode2 = mean_img_crop
-    mode3 = mean_img_e_crop if mean_img_e_crop is not None else mean_img_crop
-    mode4 = max_proj
+    # mode 4: max_proj
+    if max_proj is not None:
+        images.append(max_proj)
+        titles.append("mode=4: max projection")
 
-    anat_imgs = [
-        normalize99(mode1) if mode1 is not None else None,
-        normalize99(mode2) if mode2 is not None else None,
-        normalize99(mode3) if mode3 is not None else None,
-        normalize99(mode4) if mode4 is not None else None,
-    ]
-    anat_titles = [
-        "anatomical_only=1\nlog(max/mean)",
-        "anatomical_only=2\nmean image",
-        "anatomical_only=3\nenhanced mean",
-        "anatomical_only=4\nmax projection",
-    ]
-    plot_comparison(anat_imgs, anat_titles, output_dir / "02_anatomical_modes.png",
-                    "Cellpose Input: anatomical_only Parameter")
+    if images:
+        plot_grid_with_zoom(images, titles, output_dir / "01_anatomical_modes.png")
 
-    # 3. spatial_hp_cp effect
+    # 2. spatial_hp_cp comparison
     base = max_proj if max_proj is not None else mean_img
     if base is not None:
-        hp_imgs = [
-            normalize99(base),
-            apply_hp_filter(base, diameter, 0.5),
-            apply_hp_filter(base, diameter, 1.0),
-            apply_hp_filter(base, diameter, 2.0),
-            apply_hp_filter(base, diameter, 3.0),
-            apply_hp_filter(base, diameter, 5.0),
-        ]
-        hp_titles = [
-            "No filter\n(normalized only)",
-            "spatial_hp_cp=0.5\n(subtle)",
-            "spatial_hp_cp=1.0\n(mild)",
-            "spatial_hp_cp=2.0\n(moderate)",
-            "spatial_hp_cp=3.0\n(LBM default)",
-            "spatial_hp_cp=5.0\n(strong)",
-        ]
-        plot_comparison(hp_imgs, hp_titles, output_dir / "03_spatial_hp_filter.png",
-                        f"Spatial High-Pass Filter Effect (diameter={diameter})")
+        hp_values = [0, 0.5, 1, 3, 7, 15]
+        hp_images = []
+        hp_titles = []
+        for hp in hp_values:
+            if hp == 0:
+                hp_images.append(base)
+            else:
+                hp_images.append(apply_hp_filter(base, diameter, hp))
+            hp_titles.append(f"spatial_hp_cp={hp}")
 
-    # 4. final cellpose input comparison
-    final_imgs = []
-    final_titles = []
-
-    if max_proj is not None:
-        final_imgs.append(normalize99(max_proj))
-        final_titles.append("Suite2p default\n(max projection)")
-
-    if mode1 is not None:
-        final_imgs.append(apply_hp_filter(mode1, diameter, 3.0))
-        final_titles.append("Mode 1 + hp=3\nlog(max/mean)")
-
-    if mode3 is not None:
-        final_imgs.append(apply_hp_filter(mode3, diameter, 3.0))
-        final_titles.append("Mode 3 + hp=3\nenhanced mean")
-
-    if mode4 is not None:
-        final_imgs.append(apply_hp_filter(mode4, diameter, 3.0))
-        final_titles.append("LBM default\nmax + hp=3")
-
-    if mode4 is not None:
-        final_imgs.append(normalize99(mode4))
-        final_titles.append("Mode 4, no hp\nmax projection")
-
-    plot_comparison(final_imgs, final_titles, output_dir / "04_cellpose_final_input.png",
-                    "What Cellpose Receives: Configuration Comparison")
-
-    # 5. zoomed hp filter detail
-    if base is not None:
-        h, w = base.shape
-        cy, cx = h // 2, w // 2
-        sz = min(h, w) // 3
-        crop = lambda img: img[cy - sz:cy + sz, cx - sz:cx + sz]
-
-        zoom_imgs = [
-            crop(normalize99(base)),
-            crop(apply_hp_filter(base, diameter, 1.0)),
-            crop(apply_hp_filter(base, diameter, 3.0)),
-        ]
-        zoom_titles = [
-            "No filter (zoom)",
-            "hp=1.0 (zoom)",
-            "hp=3.0 (zoom)",
-        ]
-        plot_comparison(zoom_imgs, zoom_titles, output_dir / "05_hp_filter_zoom.png",
-                        "High-Pass Filter Detail (Center Crop)")
+        plot_grid_with_zoom(hp_images, hp_titles, output_dir / "02_spatial_hp_filter.png")
 
     print(f"  projection images saved to {output_dir}")
 
@@ -266,6 +199,7 @@ def organize_images(results_path: Path, docs_images_path: Path):
         "rastermap.png",
         "volume_trace_analysis.png",
         "volume_diagnostics.png",
+        "volume_filter_summary.png",
     ]
 
     planar_filenames = [
@@ -287,6 +221,9 @@ def organize_images(results_path: Path, docs_images_path: Path):
         "09_traces_rejected.png",
         "10_shot_noise_accepted.png",
         "11_shot_noise_rejected.png",
+        "13_filtered_cells.png",
+        "14_filter_*.png",
+        "15_filter_summary.png",
     ]
 
     # backwards-compatible aliases (copy new names to old names for docs)

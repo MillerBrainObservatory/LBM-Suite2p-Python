@@ -3,28 +3,52 @@
 
 High-level overview of all processing steps executed by `lsp.pipeline()`.
 
-## Pre-Detection (All Modes)
+## Registration
 
-| Step | Description | Disable |
-|------|-------------|---------|
-| Load/Convert Data | Read input files, convert to binary format | N/A |
-| Rigid Registration | Correct XY frame shifts via phase correlation | `ops["do_registration"] = 0` |
-| Non-rigid Registration | Correct local warping via block-wise shifts | `ops["nonrigid"] = False` |
-| Temporal Binning | Average consecutive frames to reduce noise | `ops["nbinned"] = nframes` |
-| Temporal High-Pass | Remove slow baseline drift from movie | `ops["high_pass"] = 0`* |
+| Step | Description | Outputs | Disable |
+|------|-------------|---------|---------|
+| Rigid Registration | Correct XY frame shifts via phase correlation | `data.bin` (registered), `ops["yoff"]`, `ops["xoff"]` | `ops["do_registration"] = 0` |
+| Non-rigid Registration | Correct local warping via block-wise shifts | `data.bin` (registered) | `ops["nonrigid"] = False` |
+| Compute meanImg | Average all registered frames | `ops["meanImg"]` | N/A |
+| Compute meanImgE | Enhanced mean via spatial high-pass | `ops["meanImgE"]` | N/A |
 
-*\*The mbo fork allows disabling high_pass; standard Suite2p always applies it.*
+## Detection Preprocessing
+
+These steps are applied to the registered movie before ROI detection:
+
+| Step | Description | Affects | Disable |
+|------|-------------|---------|---------|
+| Temporal Binning | Average consecutive frames to reduce noise | Detection movie, `ops["max_proj"]` | `ops["nbinned"] = nframes` |
+| Temporal High-Pass | Remove slow baseline drift | Detection movie, `ops["max_proj"]` | `ops["high_pass"] = 0`* |
+
+*\*The mbo fork allows disabling high_pass; standard Suite2p forces a value.*
+
+### What each projection image contains
+
+| Image | Source | Binned? | Temporally HP filtered? |
+|-------|--------|---------|------------------------|
+| `meanImg` | Average of registered frames | No | No |
+| `meanImgE` | Spatial HP of meanImg | No | No |
+| `max_proj` | Max of detection movie | Yes | Yes |
 
 ## Detection: Anatomical Mode (Cellpose)
 
-When `ops["anatomical_only"] > 0`:
+When `ops["anatomical_only"] > 0`, cellpose segments one of these images:
+
+| Mode | Input Image | Description |
+|------|-------------|-------------|
+| 1 | `log(max_proj / meanImg)` | Log ratio emphasizes active regions |
+| 2 | `meanImg` | Raw mean intensity |
+| 3 | `meanImgE` | Enhanced mean (spatial HP) |
+| 4 | `max_proj` | Maximum projection (binned + temporal HP) |
 
 | Step | Description | Disable |
 |------|-------------|---------|
 | PCA Denoise | Spatial denoising via block-wise PCA | `ops["denoise"] = 0` |
-| Compute Anatomical Image | Generate image based on mode (1-4) | N/A (select via `ops["anatomical_only"]`) |
-| Spatial High-Pass | Remove illumination gradients | `ops["spatial_hp_cp"] = 0` |
+| Spatial High-Pass (cellpose) | Remove illumination gradients from input image | `ops["spatial_hp_cp"] = 0` |
 | Cellpose Segmentation | Run Cellpose model on processed image | N/A |
+
+**Note:** `spatial_hp_cp` is applied to the image before cellpose but does NOT modify the stored `ops["max_proj"]` or `ops["meanImg"]`.
 
 ## Detection: Functional Mode
 
@@ -33,7 +57,7 @@ When `ops["anatomical_only"] = 0`:
 | Step | Description | Disable | Notes |
 |------|-------------|---------|-------|
 | Spatial High-Pass | High-pass filter for activity detection | `ops["spatial_hp_detect"] = 0` | sparse only |
-| Compute max_proj, Vcorr | Activity correlation images | N/A | sparse only |
+| Compute Vcorr | Activity correlation images | N/A | sparse only |
 | Seed Detection | Find candidate ROI centers from peaks | N/A | sparse only |
 | ROI Growing | Expand seeds based on correlation | N/A | sparse only |
 | SVD Decomposition | Reduce dimensionality for source detection | N/A | sourcery only (`sparse_mode=False`) |
@@ -48,11 +72,18 @@ When `ops["anatomical_only"] = 0`:
 | Compute Neuropil (Fneu) | Estimate neuropil signal from surround | `ops["neuropil_extract"] = False` |
 | Classifier | Apply ROI classifier (cell vs not-cell) | `ops["classifier_path"] = ""` |
 | Spike Deconvolution | Infer spike times via OASIS | `ops["spikedetect"] = False` |
-| Apply Filters | Size/shape filters on detected ROIs | `filters=None` in `lsp.pipeline()` |
+| Apply Filters | Size/shape filters on detected ROIs | `cell_filters=[]` in `lsp.pipeline()` |
 
----
+## lsp.pipeline() Additional Steps
 
-## See Also
+These are applied by `lsp.pipeline()` after suite2p completes:
+
+| Step | Description | Disable |
+|------|-------------|---------|
+| Accept All Cells | Mark all suite2p-rejected ROIs as accepted | `accept_all_cells=False` (default) |
+| Cell Filters | Size/shape filters (default 4-35 µm diameter) | `cell_filters=[]` |
+| Compute dF/F | Rolling percentile baseline correction | N/A |
+| Generate Figures | Diagnostic plots for each plane | N/A |
 
 ```{seealso}
 - {doc}`User Guide <user_guide>` - Complete processing examples and parameter tuning

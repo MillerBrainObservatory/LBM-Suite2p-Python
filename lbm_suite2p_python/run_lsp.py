@@ -141,10 +141,12 @@ def pipeline(
     keep_raw: bool = False,
     force_reg: bool = False,
     force_detect: bool = False,
+    num_frames: int = None,
     dff_window_size: int = None,
     dff_percentile: int = 20,
     dff_smooth_window: int = None,
     cell_filters: list = None,
+    accept_all_cells: bool = False,
     save_json: bool = False,
     reader_kwargs: dict = None,
     writer_kwargs: dict = None,
@@ -193,6 +195,10 @@ def pipeline(
         Force re-registration even if already complete.
     force_detect : bool, default False
         Force ROI detection even if stat.npy exists.
+    num_frames : int, optional
+        Number of frames to process. If None, processes all frames.
+        This parameter takes precedence over ``writer_kwargs["num_frames"]``.
+        If both are provided with different values, a ValueError is raised.
     dff_window_size : int, optional
         Window size for rolling percentile ΔF/F baseline (in frames).
         If None, auto-calculated as ~10 × tau × fs.
@@ -228,6 +234,13 @@ def pipeline(
 
             cell_filters=[]
 
+    accept_all_cells : bool, default False
+        Mark all ROIs as accepted cells after processing completes. This does NOT
+        disable suite2p's internal detection filters (overlap, neuropil, etc.) -
+        it simply takes whatever ROIs suite2p marked as rejected and flips them
+        to accepted. The original suite2p classification is saved as
+        ``iscell_suite2p.npy`` for reference. Cell probabilities from the
+        classifier (if any) are preserved in column 1 of iscell.npy.
     save_json : bool, default False
         Save ops as JSON in addition to .npy.
     reader_kwargs : dict, optional
@@ -368,6 +381,18 @@ def pipeline(
     # Normalize kwargs dicts
     reader_kwargs = reader_kwargs or {}
     writer_kwargs = writer_kwargs or {}
+
+    # validate num_frames vs writer_kwargs["num_frames"]
+    writer_num_frames = writer_kwargs.get("num_frames")
+    if num_frames is not None and writer_num_frames is not None:
+        if num_frames != writer_num_frames:
+            raise ValueError(
+                f"num_frames={num_frames} conflicts with writer_kwargs['num_frames']={writer_num_frames}. "
+                f"Use only the num_frames parameter, not writer_kwargs."
+            )
+    # if num_frames provided, set it in writer_kwargs
+    if num_frames is not None:
+        writer_kwargs["num_frames"] = num_frames
 
     print(f"Loading input data...")
 
@@ -628,6 +653,21 @@ def pipeline(
                 )
                 np.save(ops_file, updated_ops)
 
+                # accept_all_cells: save original iscell and mark all as accepted
+                if accept_all_cells:
+                    iscell_file = plane_dir / "iscell.npy"
+                    if iscell_file.exists():
+                        iscell = np.load(iscell_file, allow_pickle=True)
+                        # save original suite2p classification
+                        np.save(plane_dir / "iscell_suite2p.npy", iscell)
+                        n_rejected = int((iscell[:, 0] == 0).sum())
+                        # mark all as accepted, preserve probabilities in column 1
+                        iscell[:, 0] = 1
+                        np.save(iscell_file, iscell)
+                        if n_rejected > 0:
+                            print(f"  accept_all_cells: marked {n_rejected} rejected ROIs as accepted")
+                            print(f"  original classification saved to iscell_suite2p.npy")
+
                 # apply cell filters
                 # default: filter by 4-35µm diameter if pixel resolution available
                 from lbm_suite2p_python.postprocessing import apply_filters
@@ -692,6 +732,13 @@ def pipeline(
                                 updated_ops = load_ops(ops_file)
                                 updated_ops["filter_metadata"] = filter_metadata
                                 np.save(ops_file, updated_ops)
+
+                                # filter summary figure
+                                from lbm_suite2p_python.zplane import plot_cell_filter_summary
+                                plot_cell_filter_summary(
+                                    plane_dir=plane_dir,
+                                    save_path=plane_dir / "15_filter_summary.png",
+                                )
                             except Exception as e:
                                 print(f"  Warning: Filter plot failed: {e}")
                     except Exception as e:
@@ -869,14 +916,28 @@ def pipeline(
                     except Exception as e:
                         print(f"  Warning: create_volume_summary_table failed: {e}")
 
-                    # rastermap
+                    # volume filter summary
+                    try:
+                        from lbm_suite2p_python.zplane import plot_volume_filter_summary
+                        plot_volume_filter_summary(
+                            suite2p_path=save_path,
+                            save_path=save_path / "volume_filter_summary.png",
+                        )
+                    except Exception as e:
+                        print(f"  Warning: plot_volume_filter_summary failed: {e}")
+
+                    # rastermap (only accepted cells)
                     try:
                         from rastermap import Rastermap
                         frame_counts = [res["spks"].shape[1] for res in res_z]
                         min_frames = min(frame_counts)
                         for res in res_z:
                             res["spks"] = res["spks"][:, :min_frames]
-                        all_spks = np.concatenate([res["spks"] for res in res_z], axis=0)
+                        all_spks_cells = []
+                        for res in res_z:
+                            iscell_mask = res["iscell"][:, 0].astype(bool)
+                            all_spks_cells.append(res["spks"][iscell_mask])
+                        all_spks = np.concatenate(all_spks_cells, axis=0)
 
                         model = Rastermap(
                             n_clusters=100, n_PCs=100, locality=0.75, time_lag_window=15
@@ -889,6 +950,15 @@ def pipeline(
                             save_path=save_path / "rastermap.png",
                             title="Rastermap Sorted Activity",
                         )
+                        # 3d roi map colored by rastermap clusters
+                        try:
+                            from lbm_suite2p_python.volume import plot_3d_rastermap_clusters
+                            plot_3d_rastermap_clusters(
+                                suite2p_path=save_path,
+                                save_path=save_path / "roi_map_3d_clusters.png",
+                            )
+                        except Exception as e:
+                            print(f"  Warning: plot_3d_rastermap_clusters failed: {e}")
                     except ImportError:
                         pass
                     except Exception as e:
@@ -1290,7 +1360,12 @@ def run_volume(
                 res["F"] = res["F"][:, :min_frames]
                 res["Fneu"] = res["Fneu"][:, :min_frames]
 
-        all_spks = np.concatenate([res["spks"] for res in res_z], axis=0)
+        # filter by iscell before concatenating for rastermap
+        all_spks_cells = []
+        for res in res_z:
+            iscell_mask = res["iscell"][:, 0].astype(bool)
+            all_spks_cells.append(res["spks"][iscell_mask])
+        all_spks = np.concatenate(all_spks_cells, axis=0)
 
         # Save frame cropping metadata
         volume_meta = {
@@ -1330,6 +1405,16 @@ def run_volume(
                     title_kwargs=title_kwargs,
                     title="Rastermap Sorted Activity",
                 )
+            # 3d roi map colored by rastermap clusters
+            try:
+                from lbm_suite2p_python.volume import plot_3d_rastermap_clusters
+                plot_3d_rastermap_clusters(
+                    suite2p_path=save_path,
+                    save_path=os.path.join(save_path, "roi_map_3d_clusters.png"),
+                )
+                print(f"  Saved: roi_map_3d_clusters.png")
+            except Exception as e:
+                print(f"  Warning: plot_3d_rastermap_clusters failed: {e}")
         else:
             print("No rastermap is available.")
 
@@ -1412,6 +1497,17 @@ def run_volume(
             print(f"  Saved: volume_summary.csv")
         except Exception as e:
             print(f"  Failed to generate summary table: {e}")
+
+        try:
+            # Volume filter summary
+            from lbm_suite2p_python.zplane import plot_volume_filter_summary
+            plot_volume_filter_summary(
+                suite2p_path=save_path,
+                save_path=save_path / "volume_filter_summary.png",
+            )
+            print(f"  Saved: volume_filter_summary.png")
+        except Exception as e:
+            print(f"  Failed to generate volume filter summary: {e}")
 
     except Exception:
         print("Volume statistics failed.")
@@ -2070,137 +2166,7 @@ def run_plane(
     return ops_file
 
 
-def grid_search(
-    input_file: Path | str,
-    save_path: Path | str,
-    grid_params: dict,
-    ops: dict = None,
-    force_reg: bool = False,
-    force_detect: bool = True,
-):
-    """
-    Run a grid search over all combinations of Suite2p parameters.
-
-    Tests all combinations of parameters in `grid_params`, running `run_plane`
-    for each combination and saving results to separate subdirectories.
-
-    Parameters
-    ----------
-    input_file : str or Path
-        Path to the input data file (TIFF, Zarr, HDF5, etc.).
-    save_path : str or Path
-        Root directory where results will be saved. Each parameter combination
-        gets its own subdirectory named by parameter values.
-    grid_params : dict
-        Dictionary mapping parameter names to lists of values to test.
-        All combinations will be tested (Cartesian product).
-    ops : dict, optional
-        Base ops dictionary. If None, uses `default_ops()`. Grid parameters
-        override values in this dictionary for each combination.
-    force_reg : bool, default False
-        If True, force registration even if already done.
-    force_detect : bool, default True
-        If True, force ROI detection for each combination.
-
-    Notes
-    -----
-    - ``force_reg`` and ``force_detect`` override any ``do_registration`` or
-      ``roidetect`` values in the ops dict. Users don't need to set those.
-    - Subfolder names use abbreviated parameter keys (first 3 chars) and values.
-    - Registration is shared across combinations when `force_reg=False`.
-    - For Suite2p parameters, see: https://suite2p.readthedocs.io/en/latest/settings.html
-
-    Examples
-    --------
-    >>> import lbm_suite2p_python as lsp
-    >>>
-    >>> # Search detection parameters
-    >>> lsp.grid_search(
-    ...     input_file="data/plane07.zarr",
-    ...     save_path="results/grid_search",
-    ...     grid_params={
-    ...         "threshold_scaling": [0.8, 1.0, 1.2],
-    ...         "diameter": [6, 8],
-    ...     },
-    ... )
-    >>>
-    >>> # Search Cellpose parameters
-    >>> lsp.grid_search(
-    ...     input_file="data/plane07.zarr",
-    ...     save_path="results/cellpose_search",
-    ...     grid_params={
-    ...         "anatomical_only": [2, 3],
-    ...         "spatial_hp_cp": [0, 0.5],
-    ...         "diameter": [6, 8],
-    ...     },
-    ...     ops={"sparse_mode": False},  # Required for Cellpose
-    ... )
-
-    Output structure::
-
-        results/grid_search/
-        ├── thr0.80_dia6/
-        │   ├── ops.npy, stat.npy, F.npy, ...
-        ├── thr0.80_dia8/
-        ├── thr1.00_dia6/
-        └── ...
-
-    """
-    from lbm_suite2p_python.default_ops import default_ops
-
-    save_path = Path(save_path)
-    save_path.mkdir(exist_ok=True, parents=True)
-
-    # Use default ops if not provided
-    if ops is None:
-        ops = default_ops()
-
-    print(f"Grid search: {save_path}")
-    print(f"Parameters: {list(grid_params.keys())}")
-
-    param_names = list(grid_params.keys())
-    param_values = list(grid_params.values())
-    param_combos = list(product(*param_values))
-
-    n_total = len(param_combos)
-    print(f"Total combinations: {n_total}")
-
-    for i, combo in enumerate(param_combos, 1):
-        combo_ops = copy.deepcopy(ops)
-        combo_dict = dict(zip(param_names, combo))
-        combo_ops.update(combo_dict)
-
-        # Create readable folder name from parameters
-        tag_parts = [
-            f"{k[:3]}{v:.2f}" if isinstance(v, float) else f"{k[:3]}{v}"
-            for k, v in combo_dict.items()
-        ]
-        tag = "_".join(tag_parts)
-        combo_save_path = save_path / tag
-
-        print(f"\n[{i}/{n_total}] {tag}")
-
-        # Use plane_name to put results directly in combo folder (no extra subdir)
-        ops_file = combo_save_path / "ops.npy"
-
-        # Skip if already processed (unless forcing)
-        if ops_file.exists() and not force_reg and not force_detect:
-            # Check if detection is complete
-            stat_file = combo_save_path / "stat.npy"
-            if stat_file.exists():
-                print(f"  Skipping: already complete")
-                continue
-
-        run_plane(
-            input_path=input_file,
-            save_path=save_path,
-            ops=combo_ops,
-            keep_reg=True,
-            keep_raw=False,
-            force_reg=force_reg,
-            force_detect=force_detect,
-            plane_name=tag,  # Use tag as plane_name to control output dir
-        )
-
-    print(f"\nGrid search complete: {n_total} combinations")
-    print(f"Results in: {save_path}")
+def grid_search(*args, **kwargs):
+    """Run a grid search over Suite2p parameters. See lbm_suite2p_python.grid_search module."""
+    from lbm_suite2p_python.grid_search import grid_search as _grid_search
+    return _grid_search(*args, **kwargs)

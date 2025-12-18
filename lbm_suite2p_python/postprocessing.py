@@ -1227,7 +1227,8 @@ def load_ops(ops_input: str | Path | list[str | Path]) -> dict:
     Parameters
     ----------
     ops_input : str, Path, or dict
-        Path to ops.npy file, or an already-loaded ops dict.
+        Path to ops.npy file, directory containing ops.npy, or an
+        already-loaded ops dict.
 
     Returns
     -------
@@ -1236,7 +1237,12 @@ def load_ops(ops_input: str | Path | list[str | Path]) -> dict:
         and results metadata.
     """
     if isinstance(ops_input, (str, Path)):
-        return np.load(ops_input, allow_pickle=True).item()
+        ops_path = Path(ops_input)
+        if ops_path.is_dir():
+            ops_path = ops_path / "ops.npy"
+        if not ops_path.exists():
+            raise FileNotFoundError(f"ops.npy not found: {ops_path}")
+        return np.load(ops_path, allow_pickle=True).item()
     elif isinstance(ops_input, dict):
         return ops_input
     print("Warning: No valid ops file provided, returning empty dict.")

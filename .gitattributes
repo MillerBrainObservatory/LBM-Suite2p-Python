@@ -1,1 +1,5 @@
 lbm_suite2p_python/_version.py export-subst
+
+# strip notebook outputs from dev notebooks (keep demos/notebooks outputs for github viewing)
+dev/**/*.ipynb filter=strip-notebook-output
+docs/_build/**/*.ipynb filter=strip-notebook-output
