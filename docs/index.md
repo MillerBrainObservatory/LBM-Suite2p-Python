@@ -6,17 +6,15 @@ bibliography: refs.bib
 
 Volumetric 2-photon calcium imaging processing pipeline using [Suite2p](https://github.com/MouseLand/suite2p) and [Cellpose](https://cellpose.readthedocs.io/en/latest/).
 
-Primarily intended for Light Beads Microscopy (LBM) datasets, but viable with any planar or volumetric data.
+A high-level wrapper around suite2p primarily intended for Light Beads Microscopy (LBM) datasets, but compatible with any data supported by mbo_utilities [imread](https://millerbrainobservatory.github.io/mbo_utilities/array_types.html)
 
-**Key capabilities:**
+**Features:**
 
-- Volumetric and/or Planar registration, detection, segmentation and deconvolution
-- Automatic detection and merging of ScanImage multi-ROI acquisitions
-- Post-processing filters for cell quality (area, eccentricity, event exceptionality)
+- Registration, cell-detection, segmentation and deconvolution
+- Uniform cell curation filters (area, eccentricity, event exceptionality)
 - ΔF/F calculation with multiple baseline methods
-- Volumetric statistics and Rastermap clustering
-
-## Navigation
+- Volumetric statistics, visualizations and clustering
+- Extensive documentation
 
 See the {doc}`user guide <user_guide>` for complete examples and parameter tuning.
 
@@ -43,7 +41,7 @@ image_gallery
 pipeline_comparison
 ```
 
-## Quick Example
+## (Really) Quickstart
 
 ```python
 import lbm_suite2p_python as lsp
@@ -57,9 +55,10 @@ results = lsp.pipeline(
 )
 ```
 
----
 
-## Helpful Suite2p Resources
+## Additional Resources
+
+### Helpful Suite2p Discussions
 
 | Topic | Resource | Description |
 |-------|----------|-------------|
@@ -70,16 +69,10 @@ results = lsp.pipeline(
 | **ROI Overlap** | [Issue #851](https://github.com/MouseLand/suite2p/issues/851) | Understanding max_overlap and allow_overlap |
 | **Fluorescence Signals** | [Issue #627](https://github.com/MouseLand/suite2p/issues/627) | Explanation of F and Fneu outputs |
 
----
-
-## External Links
+### Referenced Documentation
 
 - [Suite2p Documentation](https://suite2p.readthedocs.io/) - Core pipeline documentation
 - [Cellpose Documentation](https://cellpose.readthedocs.io/) - Anatomical segmentation
-- [mbo_utilities Documentation](https://millerbrainobservatory.github.io/mbo_utilities/) - ScanImage I/O and assembly
-- [GitHub Repository](https://github.com/MillerBrainObservatory/LBM-Suite2p-Python) - Source code and issue tracker
-
----
 
 ## Acknowledgements
 
