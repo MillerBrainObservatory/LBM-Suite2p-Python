@@ -90,44 +90,57 @@ results = lsp.pipeline(
 )
 ```
 
-## Planar Results
+## Output Gallery
+
+### Planar Results
 
 Each z-plane produces diagnostic images automatically saved during processing.
 
-<p align="center">
-<img src="docs/_images/segmentation_summary.gif" alt="Segmentation Summary" width="500"/>
-<br><em>Segmentation overlays on reference images</em>
-</p>
+<table>
+<tr>
+<td align="center">
+<img src="docs/_images/outputs/01_correlation_segmentation.png" alt="Correlation Segmentation" width="280"/>
+<br><sub>correlation image with ROI overlay</sub>
+</td>
+<td align="center">
+<img src="docs/_images/outputs/03_mean_segmentation.png" alt="Mean Segmentation" width="280"/>
+<br><sub>mean image with ROI overlay</sub>
+</td>
+</tr>
+<tr>
+<td align="center">
+<img src="docs/_images/outputs/05_quality_diagnostics.png" alt="Quality Diagnostics" width="280"/>
+<br><sub>ROI quality metrics</sub>
+</td>
+<td align="center">
+<img src="docs/_images/outputs/08_traces_dff.png" alt="ΔF/F Traces" width="280"/>
+<br><sub>ΔF/F traces sorted by quality</sub>
+</td>
+</tr>
+</table>
 
-<p align="center">
-<img src="docs/_images/05_quality_diagnostics.png" alt="Quality Diagnostics" width="550"/>
-<br><em>ROI quality metrics: size, SNR, compactness</em>
-</p>
-
-<p align="center">
-<img src="docs/_images/08_traces_dff.png" alt="ΔF/F Traces" width="500"/>
-<br><em>ΔF/F traces sorted by quality</em>
-</p>
-
-## Volumetric Results
+### Volumetric Results
 
 Volume-level visualizations combine data across all z-planes.
 
-<p align="center">
-<img src="docs/_images/all_planes_masks.png" alt="All Planes Masks" width="550"/>
-<br><em>ROI masks across all z-planes</em>
-</p>
-
-<p align="center">
-<img src="docs/_images/roi_map_3d_snr.png" alt="3D ROI Map" width="450"/>
-<br><em>3D ROI centroids colored by SNR</em>
-</p>
-
-<p align="center">
-<img src="docs/_images/rastermap.png" alt="Rastermap" width="550"/>
-<br><em>Activity sorted by similarity (Rastermap)</em>
-</p>
-
+<table>
+<tr>
+<td align="center">
+<img src="docs/_images/volume/all_planes_masks.png" alt="All Planes Masks" width="400"/>
+<br><sub>ROI masks across all z-planes</sub>
+</td>
+</tr>
+<tr>
+<td align="center">
+<img src="docs/_images/volume/roi_map_3d.png" alt="3D ROI Map" width="300"/>
+<br><sub>3D ROI centroids colored by SNR</sub>
+</td>
+<td align="center">
+<img src="docs/_images/volume/rastermap.png" alt="Rastermap" width="400"/>
+<br><sub>activity sorted by similarity (rastermap)</sub>
+</td>
+</tr>
+</table>
 
 ## Built With
 
@@ -148,6 +161,7 @@ This pipeline integrates several open-source tools:
 ## Contributing
 
 Contributions are welcome! This project follows Suite2p's conventions and uses:
+
 - **Ruff** for linting and formatting (line length: 88, numpy docstring style)
 - **pytest** for testing
 - **Sphinx** for documentation
