@@ -3,6 +3,12 @@
 
 This guide covers the postprocessing functions available in LBM-Suite2p-Python for analyzing and refining calcium imaging traces after Suite2p extraction.
 
+```{seealso}
+- {doc}`User Guide <user_guide>` - Complete pipeline examples and parameter tuning
+- {doc}`Processing Flow <processing_flow>` - Suite2p internal processing steps
+- {doc}`Pipeline Comparison <pipeline_comparison>` - How CaImAn, Suite2p, EXTRACT compare
+```
+
 ```{toctree}
 :maxdepth: 2
 ```
