@@ -1767,6 +1767,170 @@ def create_volume_summary_table(
     return df
 
 
+def plot_volume_filter_summary(
+    suite2p_path: str | Path,
+    save_path: str | Path = None,
+    figsize: tuple = (14, 8),
+) -> plt.Figure:
+    """
+    Create a volumetric summary figure showing cell filtering across all planes.
+
+    Shows bar chart of accepted/rejected cells per plane, plus summary stats.
+
+    Parameters
+    ----------
+    suite2p_path : str or Path
+        Path to suite2p output directory containing plane subdirectories.
+    save_path : str or Path, optional
+        Path to save the figure. If None, displays with plt.show().
+    figsize : tuple, default (14, 8)
+        Figure size.
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The generated figure.
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Patch
+
+    suite2p_path = Path(suite2p_path)
+
+    # find plane directories
+    plane_dirs = sorted(suite2p_path.glob("plane*"))
+    if not plane_dirs:
+        # single plane case
+        if (suite2p_path / "stat.npy").exists():
+            plane_dirs = [suite2p_path]
+        else:
+            raise ValueError(f"No plane directories or stat.npy found in {suite2p_path}")
+
+    # collect stats per plane
+    plane_stats = []
+    for pdir in plane_dirs:
+        stat_file = pdir / "stat.npy"
+        iscell_file = pdir / "iscell.npy"
+        iscell_s2p_file = pdir / "iscell_suite2p.npy"
+
+        if not stat_file.exists() or not iscell_file.exists():
+            continue
+
+        stat = np.load(stat_file, allow_pickle=True)
+        iscell = np.load(iscell_file, allow_pickle=True)
+        if iscell.ndim == 2:
+            iscell = iscell[:, 0]
+
+        # load suite2p original if exists
+        if iscell_s2p_file.exists():
+            iscell_s2p = np.load(iscell_s2p_file, allow_pickle=True)
+            if iscell_s2p.ndim == 2:
+                iscell_s2p = iscell_s2p[:, 0]
+        else:
+            iscell_s2p = iscell
+
+        n_total = len(stat)
+        n_final_accepted = int(iscell.astype(bool).sum())
+        n_s2p_accepted = int(iscell_s2p.astype(bool).sum())
+        n_s2p_rejected = n_total - n_s2p_accepted
+        n_filter_rejected = n_s2p_accepted - n_final_accepted
+
+        # get plane number from dir name
+        plane_name = pdir.name
+        try:
+            plane_num = int(plane_name.replace("plane", ""))
+        except ValueError:
+            plane_num = len(plane_stats)
+
+        plane_stats.append({
+            "plane": plane_num,
+            "name": plane_name,
+            "n_total": n_total,
+            "n_s2p_accepted": n_s2p_accepted,
+            "n_s2p_rejected": n_s2p_rejected,
+            "n_filter_rejected": n_filter_rejected,
+            "n_final_accepted": n_final_accepted,
+        })
+
+    if not plane_stats:
+        raise ValueError("No valid plane data found")
+
+    # sort by plane number
+    plane_stats = sorted(plane_stats, key=lambda x: x["plane"])
+
+    # create figure
+    fig, axes = plt.subplots(1, 2, figsize=figsize, gridspec_kw={"width_ratios": [2, 1]})
+
+    # left panel: stacked bar chart per plane
+    ax = axes[0]
+    planes = [p["name"] for p in plane_stats]
+    x = np.arange(len(planes))
+    width = 0.7
+
+    # stack: final_accepted (green) + filter_rejected (orange) + s2p_rejected (red)
+    final_accepted = [p["n_final_accepted"] for p in plane_stats]
+    filter_rejected = [p["n_filter_rejected"] for p in plane_stats]
+    s2p_rejected = [p["n_s2p_rejected"] for p in plane_stats]
+
+    bars1 = ax.bar(x, final_accepted, width, label="accepted", color="#33a02c")
+    bars2 = ax.bar(x, filter_rejected, width, bottom=final_accepted,
+                   label="filter rejected", color="#ff7f00")
+    bars3 = ax.bar(x, s2p_rejected, width,
+                   bottom=[f + r for f, r in zip(final_accepted, filter_rejected)],
+                   label="suite2p rejected", color="#e31a1c")
+
+    ax.set_xlabel("plane", fontsize=11)
+    ax.set_ylabel("ROI count", fontsize=11)
+    ax.set_title("ROI filtering per plane", fontsize=12, fontweight="bold")
+    ax.set_xticks(x)
+    ax.set_xticklabels(planes, rotation=45, ha="right")
+    ax.legend(loc="upper right")
+
+    # right panel: summary pie chart and stats
+    ax2 = axes[1]
+
+    total_final = sum(final_accepted)
+    total_filter_rej = sum(filter_rejected)
+    total_s2p_rej = sum(s2p_rejected)
+    total_all = total_final + total_filter_rej + total_s2p_rej
+
+    # pie chart
+    sizes = [total_final, total_filter_rej, total_s2p_rej]
+    labels = ["accepted", "filter rejected", "suite2p rejected"]
+    colors = ["#33a02c", "#ff7f00", "#e31a1c"]
+
+    # filter out zero values for pie
+    nonzero = [(s, l, c) for s, l, c in zip(sizes, labels, colors) if s > 0]
+    if nonzero:
+        sizes_nz, labels_nz, colors_nz = zip(*nonzero)
+        wedges, texts, autotexts = ax2.pie(
+            sizes_nz, labels=labels_nz, colors=colors_nz,
+            autopct=lambda pct: f"{pct:.1f}%\n({int(pct/100*total_all)})",
+            startangle=90, textprops={"fontsize": 9}
+        )
+    ax2.set_title("overall summary", fontsize=12, fontweight="bold")
+
+    # add text summary below pie
+    summary_text = (
+        f"total ROIs: {total_all}\n"
+        f"final accepted: {total_final} ({100*total_final/max(1,total_all):.1f}%)\n"
+        f"filter rejected: {total_filter_rej} ({100*total_filter_rej/max(1,total_all):.1f}%)\n"
+        f"suite2p rejected: {total_s2p_rej} ({100*total_s2p_rej/max(1,total_all):.1f}%)\n"
+        f"planes: {len(plane_stats)}"
+    )
+    ax2.text(0.5, -0.15, summary_text, transform=ax2.transAxes,
+             ha="center", va="top", fontsize=10, family="monospace")
+
+    plt.tight_layout()
+
+    if save_path:
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
+        plt.close(fig)
+    else:
+        plt.show()
+
+    return fig
+
+
 def plot_plane_diagnostics(
     plane_dir: str | Path,
     save_path: str | Path = None,
@@ -3555,6 +3719,238 @@ def plot_filter_exclusions(
         }
 
     return filter_metadata
+
+
+def plot_cell_filter_summary(
+    plane_dir,
+    iscell_suite2p=None,
+    iscell_final=None,
+    filter_results: list = None,
+    stat=None,
+    ops=None,
+    img_key: str = "max_proj",
+    alpha: float = 0.5,
+    save_path=None,
+    figsize: tuple = (16, 10),
+):
+    """
+    Create a summary figure showing all filtering stages for a plane.
+
+    Shows suite2p classification, each filter's effect, and final result
+    in a single well-formatted figure.
+
+    Parameters
+    ----------
+    plane_dir : str or Path
+        Path to Suite2p plane directory.
+    iscell_suite2p : np.ndarray, optional
+        Original suite2p iscell (before accept_all_cells). Loads from
+        iscell_suite2p.npy if exists, otherwise uses iscell.npy.
+    iscell_final : np.ndarray, optional
+        Final iscell after all filters. If None, loads from iscell.npy.
+    filter_results : list of dict, optional
+        Results from apply_filters(). If None, attempts to reconstruct
+        from ops['filter_metadata'].
+    stat : np.ndarray, optional
+        Suite2p stat array. If None, loads from plane_dir.
+    ops : dict, optional
+        Suite2p ops dict. If None, loads from plane_dir.
+    img_key : str, default "max_proj"
+        Key in ops for background image.
+    alpha : float, default 0.5
+        Overlay transparency.
+    save_path : str or Path, optional
+        Path to save the figure. If None, displays with plt.show().
+    figsize : tuple, default (16, 10)
+        Figure size.
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The generated figure.
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Patch
+
+    plane_dir = Path(plane_dir)
+
+    # load data
+    if stat is None:
+        stat = np.load(plane_dir / "stat.npy", allow_pickle=True)
+    if ops is None:
+        ops = load_ops(plane_dir)
+
+    # load iscell arrays
+    if iscell_suite2p is None:
+        s2p_file = plane_dir / "iscell_suite2p.npy"
+        if s2p_file.exists():
+            iscell_suite2p = np.load(s2p_file, allow_pickle=True)
+        else:
+            iscell_suite2p = np.load(plane_dir / "iscell.npy", allow_pickle=True)
+
+    if iscell_final is None:
+        iscell_final = np.load(plane_dir / "iscell.npy", allow_pickle=True)
+
+    # normalize to 1d
+    if iscell_suite2p.ndim == 2:
+        iscell_suite2p = iscell_suite2p[:, 0]
+    if iscell_final.ndim == 2:
+        iscell_final = iscell_final[:, 0]
+
+    # get filter metadata from ops if not provided
+    filter_metadata = ops.get("filter_metadata", {})
+
+    # get background image
+    img, yoff, xoff = get_background_image(ops, img_key)
+    img_h, img_w = img.shape[:2]
+    img_norm = normalize99(img)
+    img_rgb = np.stack([img_norm] * 3, axis=-1).astype(np.float32)
+
+    # compute masks
+    n_rois = len(stat)
+    suite2p_accepted = iscell_suite2p.astype(bool)
+    suite2p_rejected = ~suite2p_accepted
+    final_accepted = iscell_final.astype(bool)
+
+    # determine what suite2p rejected vs what filters rejected
+    n_suite2p_rejected = suite2p_rejected.sum()
+    n_filter_rejected = (suite2p_accepted & ~final_accepted).sum()
+    n_final_accepted = final_accepted.sum()
+
+    # build panels: suite2p classification + filters + final
+    panels = []
+
+    # panel 1: suite2p classification
+    panels.append({
+        "title": "suite2p classification",
+        "accepted_mask": suite2p_accepted,
+        "rejected_mask": suite2p_rejected,
+        "n_accepted": int(suite2p_accepted.sum()),
+        "n_rejected": int(n_suite2p_rejected),
+        "subtitle": f"{n_suite2p_rejected} rejected by suite2p",
+    })
+
+    # panels for each filter that rejected cells
+    if filter_metadata:
+        for name, meta in filter_metadata.items():
+            n_rejected = meta.get("n_rejected", 0)
+            if n_rejected > 0:
+                params = meta.get("params", {})
+                params_str = ", ".join(f"{k}={v}" for k, v in params.items())
+                panels.append({
+                    "title": f"filter: {name}",
+                    "filter_name": name,
+                    "n_rejected": n_rejected,
+                    "subtitle": f"{n_rejected} excluded" + (f" ({params_str})" if params_str else ""),
+                })
+
+    # final panel: result
+    panels.append({
+        "title": "final result",
+        "accepted_mask": final_accepted,
+        "rejected_mask": ~final_accepted,
+        "n_accepted": int(n_final_accepted),
+        "n_rejected": int(n_rois - n_final_accepted),
+        "subtitle": f"{n_final_accepted} accepted, {n_rois - n_final_accepted} rejected",
+    })
+
+    # create figure
+    n_panels = len(panels)
+    if n_panels <= 2:
+        ncols = n_panels
+        nrows = 1
+    elif n_panels <= 4:
+        ncols = 2
+        nrows = 2
+    else:
+        ncols = 3
+        nrows = (n_panels + 2) // 3
+
+    fig, axes = plt.subplots(nrows, ncols, figsize=figsize)
+    if n_panels == 1:
+        axes = np.array([axes])
+    axes = axes.flatten()
+
+    # hide unused axes
+    for i in range(n_panels, len(axes)):
+        axes[i].axis("off")
+
+    # color scheme
+    color_accepted = np.array([0.2, 0.8, 0.2])  # green
+    color_rejected = np.array([0.9, 0.2, 0.2])  # red
+    color_filtered = np.array([1.0, 0.6, 0.0])  # orange for filter-rejected
+
+    for i, panel in enumerate(panels):
+        ax = axes[i]
+        overlay = img_rgb.copy()
+
+        if "accepted_mask" in panel:
+            # draw accepted cells
+            accepted_mask = panel["accepted_mask"]
+            if accepted_mask.sum() > 0:
+                mask_px = stat_to_mask(stat[accepted_mask], img_h, img_w, yoff, xoff)
+                if mask_px.max() > 0:
+                    px = mask_px > 0
+                    overlay[px] = (1 - alpha) * overlay[px] + alpha * color_accepted
+
+            # draw rejected cells
+            rejected_mask = panel["rejected_mask"]
+            if rejected_mask.sum() > 0:
+                mask_px = stat_to_mask(stat[rejected_mask], img_h, img_w, yoff, xoff)
+                if mask_px.max() > 0:
+                    px = mask_px > 0
+                    overlay[px] = (1 - alpha) * overlay[px] + alpha * color_rejected
+
+        elif "filter_name" in panel:
+            # for filter panels, show accepted (green) and this filter's rejected (orange)
+            # reconstruct which cells this filter rejected
+            # we show: final accepted (green) + cells rejected by this filter (orange)
+            if final_accepted.sum() > 0:
+                mask_px = stat_to_mask(stat[final_accepted], img_h, img_w, yoff, xoff)
+                if mask_px.max() > 0:
+                    px = mask_px > 0
+                    overlay[px] = (1 - alpha) * overlay[px] + alpha * color_accepted
+
+            # for filter panels without explicit mask, just show the count in subtitle
+            # (we don't have the exact removed_mask saved, just metadata)
+
+        ax.imshow(overlay)
+        ax.axis("off")
+        ax.set_title(panel["title"], fontsize=11, fontweight="bold")
+
+        # add subtitle
+        if "subtitle" in panel:
+            ax.text(
+                0.5, -0.02, panel["subtitle"],
+                transform=ax.transAxes,
+                ha="center", va="top",
+                fontsize=9, color="gray"
+            )
+
+    # add legend to last panel
+    legend_elements = [
+        Patch(facecolor=color_accepted, alpha=0.7, label="accepted"),
+        Patch(facecolor=color_rejected, alpha=0.7, label="rejected"),
+    ]
+    axes[n_panels - 1].legend(
+        handles=legend_elements, loc="upper right", fontsize=9
+    )
+
+    # overall title
+    fig.suptitle(
+        f"Cell Filter Summary: {n_rois} total ROIs → {n_final_accepted} accepted",
+        fontsize=13, fontweight="bold", y=0.98
+    )
+
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
+
+    if save_path:
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
+        plt.close(fig)
+    else:
+        plt.show()
+
+    return fig
 
 
 def plot_diameter_histogram(
