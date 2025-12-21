@@ -515,243 +515,252 @@ def plot_traces(
 
 def animate_traces(
     f,
-    save_path="./scrolling.mp4",
+    save_path="./traces.mp4",
+    cell_indices=None,
     fps=17.0,
-    start_neurons=20,
-    window=120,
+    num_neurons=20,
+    window=30,
     title="",
-    gap=None,
+    offset=None,
     lw=0.5,
     cmap="tab10",
-    anim_fps=60,
-    expand_after=5,
-    speed_factor=1.0,
-    expansion_factor=2.0,
-    smooth_factor=1,
+    scale_bar_unit=None,
+    mask_overlap=True,
+    anim_fps=30,
+    speed=1.0,
+    dpi=150,
 ):
     """
-    Create animated trace visualization that scrolls through time and expands neurons.
+    Animated version of plot_traces - scrolling window through time.
+
+    Creates an mp4 video showing traces scrolling like an oscilloscope display.
+    Visual style matches plot_traces exactly.
 
     Parameters
     ----------
-    f : numpy.ndarray
-        Fluorescence traces array of shape (n_neurons, n_timepoints).
-    save_path : str, default "./scrolling.mp4"
+    f : ndarray
+        2d array of fluorescence traces (n_neurons x n_timepoints).
+    save_path : str or Path, default "./traces.mp4"
         Output path for the animation.
+    cell_indices : array-like or None
+        Specific cell indices to plot. If provided, overrides num_neurons.
     fps : float, default 17.0
         Data frame rate in Hz.
-    start_neurons : int, default 20
-        Initial number of neurons to display.
-    window : float, default 120
-        Initial time window in seconds.
+    num_neurons : int, default 20
+        Number of neurons to display if cell_indices is None.
+    window : float, default 30
+        Time window width in seconds.
     title : str, default ""
         Title for the animation.
-    gap : float, optional
-        Vertical gap between traces. Auto-calculated if None.
+    offset : float or None
+        Vertical offset between traces; if None, computed automatically.
     lw : float, default 0.5
         Line width for traces.
     cmap : str, default "tab10"
-        Colormap for trace colors.
-    anim_fps : int, default 60
-        Animation frame rate.
-    expand_after : float, default 5
-        Seconds before expansion begins.
-    speed_factor : float, default 1.0
-        Playback speed multiplier.
-    expansion_factor : float, default 2.0
-        How much to expand the window.
-    smooth_factor : int, default 1
-        Smoothing factor for animation.
+        Matplotlib colormap.
+    scale_bar_unit : str, optional
+        Unit suffix for vertical scale bar. If None, uses "a.u.".
+    mask_overlap : bool, default True
+        If True, lower traces mask traces above them.
+    anim_fps : int, default 30
+        Animation frame rate (frames per second in output video).
+    speed : float, default 1.0
+        Playback speed multiplier (1.0 = real-time, 2.0 = 2x speed).
+    dpi : int, default 150
+        Output video resolution.
+
+    Returns
+    -------
+    str
+        Path to saved animation.
     """
-    n_neurons, n_timepoints = f.shape
+    if isinstance(f, dict):
+        raise ValueError("f must be a numpy array, not a dictionary")
+
+    n_total, n_timepoints = f.shape
     data_time = np.arange(n_timepoints) / fps
-    T_data = data_time[-1]
-    current_frame = min(int(window * fps), n_timepoints - 1)
-    t_f_local = (T_data - window + expansion_factor * expand_after) / (
-        1 + expansion_factor
-    )
+    total_duration = data_time[-1]
+    window_frames = int(window * fps)
 
-    if gap is None:
-        p10 = np.percentile(f[:start_neurons, : current_frame + 1], 10, axis=1)
-        p90 = np.percentile(f[:start_neurons, : current_frame + 1], 90, axis=1)
-        gap = np.median(p90 - p10) * 1.2
+    # select neurons
+    if cell_indices is None:
+        displayed_neurons = min(num_neurons, n_total)
+        indices = np.arange(displayed_neurons)
+    else:
+        indices = np.array(cell_indices)
+        if indices.dtype == bool:
+            indices = np.where(indices)[0]
+        displayed_neurons = len(indices)
 
+    if len(indices) == 0:
+        print("No neurons to display")
+        return None
+
+    # pre-compute baselines and offset (once, not per frame)
+    baselines = np.percentile(f[indices], 8, axis=1)
+
+    if offset is None:
+        p10 = np.percentile(f[indices], 10, axis=1)
+        p90 = np.percentile(f[indices], 90, axis=1)
+        offset = np.median(p90 - p10) * 1.2
+        min_offset = np.percentile(p90 - p10, 75) * 0.8
+        offset = max(offset, min_offset, 1e-6)
+
+    # colors - use same permutation as plot_traces
     cmap_inst = plt.get_cmap(cmap)
-    colors = cmap_inst(np.linspace(0, 1, n_neurons))
-    perm = np.random.permutation(n_neurons)
+    colors = cmap_inst(np.linspace(0, 1, displayed_neurons))
+    perm = get_color_permutation(displayed_neurons)
     colors = colors[perm]
 
-    all_shifted = []
-    for i in range(start_neurons):
-        trace = f[i, : current_frame + 1]
-        baseline = np.percentile(trace, 8)
-        shifted = (trace - baseline) + i * gap
-        all_shifted.append(shifted)
+    # compute global y-range for consistent scaling
+    all_shifted = (f[indices] - baselines[:, None]) + (np.arange(displayed_neurons) * offset)[:, None]
+    y_min_global = np.min(all_shifted)
+    y_max_global = np.max(all_shifted)
+    y_range = y_max_global - y_min_global
 
-    all_y = np.concatenate(all_shifted)
-    y_min = np.min(all_y)
-    y_max = np.max(all_y)
-
-    rounded_dff = np.round(y_max - y_min) * 0.1
-    dff_label = f"{rounded_dff:.0f} % ΔF/F₀"
-
+    # setup figure (matches plot_traces)
     fig, ax = plt.subplots(figsize=(10, 6), facecolor="black")
     ax.set_facecolor("black")
-    ax.tick_params(axis="x", labelbottom=False, length=0)
-    ax.tick_params(axis="y", labelleft=False, length=0)
-
+    ax.tick_params(axis="x", which="both", labelbottom=False, length=0, colors="white")
+    ax.tick_params(axis="y", which="both", labelleft=False, length=0, colors="white")
     for spine in ax.spines.values():
         spine.set_visible(False)
 
+    fig.subplots_adjust(bottom=0.12, right=0.88)
+
+    # scale bar labels
+    time_bar_length = 0.1 * window
+    if time_bar_length < 60:
+        time_label = f"{time_bar_length:.0f} s"
+    elif time_bar_length < 3600:
+        time_label = f"{time_bar_length / 60:.0f} min"
+    else:
+        time_label = f"{time_bar_length / 3600:.1f} hr"
+
+    scale_bar_height_frac = 0.10
+    scale_bar_data_value = y_range * scale_bar_height_frac
+    if scale_bar_unit is None:
+        scale_bar_unit = "a.u."
+    if scale_bar_data_value >= 100:
+        scale_bar_label = f"{int(round(scale_bar_data_value, -1))} {scale_bar_unit}"
+    elif scale_bar_data_value >= 10:
+        scale_bar_label = f"{int(round(scale_bar_data_value))} {scale_bar_unit}"
+    elif scale_bar_data_value >= 1:
+        scale_bar_label = f"{scale_bar_data_value:.0f} {scale_bar_unit}"
+    else:
+        scale_bar_label = f"{scale_bar_data_value:.2f} {scale_bar_unit}"
+
+    # create line objects (lower index = higher zorder = on top)
+    lines = []
     fills = []
+    for i in range(displayed_neurons - 1, -1, -1):
+        z = displayed_neurons - i
+        if mask_overlap:
+            fill, = ax.fill([], [], color="black", zorder=z - 0.5)
+            fills.append((i, fill))
+        line, = ax.plot([], [], color=colors[i], lw=lw, zorder=z)
+        lines.append((i, line))
+
+    # static elements
+    ax.set_ylim(y_min_global - y_range * 0.02, y_max_global + y_range * 0.02)
+
+    if title:
+        fig.suptitle(title, fontsize=16, fontweight="bold", color="white")
+
+    ax.set_ylabel(
+        f"Neuron Count: {displayed_neurons}",
+        fontsize=10, fontweight="bold", color="white", labelpad=5,
+    )
+
+    # time scale bar (static position)
+    ax_pos = ax.get_position()
+    time_bar_x = ax_pos.x1 - 0.02
+    time_bar_y = 0.07
+    line_width_fig = 0.08
+    time_line = fig.add_artist(plt.Line2D(
+        [time_bar_x - line_width_fig, time_bar_x],
+        [time_bar_y, time_bar_y],
+        transform=fig.transFigure,
+        color="white", linewidth=3, clip_on=False,
+    ))
+    time_text = fig.text(
+        time_bar_x - line_width_fig / 2, time_bar_y - 0.02,
+        time_label, ha="center", va="top",
+        color="white", fontsize=10, transform=fig.transFigure,
+    )
+
+    # vertical scale bar
     linekw = dict(color="white", linewidth=3)
-    hsb = AnchoredHScaleBar(
-        size=0.1,
-        label=format_time(0.1 * window),
-        loc=4,
-        frameon=False,
-        pad=0.6,
-        sep=4,
-        linekw=linekw,
-        ax=ax,
-    )
-
-    hsb.set_bbox_to_anchor((0.97, -0.1), transform=ax.transAxes)
-    ax.add_artist(hsb)
-
     vsb = AnchoredVScaleBar(
-        height=0.1,
-        label=dff_label,
+        height=scale_bar_height_frac,
+        label=scale_bar_label,
         loc="lower right",
-        frameon=False,
-        pad=0,
-        sep=4,
-        linekw=linekw,
-        ax=ax,
-        spacer_width=0,
+        frameon=False, pad=0.5, sep=4,
+        linekw=linekw, ax=ax, spacer_width=0,
     )
+    vsb.set_bbox_to_anchor((1.02, 0.0), transform=ax.transAxes)
+    vsb.txt._text.set_color("white")
     ax.add_artist(vsb)
 
-    lines = []
-    for i in range(n_neurons):
-        (line,) = ax.plot([], [], color=colors[i], lw=lw, zorder=-i)
-        lines.append(line)
+    # animation frames
+    # each animation frame advances by (speed / anim_fps) seconds of data
+    step_seconds = speed / anim_fps
+    max_start_time = total_duration - window
+    n_frames = int(max_start_time / step_seconds) + 1
 
     def init():
-        for ix in range(n_neurons):
-            if ix < start_neurons:
-                _trace = f[ix, : current_frame + 1]
-                _baseline = np.percentile(_trace, 8)
-                _shifted = (_trace - _baseline) + ix * gap
-                lines[ix].set_data(data_time[: current_frame + 1], _shifted)
-            else:
-                lines[ix].set_data([], [])
-        extra = 0.05 * window
-        ax.set_xlim(0, window + extra)
-        ax.set_ylim(y_min - 0.05 * abs(y_min), y_max + 0.05 * abs(y_max))
-        return lines + [hsb, vsb]
+        for i, line in lines:
+            line.set_data([], [])
+        for i, fill in fills:
+            fill.set_xy(np.empty((0, 2)))
+        return [line for _, line in lines] + [fill for _, fill in fills]
 
     def update(frame):
-        t = speed_factor * frame / anim_fps
+        t_start = frame * step_seconds
+        t_end = t_start + window
 
-        if t < expand_after:
-            x_min = t
-            x_max = t + window
-            n_visible = start_neurons
-        else:
-            u = min(1.0, (t - expand_after) / (t_f_local - expand_after))
-            ease = 3 * u**2 - 2 * u**3  # smoothstep easing
-            x_min = t
+        i_start = int(t_start * fps)
+        i_end = min(int(t_end * fps), n_timepoints)
 
-            window_start = window
-            window_end = window + expansion_factor * (T_data - window - expand_after)
-            current_window = window_start + (window_end - window_start) * ease
+        time_slice = data_time[i_start:i_end]
 
-            x_max = x_min + current_window
+        # compute shifted traces for this window
+        shifted = np.zeros((displayed_neurons, i_end - i_start))
+        for idx, neuron_idx in enumerate(indices):
+            trace = f[neuron_idx, i_start:i_end]
+            shifted[idx] = (trace - baselines[idx]) + idx * offset
 
-            n_visible = start_neurons + int((n_neurons - start_neurons) * ease)
-            n_visible = min(n_neurons, n_visible)
+        # update lines and fills
+        for i, line in lines:
+            line.set_data(time_slice, shifted[i])
 
-        i_lower = int(x_min * fps)
-        i_upper = int(x_max * fps)
-        i_upper = max(i_upper, i_lower + 1)
+        if mask_overlap:
+            for i, fill in fills:
+                # fill from trace down to below the lowest point
+                y_data = shifted[i]
+                y_bottom = y_min_global - y_range * 0.1
+                # create polygon: trace forward, then bottom backward
+                xy = np.column_stack([
+                    np.concatenate([time_slice, time_slice[::-1]]),
+                    np.concatenate([y_data, np.full(len(y_data), y_bottom)])
+                ])
+                fill.set_xy(xy)
 
-        for ix in range(n_neurons):
-            if ix < n_visible:
-                _trace = f[ix, i_lower:i_upper]
-                _baseline = np.percentile(_trace, 8)
-                _shifted = (_trace - _baseline) + ix * gap
-                lines[ix].set_data(data_time[i_lower:i_upper], _shifted)
-            else:
-                lines[ix].set_data([], [])
+        ax.set_xlim(t_start, t_end)
 
-        for fill in fills:
-            fill.remove()
-        fills.clear()
-
-        for ix in range(n_visible - 1):
-            trace1 = f[ix, i_lower:i_upper]
-            baseline1 = np.percentile(trace1, 8)
-            shifted1 = (trace1 - baseline1) + ix * gap
-
-            trace2 = f[ix + 1, i_lower:i_upper]
-            baseline2 = np.percentile(trace2, 8)
-            shifted2 = (trace2 - baseline2) + (ix + 1) * gap
-
-            fill = ax.fill_between(
-                data_time[i_lower:i_upper],
-                shifted1,
-                shifted2,
-                where=shifted1 > shifted2,
-                color="black",
-                zorder=-ix - 1,
-            )
-            fills.append(fill)
-
-        _all_shifted = [
-            (f[ix, i_lower:i_upper] - np.percentile(f[ix, i_lower:i_upper], 8))
-            + ix * gap
-            for ix in range(n_visible)
-        ]
-        _all_y = np.concatenate(_all_shifted)
-        y_min_new, y_max_new = np.min(_all_y), np.max(_all_y)
-
-        extra_axis = 0.05 * (x_max - x_min)
-        ax.set_xlim(x_min, x_max + extra_axis)
-        ax.set_ylim(
-            y_min_new - 0.05 * abs(y_min_new), y_max_new + 0.05 * abs(y_max_new)
-        )
-
-        if title:
-            ax.set_title(title, fontsize=16, fontweight="bold", color="white")
-
-        _dff_rounded = np.round(y_max_new - y_min_new) * 0.1
-
-        if _dff_rounded > 300:
-            vsb.set_visible(False)
-        else:
-            _dff_label = f"{_dff_rounded:.0f} % ΔF/F₀"
-            vsb.txt.set_text(_dff_label)
-        hsb.txt.set_text(format_time(0.1 * (x_max - x_min)))
-        ax.set_ylabel(
-            f"Neuron Count: {n_visible}", fontsize=8, fontweight="bold", labelpad=2
-        )
-
-        return lines + [hsb, vsb] + fills
-
-    effective_anim_fps = anim_fps * smooth_factor
-    total_frames = int(np.ceil((T_data / speed_factor)))
+        return [line for _, line in lines] + [fill for _, fill in fills]
 
     ani = FuncAnimation(
-        fig,
-        update,
-        frames=total_frames,
-        init_func=init,
-        interval=1000 / effective_anim_fps,
-        blit=True,
+        fig, update, frames=n_frames,
+        init_func=init, blit=True, interval=1000 / anim_fps,
     )
-    ani.save(save_path, fps=anim_fps)
-    plt.show()
+
+    save_path = Path(save_path)
+    print(f"Saving animation to {save_path} ({n_frames} frames at {anim_fps} fps)...")
+    ani.save(str(save_path), fps=anim_fps, dpi=dpi, writer="ffmpeg")
+    plt.close(fig)
+    print(f"Saved: {save_path}")
+    return str(save_path)
 
 
 def feather_mask(mask, max_alpha=0.75, edge_width=3):
