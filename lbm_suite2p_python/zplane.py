@@ -612,11 +612,24 @@ def animate_traces(
     perm = get_color_permutation(displayed_neurons)
     colors = colors[perm]
 
-    # compute global y-range for consistent scaling
-    all_shifted = (f[indices] - baselines[:, None]) + (np.arange(displayed_neurons) * offset)[:, None]
-    y_min_global = np.min(all_shifted)
-    y_max_global = np.max(all_shifted)
+    # compute y-range based on expected stacked layout
+    # each trace spans ~offset, so total height is roughly (n_neurons * offset) plus some headroom
+    # use per-trace percentiles to avoid outliers
+    trace_ranges = []
+    for idx in range(displayed_neurons):
+        trace = f[indices[idx]] - baselines[idx]
+        # use 1st/99th percentile to ignore spikes
+        p1, p99 = np.percentile(trace, [1, 99])
+        trace_ranges.append(p99 - p1)
+    median_trace_range = np.median(trace_ranges)
+
+    # y-range: stack height plus headroom for trace fluctuations
+    y_min_global = -median_trace_range * 0.5
+    y_max_global = (displayed_neurons - 1) * offset + median_trace_range * 1.5
     y_range = y_max_global - y_min_global
+    # ensure minimum range
+    if y_range < 1e-6:
+        y_range = 1.0
 
     # setup figure (matches plot_traces)
     fig, ax = plt.subplots(figsize=(10, 6), facecolor="black")
@@ -626,7 +639,7 @@ def animate_traces(
     for spine in ax.spines.values():
         spine.set_visible(False)
 
-    fig.subplots_adjust(bottom=0.12, right=0.88)
+    fig.subplots_adjust(bottom=0.15, right=0.85, left=0.10, top=0.92)
 
     # scale bar labels
     time_bar_length = 0.1 * window
