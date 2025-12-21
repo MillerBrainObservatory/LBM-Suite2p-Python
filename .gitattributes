@@ -1,5 +1,8 @@
 lbm_suite2p_python/_version.py export-subst
 
+# exclude notebooks from github language statistics (still tracked, still viewable)
+*.ipynb linguist-documentation
+
 # strip notebook outputs from dev notebooks (keep demos/notebooks outputs for github viewing)
 dev/**/*.ipynb filter=strip-notebook-output
 docs/_build/**/*.ipynb filter=strip-notebook-output

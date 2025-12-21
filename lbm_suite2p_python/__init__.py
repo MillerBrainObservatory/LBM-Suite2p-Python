@@ -64,6 +64,7 @@ __all__ = [
     "consolidate_volume",
     "add_processing_step",
     "plot_traces",
+    "animate_traces",
     "plot_masks",
     "plot_rastermap",
     "plot_traces_noise",
