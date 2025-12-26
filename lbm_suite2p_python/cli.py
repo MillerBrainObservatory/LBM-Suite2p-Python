@@ -103,11 +103,11 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  lsp data.tif output/              # basic processing
-  lsp data/ output/ --planes 1 2 3  # specific planes
-  lsp data/ output/ --frames 500    # quick test with 500 frames
-  lsp data/ output/ --diameter 8    # custom cell diameter
-  lsp --list-ops                    # show all suite2p parameters
+  lsp data.tif output/                        # basic processing
+  lsp data/ output/ --planes 1 2 3            # specific planes (1-indexed)
+  lsp data/ output/ --num-timepoints 500      # quick test with 500 frames
+  lsp data/ output/ --diameter 8              # custom cell diameter
+  lsp --list-ops                              # show all suite2p parameters
         """,
     )
 
@@ -135,16 +135,16 @@ Examples:
     # pipeline arguments (match mbo_utilities naming)
     pipeline = parser.add_argument_group("pipeline options")
     pipeline.add_argument(
-        "--num-zplanes", "--planes", nargs="*", type=int, dest="num_zplanes",
-        help="z-planes to process (1-indexed, e.g., --num-zplanes 1 2 3)"
+        "--planes", nargs="*", type=int, dest="planes",
+        help="z-planes to process (1-indexed, e.g., --planes 1 2 3)"
     )
     pipeline.add_argument(
         "--roi-mode", "--roi", type=int, dest="roi_mode",
         help="ROI mode: None=stitch, 0=split all, N=specific ROI"
     )
     pipeline.add_argument(
-        "--frames", type=int, dest="frames_include",
-        help="number of frames to process (for quick testing)"
+        "--num-timepoints", "--frames", type=int, dest="num_timepoints",
+        help="number of frames/timepoints to process (for quick testing)"
     )
     pipeline.add_argument(
         "--overwrite", action="store_true",
@@ -173,6 +173,10 @@ Examples:
     pipeline.add_argument(
         "--save-json", action="store_true",
         help="save ops as JSON (in addition to .npy)"
+    )
+    pipeline.add_argument(
+        "--accept-all-cells", action="store_true",
+        help="mark all detected ROIs as accepted cells"
     )
 
     # dff options
@@ -474,11 +478,10 @@ def main():
 
     # show key settings
     print(f"\nSettings:")
-    if args.num_zplanes:
-        print(f"  Z-planes: {args.num_zplanes}")
-    if args.frames_include and args.frames_include > 0:
-        print(f"  Frames: {args.frames_include}")
-        ops["frames_include"] = args.frames_include
+    if args.planes:
+        print(f"  Planes: {args.planes}")
+    if args.num_timepoints and args.num_timepoints > 0:
+        print(f"  Timepoints: {args.num_timepoints}")
     print(f"  Diameter: {ops.get('diameter', 6)}")
     print(f"  Cellpose model: {ops.get('pretrained_model', 'cpsam')}")
     if cell_filters:
@@ -492,8 +495,9 @@ def main():
             input_data=input_path,
             save_path=output_path,
             ops=ops,
-            num_zplanes=args.num_zplanes,
+            planes=args.planes,
             roi_mode=args.roi_mode,
+            num_timepoints=args.num_timepoints,
             keep_reg=args.keep_reg,
             keep_raw=args.keep_raw,
             force_reg=args.force_reg,
@@ -502,6 +506,7 @@ def main():
             dff_percentile=args.dff_percentile,
             dff_smooth_window=args.dff_smooth_window,
             cell_filters=cell_filters,
+            accept_all_cells=args.accept_all_cells,
             save_json=args.save_json,
             reader_kwargs=reader_kwargs if reader_kwargs else None,
         )

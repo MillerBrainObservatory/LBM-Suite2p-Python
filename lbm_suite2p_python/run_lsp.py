@@ -141,7 +141,7 @@ def pipeline(
     input_data,
     save_path: str | Path = None,
     ops: dict = None,
-    num_zplanes: list | int = None,
+    planes: list | int = None,
     roi_mode: int = None,
     keep_reg: bool = True,
     keep_raw: bool = False,
@@ -156,8 +156,7 @@ def pipeline(
     save_json: bool = False,
     reader_kwargs: dict = None,
     writer_kwargs: dict = None,
-    # deprecated parameters (will be removed in future version)
-    planes: list | int = None,
+    # deprecated parameters
     roi: int = None,
     num_frames: int = None,
     **kwargs,
@@ -187,11 +186,11 @@ def pipeline(
     ops : dict, optional
         Suite2p parameters. If None, uses default_ops() with metadata
         auto-populated from the input data (frame rate, pixel size, etc.).
-    num_zplanes : int or list, optional
-        Which z-planes to process (1-indexed). Options:
+    planes : int or list, optional
+        Which z-planes to process (1-indexed, 0 is not valid). Options:
         - None: Process all planes (default)
-        - int: Process single plane (e.g., num_zplanes=7)
-        - list: Process specific planes (e.g., num_zplanes=[1, 5, 10])
+        - int: Process single plane (e.g., planes=7)
+        - list: Process specific planes (e.g., planes=[1, 5, 10])
     roi_mode : int, optional
         ROI handling for multi-ROI ScanImage data:
         - None: Stitch all ROIs horizontally into single FOV (default)
@@ -300,7 +299,7 @@ def pipeline(
 
     Process specific planes from a file:
 
-    >>> results = lsp.pipeline("D:/data/volume.zarr", num_zplanes=[1, 5, 10])
+    >>> results = lsp.pipeline("D:/data/volume.zarr", planes=[1, 5, 10])
 
     Process a pre-loaded array from mbo_utilities (e.g., from GUI):
 
@@ -389,22 +388,21 @@ def pipeline(
 
     start_time = time.time()
 
-    # handle deprecated parameter names with warnings
+    # validate planes parameter (1-indexed, 0 is not valid)
     if planes is not None:
-        warnings.warn(
-            "The 'planes' parameter is deprecated and will be removed in a future version. "
-            "Use 'num_zplanes' instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        if num_zplanes is None:
-            num_zplanes = planes
-        else:
+        planes_list = [planes] if isinstance(planes, int) else list(planes)
+        if 0 in planes_list:
             raise ValueError(
-                "Cannot specify both 'planes' (deprecated) and 'num_zplanes'. "
-                "Use only 'num_zplanes'."
+                "planes parameter uses 1-based indexing. "
+                "Plane 0 is not valid - use 1 for the first plane."
+            )
+        if any(p < 0 for p in planes_list):
+            raise ValueError(
+                "planes parameter cannot contain negative values. "
+                "Use 1-based indexing (1 for first plane, 2 for second, etc.)."
             )
 
+    # handle deprecated parameter names with warnings
     if roi is not None:
         warnings.warn(
             "The 'roi' parameter is deprecated and will be removed in a future version. "
@@ -594,7 +592,7 @@ def pipeline(
     ops["stack_type"] = stack_type
 
     # Normalize planes to 0-indexed list using mbo_utilities helper
-    planes_to_process = _normalize_planes(num_zplanes, num_planes)
+    planes_to_process = _normalize_planes(planes, num_planes)
 
     print(f"\nProcessing plan:")
     print(f"  Planes: {[p+1 for p in planes_to_process]}")
