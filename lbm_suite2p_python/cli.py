@@ -12,14 +12,14 @@ Examples:
     # basic usage
     lsp /path/to/data.tif /path/to/output
 
-    # process specific planes with custom parameters
-    lsp /path/to/data --planes 1 2 3 --diameter 8 --fs 30
+    # process specific z-planes with custom parameters
+    lsp /path/to/data --num-zplanes 1 2 3 --diameter 8 --fs 30
 
     # quick test with limited frames
-    lsp /path/to/data --output /tmp/test --frames 500 --planes 1
+    lsp /path/to/data --output /tmp/test --frames 500 --num-zplanes 1
 
-    # cellpose-only detection
-    lsp /path/to/data --anatomical-only 3 --diameter 6
+    # cellpose-only detection with MBO defaults
+    lsp /path/to/data --anatomical-only 4 --diameter 4 --spatial-hp-cp 3
 """
 
 import argparse
@@ -132,15 +132,15 @@ Examples:
         "--list-ops", action="store_true", help="list all suite2p parameters"
     )
 
-    # pipeline arguments (match mbo_utilities naming where applicable)
+    # pipeline arguments (match mbo_utilities naming)
     pipeline = parser.add_argument_group("pipeline options")
     pipeline.add_argument(
-        "--planes", nargs="*", type=int,
-        help="planes to process (1-indexed, e.g., --planes 1 2 3)"
+        "--num-zplanes", "--planes", nargs="*", type=int, dest="num_zplanes",
+        help="z-planes to process (1-indexed, e.g., --num-zplanes 1 2 3)"
     )
     pipeline.add_argument(
-        "--roi", type=int,
-        help="ROI index for multi-ROI ScanImage data"
+        "--roi-mode", "--roi", type=int, dest="roi_mode",
+        help="ROI mode: None=stitch, 0=split all, N=specific ROI"
     )
     pipeline.add_argument(
         "--frames", type=int, dest="frames_include",
@@ -474,8 +474,8 @@ def main():
 
     # show key settings
     print(f"\nSettings:")
-    if args.planes:
-        print(f"  Planes: {args.planes}")
+    if args.num_zplanes:
+        print(f"  Z-planes: {args.num_zplanes}")
     if args.frames_include and args.frames_include > 0:
         print(f"  Frames: {args.frames_include}")
         ops["frames_include"] = args.frames_include
@@ -492,8 +492,8 @@ def main():
             input_data=input_path,
             save_path=output_path,
             ops=ops,
-            planes=args.planes,
-            roi=args.roi,
+            num_zplanes=args.num_zplanes,
+            roi_mode=args.roi_mode,
             keep_reg=args.keep_reg,
             keep_raw=args.keep_raw,
             force_reg=args.force_reg,
