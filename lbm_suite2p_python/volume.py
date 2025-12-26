@@ -1106,26 +1106,26 @@ def plot_orthoslices(
     try:
         from mbo_utilities.metadata import get_voxel_size
         voxel = get_voxel_size(first_ops)
-        # only use voxel sizes if they're not the default 1.0 placeholder
-        if voxel.dx > 0 and voxel.dx != 1.0:
+        # use voxel sizes if they're not the default 1.0 placeholder
+        if voxel.dx != 1.0:
             dx_um = voxel.dx
-        if voxel.dy > 0 and voxel.dy != 1.0:
+        if voxel.dy != 1.0:
             dy_um = voxel.dy
-        if voxel.dz > 0 and voxel.dz != 1.0:
+        # dz can be None for LBM stacks (user must supply)
+        if voxel.dz is not None and voxel.dz != 1.0:
             dz_um = voxel.dz
     except (ImportError, Exception):
         pass
-    # fallback to ops fields
+    # fallback to ops fields if still default
     if dx_um == 1.0:
-        pixel_res = first_ops.get("pixel_resolution", first_ops.get("um_per_pixel", None))
+        pixel_res = first_ops.get("pixel_resolution")
         if pixel_res is not None:
             if isinstance(pixel_res, (int, float)):
-                dx_um, dy_um = float(pixel_res), float(pixel_res)
-            else:
-                dx_um = float(pixel_res[0]) if len(pixel_res) > 0 else 1.0
-                dy_um = float(pixel_res[1]) if len(pixel_res) > 1 else dx_um
-    if dz_um == 15.0:  # still default
-        dz_from_ops = first_ops.get("dz", first_ops.get("z_step", None))
+                dx_um = dy_um = float(pixel_res)
+            elif len(pixel_res) >= 2:
+                dx_um, dy_um = float(pixel_res[0]), float(pixel_res[1])
+    if dz_um == 15.0:
+        dz_from_ops = first_ops.get("dz") or first_ops.get("z_step")
         if dz_from_ops is not None and dz_from_ops != 1.0:
             dz_um = float(dz_from_ops)
 
@@ -1284,26 +1284,26 @@ def plot_3d_roi_map(
     try:
         from mbo_utilities.metadata import get_voxel_size
         voxel = get_voxel_size(first_ops)
-        # only use voxel sizes if they're not the default 1.0 placeholder
-        if voxel.dx > 0 and voxel.dx != 1.0:
+        # use voxel sizes if they're not the default 1.0 placeholder
+        if voxel.dx != 1.0:
             dx_um = voxel.dx
-        if voxel.dy > 0 and voxel.dy != 1.0:
+        if voxel.dy != 1.0:
             dy_um = voxel.dy
-        if voxel.dz > 0 and voxel.dz != 1.0:
+        # dz can be None for LBM stacks (user must supply)
+        if voxel.dz is not None and voxel.dz != 1.0:
             dz_um = voxel.dz
     except (ImportError, Exception):
         pass
-    # fallback to ops fields
+    # fallback to ops fields if still default
     if dx_um == 1.0:
-        pixel_res = first_ops.get("pixel_resolution", first_ops.get("um_per_pixel", None))
+        pixel_res = first_ops.get("pixel_resolution")
         if pixel_res is not None:
             if isinstance(pixel_res, (int, float)):
-                dx_um, dy_um = float(pixel_res), float(pixel_res)
-            else:
-                dx_um = float(pixel_res[0]) if len(pixel_res) > 0 else 1.0
-                dy_um = float(pixel_res[1]) if len(pixel_res) > 1 else dx_um
-    if dz_um == 15.0:  # still default
-        dz_from_ops = first_ops.get("dz", first_ops.get("z_step", None))
+                dx_um = dy_um = float(pixel_res)
+            elif len(pixel_res) >= 2:
+                dx_um, dy_um = float(pixel_res[0]), float(pixel_res[1])
+    if dz_um == 15.0:
+        dz_from_ops = first_ops.get("dz") or first_ops.get("z_step")
         if dz_from_ops is not None and dz_from_ops != 1.0:
             dz_um = float(dz_from_ops)
 
@@ -1617,24 +1617,26 @@ def plot_3d_rastermap_clusters(
         try:
             from mbo_utilities.metadata import get_voxel_size
             voxel = get_voxel_size(first_ops)
-            if voxel.dx > 0 and voxel.dx != 1.0:
+            # use voxel sizes if they're not the default 1.0 placeholder
+            if voxel.dx != 1.0:
                 dx_um = voxel.dx
-            if voxel.dy > 0 and voxel.dy != 1.0:
+            if voxel.dy != 1.0:
                 dy_um = voxel.dy
-            if voxel.dz > 0 and voxel.dz != 1.0:
+            # dz can be None for LBM stacks (user must supply)
+            if voxel.dz is not None and voxel.dz != 1.0:
                 dz_um = voxel.dz
         except (ImportError, Exception):
             pass
+        # fallback to ops fields if still default
         if dx_um == 1.0:
-            pixel_res = first_ops.get("pixel_resolution", first_ops.get("um_per_pixel", None))
+            pixel_res = first_ops.get("pixel_resolution")
             if pixel_res is not None:
                 if isinstance(pixel_res, (int, float)):
-                    dx_um, dy_um = float(pixel_res), float(pixel_res)
-                else:
-                    dx_um = float(pixel_res[0]) if len(pixel_res) > 0 else 1.0
-                    dy_um = float(pixel_res[1]) if len(pixel_res) > 1 else dx_um
+                    dx_um = dy_um = float(pixel_res)
+                elif len(pixel_res) >= 2:
+                    dx_um, dy_um = float(pixel_res[0]), float(pixel_res[1])
         if dz_um == 15.0:
-            dz_from_ops = first_ops.get("dz", first_ops.get("z_step", None))
+            dz_from_ops = first_ops.get("dz") or first_ops.get("z_step")
             if dz_from_ops is not None and dz_from_ops != 1.0:
                 dz_um = float(dz_from_ops)
 

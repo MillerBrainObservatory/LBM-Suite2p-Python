@@ -40,6 +40,16 @@ from lbm_suite2p_python.conversion import (
     compare_detections,
 )
 
+# re-export useful metadata functions from mbo_utilities
+from mbo_utilities.metadata import (
+    detect_stack_type,
+    compute_num_timepoints,
+    get_voxel_size,
+    get_param,
+    VoxelSize,
+    RoiMode,
+)
+
 try:
     __version__ = version("lbm_suite2p_python")
 except PackageNotFoundError:
@@ -127,6 +137,13 @@ __all__ = [
     "export_for_gui",
     "import_from_gui",
     "compare_detections",
+    # Metadata utilities (from mbo_utilities)
+    "detect_stack_type",
+    "compute_num_timepoints",
+    "get_voxel_size",
+    "get_param",
+    "VoxelSize",
+    "RoiMode",
 ]
 
 # Re-export with public name

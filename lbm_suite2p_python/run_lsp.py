@@ -20,7 +20,13 @@ from lbm_suite2p_python.postprocessing import (
     dff_rolling_percentile,
 )
 from mbo_utilities.log import get as get_logger
-from mbo_utilities.metadata import get_param, get_voxel_size
+from mbo_utilities.metadata import (
+    get_param,
+    get_voxel_size,
+    detect_stack_type,
+    compute_num_timepoints,
+    RoiMode,
+)
 
 from lbm_suite2p_python.zplane import save_pc_panels_and_metrics, plot_zplane_figures
 
@@ -525,14 +531,25 @@ def pipeline(
     metadata = dict(getattr(arr, "metadata", {}) or {})
 
     # Get dimensions from the array (which now reflects ROI setting)
+    # use array properties for accurate dimensions after loading
     num_planes = _get_num_planes_from_array(arr)
     total_frames = arr.shape[0]
     Ly, Lx = arr.shape[-2], arr.shape[-1]
 
+    # detect stack type from scanimage metadata
+    stack_type = detect_stack_type(metadata)
+
+    # compute actual timepoints (volumes) from total frames
+    # for LBM: each frame is one timepoint (z-planes interleaved as channels)
+    # for piezo: frames / (slices * frames_per_slice)
+    num_timepoints_actual = compute_num_timepoints(total_frames, metadata)
+
     print(f"\nDataset info:")
     print(f"  Shape: {arr.shape}")
+    print(f"  Stack type: {stack_type}")
     print(f"  Frames: {total_frames}")
-    print(f"  Planes: {num_planes}")
+    print(f"  Timepoints: {num_timepoints_actual}")
+    print(f"  Z-planes: {num_planes}")
     print(f"  Dimensions: {Ly} x {Lx}")
 
     # Show MboRawArray-specific settings
@@ -565,11 +582,16 @@ def pipeline(
     if voxel.dx != 1.0 or voxel.dy != 1.0:
         ops["dx"] = voxel.dx
         ops["dy"] = voxel.dy
-        ops["pixel_resolution"] = [voxel.dx, voxel.dy]
+        ops["pixel_resolution"] = list(voxel.pixel_resolution)
+    if voxel.dz is not None:
+        ops["dz"] = voxel.dz
 
     ops["Ly"] = Ly
     ops["Lx"] = Lx
     ops["nframes"] = total_frames
+    ops["num_timepoints"] = num_timepoints_actual
+    ops["num_zplanes"] = num_planes
+    ops["stack_type"] = stack_type
 
     # Normalize planes to 0-indexed list using mbo_utilities helper
     planes_to_process = _normalize_planes(num_zplanes, num_planes)

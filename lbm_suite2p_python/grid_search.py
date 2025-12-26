@@ -117,7 +117,7 @@ def grid_search(
     """
     from mbo_utilities import imread
     from mbo_utilities._writers import _write_plane
-    from mbo_utilities.metadata import get_param, get_voxel_size
+    from mbo_utilities.metadata import get_param, get_voxel_size, detect_stack_type
 
     from lbm_suite2p_python.default_ops import default_ops
     from lbm_suite2p_python.run_lsp import (
@@ -200,7 +200,13 @@ def grid_search(
     if voxel.dx != 1.0 or voxel.dy != 1.0:
         ops["dx"] = voxel.dx
         ops["dy"] = voxel.dy
-        ops["pixel_resolution"] = [voxel.dx, voxel.dy]
+        ops["pixel_resolution"] = list(voxel.pixel_resolution)
+    if voxel.dz is not None:
+        ops["dz"] = voxel.dz
+
+    # detect stack type for metadata
+    stack_type = detect_stack_type(metadata)
+    ops["stack_type"] = stack_type
 
     param_names = list(grid_params.keys())
     param_values = list(grid_params.values())
