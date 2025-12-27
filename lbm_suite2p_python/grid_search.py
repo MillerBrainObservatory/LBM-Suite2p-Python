@@ -15,7 +15,6 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from matplotlib.patches import Rectangle
 from scipy.stats import skew
 
 from lbm_suite2p_python.postprocessing import (
@@ -25,9 +24,6 @@ from lbm_suite2p_python.postprocessing import (
 )
 from lbm_suite2p_python.zplane import (
     plot_zplane_figures,
-    get_background_image,
-    stat_to_mask,
-    mask_overlay,
 )
 
 # registration parameters that require re-registration when changed
