@@ -416,12 +416,13 @@ def cellpose(
 
     model_type : str, default 'cpsam'
         Cellpose model to use. Options:
-        - 'cpsam': CP-SAM model (recommended for calcium imaging)
-        - 'cyto3': Latest cytoplasm model
-        - 'cyto2': Previous cytoplasm model
-        - 'cyto': Original cytoplasm model
-        - 'nuclei': Nuclear segmentation
-        - Path to custom model file
+        - 'cpsam': CP-SAM model (default, recommended for calcium imaging)
+        - Path to custom trained model (must be trained from cpsam base)
+
+        .. note::
+            Currently only cpsam-based models are supported. Use
+            ``lsp.train_cellpose()`` to fine-tune cpsam on your data, then
+            pass the model path here.
     gpu : bool, default True
         Use GPU if available.
     diameter : float, optional
@@ -1024,26 +1025,81 @@ def load_seg_file(seg_path: str | Path) -> dict:
 
 
 def open_in_gui(
-    seg_path: str | Path = None,
+    path: str | Path = None,
     image: np.ndarray = None,
     masks: np.ndarray = None,
+    # legacy parameter name
+    seg_path: str | Path = None,
 ):
     """
-    Open cellpose gui with results or image.
+    Open cellpose GUI for viewing results or annotating images.
+
+    This function launches the cellpose GUI for:
+    - Viewing existing segmentation results
+    - Manually annotating images to create training data
+    - Correcting automatic segmentations
 
     Parameters
     ----------
-    seg_path : str or Path, optional
-        Path to _seg.npy file to load in gui.
+    path : str or Path, optional
+        Path to open. Can be:
+        - Directory containing .tif images (for annotation)
+        - Directory containing _seg.npy files (to view/edit results)
+        - Path to specific _seg.npy file
+        - Path to specific image file
     image : ndarray, optional
-        Image to open directly (without loading from file).
+        Image array to open directly (without file).
     masks : ndarray, optional
-        Masks to overlay (requires image).
+        Masks to overlay on image (requires image parameter).
+    seg_path : str or Path, optional
+        Deprecated. Use ``path`` instead.
 
     Notes
     -----
-    Requires cellpose to be installed with gui dependencies.
+    Requires cellpose to be installed with GUI dependencies::
+
+        pip install cellpose[gui]
+
+    Training workflow:
+    1. Prepare images with ``lsp.annotate()`` or save projections as .tif
+    2. Open with ``lsp.open_in_gui(path)``
+    3. Draw cell masks: Ctrl+click to start, click to add points, Enter to finish
+    4. Delete masks: select + Delete key
+    5. Save annotations: Ctrl+S (creates _seg.npy files)
+    6. Train model: ``lsp.train_cellpose(path, mask_filter='_seg.npy')``
+
+    Examples
+    --------
+    Open a directory of images for annotation:
+
+    >>> import lbm_suite2p_python as lsp
+    >>> lsp.open_in_gui("D:/annotations")
+
+    View existing segmentation results:
+
+    >>> lsp.open_in_gui("D:/results/cellpose")
+
+    Open a specific file:
+
+    >>> lsp.open_in_gui("D:/results/projection_seg.npy")
+
+    See Also
+    --------
+    annotate : Prepare images for annotation
+    train_cellpose : Train model on annotated data
+    save_gui_results : Save results in GUI-compatible format
     """
+    import warnings
+
+    # handle legacy parameter
+    if seg_path is not None and path is None:
+        warnings.warn(
+            "seg_path parameter is deprecated, use path instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        path = seg_path
+
     # patch QCheckBox for Qt5/Qt6 compatibility
     try:
         from qtpy.QtWidgets import QCheckBox
@@ -1054,23 +1110,63 @@ def open_in_gui(
 
     from cellpose.gui import gui
 
-    if seg_path is not None:
-        seg_path = Path(seg_path)
-        if seg_path.is_dir():
-            seg_files = list(seg_path.glob("*_seg.npy"))
-            if seg_files:
-                seg_path = seg_files[0]
+    if path is not None:
+        path = Path(path)
 
-        data = load_seg_file(seg_path)
-        img_file = data.get("filename")
-        if img_file and Path(img_file).exists():
-            gui.run(image=str(img_file))
-        else:
-            import tempfile
-            with tempfile.NamedTemporaryFile(suffix=".tif", delete=False) as f:
+        if path.is_dir():
+            # check for _seg.npy files first
+            seg_files = list(path.glob("*_seg.npy"))
+            tif_files = list(path.glob("*.tif")) + list(path.glob("*.tiff"))
+
+            if seg_files:
+                # load first seg file
+                print(f"Found {len(seg_files)} _seg.npy files")
+                data = load_seg_file(seg_files[0])
+                img_file = data.get("filename")
+                if img_file and Path(img_file).exists():
+                    print(f"Opening: {img_file}")
+                    gui.run(image=str(img_file))
+                else:
+                    # save image to temp and open
+                    import tempfile
+                    import tifffile
+                    with tempfile.NamedTemporaryFile(suffix=".tif", delete=False) as f:
+                        tifffile.imwrite(f.name, data["img"].astype(np.float32))
+                        gui.run(image=f.name)
+            elif tif_files:
+                # open first tif file
+                print(f"Found {len(tif_files)} image files in {path}")
+                print(f"Opening: {tif_files[0].name}")
+                print("\nTo annotate: Ctrl+click to draw, Enter to finish, Ctrl+S to save")
+                gui.run(image=str(tif_files[0]))
+            else:
+                print(f"No .tif or _seg.npy files found in {path}")
+                print("Opening empty GUI...")
+                gui.run()
+
+        elif path.suffix == ".npy":
+            # load seg file
+            data = load_seg_file(path)
+            img_file = data.get("filename")
+            if img_file and Path(img_file).exists():
+                gui.run(image=str(img_file))
+            else:
+                import tempfile
                 import tifffile
-                tifffile.imwrite(f.name, data["img"].astype(np.float32))
-                gui.run(image=f.name)
+                with tempfile.NamedTemporaryFile(suffix=".tif", delete=False) as f:
+                    tifffile.imwrite(f.name, data["img"].astype(np.float32))
+                    gui.run(image=f.name)
+
+        elif path.suffix.lower() in (".tif", ".tiff", ".png", ".jpg", ".jpeg"):
+            # open image file directly
+            print(f"Opening: {path}")
+            print("\nTo annotate: Ctrl+click to draw, Enter to finish, Ctrl+S to save")
+            gui.run(image=str(path))
+
+        else:
+            print(f"Unsupported file type: {path.suffix}")
+            gui.run()
+
     elif image is not None:
         import tempfile
         import tifffile
@@ -1224,3 +1320,508 @@ def cellpose_to_suite2p(
 
     print(f"Converted to Suite2p format: {suite2p_dir}")
     return suite2p_dir
+
+
+# supported base model for training (currently only cpsam)
+_SUPPORTED_BASE_MODEL = "cpsam"
+
+
+def train_cellpose(
+    train_dir: str | Path,
+    test_dir: str | Path = None,
+    model_name: str = "lbm_custom",
+    learning_rate: float = 1e-5,
+    weight_decay: float = 0.1,
+    n_epochs: int = 100,
+    batch_size: int = 1,
+    min_train_masks: int = 5,
+    save_every: int = 100,
+    save_each: bool = False,
+    mask_filter: str = "_masks",
+    image_filter: str = None,
+    gpu: bool = True,
+    normalize: bool = True,
+) -> Path:
+    """
+    Train/fine-tune a Cellpose model on your data.
+
+    Fine-tunes the cpsam (Cellpose-SAM) model on your labeled images. The trained
+    model can then be used with ``lsp.pipeline()`` or ``lsp.cellpose()`` by passing
+    the model path as ``pretrained_model`` or ``model_type``.
+
+    .. note::
+        Currently only fine-tuning from cpsam is supported. Custom base models
+        are not yet available.
+
+    Parameters
+    ----------
+    train_dir : str or Path
+        Directory containing training images and masks. Images should be named
+        like ``image.tif`` with corresponding ``image_masks.tif`` (or use
+        ``mask_filter`` to specify a different suffix). Can also use GUI
+        annotations (``image_seg.npy``) with ``mask_filter="_seg.npy"``.
+    test_dir : str or Path, optional
+        Directory containing test images and masks for validation. If None,
+        no validation is performed during training.
+    model_name : str, default "lbm_custom"
+        Name for the trained model. The model will be saved to
+        ``{train_dir}/models/{model_name}``.
+    learning_rate : float, default 1e-5
+        Learning rate for training. The default is optimized for fine-tuning.
+    weight_decay : float, default 0.1
+        L2 regularization weight decay.
+    n_epochs : int, default 100
+        Number of training epochs.
+    batch_size : int, default 1
+        Batch size for training. Keep small (1-2) for fine-tuning.
+    min_train_masks : int, default 5
+        Minimum number of masks an image must have to be included in training.
+    save_every : int, default 100
+        Save checkpoint every N epochs.
+    save_each : bool, default False
+        If True, save a separate checkpoint file for each epoch.
+    mask_filter : str, default "_masks"
+        Suffix for mask files. Use ``"_seg.npy"`` for GUI annotations.
+    image_filter : str, optional
+        Suffix for image files (e.g., ``"_img"`` for ``wells_000_img.tif``).
+    gpu : bool, default True
+        Use GPU if available.
+    normalize : bool, default True
+        Normalize images during training.
+
+    Returns
+    -------
+    Path
+        Path to the trained model file.
+
+    Examples
+    --------
+    Basic training workflow:
+
+    >>> import lbm_suite2p_python as lsp
+    >>>
+    >>> # 1. prepare your training data (images + masks in a folder)
+    >>> # 2. train the model
+    >>> model_path = lsp.train_cellpose(
+    ...     train_dir="D:/training_data",
+    ...     test_dir="D:/test_data",
+    ...     model_name="my_neurons",
+    ...     n_epochs=200,
+    ... )
+    >>>
+    >>> # 3. use the trained model
+    >>> result = lsp.cellpose(
+    ...     "D:/new_data",
+    ...     model_type=str(model_path),
+    ... )
+
+    Using GUI annotations for training:
+
+    >>> # after annotating images in cellpose gui, train with _seg.npy files
+    >>> model_path = lsp.train_cellpose(
+    ...     train_dir="D:/annotated_images",
+    ...     mask_filter="_seg.npy",
+    ...     model_name="gui_trained",
+    ... )
+
+    See Also
+    --------
+    prepare_training_data : Organize pipeline outputs for training
+    cellpose : Run segmentation with trained model
+    open_in_gui : Open images for manual annotation
+    """
+    from cellpose import models, train, io, core
+
+    train_dir = Path(train_dir)
+    if not train_dir.exists():
+        raise FileNotFoundError(f"Training directory not found: {train_dir}")
+
+    if test_dir is not None:
+        test_dir = Path(test_dir)
+        if not test_dir.exists():
+            raise FileNotFoundError(f"Test directory not found: {test_dir}")
+
+    print("Cellpose Model Training")
+    print("=" * 60)
+    print(f"Training directory: {train_dir}")
+    if test_dir:
+        print(f"Test directory: {test_dir}")
+    print(f"Model name: {model_name}")
+    print(f"Base model: {_SUPPORTED_BASE_MODEL} (only supported option)")
+    print(f"Epochs: {n_epochs}, LR: {learning_rate}, WD: {weight_decay}")
+
+    # check gpu
+    use_gpu = gpu and core.use_gpu()
+    print(f"GPU: {'enabled' if use_gpu else 'disabled'}")
+
+    # load training data
+    print(f"\nLoading training data (mask_filter='{mask_filter}')...")
+    output = io.load_train_test_data(
+        train_dir=str(train_dir),
+        test_dir=str(test_dir) if test_dir else None,
+        image_filter=image_filter,
+        mask_filter=mask_filter,
+        look_one_level_down=False,
+    )
+    images, labels, image_names, test_images, test_labels, test_image_names = output
+
+    print(f"  Training images: {len(images)}")
+    if test_images is not None:
+        print(f"  Test images: {len(test_images)}")
+
+    if len(images) == 0:
+        raise ValueError(
+            f"No training images found in {train_dir}. "
+            f"Expected image files with matching '{mask_filter}' mask files."
+        )
+
+    # load base model (cpsam only)
+    print(f"\nLoading base model ({_SUPPORTED_BASE_MODEL})...")
+    model = models.CellposeModel(model_type=_SUPPORTED_BASE_MODEL, gpu=use_gpu)
+
+    # train
+    print(f"\nStarting training...")
+    model_path, train_losses, test_losses = train.train_seg(
+        model.net,
+        train_data=images,
+        train_labels=labels,
+        train_files=None,
+        test_data=test_images,
+        test_labels=test_labels,
+        test_files=None,
+        learning_rate=learning_rate,
+        weight_decay=weight_decay,
+        n_epochs=n_epochs,
+        batch_size=batch_size,
+        min_train_masks=min_train_masks,
+        save_every=save_every,
+        save_each=save_each,
+        model_name=model_name,
+        save_path=str(train_dir),
+        normalize=normalize,
+    )
+
+    model_path = Path(model_path)
+
+    # save training losses
+    losses_file = model_path.parent / f"{model_name}_losses.npy"
+    np.save(losses_file, {
+        "train_losses": train_losses,
+        "test_losses": test_losses,
+        "n_epochs": n_epochs,
+        "learning_rate": learning_rate,
+        "weight_decay": weight_decay,
+        "base_model": _SUPPORTED_BASE_MODEL,
+    })
+
+    print(f"\n{'='*60}")
+    print("Training complete!")
+    print(f"{'='*60}")
+    print(f"Model saved: {model_path}")
+    print(f"Losses saved: {losses_file}")
+    print(f"\nTo use this model:")
+    print(f"  lsp.cellpose(..., model_type='{model_path}')")
+    print(f"  or")
+    print(f"  lsp.pipeline(..., ops={{'pretrained_model': '{model_path}'}})")
+
+    return model_path
+
+
+def prepare_training_data(
+    source_dirs: list | str | Path,
+    output_dir: str | Path,
+    projection: Literal["max", "mean", "std"] = "max",
+    use_seg_files: bool = True,
+    use_mask_files: bool = True,
+    copy_images: bool = True,
+    image_suffix: str = ".tif",
+) -> Path:
+    """
+    Prepare training data from pipeline outputs or annotated images.
+
+    Collects images and masks from multiple source directories and organizes
+    them into the format expected by ``train_cellpose()``. This is useful for
+    combining annotations from multiple experiments.
+
+    Parameters
+    ----------
+    source_dirs : list, str, or Path
+        Directory or list of directories containing:
+        - ``*_seg.npy`` files (cellpose GUI annotations), and/or
+        - ``*_masks.tif`` files with corresponding images
+        - ``projection*.tif`` or other image files
+    output_dir : str or Path
+        Output directory for organized training data.
+    projection : str, default "max"
+        If source has time-series data, which projection to use.
+    use_seg_files : bool, default True
+        Look for ``_seg.npy`` files (GUI annotations).
+    use_mask_files : bool, default True
+        Look for ``_masks.tif`` or ``masks*.npy`` files.
+    copy_images : bool, default True
+        Copy image files to output directory. If False, creates symlinks.
+    image_suffix : str, default ".tif"
+        Suffix for output image files.
+
+    Returns
+    -------
+    Path
+        Path to output directory ready for training.
+
+    Examples
+    --------
+    Collect training data from multiple pipeline runs:
+
+    >>> import lbm_suite2p_python as lsp
+    >>>
+    >>> # collect from multiple annotated folders
+    >>> train_dir = lsp.prepare_training_data(
+    ...     source_dirs=[
+    ...         "D:/experiment1/cellpose",
+    ...         "D:/experiment2/cellpose",
+    ...     ],
+    ...     output_dir="D:/training_data",
+    ... )
+    >>>
+    >>> # train on collected data
+    >>> model_path = lsp.train_cellpose(train_dir)
+
+    See Also
+    --------
+    train_cellpose : Train model on prepared data
+    save_gui_results : Save results in GUI-compatible format
+    """
+    import shutil
+    import tifffile
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # normalize source_dirs to list
+    if isinstance(source_dirs, (str, Path)):
+        source_dirs = [source_dirs]
+    source_dirs = [Path(d) for d in source_dirs]
+
+    print("Preparing Training Data")
+    print("=" * 60)
+    print(f"Source directories: {len(source_dirs)}")
+    print(f"Output directory: {output_dir}")
+
+    collected = 0
+
+    for src_dir in source_dirs:
+        if not src_dir.exists():
+            print(f"  Warning: {src_dir} not found, skipping")
+            continue
+
+        print(f"\nScanning: {src_dir}")
+
+        # find _seg.npy files (gui annotations)
+        if use_seg_files:
+            for seg_file in src_dir.rglob("*_seg.npy"):
+                try:
+                    data = np.load(seg_file, allow_pickle=True).item()
+                    masks = data.get("masks")
+                    img = data.get("img")
+
+                    if masks is None or img is None:
+                        continue
+
+                    if masks.max() == 0:
+                        print(f"    Skipping {seg_file.name}: no masks")
+                        continue
+
+                    # create output name
+                    base_name = seg_file.stem.replace("_seg", "")
+                    out_name = f"{src_dir.name}_{base_name}"
+
+                    # save image
+                    img_out = output_dir / f"{out_name}{image_suffix}"
+                    tifffile.imwrite(img_out, img.astype(np.float32), compression="zlib")
+
+                    # save masks
+                    masks_out = output_dir / f"{out_name}_masks{image_suffix}"
+                    tifffile.imwrite(masks_out, masks.astype(np.uint16), compression="zlib")
+
+                    n_masks = int(masks.max())
+                    print(f"    {seg_file.name}: {n_masks} masks")
+                    collected += 1
+
+                except Exception as e:
+                    print(f"    Error loading {seg_file}: {e}")
+
+        # find masks.npy or *_masks.tif files
+        if use_mask_files:
+            for masks_file in list(src_dir.rglob("masks*.npy")) + list(src_dir.rglob("*_masks.tif")):
+                try:
+                    # skip if we already got this from _seg.npy
+                    if "_seg" in str(masks_file):
+                        continue
+
+                    # load masks
+                    if masks_file.suffix == ".npy":
+                        masks = np.load(masks_file)
+                    else:
+                        masks = tifffile.imread(masks_file)
+
+                    if masks.max() == 0:
+                        print(f"    Skipping {masks_file.name}: no masks")
+                        continue
+
+                    # find corresponding image
+                    base = masks_file.stem.replace("_masks", "").replace("masks", "")
+                    img_candidates = [
+                        masks_file.parent / f"projection{base}.tif",
+                        masks_file.parent / f"{base}.tif",
+                        masks_file.parent / f"{base}_projection.tif",
+                    ]
+
+                    img = None
+                    for cand in img_candidates:
+                        if cand.exists():
+                            img = tifffile.imread(cand)
+                            break
+
+                    if img is None:
+                        print(f"    Skipping {masks_file.name}: no matching image")
+                        continue
+
+                    # create output name
+                    out_name = f"{src_dir.name}_{base}" if base else f"{src_dir.name}_{masks_file.stem}"
+
+                    # save image
+                    img_out = output_dir / f"{out_name}{image_suffix}"
+                    tifffile.imwrite(img_out, img.astype(np.float32), compression="zlib")
+
+                    # save masks
+                    masks_out = output_dir / f"{out_name}_masks{image_suffix}"
+                    tifffile.imwrite(masks_out, masks.astype(np.uint16), compression="zlib")
+
+                    n_masks = int(masks.max())
+                    print(f"    {masks_file.name}: {n_masks} masks")
+                    collected += 1
+
+                except Exception as e:
+                    print(f"    Error loading {masks_file}: {e}")
+
+    print(f"\n{'='*60}")
+    print(f"Collected {collected} image-mask pairs")
+    print(f"Output directory: {output_dir}")
+    print(f"\nTo train:")
+    print(f"  lsp.train_cellpose('{output_dir}')")
+
+    return output_dir
+
+
+def annotate(
+    input_data,
+    save_path: str | Path = None,
+    planes: list | int = None,
+    projection: Literal["max", "mean", "std"] = "max",
+    reader_kwargs: dict = None,
+) -> Path:
+    """
+    Prepare images for annotation in cellpose GUI.
+
+    Computes projections from input data and saves them in a format ready
+    for manual annotation in the cellpose GUI. After annotating, the
+    resulting ``_seg.npy`` files can be used for training.
+
+    Parameters
+    ----------
+    input_data : str, Path, or array
+        Input data (same formats as ``lsp.cellpose()``).
+    save_path : str or Path, optional
+        Output directory for projection images.
+    planes : int or list, optional
+        Which planes to prepare (1-indexed).
+    projection : str, default "max"
+        Projection method for time series.
+    reader_kwargs : dict, optional
+        Arguments passed to mbo_utilities.imread().
+
+    Returns
+    -------
+    Path
+        Path to directory containing images ready for annotation.
+
+    Examples
+    --------
+    Prepare images for annotation:
+
+    >>> import lbm_suite2p_python as lsp
+    >>>
+    >>> # 1. prepare projections
+    >>> annotation_dir = lsp.annotate("D:/data.zarr", planes=[5, 10, 15])
+    >>>
+    >>> # 2. open in gui and annotate (draws masks, saves _seg.npy)
+    >>> lsp.open_in_gui(annotation_dir)
+    >>>
+    >>> # 3. train on annotations
+    >>> model_path = lsp.train_cellpose(annotation_dir, mask_filter="_seg.npy")
+
+    See Also
+    --------
+    open_in_gui : Launch cellpose GUI
+    train_cellpose : Train model on annotated data
+    """
+    import tifffile
+
+    reader_kwargs = reader_kwargs or {}
+
+    # load input data
+    if _is_lazy_array(input_data):
+        arr = input_data
+        if save_path is None:
+            filenames = getattr(arr, "filenames", [])
+            if filenames:
+                save_path = Path(filenames[0]).parent / "annotations"
+            else:
+                raise ValueError("save_path required for array input")
+    elif isinstance(input_data, (str, Path)):
+        input_path = Path(input_data)
+        arr = imread(input_path, **reader_kwargs)
+        if save_path is None:
+            save_path = (input_path.parent if input_path.is_file() else input_path) / "annotations"
+    else:
+        raise TypeError(f"input_data must be path or array, got {type(input_data)}")
+
+    save_path = Path(save_path)
+    save_path.mkdir(parents=True, exist_ok=True)
+
+    print("Preparing Images for Annotation")
+    print("=" * 60)
+    print(f"Output: {save_path}")
+
+    # get planes
+    num_planes = _get_num_planes(arr)
+    if planes is None:
+        planes_to_process = list(range(num_planes))
+    elif isinstance(planes, int):
+        planes_to_process = [planes - 1]  # convert to 0-indexed
+    else:
+        planes_to_process = [p - 1 for p in planes]
+
+    print(f"Planes: {[p+1 for p in planes_to_process]}")
+
+    for plane_idx in planes_to_process:
+        print(f"\nPlane {plane_idx + 1}:")
+
+        # compute projection
+        proj = _compute_projection(arr, plane_idx=plane_idx, method=projection)
+
+        # save as tiff
+        out_file = save_path / f"plane{plane_idx+1:02d}.tif"
+        tifffile.imwrite(out_file, proj.astype(np.float32), compression="zlib")
+        print(f"  Saved: {out_file.name}")
+
+    print(f"\n{'='*60}")
+    print(f"Images saved to: {save_path}")
+    print(f"\nTo annotate:")
+    print(f"  1. lsp.open_in_gui('{save_path}')")
+    print(f"  2. Draw masks on each image (Ctrl+click to add cells)")
+    print(f"  3. Save (Ctrl+S) to create _seg.npy files")
+    print(f"\nTo train after annotation:")
+    print(f"  lsp.train_cellpose('{save_path}', mask_filter='_seg.npy')")
+
+    return save_path

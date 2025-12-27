@@ -133,7 +133,9 @@ def s2p_ops():
         "cellprob_threshold": -6,  # cellprob_threshold for cellpose
         "flow_threshold": 0,  # flow_threshold for cellpose
         "spatial_hp_cp": 0.5,  # high-pass image spatially by a multiple of the diameter
-        "pretrained_model": "cpsam",  # cellpose model to use for anatomical detection
+        # cellpose model: 'cpsam' (default) or path to custom model trained with lsp.train_cellpose()
+        # note: only cpsam-based models are currently supported
+        "pretrained_model": "cpsam",
 
         # classification parameters
         "soma_crop":
