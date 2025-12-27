@@ -1515,7 +1515,7 @@ docs = [
 requires-dist = [
     { name = "cellpose", marker = "extra == 'cellpose'", specifier = ">=4.0.6" },
     { name = "lbm-suite2p-python", extras = ["suite2p", "rastermap", "cellpose", "torch"], marker = "extra == 'all'" },
-    { name = "mbo-utilities", specifier = ">=2.4.0" },
+    { name = "mbo-utilities", specifier = ">=2.4.3" },
     { name = "rastermap", marker = "extra == 'rastermap'" },
     { name = "suite2p-mbo", marker = "extra == 'suite2p'", specifier = ">=2.0.1" },
     { name = "torch", marker = "(sys_platform == 'linux' and extra == 'torch') or (sys_platform == 'win32' and extra == 'torch')", specifier = ">=2.7.0", index = "https://download.pytorch.org/whl/cu126" },
@@ -1661,7 +1661,7 @@ wheels = [
 
 [[package]]
 name = "mbo-fastplotlib"
-version = "0.7.2"
+version = "0.7.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cmap" },
@@ -1669,14 +1669,14 @@ dependencies = [
     { name = "pygfx" },
     { name = "wgpu" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/47/65/6b23fee6db5829c96b1fd4b98d1168d81453af53ff1bb0d3dd3c704b090a/mbo_fastplotlib-0.7.2.tar.gz", hash = "sha256:09c679d1c85a26b47726acfa1a677a8dbcc40bda825eb458aec431ce3bc18ff1", size = 168661, upload-time = "2025-12-10T17:05:20.914Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d9/f4/8b5e59a7efa88f703f0f898f3e64e73bdb98a78c9e2b31c384c1723b0070/mbo_fastplotlib-0.7.3.tar.gz", hash = "sha256:9ee6d2a4e65b11594ae1a31e966e79712f1720c3911fcb10b4a84f7d22af59fc", size = 169728, upload-time = "2025-12-17T15:49:07.08Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ff/fc/b4bc291cc4f055c6ea010b1896085d9a34f380cd76c94b6b59a8803dd62c/mbo_fastplotlib-0.7.2-py3-none-any.whl", hash = "sha256:b4f70f2ba925c95b2aac790445ef6618f142a3294b3ccd6f5c45c0b54adb0ea6", size = 203612, upload-time = "2025-12-10T17:05:19.548Z" },
+    { url = "https://files.pythonhosted.org/packages/d3/e3/6d559cf03942af1931e00120e4b4dd68bac6ff8c03f33d04111bdf253579/mbo_fastplotlib-0.7.3-py3-none-any.whl", hash = "sha256:d1c6aa29b967ac2a628853dc11371cdc0248ad2fd6b66e7718745f7818b2f16d", size = 204649, upload-time = "2025-12-17T15:49:05.895Z" },
 ]
 
 [[package]]
 name = "mbo-utilities"
-version = "2.4.0"
+version = "2.4.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "dask" },
@@ -1701,16 +1701,18 @@ dependencies = [
     { name = "pandas" },
     { name = "pygfx" },
     { name = "pyside6" },
+    { name = "rendercanvas" },
     { name = "scikit-image" },
     { name = "scipy" },
     { name = "seaborn" },
     { name = "tifffile" },
     { name = "tqdm" },
+    { name = "wgpu" },
     { name = "zarr" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d8/63/da287765b0ee51ab84a3f4ad8b14146e24debd6fd8115c67a36def27d20e/mbo_utilities-2.4.0.tar.gz", hash = "sha256:3fa03f1b4cc8aecc4f8942ee413980d943819e50659ad4a4aa82210d920a510c", size = 231371, upload-time = "2025-12-11T19:31:14.925Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/8e/05/c5e4cf47ccefd45f7587e6e1f118c96027174026d4b0ab9279e50d4ca908/mbo_utilities-2.4.3.tar.gz", hash = "sha256:37a09a4e64d56f235dc56fb720427c9896ea1084d89ea4351e9f7cdcaaa341de", size = 2880921, upload-time = "2025-12-18T06:35:19.739Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b2/3e/225f0e969ce5e4cb72c6541246943a1bd42ff5e79ee4efd9b56fa9de2ed9/mbo_utilities-2.4.0-py3-none-any.whl", hash = "sha256:1f5d48fc359a8b3843c060d293f9190cfe49a477660c5a630b912376aef2b4d7", size = 246700, upload-time = "2025-12-11T19:31:13.492Z" },
+    { url = "https://files.pythonhosted.org/packages/51/13/b1733b327e9c9a0bfc24004025860acbb63535507ad54d62bb1ed3348e0e/mbo_utilities-2.4.3-py3-none-any.whl", hash = "sha256:eb6fef6332e8bdea43b102de8b30834b97307b7abc20fcf88c3cee0800fe4ef0", size = 2909175, upload-time = "2025-12-18T06:35:17.885Z" },
 ]
 
 [[package]]
