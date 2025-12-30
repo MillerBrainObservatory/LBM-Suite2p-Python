@@ -27,6 +27,10 @@ from lbm_suite2p_python.cellpose import (
     load_seg_file,
     open_in_gui,
     save_comparison,
+    # training functions
+    train_cellpose,
+    prepare_training_data,
+    annotate,
 )
 from lbm_suite2p_python.conversion import (
     detect_format,
@@ -38,6 +42,27 @@ from lbm_suite2p_python.conversion import (
     export_for_gui,
     import_from_gui,
     compare_detections,
+)
+from lbm_suite2p_python.normcorre import (
+    normcorre_ops,
+    register_translation,
+    register_frames,
+    register_binary,
+    register_piecewise_rigid,
+    apply_shift_opencv,
+    apply_shift_fft,
+    compute_template,
+    high_pass_filter,
+)
+
+# re-export useful metadata functions from mbo_utilities
+from mbo_utilities.metadata import (
+    detect_stack_type,
+    compute_num_timepoints,
+    get_voxel_size,
+    get_param,
+    VoxelSize,
+    RoiMode,
 )
 
 try:
@@ -117,6 +142,10 @@ __all__ = [
     "load_seg_file",
     "open_in_gui",
     "save_comparison",
+    # Cellpose training
+    "train_cellpose",
+    "prepare_training_data",
+    "annotate",
     # Format conversion
     "detect_format",
     "validate_format",
@@ -127,6 +156,23 @@ __all__ = [
     "export_for_gui",
     "import_from_gui",
     "compare_detections",
+    # Metadata utilities (from mbo_utilities)
+    "detect_stack_type",
+    "compute_num_timepoints",
+    "get_voxel_size",
+    "get_param",
+    "VoxelSize",
+    "RoiMode",
+    # Normcorre registration
+    "normcorre_ops",
+    "register_translation",
+    "register_frames",
+    "register_binary",
+    "register_piecewise_rigid",
+    "apply_shift_opencv",
+    "apply_shift_fft",
+    "compute_template",
+    "high_pass_filter",
 ]
 
 # Re-export with public name

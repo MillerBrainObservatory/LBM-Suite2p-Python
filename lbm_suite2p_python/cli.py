@@ -12,14 +12,14 @@ Examples:
     # basic usage
     lsp /path/to/data.tif /path/to/output
 
-    # process specific planes with custom parameters
-    lsp /path/to/data --planes 1 2 3 --diameter 8 --fs 30
+    # process specific z-planes with custom parameters
+    lsp /path/to/data --num-zplanes 1 2 3 --diameter 8 --fs 30
 
     # quick test with limited frames
-    lsp /path/to/data --output /tmp/test --frames 500 --planes 1
+    lsp /path/to/data --output /tmp/test --frames 500 --num-zplanes 1
 
-    # cellpose-only detection
-    lsp /path/to/data --anatomical-only 3 --diameter 6
+    # cellpose-only detection with MBO defaults
+    lsp /path/to/data --anatomical-only 4 --diameter 4 --spatial-hp-cp 3
 """
 
 import argparse
@@ -103,11 +103,11 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  lsp data.tif output/              # basic processing
-  lsp data/ output/ --planes 1 2 3  # specific planes
-  lsp data/ output/ --frames 500    # quick test with 500 frames
-  lsp data/ output/ --diameter 8    # custom cell diameter
-  lsp --list-ops                    # show all suite2p parameters
+  lsp data.tif output/                        # basic processing
+  lsp data/ output/ --planes 1 2 3            # specific planes (1-indexed)
+  lsp data/ output/ --num-timepoints 500      # quick test with 500 frames
+  lsp data/ output/ --diameter 8              # custom cell diameter
+  lsp --list-ops                              # show all suite2p parameters
         """,
     )
 
@@ -132,19 +132,19 @@ Examples:
         "--list-ops", action="store_true", help="list all suite2p parameters"
     )
 
-    # pipeline arguments (match mbo_utilities naming where applicable)
+    # pipeline arguments (match mbo_utilities naming)
     pipeline = parser.add_argument_group("pipeline options")
     pipeline.add_argument(
-        "--planes", nargs="*", type=int,
-        help="planes to process (1-indexed, e.g., --planes 1 2 3)"
+        "--planes", nargs="*", type=int, dest="planes",
+        help="z-planes to process (1-indexed, e.g., --planes 1 2 3)"
     )
     pipeline.add_argument(
-        "--roi", type=int,
-        help="ROI index for multi-ROI ScanImage data"
+        "--roi-mode", "--roi", type=int, dest="roi_mode",
+        help="ROI mode: None=stitch, 0=split all, N=specific ROI"
     )
     pipeline.add_argument(
-        "--frames", type=int, dest="frames_include",
-        help="number of frames to process (for quick testing)"
+        "--num-timepoints", "--frames", type=int, dest="num_timepoints",
+        help="number of frames/timepoints to process (for quick testing)"
     )
     pipeline.add_argument(
         "--overwrite", action="store_true",
@@ -173,6 +173,10 @@ Examples:
     pipeline.add_argument(
         "--save-json", action="store_true",
         help="save ops as JSON (in addition to .npy)"
+    )
+    pipeline.add_argument(
+        "--accept-all-cells", action="store_true",
+        help="mark all detected ROIs as accepted cells"
     )
 
     # dff options
@@ -476,9 +480,8 @@ def main():
     print(f"\nSettings:")
     if args.planes:
         print(f"  Planes: {args.planes}")
-    if args.frames_include and args.frames_include > 0:
-        print(f"  Frames: {args.frames_include}")
-        ops["frames_include"] = args.frames_include
+    if args.num_timepoints and args.num_timepoints > 0:
+        print(f"  Timepoints: {args.num_timepoints}")
     print(f"  Diameter: {ops.get('diameter', 6)}")
     print(f"  Cellpose model: {ops.get('pretrained_model', 'cpsam')}")
     if cell_filters:
@@ -493,7 +496,8 @@ def main():
             save_path=output_path,
             ops=ops,
             planes=args.planes,
-            roi=args.roi,
+            roi_mode=args.roi_mode,
+            num_timepoints=args.num_timepoints,
             keep_reg=args.keep_reg,
             keep_raw=args.keep_raw,
             force_reg=args.force_reg,
@@ -502,6 +506,7 @@ def main():
             dff_percentile=args.dff_percentile,
             dff_smooth_window=args.dff_smooth_window,
             cell_filters=cell_filters,
+            accept_all_cells=args.accept_all_cells,
             save_json=args.save_json,
             reader_kwargs=reader_kwargs if reader_kwargs else None,
         )

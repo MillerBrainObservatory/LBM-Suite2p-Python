@@ -15,7 +15,6 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from matplotlib.patches import Rectangle
 from scipy.stats import skew
 
 from lbm_suite2p_python.postprocessing import (
@@ -25,9 +24,6 @@ from lbm_suite2p_python.postprocessing import (
 )
 from lbm_suite2p_python.zplane import (
     plot_zplane_figures,
-    get_background_image,
-    stat_to_mask,
-    mask_overlay,
 )
 
 # registration parameters that require re-registration when changed
@@ -48,11 +44,13 @@ def grid_search(
     grid_params: dict,
     ops: dict = None,
     planes: list | int = None,
-    roi: int = None,
+    roi_mode: int = None,
     force_reg: bool = False,
     force_detect: bool = True,
     reader_kwargs: dict = None,
     writer_kwargs: dict = None,
+    # deprecated parameters
+    roi: int = None,
     **kwargs,
 ):
     """
@@ -77,8 +75,8 @@ def grid_search(
     ops : dict, optional
         Base ops dictionary. If None, uses `default_ops()`.
     planes : int or list, optional
-        Which z-planes to process (1-indexed).
-    roi : int, optional
+        Which z-planes to process (1-indexed, 0 is not valid).
+    roi_mode : int, optional
         ROI handling for multi-ROI ScanImage data.
     force_reg : bool, default False
         If True, force registration even if already done.
@@ -115,9 +113,37 @@ def grid_search(
     >>> df = lsp.collect_grid_results("D:/results/grid_search", grid_params)
     >>> best = lsp.get_best_parameters(df)
     """
+    import warnings
+
+    # validate planes parameter (1-indexed, 0 is not valid)
+    if planes is not None:
+        planes_list = [planes] if isinstance(planes, int) else list(planes)
+        if 0 in planes_list:
+            raise ValueError(
+                "planes parameter uses 1-based indexing. "
+                "Plane 0 is not valid - use 1 for the first plane."
+            )
+        if any(p < 0 for p in planes_list):
+            raise ValueError(
+                "planes parameter cannot contain negative values. "
+                "Use 1-based indexing (1 for first plane, 2 for second, etc.)."
+            )
+
+    # handle deprecated parameter names
+    if roi is not None:
+        warnings.warn(
+            "The 'roi' parameter is deprecated and will be removed in a future version. "
+            "Use 'roi_mode' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        if roi_mode is None:
+            roi_mode = roi
+        else:
+            raise ValueError("Cannot specify both 'roi' (deprecated) and 'roi_mode'.")
     from mbo_utilities import imread
     from mbo_utilities._writers import _write_plane
-    from mbo_utilities.metadata import get_param, get_voxel_size
+    from mbo_utilities.metadata import get_param, get_voxel_size, detect_stack_type
 
     from lbm_suite2p_python.default_ops import default_ops
     from lbm_suite2p_python.run_lsp import (
@@ -172,8 +198,8 @@ def grid_search(
         )
 
     # configure ROI on the lazy array
-    if roi is not None and supports_roi(arr):
-        arr.roi = roi
+    if roi_mode is not None and supports_roi(arr):
+        arr.roi = roi_mode
 
     # get dimensions
     num_planes = _get_num_planes_from_array(arr)
@@ -200,7 +226,13 @@ def grid_search(
     if voxel.dx != 1.0 or voxel.dy != 1.0:
         ops["dx"] = voxel.dx
         ops["dy"] = voxel.dy
-        ops["pixel_resolution"] = [voxel.dx, voxel.dy]
+        ops["pixel_resolution"] = list(voxel.pixel_resolution)
+    if voxel.dz is not None:
+        ops["dz"] = voxel.dz
+
+    # detect stack type for metadata
+    stack_type = detect_stack_type(metadata)
+    ops["stack_type"] = stack_type
 
     param_names = list(grid_params.keys())
     param_values = list(grid_params.values())

@@ -51,10 +51,9 @@ results = lsp.pipeline(
     input_data="D:/data/raw",   # path to file, directory, or list of files
     save_path=None,             # default: save next to input
     ops=None,                   # default: use MBO-optimized parameters
-    planes=None,                # default: process all planes
+    planes=None,                # default: process all planes (1-indexed)
 )
 ```
-
 
 ## Additional Resources
 

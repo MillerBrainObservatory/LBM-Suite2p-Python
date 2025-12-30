@@ -20,7 +20,13 @@ from lbm_suite2p_python.postprocessing import (
     dff_rolling_percentile,
 )
 from mbo_utilities.log import get as get_logger
-from mbo_utilities.metadata import get_param, get_voxel_size
+from mbo_utilities.metadata import (
+    get_param,
+    get_voxel_size,
+    detect_stack_type,
+    compute_num_timepoints,
+    RoiMode,
+)
 
 from lbm_suite2p_python.zplane import save_pc_panels_and_metrics, plot_zplane_figures
 
@@ -136,12 +142,12 @@ def pipeline(
     save_path: str | Path = None,
     ops: dict = None,
     planes: list | int = None,
-    roi: int = None,
+    roi_mode: int = None,
     keep_reg: bool = True,
     keep_raw: bool = False,
     force_reg: bool = False,
     force_detect: bool = False,
-    num_frames: int = None,
+    num_timepoints: int = None,
     dff_window_size: int = None,
     dff_percentile: int = 20,
     dff_smooth_window: int = None,
@@ -150,6 +156,9 @@ def pipeline(
     save_json: bool = False,
     reader_kwargs: dict = None,
     writer_kwargs: dict = None,
+    # deprecated parameters
+    roi: int = None,
+    num_frames: int = None,
     **kwargs,
 ) -> list[Path]:
     """
@@ -178,11 +187,11 @@ def pipeline(
         Suite2p parameters. If None, uses default_ops() with metadata
         auto-populated from the input data (frame rate, pixel size, etc.).
     planes : int or list, optional
-        Which z-planes to process (1-indexed). Options:
+        Which z-planes to process (1-indexed, 0 is not valid). Options:
         - None: Process all planes (default)
         - int: Process single plane (e.g., planes=7)
         - list: Process specific planes (e.g., planes=[1, 5, 10])
-    roi : int, optional
+    roi_mode : int, optional
         ROI handling for multi-ROI ScanImage data:
         - None: Stitch all ROIs horizontally into single FOV (default)
         - 0: Process each ROI separately (creates separate outputs)
@@ -195,8 +204,8 @@ def pipeline(
         Force re-registration even if already complete.
     force_detect : bool, default False
         Force ROI detection even if stat.npy exists.
-    num_frames : int, optional
-        Number of frames to process. If None, processes all frames.
+    num_timepoints : int, optional
+        Number of frames/timepoints to process. If None, processes all frames.
         This parameter takes precedence over ``writer_kwargs["num_frames"]``.
         If both are provided with different values, a ValueError is raised.
     dff_window_size : int, optional
@@ -296,7 +305,7 @@ def pipeline(
 
     >>> import mbo_utilities as mbo
     >>> arr = mbo.imread("D:/data/raw")
-    >>> results = lsp.pipeline(arr, save_path="D:/results", roi=0)  # Split ROIs
+    >>> results = lsp.pipeline(arr, save_path="D:/results", roi_mode=0)  # Split ROIs
 
     Process with custom ops:
 
@@ -374,25 +383,71 @@ def pipeline(
     run_volume : Process list of files (legacy API)
     grid_search : Parameter optimization
     """
+    import warnings
     from mbo_utilities import imread
 
     start_time = time.time()
+
+    # validate planes parameter (1-indexed, 0 is not valid)
+    if planes is not None:
+        planes_list = [planes] if isinstance(planes, int) else list(planes)
+        if 0 in planes_list:
+            raise ValueError(
+                "planes parameter uses 1-based indexing. "
+                "Plane 0 is not valid - use 1 for the first plane."
+            )
+        if any(p < 0 for p in planes_list):
+            raise ValueError(
+                "planes parameter cannot contain negative values. "
+                "Use 1-based indexing (1 for first plane, 2 for second, etc.)."
+            )
+
+    # handle deprecated parameter names with warnings
+    if roi is not None:
+        warnings.warn(
+            "The 'roi' parameter is deprecated and will be removed in a future version. "
+            "Use 'roi_mode' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        if roi_mode is None:
+            roi_mode = roi
+        else:
+            raise ValueError(
+                "Cannot specify both 'roi' (deprecated) and 'roi_mode'. "
+                "Use only 'roi_mode'."
+            )
+
+    if num_frames is not None:
+        warnings.warn(
+            "The 'num_frames' parameter is deprecated and will be removed in a future version. "
+            "Use 'num_timepoints' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        if num_timepoints is None:
+            num_timepoints = num_frames
+        else:
+            raise ValueError(
+                "Cannot specify both 'num_frames' (deprecated) and 'num_timepoints'. "
+                "Use only 'num_timepoints'."
+            )
 
     # Normalize kwargs dicts
     reader_kwargs = reader_kwargs or {}
     writer_kwargs = writer_kwargs or {}
 
-    # validate num_frames vs writer_kwargs["num_frames"]
+    # validate num_timepoints vs writer_kwargs["num_frames"]
     writer_num_frames = writer_kwargs.get("num_frames")
-    if num_frames is not None and writer_num_frames is not None:
-        if num_frames != writer_num_frames:
+    if num_timepoints is not None and writer_num_frames is not None:
+        if num_timepoints != writer_num_frames:
             raise ValueError(
-                f"num_frames={num_frames} conflicts with writer_kwargs['num_frames']={writer_num_frames}. "
-                f"Use only the num_frames parameter, not writer_kwargs."
+                f"num_timepoints={num_timepoints} conflicts with writer_kwargs['num_frames']={writer_num_frames}. "
+                f"Use only the num_timepoints parameter, not writer_kwargs."
             )
-    # if num_frames provided, set it in writer_kwargs
-    if num_frames is not None:
-        writer_kwargs["num_frames"] = num_frames
+    # if num_timepoints provided, set it in writer_kwargs
+    if num_timepoints is not None:
+        writer_kwargs["num_frames"] = num_timepoints
 
     print(f"Loading input data...")
 
@@ -465,23 +520,34 @@ def pipeline(
 
     # Configure ROI on the lazy array
     # This lets the array handle stitching/splitting internally
-    if roi is not None and supports_roi(arr):
-        arr.roi = roi
-        roi_desc = {None: "stitch all", 0: "split all"}.get(roi, f"ROI {roi} only")
+    if roi_mode is not None and supports_roi(arr):
+        arr.roi = roi_mode
+        roi_desc = {None: "stitch all", 0: "split all"}.get(roi_mode, f"ROI {roi_mode} only")
         print(f"  ROI mode: {roi_desc}")
 
     # Extract metadata and configure ops
     metadata = dict(getattr(arr, "metadata", {}) or {})
 
     # Get dimensions from the array (which now reflects ROI setting)
+    # use array properties for accurate dimensions after loading
     num_planes = _get_num_planes_from_array(arr)
-    num_frames = arr.shape[0]
+    total_frames = arr.shape[0]
     Ly, Lx = arr.shape[-2], arr.shape[-1]
+
+    # detect stack type from scanimage metadata
+    stack_type = detect_stack_type(metadata)
+
+    # compute actual timepoints (volumes) from total frames
+    # for LBM: each frame is one timepoint (z-planes interleaved as channels)
+    # for piezo: frames / (slices * frames_per_slice)
+    num_timepoints_actual = compute_num_timepoints(total_frames, metadata)
 
     print(f"\nDataset info:")
     print(f"  Shape: {arr.shape}")
-    print(f"  Frames: {num_frames}")
-    print(f"  Planes: {num_planes}")
+    print(f"  Stack type: {stack_type}")
+    print(f"  Frames: {total_frames}")
+    print(f"  Timepoints: {num_timepoints_actual}")
+    print(f"  Z-planes: {num_planes}")
     print(f"  Dimensions: {Ly} x {Lx}")
 
     # Show MboRawArray-specific settings
@@ -514,11 +580,16 @@ def pipeline(
     if voxel.dx != 1.0 or voxel.dy != 1.0:
         ops["dx"] = voxel.dx
         ops["dy"] = voxel.dy
-        ops["pixel_resolution"] = [voxel.dx, voxel.dy]
+        ops["pixel_resolution"] = list(voxel.pixel_resolution)
+    if voxel.dz is not None:
+        ops["dz"] = voxel.dz
 
     ops["Ly"] = Ly
     ops["Lx"] = Lx
-    ops["nframes"] = num_frames
+    ops["nframes"] = total_frames
+    ops["num_timepoints"] = num_timepoints_actual
+    ops["num_zplanes"] = num_planes
+    ops["stack_type"] = stack_type
 
     # Normalize planes to 0-indexed list using mbo_utilities helper
     planes_to_process = _normalize_planes(planes, num_planes)
@@ -585,7 +656,7 @@ def pipeline(
                 sample_frame = arr[0] if arr.ndim == 3 else arr[0, 0]
 
             plane_Ly, plane_Lx = sample_frame.shape[-2], sample_frame.shape[-1]
-            plane_nframes = num_frames
+            plane_nframes = total_frames
 
             # Build ops for this plane
             plane_ops = copy.deepcopy(ops)
