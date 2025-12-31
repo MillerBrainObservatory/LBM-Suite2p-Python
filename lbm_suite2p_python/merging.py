@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 from tqdm.auto import tqdm
 
-from lbm_suite2p_python import plot_zplane_figures
+from lbm_suite2p_python.zplane import plot_zplane_figures
 from mbo_utilities.lazy_array import Suite2pArray
 
 

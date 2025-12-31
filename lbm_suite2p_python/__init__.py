@@ -1,68 +1,53 @@
 from importlib.metadata import version, PackageNotFoundError
 
 from lbm_suite2p_python.default_ops import default_ops
-from lbm_suite2p_python.run_lsp import *
-from lbm_suite2p_python.utils import *
-from lbm_suite2p_python.volume import *
-from lbm_suite2p_python.zplane import *
-from lbm_suite2p_python.postprocessing import *
+from lbm_suite2p_python.run_lsp import (
+    pipeline,
+    run_volume,
+    run_plane,
+    add_processing_step,
+)
+
+# Plotting exports
+from lbm_suite2p_python.zplane import (
+    plot_traces,
+    animate_traces,
+    plot_zplane_figures,
+    plot_plane_quality_metrics,
+    plot_plane_diagnostics,
+    plot_trace_analysis,
+    plot_multiplane_masks,
+    plot_mask_comparison,
+    plot_regional_zoom,
+    plot_filtered_cells,
+    plot_diameter_histogram,
+    plot_projection,
+)
+
+from lbm_suite2p_python.volume import (
+    plot_volume_diagnostics,
+    plot_orthoslices,
+    plot_3d_roi_map,
+    plot_3d_rastermap_clusters,
+    plot_volume_signal,
+    plot_volume_neuron_counts,
+    consolidate_volume,
+)
+
 from lbm_suite2p_python.grid_search import (
     grid_search,
     collect_grid_results,
-    compute_combo_metrics,
-    get_best_parameters,
-    print_best_parameters,
-    plot_grid_metrics,
-    plot_grid_distributions,
-    plot_grid_masks,
     save_grid_results,
-)
-from lbm_suite2p_python.cellpose import (
-    cellpose,
-    load_cellpose_results,
-    cellpose_to_suite2p,
-    masks_to_stat,
-    stat_to_masks,
-    save_gui_results,
-    load_seg_file,
-    open_in_gui,
-    save_comparison,
-    # training functions
-    train_cellpose,
-    prepare_training_data,
-    annotate,
-)
-from lbm_suite2p_python.conversion import (
-    detect_format,
-    validate_format,
-    to_suite2p,
-    to_cellpose,
-    convert,
-    suite2p_to_cellpose,
-    export_for_gui,
-    import_from_gui,
-    compare_detections,
-)
-from lbm_suite2p_python.normcorre import (
-    normcorre_ops,
-    register_translation,
-    register_frames,
-    register_binary,
-    register_piecewise_rigid,
-    apply_shift_opencv,
-    apply_shift_fft,
-    compute_template,
-    high_pass_filter,
+    plot_grid_metrics,
 )
 
-# re-export useful metadata functions from mbo_utilities
-from mbo_utilities.metadata import (
-    detect_stack_type,
-    compute_num_timepoints,
-    get_voxel_size,
-    get_param,
-    VoxelSize,
-    RoiMode,
+# Re-export key modules for easier access
+from lbm_suite2p_python import (
+    cellpose,
+    conversion,
+    utils,
+    postprocessing,
+    normcorre,
 )
 
 try:
@@ -72,108 +57,46 @@ except PackageNotFoundError:
     __version__ = "0.0.0"
 
 __all__ = [
+    # Core API
     "pipeline",
     "run_volume",
     "run_plane",
-    # grid search
+    "default_ops",
+    "add_processing_step",
+    
+    # Modules
+    "cellpose",
+    "conversion",
+    "utils",
+    "postprocessing",
+    "normcorre",
+    
+    # Grid Search
     "grid_search",
     "collect_grid_results",
-    "compute_combo_metrics",
-    "get_best_parameters",
-    "print_best_parameters",
-    "plot_grid_metrics",
-    "plot_grid_distributions",
-    "plot_grid_masks",
     "save_grid_results",
-    # volume
-    "consolidate_volume",
-    "add_processing_step",
+    "plot_grid_metrics",
+
+    # Plotting (Z-Plane)
     "plot_traces",
     "animate_traces",
-    "plot_masks",
-    "plot_rastermap",
-    "plot_traces_noise",
-    "plot_volume_signal",
-    "plot_volume_neuron_counts",
+    "plot_zplane_figures",
+    "plot_plane_quality_metrics",
+    "plot_plane_diagnostics",
+    "plot_trace_analysis",
+    "plot_multiplane_masks",
+    "plot_mask_comparison",
+    "plot_regional_zoom",
+    "plot_filtered_cells",
+    "plot_diameter_histogram",
+
+    # Plotting (Volume)
     "plot_volume_diagnostics",
     "plot_orthoslices",
     "plot_3d_roi_map",
     "plot_3d_rastermap_clusters",
     "plot_projection",
-    "plot_execution_time",
-    "plot_noise_distribution",
-    "plot_multiplane_masks",
-    "plot_plane_quality_metrics",
-    "plot_plane_diagnostics",
-    "plot_trace_analysis",
-    "plot_zplane_figures",
-    "plot_mask_comparison",
-    "create_volume_summary_table",
-    "dff_rolling_percentile",
-    "dff_median_filter",
-    "dff_shot_noise",
-    "compute_trace_quality_score",
-    "sort_traces_by_quality",
-    "load_ops",
-    "load_planar_results",
-    "default_ops",
-    # Image processing utilities
-    "normalize99",
-    "apply_hp_filter",
-    "random_colors_for_mask",
-    "mask_overlay",
-    "stat_to_mask",
-    # Filtering utilities
-    "filter_by_max_diameter",
-    "filter_by_diameter",
-    "filter_by_area",
-    "filter_by_eccentricity",
-    "apply_filters",
-    "plot_regional_zoom",
-    "plot_filtered_cells",
-    "plot_diameter_histogram",
-    # Cellpose
-    "cellpose",
-    "load_cellpose_results",
-    "cellpose_to_suite2p",
-    "masks_to_stat",
-    "stat_to_masks",
-    "save_gui_results",
-    "load_seg_file",
-    "open_in_gui",
-    "save_comparison",
-    # Cellpose training
-    "train_cellpose",
-    "prepare_training_data",
-    "annotate",
-    # Format conversion
-    "detect_format",
-    "validate_format",
-    "to_suite2p",
-    "to_cellpose",
-    "convert",
-    "suite2p_to_cellpose",
-    "export_for_gui",
-    "import_from_gui",
-    "compare_detections",
-    # Metadata utilities (from mbo_utilities)
-    "detect_stack_type",
-    "compute_num_timepoints",
-    "get_voxel_size",
-    "get_param",
-    "VoxelSize",
-    "RoiMode",
-    # Normcorre registration
-    "normcorre_ops",
-    "register_translation",
-    "register_frames",
-    "register_binary",
-    "register_piecewise_rigid",
-    "apply_shift_opencv",
-    "apply_shift_fft",
-    "compute_template",
-    "high_pass_filter",
+    "plot_volume_signal",
+    "plot_volume_neuron_counts",
+    "consolidate_volume",
 ]
-
-# Re-export with public name
-from lbm_suite2p_python.run_lsp import _add_processing_step as add_processing_step
