@@ -1,28 +1,54 @@
-# LBM-Suite2p-Python
+<p align="center">
+<img src="docs/_static/logo_suit2p.png" height="180" alt="LBM-Suite2p-Python logo">
+</p>
 
-> **Status:** Late-beta stage of development
+<p align="center">
+<a href="https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/actions/workflows/test_python.yml"><img src="https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/actions/workflows/test_python.yml/badge.svg" alt="Tests"></a>
+<a href="https://badge.fury.io/py/lbm-suite2p-python"><img src="https://badge.fury.io/py/lbm-suite2p-python.svg" alt="PyPI version"></a>
+<a href="https://millerbrainobservatory.github.io/LBM-Suite2p-Python/"><img src="https://img.shields.io/badge/docs-online-green" alt="Documentation"></a>
+<a href="https://doi.org/10.1038/s41592-021-01239-8"><img src="https://zenodo.org/badge/DOI/10.1007/978-3-319-76207-4_15.svg" alt="DOI"></a>
+</p>
 
-[![Documentation](https://img.shields.io/badge/Documentation-blue?style=for-the-badge&logo=readthedocs&logoColor=white)](https://millerbrainobservatory.github.io/LBM-Suite2p-Python/index.html)
+<p align="center">
+<a href="#installation"><b>Installation</b></a> ·
+<a href="https://millerbrainobservatory.github.io/LBM-Suite2p-Python/"><b>Documentation</b></a> ·
+<a href="https://millerbrainobservatory.github.io/LBM-Suite2p-Python/user_guide.html"><b>User Guide</b></a> ·
+<a href="https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/issues"><b>Issues</b></a>
+</p>
 
-[![PyPI - Version](https://img.shields.io/pypi/v/lbm-suite2p-python)](https://pypi.org/project/lbm-suite2p-python/)
-[![DOI](https://zenodo.org/badge/DOI/10.1007/978-3-319-76207-4_15.svg)](https://doi.org/10.1038/s41592-021-01239-8)
+A volumetric 2-photon calcium imaging processing pipeline for [Light Beads Microscopy](https://github.com/MillerBrainObservatory) (LBM) datasets, built on Suite2p.
 
-A volumetric 2-photon calcium imaging processing pipeline for Light Beads Microscopy (LBM) datasets, built on Suite2p.
+- **Process volumetric calcium imaging data** - motion correction, cell detection, and signal extraction across z-planes
+- **Automated quality diagnostics** - ROI quality metrics, ΔF/F traces, and correlation maps
+- **Scalable architecture** - process single planes or entire volumes with consistent parameters
 
-A GUI is available via [mbo_utilities](https://millerbrainobservatory.github.io/mbo_utilities/index.html#gui) (GUI functionality will lag behind this pipeline).
+<p align="center">
+  <img src="docs/_images/volume/all_planes_masks.png" height="200" alt="All Planes Masks" />
+  <img src="docs/_images/outputs/08_traces_dff.png" height="200" alt="ΔF/F Traces" />
+  <img src="docs/_images/volume/roi_map_3d.png" height="200" alt="3D ROI Map" />
+  <br/>
+  <em>Automatically generated diagnostics: ROI masks, ΔF/F traces, and 3D ROI centroids</em>
+</p>
+
+> **Note:**
+> `lbm_suite2p_python` is in **late-beta** stage of active development. File an [issue](https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/issues) for bugs or feature requests.
 
 ## Installation
 
-LBM-Suite2p-Python is a pure `pip` install. You can use `venv`, `uv` (recommended), or `conda`. Just remove the `uv` prefix.
+`lbm_suite2p_python` is available on [PyPI](https://pypi.org/project/lbm-suite2p-python/):
+
+> We recommend using a virtual environment. For help setting up a virtual environment, see [the MBO guide on virtual environments](https://millerbrainobservatory.github.io/guides/venvs.html).
 
 ```bash
 # create a new project folder
-mkdir my_project
-cd my_project
+mkdir my_project && cd my_project
 
-# (uv only) create environment and install
+# create environment and install (uv recommended)
 uv venv --python 3.12.9
 uv pip install lbm_suite2p_python
+
+# or with pip
+pip install lbm_suite2p_python
 ```
 
 ### Optional Dependencies
@@ -40,33 +66,10 @@ uv pip install "lbm_suite2p_python[all]"
 
 ### Development Installation
 
-While this pipeline is in active development, you can keep a local copy to quickly pull changes:
-
 ```bash
 git clone https://github.com/MillerBrainObservatory/LBM-Suite2p-Python.git
 cd LBM-Suite2p-Python
-uv pip install .
-```
-
-### GUI Dependencies
-
-**Linux / macOS:**
-
-```bash
-sudo apt install libxcursor-dev libgl1-mesa-dev libglu1-mesa-dev freeglut3-dev
-```
-
-**Windows:**
-Install [Microsoft Visual C++ Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist)
-
-### Troubleshooting
-
-When installing from github, you may get:
-
-**Git LFS Error:** If you see `smudge filter lfs failed`:
-
-```bash
-GIT_LFS_SKIP_SMUDGE=1 uv sync --all-extras --active
+uv pip install -e ".[dev]"
 ```
 
 ## Quick Start
@@ -90,77 +93,131 @@ results = lsp.pipeline(
 )
 ```
 
+> [User Guide](https://millerbrainobservatory.github.io/LBM-Suite2p-Python/user_guide.html) for full API reference and examples
+
 ## Output Gallery
 
 ### Planar Results
 
 Each z-plane produces diagnostic images automatically saved during processing.
 
+<p align="center">
 <table>
 <tr>
 <td align="center">
 <img src="docs/_images/outputs/01_correlation_segmentation.png" alt="Correlation Segmentation" width="280"/>
-<br><sub>correlation image with ROI overlay</sub>
+<br/><em>correlation image with ROI overlay</em>
 </td>
 <td align="center">
 <img src="docs/_images/outputs/03_mean_segmentation.png" alt="Mean Segmentation" width="280"/>
-<br><sub>mean image with ROI overlay</sub>
+<br/><em>mean image with ROI overlay</em>
 </td>
 </tr>
 <tr>
 <td align="center">
 <img src="docs/_images/outputs/05_quality_diagnostics.png" alt="Quality Diagnostics" width="280"/>
-<br><sub>ROI quality metrics</sub>
+<br/><em>ROI quality metrics</em>
 </td>
 <td align="center">
 <img src="docs/_images/outputs/08_traces_dff.png" alt="ΔF/F Traces" width="280"/>
-<br><sub>ΔF/F traces sorted by quality</sub>
+<br/><em>ΔF/F traces sorted by quality</em>
 </td>
 </tr>
 </table>
+</p>
 
 ### Volumetric Results
 
 Volume-level visualizations combine data across all z-planes.
 
+<p align="center">
 <table>
 <tr>
 <td align="center">
 <img src="docs/_images/volume/all_planes_masks.png" alt="All Planes Masks" width="400"/>
-<br><sub>ROI masks across all z-planes</sub>
+<br/><em>ROI masks across all z-planes</em>
 </td>
 </tr>
 <tr>
 <td align="center">
 <img src="docs/_images/volume/roi_map_3d.png" alt="3D ROI Map" width="300"/>
-<br><sub>3D ROI centroids colored by SNR</sub>
+<br/><em>3D ROI centroids colored by SNR</em>
 </td>
 <td align="center">
 <img src="docs/_images/volume/rastermap.png" alt="Rastermap" width="400"/>
-<br><sub>activity sorted by similarity (rastermap)</sub>
+<br/><em>activity sorted by similarity (rastermap)</em>
 </td>
 </tr>
 </table>
+</p>
+
+## GUI
+
+A graphical interface is available via [mbo_utilities](https://millerbrainobservatory.github.io/mbo_utilities/index.html#gui):
+
+```bash
+pip install mbo_utilities
+mbo                    # launch GUI
+mbo /path/to/data      # open file directly
+```
+
+> **Note:** GUI functionality may lag behind the latest pipeline features.
+
+## Troubleshooting
+
+<details>
+<summary><b>Git LFS Download Errors</b></summary>
+
+If you see `smudge filter lfs failed` when installing from GitHub:
+
+```bash
+GIT_LFS_SKIP_SMUDGE=1 uv pip install git+https://github.com/MillerBrainObservatory/LBM-Suite2p-Python.git
+```
+
+Or set it permanently:
+
+```powershell
+# Windows
+[System.Environment]::SetEnvironmentVariable('GIT_LFS_SKIP_SMUDGE', '1', 'User')
+```
+
+```bash
+# Linux/macOS
+echo 'export GIT_LFS_SKIP_SMUDGE=1' >> ~/.bashrc
+source ~/.bashrc
+```
+
+</details>
+
+<details>
+<summary><b>GUI Dependencies</b></summary>
+
+**Linux / macOS:**
+
+```bash
+sudo apt install libxcursor-dev libgl1-mesa-dev libglu1-mesa-dev freeglut3-dev
+```
+
+**Windows:**
+Install [Microsoft Visual C++ Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist)
+
+</details>
 
 ## Built With
-
-This pipeline integrates several open-source tools:
 
 - **[Suite2p](https://github.com/MouseLand/suite2p)** - Core registration and segmentation
 - **[Cellpose](https://github.com/MouseLand/cellpose)** - Anatomical segmentation (optional)
 - **[Rastermap](https://github.com/MouseLand/rastermap)** - Activity clustering (optional)
 - **[mbo_utilities](https://github.com/MillerBrainObservatory/mbo_utilities)** - ScanImage I/O and metadata
-- **[scanreader](https://github.com/atlab/scanreader)** - ScanImage metadata parsing
 
 ## Issues & Support
 
 - **Bug reports:** [GitHub Issues](https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/issues)
-- **Questions:** See [Suite2p documentation](https://suite2p.readthedocs.io/) for Suite2p-specific questions
-- **Known issues:** Widgets may throw "Invalid Rect" errors ([upstream issue](https://github.com/pygfx/wgpu-py/issues/716#issuecomment-2880853089))
+- **Questions:** See [documentation](https://millerbrainobservatory.github.io/LBM-Suite2p-Python/) or [Suite2p docs](https://suite2p.readthedocs.io/)
 
 ## Contributing
 
-Contributions are welcome! This project follows Suite2p's conventions and uses:
+Contributions are welcome! This project uses:
 
 - **Ruff** for linting and formatting (line length: 88, numpy docstring style)
 - **pytest** for testing
