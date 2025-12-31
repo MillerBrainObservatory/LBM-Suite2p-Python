@@ -23,11 +23,9 @@ A volumetric 2-photon calcium imaging processing pipeline for [Light Beads Micro
 - **Scalable architecture** - process single planes or entire volumes with consistent parameters
 
 <p align="center">
-  <img src="docs/_images/volume/all_planes_masks.png" height="200" alt="All Planes Masks" />
-  <img src="docs/_images/outputs/08_traces_dff.png" height="200" alt="ΔF/F Traces" />
-  <img src="docs/_images/volume/roi_map_3d.png" height="200" alt="3D ROI Map" />
-  <br/>
-  <em>Automatically generated diagnostics: ROI masks, ΔF/F traces, and 3D ROI centroids</em>
+<img src="docs/_images/volume/all_planes_masks.png" height="180" alt="All Planes Masks" /><img src="docs/_images/outputs/08_traces_dff.png" height="180" alt="ΔF/F Traces" /><img src="docs/_images/volume/roi_map_3d.png" height="180" alt="3D ROI Map" />
+<br/>
+<em>Automatically generated diagnostics: ROI masks, ΔF/F traces, and 3D ROI centroids</em>
 </p>
 
 > **Note:**
