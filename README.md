@@ -25,7 +25,7 @@ A volumetric 2-photon calcium imaging processing pipeline for [Light Beads Micro
 <p align="center">
 <img src="docs/_images/volume/all_planes_masks.png" height="180" alt="All Planes Masks" /><img src="docs/_images/outputs/08_traces_dff.png" height="180" alt="ΔF/F Traces" /><img src="docs/_images/volume/roi_map_3d.png" height="180" alt="3D ROI Map" />
 <br/>
-<em>Automatically generated diagnostics: ROI masks, ΔF/F traces, and 3D ROI centroids</em>
+<em>Planar Suite2p outputs combined into a 3D representation of neural activity</em>
 </p>
 
 > **Note:**
@@ -132,14 +132,8 @@ Volume-level visualizations combine data across all z-planes.
 <table>
 <tr>
 <td align="center">
-<img src="docs/_images/volume/all_planes_masks.png" alt="All Planes Masks" width="400"/>
-<br/><em>ROI masks across all z-planes</em>
-</td>
-</tr>
-<tr>
-<td align="center">
-<img src="docs/_images/volume/roi_map_3d.png" alt="3D ROI Map" width="300"/>
-<br/><em>3D ROI centroids colored by SNR</em>
+<img src="docs/_images/volume/orthoslices.png" alt="Orthoslices" width="300"/>
+<br/><em>XZ/YZ orthogonal projections</em>
 </td>
 <td align="center">
 <img src="docs/_images/volume/rastermap.png" alt="Rastermap" width="400"/>

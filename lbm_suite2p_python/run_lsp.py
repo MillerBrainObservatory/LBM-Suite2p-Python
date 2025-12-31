@@ -779,6 +779,17 @@ def run_plane_bin(ops) -> bool:
             ops["diameter_user"] = 8
             print("Warning: diameter was not set, defaulting to 8.")
 
+    # When running registration, reset detection-derived parameters so that
+    # compute_enhanced_mean_image() will reinitialize them from diameter.
+    # This fixes a bug where re-running registration on previously processed data
+    # would inherit spatscale_pix=0 from a failed Cellpose detection, causing
+    # meanImgE to be computed with a [1,1] filter (all 0.5 output).
+    run_registration = bool(ops.get("do_registration", True))
+    if run_registration:
+        for key in ["spatscale_pix", "Vcorr", "Vmax", "Vmap", "Vsplit", "ihop"]:
+            if key in ops:
+                del ops[key]
+
     reg_file_chan2 = ops_parent / "data_chan2_reg.bin" if use_chan2 else None
 
     ops["anatomical_red"] = False
@@ -799,7 +810,6 @@ def run_plane_bin(ops) -> bool:
             print(f"  Or reduce 'batch_size' (current: {ops.get('batch_size', 500)})")
 
     # When skipping registration, copy data_raw.bin to data.bin and detect valid region
-    run_registration = bool(ops.get("do_registration", True))
     if not run_registration:
         print("Registration skipped - copying data_raw.bin to data.bin...")
         import shutil
