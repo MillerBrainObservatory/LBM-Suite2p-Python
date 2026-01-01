@@ -313,8 +313,9 @@ def plot_traces(
 
     Parameters
     ----------
-    f : ndarray
-        2d array of fluorescence traces (n_neurons x n_timepoints).
+    f : ndarray or str or Path
+        2d array of fluorescence traces (n_neurons x n_timepoints),
+        or path to Suite2p plane directory containing dff.npy/F.npy.
     save_path : str, optional
         Path to save the output plot.
     fps : float
@@ -341,6 +342,44 @@ def plot_traces(
         If True, lower traces mask (occlude) traces above them, creating
         a layered effect where each trace has a black background.
     """
+    # Handle path input - load data from Suite2p directory
+    if isinstance(f, (str, Path)):
+        plane_dir = Path(f)
+        if plane_dir.is_dir():
+            # Try to load dff.npy first, fall back to F.npy
+            dff_path = plane_dir / "dff.npy"
+            f_path = plane_dir / "F.npy"
+            iscell_path = plane_dir / "iscell.npy"
+            ops_path = plane_dir / "ops.npy"
+
+            if dff_path.exists():
+                f = np.load(dff_path)
+                if scale_bar_unit is None:
+                    scale_bar_unit = r"% $\Delta$F/F$_0$"
+            elif f_path.exists():
+                f = np.load(f_path)
+                if scale_bar_unit is None:
+                    scale_bar_unit = "a.u."
+            else:
+                raise FileNotFoundError(f"No dff.npy or F.npy found in {plane_dir}")
+
+            # Filter to accepted cells if iscell exists and no cell_indices provided
+            if cell_indices is None and iscell_path.exists():
+                iscell = np.load(iscell_path)
+                cell_indices = iscell[:, 0].astype(bool)
+
+            # Get fps from ops if available
+            if ops_path.exists():
+                ops = load_ops(ops_path)
+                fps = ops.get("fs", fps)
+
+            # Set save_path if not provided
+            if not save_path:
+                save_path = plane_dir / "figures" / "traces.png"
+                save_path.parent.mkdir(parents=True, exist_ok=True)
+        else:
+            raise ValueError(f"Path is not a directory: {f}")
+
     if isinstance(f, dict):
         raise ValueError("f must be a numpy array, not a dictionary")
 
@@ -896,6 +935,33 @@ def plot_projection(
     display_masks=False,
     accepted_only=False,
 ):
+    """
+    Plot a projection image from ops with optional mask overlay.
+
+    Parameters
+    ----------
+    ops : dict or str or Path
+        Suite2p ops dictionary or path to ops.npy.
+    output_directory : str or Path, optional
+        Directory to save figure. If None, displays interactively.
+    fig_label : str, optional
+        Label for y-axis.
+    vmin, vmax : float, optional
+        Intensity display range. Defaults to 2nd/98th percentiles.
+    add_scalebar : bool, default False
+        Whether to add a scale bar.
+    proj : str, default "meanImg"
+        Projection type: "meanImg", "max_proj", or "meanImgE".
+    display_masks : bool, default False
+        Whether to overlay detected ROI masks.
+    accepted_only : bool, default False
+        If True, only show accepted cells when display_masks=True.
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The generated figure.
+    """
     from suite2p.detection.stats import ROI
     if proj == "meanImg":
         txt = "Mean-Image"
@@ -1101,6 +1167,37 @@ def plot_rastermap(
     title_kwargs=None,
     fig_text=None,
 ):
+    """
+    Plot rastermap visualization of neural activity sorted by embedding.
+
+    Parameters
+    ----------
+    spks : ndarray
+        Spike or activity matrix of shape (n_neurons, n_timepoints).
+    model : rastermap.Rastermap
+        Fitted rastermap model with `isort` attribute for neuron ordering.
+    neuron_bin_size : int, optional
+        Number of neurons to bin together. Auto-calculated if None.
+    fps : float, default 17
+        Frame rate for time axis scaling.
+    vmin, vmax : float, default 0, 0.8
+        Colormap intensity limits.
+    xmin, xmax : int, optional
+        Time range to display (in frames).
+    save_path : str or Path, optional
+        Path to save figure. If None, displays interactively.
+    title : str, optional
+        Figure title.
+    title_kwargs : dict, optional
+        Formatting kwargs for title text.
+    fig_text : str, optional
+        Additional text annotation.
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The generated figure.
+    """
     n_neurons, n_timepoints = spks.shape
     if title_kwargs is None:
         title_kwargs = dict(fontsize=14, fontweight="bold", color="white")
