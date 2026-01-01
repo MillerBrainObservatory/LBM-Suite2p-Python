@@ -7,6 +7,7 @@ from scipy.ndimage import percentile_filter
 from scipy.stats import norm
 
 from mbo_utilities.metadata import get_voxel_size
+from mbo_utilities.util import load_npy
 
 
 def _normalize_iscell(iscell):
@@ -1224,6 +1225,9 @@ def load_ops(ops_input: str | Path | list[str | Path]) -> dict:
     """
     Load a Suite2p ops.npy file.
 
+    Uses cross-platform loader to handle ops.npy files created on different
+    operating systems (Windows vs Linux/Mac Path objects in pickled data).
+
     Parameters
     ----------
     ops_input : str, Path, or dict
@@ -1242,7 +1246,8 @@ def load_ops(ops_input: str | Path | list[str | Path]) -> dict:
             ops_path = ops_path / "ops.npy"
         if not ops_path.exists():
             raise FileNotFoundError(f"ops.npy not found: {ops_path}")
-        return np.load(ops_path, allow_pickle=True).item()
+        ops = load_npy(ops_path)
+        return ops.item() if ops.ndim == 0 else ops
     elif isinstance(ops_input, dict):
         return ops_input
     print("Warning: No valid ops file provided, returning empty dict.")

@@ -14,6 +14,7 @@ import tempfile
 from pathlib import Path
 
 import numpy as np
+from mbo_utilities.util import load_npy
 
 
 def detect_format(path: str | Path) -> str:
@@ -21,29 +22,28 @@ def detect_format(path: str | Path) -> str:
     Detect whether path contains suite2p or cellpose results.
 
     Returns 'suite2p', 'cellpose', or 'unknown'.
+
+    Note: This is a simplified wrapper around conversion.detect_format
+    that also handles _seg.npy files directly.
     """
+    from lbm_suite2p_python.conversion import detect_format as _detect_format
+
     path = Path(path)
     if not path.exists():
         return "unknown"
 
-    if path.is_file():
-        if path.name.endswith("_seg.npy"):
-            return "cellpose"
-        path = path.parent
+    # Handle _seg.npy files directly (cellpose GUI format)
+    if path.is_file() and path.name.endswith("_seg.npy"):
+        return "cellpose"
 
-    # suite2p indicators
-    if (path / "stat.npy").exists() and (path / "ops.npy").exists():
+    # Delegate to conversion module
+    result = _detect_format(path)
+
+    # Normalize suite2p_minimal to suite2p for GUI purposes
+    if result == "suite2p_minimal":
         return "suite2p"
 
-    # cellpose indicators
-    seg_files = list(path.glob("*_seg.npy"))
-    if seg_files:
-        return "cellpose"
-
-    if (path / "masks.npy").exists():
-        return "cellpose"
-
-    return "unknown"
+    return result
 
 
 def suite2p_to_seg(
@@ -73,7 +73,7 @@ def suite2p_to_seg(
     # load suite2p files
     stat = np.load(suite2p_dir / "stat.npy", allow_pickle=True)
     iscell = np.load(suite2p_dir / "iscell.npy") if (suite2p_dir / "iscell.npy").exists() else None
-    ops = np.load(suite2p_dir / "ops.npy", allow_pickle=True).item()
+    ops = load_npy(suite2p_dir / "ops.npy").item()
 
     # get image dimensions
     Ly = ops.get("Ly", 512)
@@ -266,7 +266,7 @@ def run_gui_workflow(
             print(f"created: {seg_path}")
 
             # store original ops for later
-            ops = np.load(path / "ops.npy", allow_pickle=True).item()
+            ops = load_npy(path / "ops.npy").item()
 
             # launch gui
             print("\nlaunching cellpose gui...")

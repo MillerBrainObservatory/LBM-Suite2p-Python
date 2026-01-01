@@ -3,6 +3,52 @@ import numpy as np
 from pathlib import Path
 
 
+# Supported lazy array types from mbo_utilities
+_LAZY_ARRAY_TYPES = (
+    "ScanImageArray",
+    "LBMArray",
+    "PiezoArray",
+    "SinglePlaneArray",
+    "Suite2pArray",
+    "MBOTiffArray",
+    "MboRawArray",
+    "TiffArray",
+    "ZarrArray",
+    "H5Array",
+    "NumpyArray",
+    "BinArray",
+)
+
+
+def _is_lazy_array(obj):
+    """Check if obj is an mbo_utilities lazy array type."""
+    return type(obj).__name__ in _LAZY_ARRAY_TYPES
+
+
+def _get_num_planes(arr):
+    """
+    Get number of z-planes from a lazy array.
+
+    Parameters
+    ----------
+    arr : array-like
+        Input array, typically from mbo_utilities.
+
+    Returns
+    -------
+    int
+        Number of z-planes (1 for 3D arrays, Z dimension for 4D).
+    """
+    if hasattr(arr, "num_planes"):
+        return arr.num_planes
+    if hasattr(arr, "num_channels"):
+        return arr.num_channels
+    shape = arr.shape
+    if len(shape) == 4:
+        return shape[1]  # TZYX format
+    return 1
+
+
 def _resize_masks_fit_crop(mask, target_shape):
     """Centers a mask within the target shape, cropping if too large or padding if too small."""
     sy, sx = mask.shape

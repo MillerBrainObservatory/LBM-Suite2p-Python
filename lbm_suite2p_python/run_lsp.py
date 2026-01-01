@@ -67,38 +67,7 @@ from mbo_utilities._writers import _write_plane
 
 PIPELINE_TAGS = ("plane", "roi", "z", "plane_", "roi_", "z_")
 
-# Supported array types from mbo_utilities
-_LAZY_ARRAY_TYPES = (
-    "ScanImageArray",
-    "LBMArray",
-    "PiezoArray",
-    "SinglePlaneArray",
-    "Suite2pArray",
-    "MBOTiffArray",
-    "TiffArray",
-    "ZarrArray",
-    "H5Array",
-    "NumpyArray",
-    "BinArray",
-)
-
-
-def _is_lazy_array(obj):
-    """Check if obj is an mbo_utilities lazy array type."""
-    return type(obj).__name__ in _LAZY_ARRAY_TYPES
-
-
-def _get_num_planes_from_array(arr):
-    """Get number of z-planes from a lazy array."""
-    # Arrays are in TZYX format: (frames, planes, height, width)
-    if hasattr(arr, "num_planes"):
-        return arr.num_planes
-    if hasattr(arr, "num_channels"):
-        return arr.num_channels
-    shape = arr.shape
-    if len(shape) == 4:
-        return shape[1]  # Z dimension
-    return 1
+from lbm_suite2p_python.utils import _is_lazy_array, _get_num_planes
 
 
 def _get_suite2p_version():
@@ -223,7 +192,7 @@ def pipeline(
     list[Path]
         List of paths to produced ops.npy files.
     """
-    from mbo_utilities.lazy_array import imread
+    from mbo_utilities import imread
     from mbo_utilities.arrays import supports_roi
 
     # 1. Handle Deprecations
@@ -477,7 +446,7 @@ def run_volume(
         List of paths to ops.npy files for processed planes.
     """
     from mbo_utilities.arrays import _normalize_planes
-    from mbo_utilities.lazy_array import imread
+    from mbo_utilities import imread
     from lbm_suite2p_python.merging import merge_mrois
 
     # Handle input data
@@ -515,7 +484,7 @@ def run_volume(
     # Determine num_planes
     if input_arr is not None:
         try:
-             num_planes = _get_num_planes_from_array(input_arr)
+             num_planes = _get_num_planes(input_arr)
         except:
              num_planes = 1
     else:
@@ -720,6 +689,22 @@ def _should_register(ops_path: str | Path) -> bool:
 
 
 def run_plane_bin(ops) -> bool:
+    """
+    Run Suite2p pipeline on pre-written binary files.
+
+    Executes registration, cell detection, and signal extraction on binary
+    data referenced in ops. Requires data_raw.bin and ops.npy to exist.
+
+    Parameters
+    ----------
+    ops : dict or str or Path
+        Suite2p ops dictionary or path to ops.npy file.
+
+    Returns
+    -------
+    bool
+        True if pipeline completed successfully.
+    """
     from contextlib import nullcontext
     from suite2p.io.binary import BinaryFile
     from suite2p.run_s2p import pipeline

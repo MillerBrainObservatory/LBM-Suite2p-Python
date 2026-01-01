@@ -149,11 +149,9 @@ def grid_search(
     from lbm_suite2p_python.run_lsp import (
         run_plane,
         run_plane_bin,
-        _is_lazy_array,
-        _get_num_planes_from_array,
-        _normalize_planes,
-        supports_roi,
     )
+    from lbm_suite2p_python.utils import _is_lazy_array, _get_num_planes
+    from mbo_utilities.arrays import _normalize_planes, supports_roi
 
     save_path = Path(save_path)
     save_path.mkdir(exist_ok=True, parents=True)
@@ -202,7 +200,7 @@ def grid_search(
         arr.roi = roi_mode
 
     # get dimensions
-    num_planes = _get_num_planes_from_array(arr)
+    num_planes = _get_num_planes(arr)
     num_frames = arr.shape[0]
     Ly, Lx = arr.shape[-2], arr.shape[-1]
 

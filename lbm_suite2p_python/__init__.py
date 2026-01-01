@@ -8,6 +8,27 @@ from lbm_suite2p_python.run_lsp import (
     add_processing_step,
 )
 
+# Cellpose workflow exports
+from lbm_suite2p_python.cellpose_workflow import (
+    redetect,
+    enhance_summary_image,
+)
+from lbm_suite2p_python.cellpose import (
+    train_cellpose,
+    annotate,
+    open_in_gui,
+    prepare_training_data,
+    masks_to_stat,
+    stat_to_masks,
+)
+from lbm_suite2p_python.conversion import (
+    export_for_gui,
+    import_from_gui,
+    get_results,
+    ensure_cellpose_format,
+    detect_format,
+)
+
 # Plotting exports
 from lbm_suite2p_python.zplane import (
     plot_traces,
@@ -63,14 +84,29 @@ __all__ = [
     "run_plane",
     "default_ops",
     "add_processing_step",
-    
+
+    # Cellpose / HITL Workflow
+    "redetect",
+    "enhance_summary_image",
+    "train_cellpose",
+    "annotate",
+    "open_in_gui",
+    "prepare_training_data",
+    "masks_to_stat",
+    "stat_to_masks",
+    "export_for_gui",
+    "import_from_gui",
+    "get_results",
+    "ensure_cellpose_format",
+    "detect_format",
+
     # Modules
     "cellpose",
     "conversion",
     "utils",
     "postprocessing",
     "normcorre",
-    
+
     # Grid Search
     "grid_search",
     "collect_grid_results",

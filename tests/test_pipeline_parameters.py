@@ -50,12 +50,18 @@ def test_data_path():
 @pytest.fixture(scope="module")
 def test_tiff(test_data_path, output_dir):
     """Fixture providing path to test TIFF file (assembled planar format)."""
-    from mbo_utilities.lazy_array import imread, imwrite
+    from mbo_utilities import imread, imwrite
     from mbo_utilities.metadata import get_metadata
 
-    tiff_path = test_data_path / "test_input.tif"
+    tiff_path = output_dir / "test_input.tif"
     if not tiff_path.exists():
-        pytest.skip(f"Test TIFF not found: {tiff_path}")
+        print(f"Generating synthetic TIFF at {tiff_path}...")
+        # Create synthetic tiff: (frames, y, x)
+        data = np.random.randint(0, 1000, (100, 512, 512), dtype=np.int16)
+        imwrite(data, tiff_path)
+    
+    if not tiff_path.exists():
+        pytest.skip(f"Test TIFF could not be created: {tiff_path}")
 
     # Check if this is a raw ScanImage file that needs assembly
     metadata = get_metadata(tiff_path)
@@ -86,7 +92,7 @@ def test_tiff(test_data_path, output_dir):
 @pytest.fixture(scope="module")
 def test_tiffs(test_data_path, output_dir):
     """Fixture providing list of test TIFF files (for volume tests)."""
-    from mbo_utilities.lazy_array import imread, imwrite
+    from mbo_utilities import imread, imwrite
     from mbo_utilities.metadata import get_metadata
 
     tiff_path = test_data_path / "test_input.tif"
@@ -372,7 +378,7 @@ class TestPlotTraces:
                 num_neurons=20,
                 window=60,
                 title="Basic Trace Plot",
-                scale_bar_label="50% ΔF/F₀",
+                scale_bar_unit="% ΔF/F₀",
             )
 
             assert save_path.exists(), "Plot was not saved"
@@ -407,7 +413,7 @@ class TestPlotTraces:
                     num_neurons=15,
                     window=45,
                     title=f"Scale Bar: {label}",
-                    scale_bar_label=label,
+                    scale_bar_unit=label,
                 )
 
                 assert save_path.exists(), f"Plot {i} was not saved"
@@ -442,7 +448,7 @@ class TestPlotTraces:
                 fps=30.0,
                 window=90,
                 title="Selected Cells",
-                scale_bar_label="ΔF/F₀",
+                scale_bar_unit="ΔF/F₀",
             )
 
             assert save_path.exists(), "Plot was not saved"
@@ -484,7 +490,7 @@ class TestDFFCalculation:
 
     def test_dff_rolling_percentile(self):
         """Test dff_rolling_percentile function."""
-        from lbm_suite2p_python import dff_rolling_percentile
+        from lbm_suite2p_python.postprocessing import dff_rolling_percentile
 
         start = time.time()
 
@@ -518,7 +524,7 @@ class TestDFFCalculation:
 
     def test_dff_window_size_effect(self):
         """Test that different window sizes produce different results."""
-        from lbm_suite2p_python import dff_rolling_percentile
+        from lbm_suite2p_python.postprocessing import dff_rolling_percentile
 
         start = time.time()
 
