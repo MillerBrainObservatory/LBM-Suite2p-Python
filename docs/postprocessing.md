@@ -13,6 +13,56 @@ This guide covers the postprocessing functions available in LBM-Suite2p-Python f
 :maxdepth: 2
 ```
 
+## Data Loaders
+
+### Load Planar Results
+
+Load all Suite2p outputs from a plane directory:
+
+```python
+from lbm_suite2p_python import load_planar_results
+
+results = load_planar_results("path/to/plane01")
+# or
+results = load_planar_results("path/to/plane01/ops.npy")
+
+# Access data
+F = results['F']           # (n_rois, n_frames) fluorescence
+Fneu = results['Fneu']     # (n_rois, n_frames) neuropil
+spks = results['spks']     # (n_rois, n_frames) deconvolved spikes
+stat = results['stat']     # ROI statistics array
+iscell = results['iscell'] # (n_rois, 2) classification
+
+# Filter for accepted cells
+iscell_mask = iscell[:, 0].astype(bool)
+F_cells = F[iscell_mask]
+```
+
+### Load Ops
+
+Simple utility to load ops.npy:
+
+```python
+from lbm_suite2p_python import load_ops
+
+ops = load_ops("path/to/ops.npy")
+# or
+ops = load_ops("path/to/plane01")  # auto-finds ops.npy
+```
+
+### Load Traces (Accepted Only)
+
+Load only accepted cell traces:
+
+```python
+from lbm_suite2p_python.postprocessing import load_traces
+
+F, Fneu, spks = load_traces(ops)
+# Returns only traces where iscell[:, 0] == True
+```
+
+---
+
 ## ΔF/F Calculation
 
 ### Rolling Percentile Baseline
@@ -390,56 +440,6 @@ best_neurons = np.argsort(fitness)[:20]
 :width: 100%
 
 Event exceptionality analysis. The fitness score distribution shows most neurons have moderate exceptionality. Lower fitness scores indicate neurons with rarer, more exceptional events. The trace panel shows the 5 most exceptional neurons (lowest fitness scores) with best-quality neurons displayed at top.
-```
-
----
-
-## Loading Results
-
-### Load Planar Results
-
-Load all Suite2p outputs from a plane directory:
-
-```python
-from lbm_suite2p_python import load_planar_results
-
-results = load_planar_results("path/to/plane01")
-# or
-results = load_planar_results("path/to/plane01/ops.npy")
-
-# Access data
-F = results['F']           # (n_rois, n_frames) fluorescence
-Fneu = results['Fneu']     # (n_rois, n_frames) neuropil
-spks = results['spks']     # (n_rois, n_frames) deconvolved spikes
-stat = results['stat']     # ROI statistics array
-iscell = results['iscell'] # (n_rois, 2) classification
-
-# Filter for accepted cells
-iscell_mask = iscell[:, 0].astype(bool)
-F_cells = F[iscell_mask]
-```
-
-### Load Ops
-
-Simple utility to load ops.npy:
-
-```python
-from lbm_suite2p_python import load_ops
-
-ops = load_ops("path/to/ops.npy")
-# or
-ops = load_ops("path/to/plane01")  # auto-finds ops.npy
-```
-
-### Load Traces (Accepted Only)
-
-Load only accepted cell traces:
-
-```python
-from lbm_suite2p_python.postprocessing import load_traces
-
-F, Fneu, spks = load_traces(ops)
-# Returns only traces where iscell[:, 0] == True
 ```
 
 ---

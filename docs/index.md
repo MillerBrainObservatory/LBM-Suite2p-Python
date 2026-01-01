@@ -28,15 +28,14 @@ projections
 postprocessing
 processing_flow
 API Reference <api>
-glossary
 ```
 
 ```{toctree}
 ---
-caption: Additional Resources
-hidden: true
+caption: Reference
 maxdepth: 1
 ---
+glossary
 image_gallery
 pipeline_comparison
 ```
