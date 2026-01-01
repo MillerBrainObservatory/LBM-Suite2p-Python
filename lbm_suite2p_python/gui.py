@@ -22,29 +22,28 @@ def detect_format(path: str | Path) -> str:
     Detect whether path contains suite2p or cellpose results.
 
     Returns 'suite2p', 'cellpose', or 'unknown'.
+
+    Note: This is a simplified wrapper around conversion.detect_format
+    that also handles _seg.npy files directly.
     """
+    from lbm_suite2p_python.conversion import detect_format as _detect_format
+
     path = Path(path)
     if not path.exists():
         return "unknown"
 
-    if path.is_file():
-        if path.name.endswith("_seg.npy"):
-            return "cellpose"
-        path = path.parent
+    # Handle _seg.npy files directly (cellpose GUI format)
+    if path.is_file() and path.name.endswith("_seg.npy"):
+        return "cellpose"
 
-    # suite2p indicators
-    if (path / "stat.npy").exists() and (path / "ops.npy").exists():
+    # Delegate to conversion module
+    result = _detect_format(path)
+
+    # Normalize suite2p_minimal to suite2p for GUI purposes
+    if result == "suite2p_minimal":
         return "suite2p"
 
-    # cellpose indicators
-    seg_files = list(path.glob("*_seg.npy"))
-    if seg_files:
-        return "cellpose"
-
-    if (path / "masks.npy").exists():
-        return "cellpose"
-
-    return "unknown"
+    return result
 
 
 def suite2p_to_seg(
