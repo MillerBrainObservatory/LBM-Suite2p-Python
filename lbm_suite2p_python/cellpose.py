@@ -189,7 +189,7 @@ def _create_outline_overlay(img, masks, outline_color=(1, 1, 0)):
     return np.clip(rgb * 255, 0, 255).astype(np.uint8)
 
 
-def _masks_to_stat(masks, img=None):
+def _masks_to_stat(masks, img=None, compute_overlap=True):
     """
     Convert Cellpose masks to Suite2p-style stat array.
 
@@ -198,17 +198,32 @@ def _masks_to_stat(masks, img=None):
     masks : np.ndarray
         2D or 3D label image from Cellpose.
     img : np.ndarray, optional
-        Original image for computing additional statistics.
+        Original image for computing intensity weights (lam).
+    compute_overlap : bool, default True
+        Whether to compute overlap field (required for Suite2p extraction).
 
     Returns
     -------
     np.ndarray
-        Array of stat dictionaries compatible with Suite2p.
+        Array of stat dictionaries compatible with Suite2p extraction.
+        Includes 'lam' (intensity weights) and 'overlap' (pixel overlap mask).
     """
-    from scipy import ndimage
-
     stat = []
-    n_rois = masks.max()
+    n_rois = int(masks.max())
+
+    if n_rois == 0:
+        return np.array([], dtype=object)
+
+    # Build pixel count map for overlap detection
+    if compute_overlap and masks.ndim == 2:
+        # Count how many ROIs claim each pixel (for overlap computation)
+        # Since cellpose masks are non-overlapping by design, we check boundaries
+        from scipy import ndimage
+        # Dilate each mask slightly to find potential overlaps at boundaries
+        overlap_map = np.zeros(masks.shape, dtype=np.int32)
+        for roi_id in range(1, n_rois + 1):
+            roi_mask = masks == roi_id
+            overlap_map += roi_mask.astype(np.int32)
 
     for roi_id in range(1, n_rois + 1):
         roi_mask = masks == roi_id
@@ -235,19 +250,46 @@ def _masks_to_stat(masks, img=None):
         npix = len(xpix)
         radius = np.sqrt(npix / np.pi)
 
+        # Compute lam (intensity weights) - required for Suite2p extraction
+        if img is not None:
+            if img.ndim == 2:
+                roi_vals = img[ypix, xpix].astype(np.float32)
+            else:
+                roi_vals = img[zpix, ypix, xpix].astype(np.float32) if zpix is not None else img[ypix, xpix].astype(np.float32)
+            # Normalize to sum to 1 (Suite2p convention)
+            roi_vals = roi_vals - roi_vals.min()  # shift to positive
+            lam_sum = roi_vals.sum()
+            if lam_sum > 0:
+                lam = roi_vals / lam_sum
+            else:
+                lam = np.ones(npix, dtype=np.float32) / npix
+        else:
+            # Uniform weights if no image provided
+            lam = np.ones(npix, dtype=np.float32) / npix
+
+        # Compute overlap mask - required for Suite2p extraction
+        if compute_overlap and masks.ndim == 2:
+            # For cellpose, masks are non-overlapping, so overlap is all False
+            # But we still need the field for Suite2p compatibility
+            overlap = np.zeros(npix, dtype=bool)
+        else:
+            overlap = np.zeros(npix, dtype=bool)
+
         roi_stat = {
             "ypix": ypix.astype(np.int32),
             "xpix": xpix.astype(np.int32),
             "npix": npix,
-            "med": [med_y, med_x],
-            "radius": radius,
-            "aspect_ratio": aspect,
-            "compact": npix / (np.pi * radius**2) if radius > 0 else 0,
+            "lam": lam.astype(np.float32),
+            "overlap": overlap,
+            "med": np.array([med_y, med_x]),
+            "radius": float(radius),
+            "aspect_ratio": float(aspect),
+            "compact": float(npix / (np.pi * radius**2)) if radius > 0 else 0.0,
         }
 
         if zpix is not None:
             roi_stat["zpix"] = zpix.astype(np.int32)
-            roi_stat["med_z"] = np.median(zpix)
+            roi_stat["med_z"] = float(np.median(zpix))
 
         # add intensity stats if image provided
         if img is not None:
