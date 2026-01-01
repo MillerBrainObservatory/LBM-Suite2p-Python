@@ -5,10 +5,27 @@ import numpy as np
 from tqdm.auto import tqdm
 
 from lbm_suite2p_python.zplane import plot_zplane_figures
-from mbo_utilities.lazy_array import Suite2pArray
+from mbo_utilities.arrays import Suite2pArray
 
 
 def group_plane_rois(input_dir):
+    """
+    Group multi-ROI plane directories by their plane number.
+
+    Finds directories matching pattern "planeXX_roiYY" and groups them
+    by plane for subsequent merging.
+
+    Parameters
+    ----------
+    input_dir : str or Path
+        Directory containing plane_roi subdirectories.
+
+    Returns
+    -------
+    dict
+        Mapping of plane names to lists of ROI directories.
+        Example: {"plane01": [Path("plane01_roi0"), Path("plane01_roi1")]}
+    """
     input_dir = Path(input_dir)
     grouped = defaultdict(list)
 

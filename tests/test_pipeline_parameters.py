@@ -50,7 +50,7 @@ def test_data_path():
 @pytest.fixture(scope="module")
 def test_tiff(test_data_path, output_dir):
     """Fixture providing path to test TIFF file (assembled planar format)."""
-    from mbo_utilities.lazy_array import imread, imwrite
+    from mbo_utilities import imread, imwrite
     from mbo_utilities.metadata import get_metadata
 
     tiff_path = output_dir / "test_input.tif"
@@ -92,7 +92,7 @@ def test_tiff(test_data_path, output_dir):
 @pytest.fixture(scope="module")
 def test_tiffs(test_data_path, output_dir):
     """Fixture providing list of test TIFF files (for volume tests)."""
-    from mbo_utilities.lazy_array import imread, imwrite
+    from mbo_utilities import imread, imwrite
     from mbo_utilities.metadata import get_metadata
 
     tiff_path = test_data_path / "test_input.tif"

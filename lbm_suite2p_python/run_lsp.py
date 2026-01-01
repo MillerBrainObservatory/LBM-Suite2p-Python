@@ -223,7 +223,7 @@ def pipeline(
     list[Path]
         List of paths to produced ops.npy files.
     """
-    from mbo_utilities.lazy_array import imread
+    from mbo_utilities import imread
     from mbo_utilities.arrays import supports_roi
 
     # 1. Handle Deprecations
@@ -477,7 +477,7 @@ def run_volume(
         List of paths to ops.npy files for processed planes.
     """
     from mbo_utilities.arrays import _normalize_planes
-    from mbo_utilities.lazy_array import imread
+    from mbo_utilities import imread
     from lbm_suite2p_python.merging import merge_mrois
 
     # Handle input data
@@ -720,6 +720,22 @@ def _should_register(ops_path: str | Path) -> bool:
 
 
 def run_plane_bin(ops) -> bool:
+    """
+    Run Suite2p pipeline on pre-written binary files.
+
+    Executes registration, cell detection, and signal extraction on binary
+    data referenced in ops. Requires data_raw.bin and ops.npy to exist.
+
+    Parameters
+    ----------
+    ops : dict or str or Path
+        Suite2p ops dictionary or path to ops.npy file.
+
+    Returns
+    -------
+    bool
+        True if pipeline completed successfully.
+    """
     from contextlib import nullcontext
     from suite2p.io.binary import BinaryFile
     from suite2p.run_s2p import pipeline
