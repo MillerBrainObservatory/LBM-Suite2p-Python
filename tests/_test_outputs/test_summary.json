@@ -1,0 +1,69 @@
+{
+  "timestamp": "2025-12-30T17:22:59.500022",
+  "tests": [
+    {
+      "name": "test_plot_traces_basic",
+      "status": "passed",
+      "duration_seconds": 0.47906041145324707,
+      "details": {}
+    },
+    {
+      "name": "test_plot_traces_custom_label",
+      "status": "passed",
+      "duration_seconds": 0.7540707588195801,
+      "details": {
+        "labels_tested": [
+          "100% \u0394F/F\u2080",
+          "0.5 a.u.",
+          "Custom Units"
+        ]
+      }
+    },
+    {
+      "name": "test_plot_traces_cell_indices",
+      "status": "passed",
+      "duration_seconds": 0.25373172760009766,
+      "details": {
+        "indices": [
+          0,
+          5,
+          10,
+          20,
+          50
+        ]
+      }
+    },
+    {
+      "name": "test_dff_rolling_percentile",
+      "status": "passed",
+      "duration_seconds": 0.010767459869384766,
+      "details": {
+        "shape": [
+          50,
+          2000
+        ],
+        "dff_range": 0.18681832818248598,
+        "dff_mean": 0.00987829057945076
+      }
+    },
+    {
+      "name": "test_dff_window_size_effect",
+      "status": "passed",
+      "duration_seconds": 0.01468968391418457,
+      "details": {
+        "max_diff": 0.03420636286789755,
+        "mean_diff": 0.0001773608992455071
+      }
+    }
+  ],
+  "passed": 5,
+  "failed": 0,
+  "skipped": 0,
+  "images": [
+    "C:\\Users\\flynn\\repos\\LBM-Suite2p-Python\\tests\\traces_basic.png",
+    "C:\\Users\\flynn\\repos\\LBM-Suite2p-Python\\tests\\traces_label_0.png",
+    "C:\\Users\\flynn\\repos\\LBM-Suite2p-Python\\tests\\traces_label_1.png",
+    "C:\\Users\\flynn\\repos\\LBM-Suite2p-Python\\tests\\traces_label_2.png",
+    "C:\\Users\\flynn\\repos\\LBM-Suite2p-Python\\tests\\traces_cell_indices.png"
+  ]
+}
