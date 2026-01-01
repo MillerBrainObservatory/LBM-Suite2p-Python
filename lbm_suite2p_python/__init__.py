@@ -24,6 +24,9 @@ from lbm_suite2p_python.cellpose import (
 from lbm_suite2p_python.conversion import (
     export_for_gui,
     import_from_gui,
+    get_results,
+    ensure_cellpose_format,
+    detect_format,
 )
 
 # Plotting exports
@@ -93,6 +96,9 @@ __all__ = [
     "stat_to_masks",
     "export_for_gui",
     "import_from_gui",
+    "get_results",
+    "ensure_cellpose_format",
+    "detect_format",
 
     # Modules
     "cellpose",
