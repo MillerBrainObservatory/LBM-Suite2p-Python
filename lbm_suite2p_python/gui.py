@@ -14,6 +14,7 @@ import tempfile
 from pathlib import Path
 
 import numpy as np
+from mbo_utilities.util import load_npy
 
 
 def detect_format(path: str | Path) -> str:
@@ -73,7 +74,7 @@ def suite2p_to_seg(
     # load suite2p files
     stat = np.load(suite2p_dir / "stat.npy", allow_pickle=True)
     iscell = np.load(suite2p_dir / "iscell.npy") if (suite2p_dir / "iscell.npy").exists() else None
-    ops = np.load(suite2p_dir / "ops.npy", allow_pickle=True).item()
+    ops = load_npy(suite2p_dir / "ops.npy").item()
 
     # get image dimensions
     Ly = ops.get("Ly", 512)
@@ -266,7 +267,7 @@ def run_gui_workflow(
             print(f"created: {seg_path}")
 
             # store original ops for later
-            ops = np.load(path / "ops.npy", allow_pickle=True).item()
+            ops = load_npy(path / "ops.npy").item()
 
             # launch gui
             print("\nlaunching cellpose gui...")

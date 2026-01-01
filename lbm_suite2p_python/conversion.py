@@ -18,6 +18,7 @@ from datetime import datetime
 from pathlib import Path
 
 import numpy as np
+from mbo_utilities.util import load_npy
 
 
 # file signatures for format detection
@@ -103,7 +104,7 @@ def validate_format(path, expected=None):
             stat = np.load(path / "stat.npy", allow_pickle=True)
             result["n_rois"] = len(stat)
         if (path / "ops.npy").exists():
-            ops = np.load(path / "ops.npy", allow_pickle=True).item()
+            ops = load_npy(path / "ops.npy").item()
             result["shape"] = (ops.get("Ly"), ops.get("Lx"))
 
     elif detected == "cellpose":
@@ -123,7 +124,7 @@ def _load_ops(path):
     path = Path(path)
     if path.is_dir():
         path = path / "ops.npy"
-    return np.load(path, allow_pickle=True).item()
+    return load_npy(path).item()
 
 
 def _compute_outlines(masks):
@@ -469,57 +470,97 @@ def convert(source, target, output_dir=None, **kwargs):
         raise ValueError(f"Unknown target format: {target}")
 
 
-def export_for_gui(suite2p_dir, output_path=None):
+def export_for_gui(suite2p_dir, output_path=None, name=None):
     """
     Export Suite2p results for Cellpose GUI editing.
 
-    Creates a single _seg.npy file that can be opened directly in Cellpose GUI.
+    Creates a _seg.npy file that can be opened directly in Cellpose GUI.
+    The cellpose GUI expects files with names ending in '_seg.npy'.
 
     Parameters
     ----------
     suite2p_dir : str or Path
-        Suite2p plane directory.
+        Suite2p plane directory containing stat.npy and ops.npy.
     output_path : str or Path, optional
-        Output file path. Defaults to suite2p_dir/cellpose_seg.npy.
+        Output directory. Defaults to suite2p_dir.
+    name : str, optional
+        Base name for output files. Defaults to 'projection'.
+        Creates {name}.tif and {name}_seg.npy.
 
     Returns
     -------
     Path
         Path to the created _seg.npy file.
+
+    Examples
+    --------
+    >>> import lbm_suite2p_python as lsp
+    >>> seg_file = lsp.conversion.export_for_gui("path/to/suite2p/plane0")
+    >>> lsp.cellpose.open_in_gui(seg_file)  # opens in cellpose GUI
     """
     import tifffile
 
     suite2p_dir = Path(suite2p_dir)
-    output_path = Path(output_path) if output_path else suite2p_dir / "cellpose_seg.npy"
+    name = name or "projection"
 
+    # determine output directory
+    if output_path is not None:
+        output_dir = Path(output_path)
+        if output_dir.suffix == ".npy":
+            # user provided full path to file
+            output_dir = output_dir.parent
+            name = output_dir.stem.replace("_seg", "")
+    else:
+        output_dir = suite2p_dir
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # load suite2p data
     stat = np.load(suite2p_dir / "stat.npy", allow_pickle=True)
     ops = _load_ops(suite2p_dir)
 
     Ly, Lx = ops["Ly"], ops["Lx"]
     img = ops.get("max_proj", ops.get("meanImg", np.zeros((Ly, Lx))))
 
+    # convert to masks
     masks = stat_to_masks(stat, (Ly, Lx))
     outlines = _compute_outlines(masks)
 
-    # save projection for GUI reference
-    proj_path = suite2p_dir / "projection_for_gui.tif"
-    tifffile.imwrite(proj_path, img.astype(np.float32))
+    n_rois = len(stat)
 
+    # save projection image (cellpose GUI needs this)
+    proj_path = output_dir / f"{name}.tif"
+    tifffile.imwrite(proj_path, img.astype(np.float32), compression="zlib")
+
+    # create cellpose GUI-compatible _seg.npy
     seg_data = {
         "img": img.astype(np.float32),
-        "masks": masks,
+        "masks": masks.astype(np.uint32),
         "outlines": outlines,
         "chan_choose": [0, 0],
-        "ismanual": np.zeros(len(stat), dtype=bool),
+        "ismanual": np.zeros(n_rois, dtype=bool),
         "filename": str(proj_path),
         "flows": None,
         "est_diam": ops.get("diameter"),
+        "cellprob_threshold": ops.get("cellprob_threshold", 0.0),
+        "flow_threshold": ops.get("flow_threshold", 0.4),
     }
-    np.save(output_path, seg_data)
 
-    print(f"Exported for Cellpose GUI: {output_path}")
-    print(f"Open in Cellpose GUI: File > Load _seg.npy")
-    return output_path
+    seg_file = output_dir / f"{name}_seg.npy"
+    np.save(seg_file, seg_data, allow_pickle=True)
+
+    # also save masks.tif for easy viewing
+    tifffile.imwrite(
+        output_dir / f"{name}_masks.tif",
+        masks.astype(np.uint16),
+        compression="zlib",
+    )
+
+    print(f"Exported {n_rois} ROIs for Cellpose GUI:")
+    print(f"  Image: {proj_path}")
+    print(f"  Seg file: {seg_file}")
+    print(f"\nTo open in Cellpose GUI:")
+    print(f"  lsp.cellpose.open_in_gui('{seg_file}')")
+    return seg_file
 
 
 def import_from_gui(seg_file, original_dir, output_dir=None, update_in_place=False):
