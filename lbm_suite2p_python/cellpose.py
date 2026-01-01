@@ -22,34 +22,7 @@ from mbo_utilities import imread
 from mbo_utilities.arrays import _normalize_planes
 
 
-# lazy array types from mbo_utilities
-_LAZY_ARRAY_TYPES = (
-    "MboRawArray",
-    "Suite2pArray",
-    "MBOTiffArray",
-    "TiffArray",
-    "ZarrArray",
-    "H5Array",
-    "NumpyArray",
-    "BinArray",
-)
-
-
-def _is_lazy_array(obj):
-    """Check if obj is an mbo_utilities lazy array type."""
-    return type(obj).__name__ in _LAZY_ARRAY_TYPES
-
-
-def _get_num_planes(arr):
-    """Get number of z-planes from array."""
-    if hasattr(arr, "num_planes"):
-        return arr.num_planes
-    if hasattr(arr, "num_channels"):
-        return arr.num_channels
-    shape = arr.shape
-    if len(shape) == 4:
-        return shape[1]  # TZYX format
-    return 1
+from lbm_suite2p_python.utils import _is_lazy_array, _get_num_planes
 
 
 def _compute_projection(
