@@ -18,6 +18,12 @@ from lbm_suite2p_python.cellpose import (
     annotate,
     open_in_gui,
     prepare_training_data,
+    masks_to_stat,
+    stat_to_masks,
+)
+from lbm_suite2p_python.conversion import (
+    export_for_gui,
+    import_from_gui,
 )
 
 # Plotting exports
@@ -83,6 +89,10 @@ __all__ = [
     "annotate",
     "open_in_gui",
     "prepare_training_data",
+    "masks_to_stat",
+    "stat_to_masks",
+    "export_for_gui",
+    "import_from_gui",
 
     # Modules
     "cellpose",
