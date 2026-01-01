@@ -50,23 +50,9 @@ print("=" * 60)
 # Using cellpose with cyto3 model for first pass
 ops = lsp.default_ops()
 ops.update({
-    # Registration
     "do_registration": 1,
-    "nonrigid": True,
-
-    # Detection - use anatomical mode with cellpose
     "anatomical_only": 3,  # Use meanImgE for detection
-    "cellpose_model_path": "cyto3",
-    "diameter": 0,  # Auto-estimate diameter
-    "flow_threshold": 0.4,
-    "cellprob_threshold": 0.0,
-
-    # Spatial high-pass for detection (helps with uneven illumination)
-    "spatial_hp_cp": 25,
-
-    # Spike detection
-    "spikedetect": True,
-    "tau": 1.0,  # GCaMP decay time
+    "roidetect": 1,
 })
 
 # Check for existing results to allow re-running the script
