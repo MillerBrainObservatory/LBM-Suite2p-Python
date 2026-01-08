@@ -27,6 +27,7 @@ user_guide
 projections
 postprocessing
 processing_flow
+classifiers
 API Reference <api>
 ```
 
@@ -80,5 +81,3 @@ This pipeline is built on excellent open-source tools:
 - **[Cellpose](https://github.com/MouseLand/cellpose)** - Anatomical segmentation (Stringer, Pachitariu, et al.)
 - **[Rastermap](https://github.com/MouseLand/rastermap)** - Activity clustering (Stringer, Pachitariu)
 - **[Suite3D](https://github.com/alihaydaroglu/suite3d)** - Volumetric processing inspiration (Haydaroglu)
-
-Special thanks to the Miller Brain Observatory team and all contributors for testing and feedback.

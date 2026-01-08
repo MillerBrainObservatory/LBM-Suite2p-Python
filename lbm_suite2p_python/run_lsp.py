@@ -547,17 +547,17 @@ def run_volume(
             traceback.print_exc()
 
     # Post-Loop: Merging and Volume Stats
-    
-    # Check for multi-ROI merging
-    # Minimal check: if input filenames have "roi", try merging
+
+    # Check for multi-ROI merging using metadata (not filename heuristics)
     should_merge = False
-    if input_paths:
-         if any("roi" in p.stem.lower() for p in input_paths):
-             should_merge = True
-    elif input_arr is not None and hasattr(input_arr, "filenames"):
-         if any("roi" in str(p).lower() for p in input_arr.filenames):
-             should_merge = True
-             
+    if input_arr is not None and hasattr(input_arr, "metadata"):
+        md = input_arr.metadata
+        roi_mode = md.get("roi_mode")
+        num_rois = md.get("num_rois") or md.get("num_mrois") or 1
+        # only merge if roi_mode is "separate" (files written as separate rois)
+        if roi_mode == "separate" and num_rois > 1:
+            should_merge = True
+
     if should_merge:
         print("Detected mROI data, attempting to merge...")
         merged_savepath = save_path / "merged_mrois"
@@ -1211,15 +1211,37 @@ def run_plane(
                 duration_seconds=time.time() - filter_start,
                 extra={"n_removed": int(removed_mask.sum())}
             )
-            updated_ops["filter_metadata"] = filter_results
+            # convert filter_results list to dict keyed by filter name
+            filter_metadata = {}
+            for r in filter_results:
+                name = r["name"]
+                config = r.get("config", {})
+                info = r.get("info", {})
+                removed = r.get("removed_mask", np.zeros(0, dtype=bool))
+                # build params from config (user-specified) or info (computed)
+                params = {}
+                for key in ["min_diameter_um", "max_diameter_um", "min_diameter_px", "max_diameter_px",
+                            "min_area_px", "max_area_px", "min_mult", "max_mult", "max_ratio"]:
+                    if key in config and config[key] is not None:
+                        val = config[key]
+                        params[key] = round(val, 1) if isinstance(val, float) else val
+                if not params:
+                    for key in ["min_px", "max_px", "min_ratio", "max_ratio", "lower_px", "upper_px"]:
+                        if key in info and info[key] is not None:
+                            params[key] = round(info[key], 1)
+                filter_metadata[name] = {
+                    "params": params,
+                    "n_rejected": int(removed.sum()),
+                }
+            updated_ops["filter_metadata"] = filter_metadata
             np.save(ops_file, updated_ops)
-            
+
             # Plots
             try:
                  fig = plot_filtered_cells(
-                     plane_dir, 
-                     iscell_original, 
-                     iscell_filtered, 
+                     plane_dir,
+                     iscell_original,
+                     iscell_filtered,
                      save_path=plane_dir / "13_filtered_cells.png"
                  )
                  import matplotlib.pyplot as plt
