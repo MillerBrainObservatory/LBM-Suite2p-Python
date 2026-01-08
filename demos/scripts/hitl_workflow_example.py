@@ -13,44 +13,34 @@ data with iterative cellpose training:
 
 Dataset: mk311_11_04_2025_180mw_right_ppc_go_to_2x-mROI-896x896um_224x448px_2um-px_17p07Hz_green_00001.tif
 Z-plane: 7
-
-Author: Generated with Claude Code
-Date: 2025-12-31
 """
 
 from pathlib import Path
 
 import lbm_suite2p_python as lsp
 
-# =============================================================================
-# Configuration
-# =============================================================================
-
 # Input data
 DATA_PATH = Path(
-    r"D:\SERVER_DATA\raw_scanimage_tiffs\mk311_11_04_2025_180mw_right_ppc_go_to_2x-mROI-896x896um_224x448px_2um-px_17p07Hz_green_00001.tif"
+    r"D:/demo/raw"
 )
 
 # Output directory (will create subdirectories for each plane)
-OUTPUT_DIR = Path(r"D:\lsp_output\mk311_11_04_2025_hitl_workflow")
+OUTPUT_DIR = Path(r"D:/demo/processed")
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # Processing parameters
 PLANE = 7  # 1-indexed z-plane to process
 ROI_MODE = None  # None = stitch mROIs together (default for LBM data)
 
-# =============================================================================
-# Step 1: Initial Pipeline Run
-# =============================================================================
+# Initial Pipeline Run
 
-print("=" * 60)
-print("STEP 1: Running initial pipeline on z-plane 7")
-print("=" * 60)
+print("Running initial pipeline on z-plane 7")
 
 # Configure ops for initial detection
 # Using cellpose with cyto3 model for first pass
 ops = lsp.default_ops()
 ops.update({
-    "do_registration": 1,
+    "two_step_registration": 1,
     "anatomical_only": 3,  # Use meanImgE for detection
     "roidetect": 1,
 })
@@ -72,46 +62,25 @@ else:
         planes=[PLANE],
         roi_mode=ROI_MODE,
         cell_filters=[{"name": "max_diameter", "min_diameter_um": 4, "max_diameter_um": 35}],
-        accept_all_cells=False,  # Use classifier
+        accept_all_cells=True,  # Use classifier
     )
     # Get path to the plane results
     plane_dir = results[0].parent if results else OUTPUT_DIR / f"plane{PLANE:02d}"
 
 print(f"\nInitial results saved to: {plane_dir}")
 
-# =============================================================================
-# Step 2: Evaluate Results
-# =============================================================================
+# Evaluate Results
 
-print("\n" + "=" * 60)
-print("STEP 2: Evaluate initial detection results")
-print("=" * 60)
+print("Evaluate initial detection results")
 
 # Generate diagnostic plots
 lsp.plot_zplane_figures(plane_dir)
 lsp.plot_traces(plane_dir)
 lsp.plot_plane_diagnostics(plane_dir)
 
-print(f"""
-Review the generated figures in: {plane_dir}
+# Enhance Summary Image for Annotation
 
-Key things to check:
-1. Are cells being detected correctly?
-2. Are there false positives (non-cells marked as cells)?
-3. Are there false negatives (cells missed)?
-4. Check the diameter histogram - are detected diameters reasonable?
-
-If detection needs improvement, proceed to Step 3.
-Otherwise, skip to the end.
-""")
-
-# =============================================================================
-# Step 3: Enhance Summary Image for Annotation
-# =============================================================================
-
-print("\n" + "=" * 60)
-print("STEP 3: Enhance summary image for annotation")
-print("=" * 60)
+print("Enhance summary image for annotation")
 
 # Create enhanced images using different methods to see which works best
 enhanced_paths = []
@@ -131,17 +100,11 @@ Enhanced images saved to {plane_dir}:
 - enhanced_meanImgE.tif  (spatial high-pass of mean)
 - enhanced_log_ratio.tif (log ratio emphasizes active regions)
 - enhanced_max_proj.tif  (maximum projection)
-
-Review these and choose the one with best cell visibility.
 """)
 
-# =============================================================================
-# Step 4: Annotate Cells in Cellpose GUI
-# =============================================================================
+# Annotate Cells in Cellpose GUI
 
-print("\n" + "=" * 60)
-print("STEP 4: Annotate cells in Cellpose GUI")
-print("=" * 60)
+print("Annotate cells in Cellpose GUI")
 
 # Prepare annotation data (creates image + initial masks for GUI)
 annotation_dir = plane_dir / "annotation"
