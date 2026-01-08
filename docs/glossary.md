@@ -50,4 +50,13 @@ pixel-resolution
 roi_stats
   Dictionary containing per-ROI statistics computed during detection, including area, compactness, skewness, and spatial coordinates.
 
+logistic regression
+  A statistical model that predicts binary outcomes (cell vs non-cell) by fitting a sigmoid function to input features. Suite2p's classifier uses logistic regression on ROI morphological features. The model outputs a probability between 0-1, thresholded at 0.5 by default to make the cell/non-cell decision. Training involves fitting the sigmoid curve to labeled examples so that cells map to high probabilities and non-cells map to low probabilities.
+
+compact
+  Spatial compactness of an ROI, measuring how circular/concentrated the pixels are. Computed as `(4 * pi * area) / perimeter^2`. A perfect circle has compactness of 1.0; elongated or fragmented shapes have lower values. Used by the classifier because real neurons tend to be compact while artifacts are often irregular.
+
+npix_norm
+  Normalized pixel count of an ROI. The raw pixel count divided by expected size based on the `diameter` parameter. Helps the classifier reject ROIs that are abnormally small (noise) or large (merged cells, blood vessels).
+
 ```

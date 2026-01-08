@@ -27,31 +27,10 @@ user_guide
 projections
 postprocessing
 processing_flow
-API Reference <api>
-```
-
-```{toctree}
----
-caption: Reference
-maxdepth: 1
----
+classifiers
+API <api>
 glossary
 image_gallery
-pipeline_comparison
-```
-
-## (Really) Quickstart
-
-```python
-import lbm_suite2p_python as lsp
-
-# Process entire volume with the unified pipeline
-results = lsp.pipeline(
-    input_data="D:/data/raw",   # path to file, directory, or list of files
-    save_path=None,             # default: save next to input
-    ops=None,                   # default: use MBO-optimized parameters
-    planes=None,                # default: process all planes (1-indexed)
-)
 ```
 
 ## Additional Resources
@@ -80,5 +59,3 @@ This pipeline is built on excellent open-source tools:
 - **[Cellpose](https://github.com/MouseLand/cellpose)** - Anatomical segmentation (Stringer, Pachitariu, et al.)
 - **[Rastermap](https://github.com/MouseLand/rastermap)** - Activity clustering (Stringer, Pachitariu)
 - **[Suite3D](https://github.com/alihaydaroglu/suite3d)** - Volumetric processing inspiration (Haydaroglu)
-
-Special thanks to the Miller Brain Observatory team and all contributors for testing and feedback.
