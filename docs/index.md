@@ -28,31 +28,9 @@ projections
 postprocessing
 processing_flow
 classifiers
-API Reference <api>
-```
-
-```{toctree}
----
-caption: Reference
-maxdepth: 1
----
+API <api>
 glossary
 image_gallery
-pipeline_comparison
-```
-
-## (Really) Quickstart
-
-```python
-import lbm_suite2p_python as lsp
-
-# Process entire volume with the unified pipeline
-results = lsp.pipeline(
-    input_data="D:/data/raw",   # path to file, directory, or list of files
-    save_path=None,             # default: save next to input
-    ops=None,                   # default: use MBO-optimized parameters
-    planes=None,                # default: process all planes (1-indexed)
-)
 ```
 
 ## Additional Resources
