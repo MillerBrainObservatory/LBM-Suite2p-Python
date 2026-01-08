@@ -276,7 +276,6 @@ def pipeline(
             **kwargs
         )
     else:
-        print("Delegating to run_plane (3D input detected)...")
         # run_plane returns a single Path, we wrap in list
         ops_path = run_plane(
             input_data=arr, # Pass the array we loaded (with ROI applied)
