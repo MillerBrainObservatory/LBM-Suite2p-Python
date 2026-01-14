@@ -364,7 +364,7 @@ def grid_search(
                 combo_ops.update(combo_dict)
 
                 run_plane(
-                    input_path=input_data if isinstance(input_data, (str, Path)) else filenames[0] if filenames else None,
+                    input_data=input_data if isinstance(input_data, (str, Path)) else filenames[0] if filenames else None,
                     save_path=plane_save_path,
                     ops=combo_ops,
                     keep_reg=True,

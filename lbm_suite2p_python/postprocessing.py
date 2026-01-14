@@ -1146,6 +1146,132 @@ def sort_traces_by_quality(
     return F_sorted, sort_idx, quality
 
 
+def compute_roi_stats(plane_dir, fs=None):
+    """
+    Compute per-ROI statistics and save to roi_stats.npy.
+
+    Computes SNR, skewness, shot noise, mean fluorescence, and other metrics
+    for each ROI in a plane directory.
+
+    Parameters
+    ----------
+    plane_dir : str or Path
+        Path to suite2p plane directory containing F.npy, Fneu.npy, stat.npy, iscell.npy.
+    fs : float, optional
+        Frame rate in Hz. If None, reads from ops.npy.
+
+    Returns
+    -------
+    Path
+        Path to saved roi_stats.npy file.
+
+    Notes
+    -----
+    Saves a structured numpy array with fields:
+    - roi_id: ROI index
+    - accepted: whether ROI is classified as cell (from iscell)
+    - snr: signal-to-noise ratio
+    - skew: skewness of dF/F trace
+    - shot_noise: frame-to-frame noise level
+    - mean_f: mean raw fluorescence
+    - std_f: std of raw fluorescence
+    - mean_dff: mean dF/F
+    - std_dff: std of dF/F
+    - npix: number of pixels in ROI
+    - compact: compactness metric from suite2p
+    - radius: estimated radius from suite2p
+    """
+    from scipy.stats import skew
+
+    plane_dir = Path(plane_dir)
+    if plane_dir.suffix == ".npy":
+        plane_dir = plane_dir.parent
+
+    # load required files
+    F = np.load(plane_dir / "F.npy", allow_pickle=True)
+    Fneu = np.load(plane_dir / "Fneu.npy", allow_pickle=True)
+    stat = np.load(plane_dir / "stat.npy", allow_pickle=True)
+    iscell = np.load(plane_dir / "iscell.npy", allow_pickle=True)
+
+    if fs is None:
+        ops_file = plane_dir / "ops.npy"
+        if ops_file.exists():
+            ops = np.load(ops_file, allow_pickle=True).item()
+            fs = ops.get("fs", 30.0)
+        else:
+            fs = 30.0
+
+    n_rois = F.shape[0]
+
+    # neuropil correction and dF/F
+    F_corr = F - 0.7 * Fneu
+    baseline = np.percentile(F_corr, 20, axis=1, keepdims=True)
+    baseline = np.maximum(baseline, 1e-6)
+    dff = (F_corr - baseline) / baseline
+
+    # compute metrics
+    signal = np.std(dff, axis=1)
+    noise = np.median(np.abs(np.diff(dff, axis=1)), axis=1) / 0.6745
+    snr = signal / (noise + 1e-6)
+
+    skewness = np.array([s.get("skew", np.nan) for s in stat])
+    nan_mask = np.isnan(skewness)
+    if nan_mask.any():
+        skewness[nan_mask] = skew(dff[nan_mask], axis=1)
+
+    shot_noise = dff_shot_noise(dff, fs)
+
+    mean_f = np.mean(F, axis=1)
+    std_f = np.std(F, axis=1)
+    mean_dff = np.mean(dff, axis=1)
+    std_dff = np.std(dff, axis=1)
+
+    npix = np.array([s.get("npix", 0) for s in stat])
+    compact = np.array([s.get("compact", np.nan) for s in stat])
+    radius = np.array([s.get("radius", np.nan) for s in stat])
+
+    # iscell handling
+    if iscell.ndim == 2:
+        accepted = iscell[:, 0].astype(bool)
+    else:
+        accepted = iscell.astype(bool)
+
+    # build structured array
+    dtype = [
+        ("roi_id", "i4"),
+        ("accepted", "?"),
+        ("snr", "f4"),
+        ("skew", "f4"),
+        ("shot_noise", "f4"),
+        ("mean_f", "f4"),
+        ("std_f", "f4"),
+        ("mean_dff", "f4"),
+        ("std_dff", "f4"),
+        ("npix", "i4"),
+        ("compact", "f4"),
+        ("radius", "f4"),
+    ]
+
+    roi_stats = np.zeros(n_rois, dtype=dtype)
+    roi_stats["roi_id"] = np.arange(n_rois)
+    roi_stats["accepted"] = accepted
+    roi_stats["snr"] = snr.astype(np.float32)
+    roi_stats["skew"] = skewness.astype(np.float32)
+    roi_stats["shot_noise"] = shot_noise.astype(np.float32)
+    roi_stats["mean_f"] = mean_f.astype(np.float32)
+    roi_stats["std_f"] = std_f.astype(np.float32)
+    roi_stats["mean_dff"] = mean_dff.astype(np.float32)
+    roi_stats["std_dff"] = std_dff.astype(np.float32)
+    roi_stats["npix"] = npix.astype(np.int32)
+    roi_stats["compact"] = compact.astype(np.float32)
+    roi_stats["radius"] = radius.astype(np.float32)
+
+    save_path = plane_dir / "roi_stats.npy"
+    np.save(save_path, roi_stats)
+
+    return save_path
+
+
 def load_planar_results(ops: dict | str | Path, z_plane: list | int = None) -> dict:
     """
     Load stat, iscell, spks files and return as a dict. Does NOT filter by valid cells, arrays contain both
