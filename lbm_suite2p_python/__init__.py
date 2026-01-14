@@ -60,6 +60,18 @@ from lbm_suite2p_python.grid_search import (
     collect_grid_results,
     save_grid_results,
     plot_grid_metrics,
+    get_best_parameters,
+    print_best_parameters,
+    plot_grid_distributions,
+    plot_grid_masks,
+)
+
+from lbm_suite2p_python.postprocessing import (
+    load_ops,
+    load_planar_results,
+    dff_rolling_percentile,
+    dff_shot_noise,
+    compute_roi_stats,
 )
 
 # Re-export key modules for easier access
@@ -112,6 +124,17 @@ __all__ = [
     "collect_grid_results",
     "save_grid_results",
     "plot_grid_metrics",
+    "get_best_parameters",
+    "print_best_parameters",
+    "plot_grid_distributions",
+    "plot_grid_masks",
+
+    # Postprocessing
+    "load_ops",
+    "load_planar_results",
+    "dff_rolling_percentile",
+    "dff_shot_noise",
+    "compute_roi_stats",
 
     # Plotting (Z-Plane)
     "plot_traces",

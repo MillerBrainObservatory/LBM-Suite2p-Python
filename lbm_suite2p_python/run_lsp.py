@@ -1273,14 +1273,22 @@ def run_plane(
             tau=current_ops.get("tau", 1.0)
         )
         np.save(plane_dir / "dff.npy", dff)
-        
+
         _add_processing_step(
-             current_ops, 
-             "dff_calculation", 
+             current_ops,
+             "dff_calculation",
              duration_seconds=time.time() - dff_start,
              extra={"percentile": dff_percentile}
         )
         np.save(ops_file, current_ops)
+
+    # 3b. ROI statistics
+    try:
+        from lbm_suite2p_python.postprocessing import compute_roi_stats
+        print("  Computing ROI statistics...")
+        compute_roi_stats(plane_dir)
+    except Exception as e:
+        print(f"  Warning: ROI stats computation failed: {e}")
 
     # 4. Plots and Cleanup
     try:
