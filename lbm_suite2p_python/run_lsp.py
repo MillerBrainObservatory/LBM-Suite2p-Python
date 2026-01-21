@@ -383,6 +383,71 @@ def get_plane_num_from_tag(tag: str, fallback: int = None) -> int:
     return fallback
 
 
+def generate_plane_dirname(
+    plane: int,
+    nframes: int = None,
+    frame_start: int = 1,
+    frame_stop: int = None,
+    suffix: str = None,
+) -> str:
+    """
+    generate a descriptive directory name for a plane's outputs.
+
+    uses mbo_utilities tag conventions for consistent, self-documenting names.
+    format: zplaneNN[_tpSTART-STOP][_suffix]
+
+    parameters
+    ----------
+    plane : int
+        z-plane number (1-based)
+    nframes : int, optional
+        total number of frames. if provided and > 1, adds timepoint range.
+    frame_start : int, default 1
+        first frame (1-based)
+    frame_stop : int, optional
+        last frame (1-based). defaults to nframes if not provided.
+    suffix : str, optional
+        additional suffix (e.g., "stitched", "roi1")
+
+    returns
+    -------
+    str
+        directory name like "zplane01", "zplane03_tp00001-05000", etc.
+
+    examples
+    --------
+    >>> generate_plane_dirname(3)
+    'zplane03'
+    >>> generate_plane_dirname(3, nframes=5000)
+    'zplane03_tp00001-05000'
+    >>> generate_plane_dirname(3, nframes=5000, suffix="stitched")
+    'zplane03_tp00001-05000_stitched'
+    >>> generate_plane_dirname(1, frame_start=100, frame_stop=500)
+    'zplane01_tp00100-00500'
+    """
+    from mbo_utilities.arrays.features._dim_tags import TAG_REGISTRY, DimensionTag
+
+    parts = []
+
+    # z-plane tag (always present)
+    z_def = TAG_REGISTRY["Z"]
+    z_tag = DimensionTag(z_def, start=plane, stop=None, step=1)
+    parts.append(z_tag.to_string())
+
+    # timepoint tag (if multiple frames)
+    if nframes is not None and nframes > 1:
+        t_def = TAG_REGISTRY["T"]
+        stop = frame_stop if frame_stop is not None else nframes
+        t_tag = DimensionTag(t_def, start=frame_start, stop=stop, step=1)
+        parts.append(t_tag.to_string())
+
+    # optional suffix
+    if suffix:
+        parts.append(suffix)
+
+    return "_".join(parts)
+
+
 def run_volume(
     input_data,
     save_path: str | Path = None,
@@ -1014,56 +1079,80 @@ def run_plane(
     is_binary_input = input_path.suffix == ".bin"
     binary_with_ops = is_binary_input and (input_path.parent / "ops.npy").exists()
 
-    if binary_with_ops and (input_path.parent == save_path or save_path == input_parent):
-         # Processing existing binary in-place
-         print(f"Processing existing binary in-place: {input_path}")
-         plane_dir = input_path.parent
-         skip_imwrite = True
-    else:
-        # Create subdirectory
-         if plane_name is not None:
-             subdir_name = plane_name
-         else:
-             subdir_name = derive_tag_from_filename(input_path.name)
-         plane_dir = save_path / subdir_name
-         plane_dir.mkdir(exist_ok=True)
-
-    ops_file = plane_dir / "ops.npy"
+    # load ops defaults and user settings first (needed for plane number)
     ops_default = default_ops()
     ops_user = load_ops(ops) if ops else {}
     ops = {**ops_default, **ops_user, "data_path": str(input_path.resolve())}
 
-    # Normalize kwargs
+    # normalize kwargs
     reader_kwargs = reader_kwargs or {}
     writer_kwargs = writer_kwargs or {}
 
-    # Handle binary writing vs loading
-    if skip_imwrite:
-        file = None
+    # determine if we're processing existing binary in-place
+    if binary_with_ops and (input_path.parent == save_path or save_path == input_parent):
+        print(f"Processing existing binary in-place: {input_path}")
+        plane_dir = input_path.parent
+        skip_imwrite = True
+        ops_file = plane_dir / "ops.npy"
         existing_ops = np.load(ops_file, allow_pickle=True).item() if ops_file.exists() else {}
         metadata = {k: v for k, v in existing_ops.items() if k in ("plane", "fs", "dx", "dy", "Ly", "Lx", "nframes")}
+        file = None
     else:
-        should_write = _should_write_bin(ops_file, force=force_reg)
+        skip_imwrite = False
+        # load file and metadata to determine plane/nframes for directory naming
+        should_write = _should_write_bin(Path(save_path) / "temp" / "ops.npy", force=force_reg)
         if should_write:
             if input_arr is not None:
                 file = input_arr
             else:
                 file = imread(input_path, **reader_kwargs)
-                if isinstance(file, ScanImageArray):
-                    if not kwargs.get("allow_raw_array", False):
-                         # If it's a raw array (ScanImage), we usually process it via pipeline or run_volume
-                         # but run_plane can handle it if it's already a single plane slice (3D)
-                         pass
-            
+
             if hasattr(file, "metadata"):
                 metadata = file.metadata
             else:
                 metadata = get_metadata(input_path)
         else:
             file = None
-            metadata = {} # Metadata loading from ops.npy handled later if file is None
+            metadata = {}
 
-    # Plane number handling
+        # determine plane number (for directory naming)
+        if "plane" in ops:
+            plane = ops["plane"]
+        elif "plane" in metadata:
+            plane = metadata["plane"]
+        else:
+            tag = derive_tag_from_filename(input_path)
+            plane = get_plane_num_from_tag(tag, fallback=1)
+
+        # determine nframes for directory naming
+        nframes = None
+        if file is not None:
+            nframes = file.shape[0] if file.ndim >= 3 else None
+        elif "nframes" in metadata:
+            nframes = metadata["nframes"]
+
+        # determine suffix (e.g., stitched, roi1)
+        dir_suffix = None
+        if file is not None and hasattr(file, "metadata"):
+            roi_mode = file.metadata.get("roi_mode")
+            if roi_mode == "concat_y":
+                dir_suffix = "stitched"
+
+        # generate descriptive directory name
+        if plane_name is not None:
+            subdir_name = plane_name
+        else:
+            subdir_name = generate_plane_dirname(
+                plane=plane,
+                nframes=nframes,
+                suffix=dir_suffix
+            )
+
+        plane_dir = save_path / subdir_name
+        plane_dir.mkdir(exist_ok=True)
+        ops_file = plane_dir / "ops.npy"
+
+    # plane number handling (finalize)
     if "plane" in ops:
         plane = ops["plane"]
     elif "plane" in metadata:
@@ -1073,9 +1162,13 @@ def run_plane(
         tag = derive_tag_from_filename(input_path)
         plane = get_plane_num_from_tag(tag, fallback=ops.get("plane", None))
         ops["plane"] = plane
-    
+
     metadata["plane"] = plane
     ops["save_path"] = str(plane_dir.resolve())
+
+    # store source filename info in ops for traceability
+    ops["source_dirname"] = plane_dir.name
+    ops["source_input"] = str(input_path.name)
 
     # Write binary
     if not skip_imwrite and file is not None:
