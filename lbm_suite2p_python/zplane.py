@@ -1456,7 +1456,7 @@ def plot_multiplane_masks(
     Parameters
     ----------
     suite2p_path : str or Path
-        Path to suite2p directory containing plane folders (e.g., plane01_stitched/).
+        Path to suite2p directory containing plane folders (e.g., zplane01/).
     stat : np.ndarray
         Consolidated stat array with 'iplane' field indicating plane assignment.
     iscell : np.ndarray
@@ -1480,7 +1480,8 @@ def plot_multiplane_masks(
     from scipy import ndimage
 
     suite2p_path = Path(suite2p_path)
-    plane_dirs = sorted(suite2p_path.glob("plane*_stitched"))
+    # supports zplaneNN, planeNN, plane*_stitched
+    plane_dirs = sorted(suite2p_path.glob("zplane*"))
     if not plane_dirs:
         plane_dirs = sorted(suite2p_path.glob("plane*"))
     nplanes = len(plane_dirs)

@@ -1131,13 +1131,6 @@ def run_plane(
         elif "nframes" in metadata:
             nframes = metadata["nframes"]
 
-        # determine suffix (e.g., stitched, roi1)
-        dir_suffix = None
-        if file is not None and hasattr(file, "metadata"):
-            roi_mode = file.metadata.get("roi_mode")
-            if roi_mode == "concat_y":
-                dir_suffix = "stitched"
-
         # generate descriptive directory name
         if plane_name is not None:
             subdir_name = plane_name
@@ -1145,7 +1138,6 @@ def run_plane(
             subdir_name = generate_plane_dirname(
                 plane=plane,
                 nframes=nframes,
-                suffix=dir_suffix
             )
 
         plane_dir = save_path / subdir_name
@@ -1175,6 +1167,8 @@ def run_plane(
         md_combined = {**metadata, **ops}
         print(f"Writing binary to {plane_dir}...")
         bin_start = time.time()
+        # if 4D input, extract single plane; otherwise write as-is
+        write_planes = [plane] if file.ndim == 4 else None
         imwrite(
             file,
             plane_dir,
@@ -1183,6 +1177,8 @@ def run_plane(
             register_z=False,
             output_name="data_raw.bin",
             overwrite=True,
+            planes=write_planes,
+            show_progress=False,
             **writer_kwargs,
         )
         # Record binary write
@@ -1240,7 +1236,7 @@ def run_plane(
         if chan2_path.exists():
              chan2_data = imread(chan2_path, **reader_kwargs)
              chan2_md = getattr(chan2_data, "metadata", {})
-             imwrite(chan2_data, plane_dir, ext=".bin", metadata=chan2_md, register_z=False, structural=True)
+             imwrite(chan2_data, plane_dir, ext=".bin", metadata=chan2_md, register_z=False, structural=True, show_progress=False)
              ops["chan2_file"] = str((plane_dir / "data_chan2.bin").resolve())
              ops["nframes_chan2"] = chan2_data.shape[0] if hasattr(chan2_data, "shape") else 0
              ops["nchannels"] = 2
