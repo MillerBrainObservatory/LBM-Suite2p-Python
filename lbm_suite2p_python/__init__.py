@@ -6,6 +6,7 @@ from lbm_suite2p_python.run_lsp import (
     run_volume,
     run_plane,
     add_processing_step,
+    generate_plane_dirname,
 )
 
 # Cellpose workflow exports
@@ -96,6 +97,7 @@ __all__ = [
     "run_plane",
     "default_ops",
     "add_processing_step",
+    "generate_plane_dirname",
 
     # Cellpose / HITL Workflow
     "redetect",

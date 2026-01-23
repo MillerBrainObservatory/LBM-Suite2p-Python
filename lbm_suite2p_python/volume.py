@@ -535,13 +535,12 @@ def consolidate_volume(suite2p_path, merged_dir="merged", overwrite=False):
     Consolidate all plane results into a single merged directory.
 
     Combines ops.npy, stat.npy, iscell.npy, F.npy, Fneu.npy, and spks.npy
-    from all planeXX_stitched folders into a single merged/ folder with
-    plane-indexed arrays.
+    from all plane folders into a single merged/ folder with plane-indexed arrays.
 
     Parameters
     ----------
     suite2p_path : str or Path
-        Path to suite2p directory containing planeXX_stitched folders
+        Path to suite2p directory containing plane folders (zplaneNN or planeNN)
     merged_dir : str, optional
         Name of merged directory to create (default: "merged")
     overwrite : bool, optional
@@ -564,10 +563,12 @@ def consolidate_volume(suite2p_path, merged_dir="merged", overwrite=False):
     suite2p_path = Path(suite2p_path)
     merged_path = suite2p_path / merged_dir
 
-    # Find all plane directories
-    plane_dirs = sorted(suite2p_path.glob("plane*_stitched"))
+    # Find all plane directories (supports zplaneNN, planeNN, plane*_stitched)
+    plane_dirs = sorted(suite2p_path.glob("zplane*"))
     if not plane_dirs:
-        raise ValueError(f"No plane*_stitched directories found in {suite2p_path}")
+        plane_dirs = sorted(suite2p_path.glob("plane*"))
+    if not plane_dirs:
+        raise ValueError(f"No plane directories found in {suite2p_path}")
 
     print(f"Found {len(plane_dirs)} planes to consolidate")
 
@@ -1521,7 +1522,7 @@ def plot_3d_rastermap_clusters(
     Parameters
     ----------
     suite2p_path : str or Path
-        Path to suite2p directory containing plane*_stitched folders or merged folder.
+        Path to suite2p directory containing plane folders or merged folder.
     save_path : str or Path, optional
         If provided, save figure to this path.
     figsize : tuple, default (14, 10)
@@ -1567,8 +1568,10 @@ def plot_3d_rastermap_clusters(
         has_rastermap = False
         logger.warning("rastermap not installed, cannot generate cluster visualization")
 
-    # find plane directories
-    plane_dirs = sorted(suite2p_path.glob("plane*_stitched"))
+    # find plane directories (supports zplaneNN, planeNN, plane*_stitched)
+    plane_dirs = sorted(suite2p_path.glob("zplane*"))
+    if not plane_dirs:
+        plane_dirs = sorted(suite2p_path.glob("plane*"))
     merged_dir = suite2p_path / "merged"
 
     if merged_dir.exists() and (merged_dir / "stat.npy").exists():
