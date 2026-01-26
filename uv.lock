@@ -1349,7 +1349,7 @@ wheels = [
 
 [[package]]
 name = "lbm-suite2p-python"
-version = "2.5.2"
+version = "2.5.3"
 source = { editable = "." }
 dependencies = [
     { name = "mbo-utilities" },
