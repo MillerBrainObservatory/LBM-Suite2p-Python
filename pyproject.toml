@@ -17,7 +17,7 @@ classifiers=[
 	"Programming Language :: Python :: 3 :: Only",
 ]
 dependencies = [
-	"mbo_utilities>=2.5.0",
+	"mbo_utilities>=2.5.1",
 ]
 
 [project.scripts]
