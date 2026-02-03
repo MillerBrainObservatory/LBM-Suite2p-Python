@@ -163,34 +163,81 @@ def pipeline(
     Parameters
     ----------
     input_data : str, Path, list, or lazy array
-        Input data source (file, directory, list of files, or array).
+        Input data source. Can be a file path, directory, list of files,
+        or a lazy array from mbo_utilities.
     save_path : str or Path, optional
-        Output directory.
+        Output directory for results. If None, saves next to input file.
+        Required when input_data is an array without filenames.
     ops : dict, optional
-        Suite2p parameters.
+        Suite2p parameters to override defaults. If None, uses optimized
+        defaults with metadata auto-populated from input.
     planes : int or list, optional
-        Planes to process (1-based index).
+        Which z-planes to process (1-indexed). None processes all planes.
     roi_mode : int, optional
-        ROI mode for ScanImage data (None=stitch, 0=split, N=single).
-    keep_reg, keep_raw : bool
-        Keep binary files.
-    force_reg, force_detect : bool
-        Force re-processing.
+        ROI handling for multi-ROI ScanImage data:
+        - None: stitch all ROIs into single FOV (default)
+        - 0: process each ROI separately
+        - N > 0: process only ROI N (1-indexed)
+    keep_reg : bool, default True
+        Keep registered binary (data.bin) after processing.
+    keep_raw : bool, default False
+        Keep raw binary (data_raw.bin) after processing.
+    force_reg : bool, default False
+        Force re-registration even if already complete.
+    force_detect : bool, default False
+        Force ROI detection even if stat.npy exists.
     num_timepoints : int, optional
-        Limit frames.
-    dff_window_size, dff_percentile, dff_smooth_window : optional
-        dF/F parameters.
+        Limit processing to first N frames.
+    dff_window_size : int, optional
+        Window size for rolling percentile dF/F baseline (frames).
+        If None, auto-calculated as ~10 * tau * fs.
+    dff_percentile : int, default 20
+        Percentile for baseline F0 estimation.
+    dff_smooth_window : int, optional
+        Temporal smoothing window for dF/F traces (frames).
+        If None, auto-calculated. Set to 1 to disable.
     cell_filters : list, optional
-        Filters to apply. Default is 4-35um diameter if None. Pass [] to disable.
-    accept_all_cells : bool
-        Mark all detected ROIs as accepted.
+        Filters to apply to detected ROIs. Default applies diameter
+        filter (4-35 um). Pass [] to disable all post-hoc filtering.
+    accept_all_cells : bool, default False
+        If True, mark all detected ROIs as accepted, overriding
+        Suite2p's built-in classifier results.
+    save_json : bool, default False
+        Save ops as JSON in addition to .npy format.
+    reader_kwargs : dict, optional
+        Arguments passed to mbo_utilities.imread().
+    writer_kwargs : dict, optional
+        Arguments passed to binary writer (e.g., output_format).
+    plane_name : str, optional
+        Name for output directory when input is an array without
+        filenames. Passed via kwargs.
+    roi : int, optional
+        Deprecated. Use roi_mode instead.
+    num_frames : int, optional
+        Deprecated. Use num_timepoints instead.
     **kwargs
-        Additional args passed to sub-functions.
+        Additional arguments passed to run_plane or run_volume.
 
     Returns
     -------
     list[Path]
-        List of paths to produced ops.npy files.
+        Paths to ops.npy files for each processed plane.
+
+    Examples
+    --------
+    >>> import lbm_suite2p_python as lsp
+    >>> results = lsp.pipeline("D:/data/volume.zarr", planes=[1, 5, 10])
+
+    >>> # process array, accept all ROIs without filtering
+    >>> results = lsp.pipeline(
+    ...     arr, save_path="D:/results", plane_name="plane0",
+    ...     accept_all_cells=True, cell_filters=[]
+    ... )
+
+    See Also
+    --------
+    run_plane : lower-level single-plane processing
+    run_volume : process list of files
     """
     from mbo_utilities import imread
     from mbo_utilities.arrays import supports_roi
