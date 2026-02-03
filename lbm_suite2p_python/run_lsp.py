@@ -226,12 +226,13 @@ def pipeline(
     Examples
     --------
     >>> import lbm_suite2p_python as lsp
-    >>> results = lsp.pipeline("D:/data/volume.zarr", planes=[1, 5, 10])
+    >>> ops = {"anatomical_only": 4} # max-projection
+    >>> results = lsp.pipeline("D:/data/volume.zarr", planes=[1, 5, 10], ops=ops)
 
     >>> # process array, accept all ROIs without filtering
     >>> results = lsp.pipeline(
     ...     arr, save_path="D:/results", plane_name="plane0",
-    ...     accept_all_cells=True, cell_filters=[]
+    ...     accept_all_cells=True, cell_filters=[], ops=ops
     ... )
 
     See Also
@@ -261,7 +262,7 @@ def pipeline(
     # 2. Load Input to Determine Dimensionality
     # We need to know if it's 3D (single plane) or 4D (volume)
     is_list = isinstance(input_data, (list, tuple))
-    
+
     if is_list:
         # Check if list of files implies volume (files with plane tags)
         # We'll just assume list = volume for now, as run_volume handles lists
@@ -275,19 +276,19 @@ def pipeline(
         else:
             print(f"Loading input to determine dimensions: {input_data}")
             arr = imread(input_data, **reader_kwargs)
-            
+
         # Apply ROI mode if applicable check dimensions
         if roi_mode is not None and supports_roi(arr):
              arr.roi = roi_mode
-        
+
         # Check dims
         # TZYX (4D) or TYX (3D)
         if arr.ndim == 4:
             is_volumetric = True
         elif arr.ndim == 3:
             is_volumetric = False
-            # Check if user asked for multiple planes on a 3D array? 
-            # If array is 3D, it's one plane. 
+            # Check if user asked for multiple planes on a 3D array?
+            # If array is 3D, it's one plane.
             # Unless it's a stack of planes? But imread usually returns TYX for single plane tiff.
             # If it's a stack of planes (ZYX?), current pipeline assumes Time is first dim.
             # So 3D TYX is one plane.
@@ -302,7 +303,7 @@ def pipeline(
              input_arg = arr
         else:
              input_arg = input_data
-             
+
         return run_volume(
             input_data=input_arg,
             save_path=save_path,
@@ -580,7 +581,7 @@ def run_volume(
         input_path = Path(input_data)
         if save_path is None:
              save_path = input_path.parent / (input_path.stem + "_results")
-        
+
         # Load as array to determine planes
         input_arr = imread(input_path, **(reader_kwargs or {}))
     else:
@@ -588,7 +589,7 @@ def run_volume(
 
     if save_path is None:
          raise ValueError("save_path must be specified.")
-    
+
     save_path = Path(save_path)
     save_path.mkdir(parents=True, exist_ok=True)
 
@@ -603,16 +604,16 @@ def run_volume(
 
     # Normalize planes to process
     planes_indices = _normalize_planes(planes, num_planes)
-    
+
     print(f"Processing {len(planes_indices)} planes in volume (Total planes: {num_planes})")
     print(f"Output: {save_path}")
 
     ops_files = []
-    
+
     # Iterate
     for i, plane_idx in enumerate(planes_indices):
         plane_num = plane_idx + 1
-        
+
         # Prepare input for run_plane
         if input_arr is not None:
             # Pass the whole array, run_plane handles extraction via ops['plane']
@@ -625,7 +626,7 @@ def run_volume(
             else:
                 # Fallback or error? Assuming input_files length matches num_planes
                  current_input = input_paths[0] # Should not happen if logic is correct
-        
+
         # Prepare ops with plane number
         current_ops = load_ops(ops) if ops else default_ops()
         current_ops["plane"] = plane_num
@@ -692,7 +693,7 @@ def run_volume(
         try:
              # run_plane already does individual calls, but we need aggregate stats
              stats_path = get_volume_stats(ops_files, overwrite=True)
-             
+
              # Volumetric plots
              try:
                  plot_volume_diagnostics(ops_files, save_path / "volume_quality_diagnostics.png")
@@ -702,7 +703,7 @@ def run_volume(
              except Exception as e:
                   print(f"Warning: Volume plots failed: {e}")
                   traceback.print_exc()
-                  
+
         except Exception as e:
              print(f"Warning: Volume statistics failed: {e}")
              traceback.print_exc()
@@ -1097,7 +1098,7 @@ def run_plane(
             raise ValueError("plane_name is required when input is an array without filenames.")
         else:
             # dummy path for internal logic compatibility
-            input_path = Path(f"{plane_name}.tif") 
+            input_path = Path(f"{plane_name}.tif")
     elif isinstance(input_data, (str, Path)):
         input_path = Path(input_data)
     else:
@@ -1109,7 +1110,7 @@ def run_plane(
     if save_path is None:
         if input_arr is not None:
              raise ValueError("save_path is required when input is an array.")
-        
+
         # binary inputs with ops.npy are processed in-place
         is_binary_input = input_path.suffix == ".bin"
         binary_with_ops = is_binary_input and (input_path.parent / "ops.npy").exists()
@@ -1255,7 +1256,7 @@ def run_plane(
                  needs_detect = False
         else:
              needs_detect = True
-    
+
     # Check registration needs
     if force_reg:
         needs_reg = True
@@ -1263,7 +1264,7 @@ def run_plane(
         needs_reg = True
     else:
         needs_reg = _should_register(ops_file)
-    
+
     # Update ops logic
     if force_reg:
         ops["do_registration"] = 1
@@ -1271,7 +1272,7 @@ def run_plane(
         ops["do_registration"] = 0
     elif "do_registration" not in ops_user:
         ops["do_registration"] = 1
-        
+
     if force_detect:
         ops["roidetect"] = 1
     elif "roidetect" not in ops_user:
@@ -1293,7 +1294,7 @@ def run_plane(
     try:
         s2p_start = time.time()
         processed = run_plane_bin(ops) # This updates ops in-place and saves it
-        
+
         if processed:
              updated_ops = load_ops(ops_file)
              _add_processing_step(
@@ -1306,7 +1307,7 @@ def run_plane(
                  }
              )
              np.save(ops_file, updated_ops)
-             
+
     except Exception as e:
         print(f"Error in run_plane_bin: {e}")
         traceback.print_exc()
@@ -1341,8 +1342,8 @@ def run_plane(
             )
             updated_ops = load_ops(ops_file)
             _add_processing_step(
-                updated_ops, 
-                "cell_filtering", 
+                updated_ops,
+                "cell_filtering",
                 duration_seconds=time.time() - filter_start,
                 extra={"n_removed": int(removed_mask.sum())}
             )
@@ -1398,7 +1399,7 @@ def run_plane(
         F = np.load(F_file)
         Fneu = np.load(Fneu_file)
         F_corr = F - 0.7 * Fneu # Fixed neucoeff for now, could be parameter
-        
+
         current_ops = load_ops(ops_file)
         dff = dff_rolling_percentile(
             F_corr,
@@ -1429,9 +1430,9 @@ def run_plane(
     # 4. Plots and Cleanup
     try:
         plot_zplane_figures(
-             plane_dir, 
+             plane_dir,
              dff_percentile=dff_percentile,
-             dff_window_size=dff_window_size, 
+             dff_window_size=dff_window_size,
              dff_smooth_window=dff_smooth_window
         )
     except Exception as e:
