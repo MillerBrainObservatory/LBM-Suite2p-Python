@@ -869,7 +869,7 @@ def run_plane_bin(ops) -> bool:
         ops["reg_file"] = str(ops_parent / reg_name)
 
     # ensure image arrays are numpy ndarrays (can become lists after dict merges)
-    for key in ("meanImg", "meanImgE", "refImg", "max_proj"):
+    for key in ("meanImg", "meanImgE", "refImg", "max_proj", "Vcorr"):
         val = ops.get(key)
         if val is not None and not isinstance(val, np.ndarray):
             ops[key] = np.array(val)
@@ -924,14 +924,20 @@ def run_plane_bin(ops) -> bool:
             ops["diameter_user"] = 8
             print("Warning: diameter was not set, defaulting to 8.")
 
-    # When running registration, reset detection-derived parameters so that
-    # compute_enhanced_mean_image() will reinitialize them from diameter.
-    # This fixes a bug where re-running registration on previously processed data
-    # would inherit spatscale_pix=0 from a failed Cellpose detection, causing
+    # reset detection-derived parameters when re-running registration or detection
+    # so compute_enhanced_mean_image() reinitializes them from diameter.
+    # prevents inheriting spatscale_pix=0 from a failed run, which causes
     # meanImgE to be computed with a [1,1] filter (all 0.5 output).
     run_registration = bool(ops.get("do_registration", True))
+    run_detection = bool(ops.get("roidetect", True))
     if run_registration:
+        # full reset: clear both registration and detection intermediates
         for key in ["spatscale_pix", "Vcorr", "Vmax", "Vmap", "Vsplit", "ihop"]:
+            if key in ops:
+                del ops[key]
+    elif run_detection:
+        # detection only: clear detection intermediates but keep registration outputs
+        for key in ["spatscale_pix", "Vmax", "Vmap", "Vsplit", "ihop"]:
             if key in ops:
                 del ops[key]
 
@@ -1025,6 +1031,22 @@ def run_plane_bin(ops) -> bool:
                 else:
                     print(f"  {reg_chan2_path.name} already exists, skipping copy")
 
+    # ensure summary images exist even when registration was skipped.
+    # meanImg is needed by detection; meanImgE is only computed during
+    # registration so we derive it here when missing.
+    if not run_registration:
+        if "meanImg" not in ops:
+            with BinaryFile(Ly=Ly, Lx=Lx, filename=str(reg_file), n_frames=n_align) as f_mean:
+                ops["meanImg"] = f_mean.sampled_mean().astype(np.float32)
+                print("  Computed meanImg from binary")
+
+        if "meanImgE" not in ops and "meanImg" in ops:
+            from suite2p.registration import compute_enhanced_mean_image
+            ops["meanImgE"] = compute_enhanced_mean_image(
+                ops["meanImg"].astype(np.float32), ops
+            )
+            print("  Computed meanImgE from meanImg")
+
     # for very short recordings, suite2p's bin_movie crashes when
     # bin_size > nframes (produces empty array). pre-compute meanImg so
     # detection_wrapper skips the failing reduction, and clamp tau so
@@ -1052,6 +1074,13 @@ def run_plane_bin(ops) -> bool:
             run_registration=run_registration,
             ops=ops,
             stat=None,
+        )
+
+    # ensure meanImgE is always present in final ops (safety net)
+    if "meanImgE" not in ops and "meanImg" in ops:
+        from suite2p.registration import compute_enhanced_mean_image
+        ops["meanImgE"] = compute_enhanced_mean_image(
+            ops["meanImg"].astype(np.float32), ops
         )
 
     if use_chan2:
@@ -1222,6 +1251,8 @@ def run_plane(
         existing_ops = np.load(ops_file, allow_pickle=True).item() if ops_file.exists() else {}
         metadata = {k: v for k, v in existing_ops.items() if k in ("plane", "fs", "dx", "dy", "Ly", "Lx", "nframes")}
         file = None
+        # merge: defaults < existing (registration results, images, etc.) < user overrides
+        ops = {**ops_default, **existing_ops, **ops_user, "data_path": str(input_path.resolve())}
     elif binary_with_ops:
         # binary input with ops but different save_path: copy files instead of re-encoding
         import shutil
