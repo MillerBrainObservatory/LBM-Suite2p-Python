@@ -868,6 +868,12 @@ def run_plane_bin(ops) -> bool:
         reg_name = Path(ops["reg_file"]).name
         ops["reg_file"] = str(ops_parent / reg_name)
 
+    # ensure image arrays are numpy ndarrays (can become lists after dict merges)
+    for key in ("meanImg", "meanImgE", "refImg", "max_proj"):
+        val = ops.get(key)
+        if val is not None and not isinstance(val, np.ndarray):
+            ops[key] = np.array(val)
+
     # Get Ly and Lx with helpful error message if missing
     Ly = ops.get("Ly")
     Lx = ops.get("Lx")
@@ -1216,6 +1222,45 @@ def run_plane(
         existing_ops = np.load(ops_file, allow_pickle=True).item() if ops_file.exists() else {}
         metadata = {k: v for k, v in existing_ops.items() if k in ("plane", "fs", "dx", "dy", "Ly", "Lx", "nframes")}
         file = None
+    elif binary_with_ops:
+        # binary input with ops but different save_path: copy files instead of re-encoding
+        import shutil
+        skip_imwrite = True
+        file = None
+        src_dir = input_path.parent
+        existing_ops = np.load(src_dir / "ops.npy", allow_pickle=True).item()
+        metadata = {k: v for k, v in existing_ops.items()
+                    if k in ("plane", "fs", "dx", "dy", "Ly", "Lx", "nframes")}
+
+        # determine plane number for directory naming
+        if "plane" in ops:
+            plane = ops["plane"]
+        elif "plane" in existing_ops:
+            plane = existing_ops["plane"]
+        else:
+            tag = derive_tag_from_filename(input_path)
+            plane = get_plane_num_from_tag(tag, fallback=1)
+
+        if plane_name is not None:
+            subdir_name = plane_name
+        else:
+            nframes_hint = existing_ops.get("nframes_chan1") or existing_ops.get("nframes")
+            subdir_name = generate_plane_dirname(plane=plane, nframes=nframes_hint)
+
+        plane_dir = save_path / subdir_name
+        plane_dir.mkdir(exist_ok=True)
+        ops_file = plane_dir / "ops.npy"
+
+        # copy binaries and ops from source if not already present
+        for fname in ("data_raw.bin", "data.bin", "data_chan2.bin", "ops.npy"):
+            src = src_dir / fname
+            dst = plane_dir / fname
+            if src.exists() and (not dst.exists() or dst.stat().st_size == 0):
+                print(f"  Copying {fname} from {src_dir} -> {plane_dir}")
+                shutil.copy2(src, dst)
+
+        # merge existing ops with user overrides
+        ops = {**ops_default, **existing_ops, **ops_user, "data_path": str(input_path.resolve())}
     else:
         skip_imwrite = False
 
