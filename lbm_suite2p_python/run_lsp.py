@@ -608,11 +608,21 @@ def run_volume(
     print(f"Processing {len(planes_indices)} planes in volume (Total planes: {num_planes})")
     print(f"Output: {save_path}")
 
+    progress_callback = kwargs.pop("progress_callback", None)
+
     ops_files = []
 
     # Iterate
     for i, plane_idx in enumerate(planes_indices):
         plane_num = plane_idx + 1
+
+        if progress_callback:
+            progress_callback(
+                plane=i,
+                total_planes=len(planes_indices),
+                step="plane_start",
+                message=f"Plane {plane_num}",
+            )
 
         # Prepare input for run_plane
         if input_arr is not None:
@@ -654,6 +664,14 @@ def run_volume(
                 **kwargs
             )
             ops_files.append(ops_file)
+
+            if progress_callback:
+                progress_callback(
+                    plane=i,
+                    total_planes=len(planes_indices),
+                    step="plane_done",
+                    message=f"Plane {plane_num} complete",
+                )
         except Exception as e:
             print(f"ERROR processing plane {plane_num}: {e}")
             traceback.print_exc()
@@ -823,6 +841,33 @@ def run_plane_bin(ops) -> bool:
 
     ops = load_ops(ops)
 
+    # fixup stale absolute paths when data has been moved to a new location.
+    # ops_path is the ground truth; derive all other paths from its parent.
+    ops_path_stored = Path(ops.get("ops_path", ""))
+    if ops_path_stored.name == "ops.npy" and ops_path_stored.parent.exists():
+        ops_parent = ops_path_stored.parent
+    elif "save_path" in ops and Path(ops["save_path"]).exists():
+        ops_parent = Path(ops["save_path"])
+        ops["ops_path"] = str(ops_parent / "ops.npy")
+    else:
+        raise FileNotFoundError(
+            f"Cannot locate plane directory. ops_path={ops.get('ops_path')}, "
+            f"save_path={ops.get('save_path')}"
+        )
+
+    # resolve all path keys relative to actual plane directory
+    ops["save_path"] = str(ops_parent)
+    ops["ops_path"] = str(ops_parent / "ops.npy")
+    if ops.get("raw_file"):
+        raw_name = Path(ops["raw_file"]).name
+        ops["raw_file"] = str(ops_parent / raw_name)
+    if ops.get("chan2_file"):
+        chan2_name = Path(ops["chan2_file"]).name
+        ops["chan2_file"] = str(ops_parent / chan2_name)
+    if ops.get("reg_file"):
+        reg_name = Path(ops["reg_file"]).name
+        ops["reg_file"] = str(ops_parent / reg_name)
+
     # Get Ly and Lx with helpful error message if missing
     Ly = ops.get("Ly")
     Lx = ops.get("Lx")
@@ -839,9 +884,6 @@ def run_plane_bin(ops) -> bool:
     if raw_file is None or n_func is None:
         raise KeyError("Missing raw_file or nframes_chan1")
     n_func = int(n_func)
-
-    ops_parent = Path(ops["ops_path"]).parent
-    ops["save_path"] = ops_parent
 
     reg_file = ops_parent / "data.bin"
     ops["reg_file"] = str(reg_file)
@@ -977,6 +1019,19 @@ def run_plane_bin(ops) -> bool:
                 else:
                     print(f"  {reg_chan2_path.name} already exists, skipping copy")
 
+    # for very short recordings, suite2p's bin_movie crashes when
+    # bin_size > nframes (produces empty array). pre-compute meanImg so
+    # detection_wrapper skips the failing reduction, and clamp tau so
+    # bin_size <= nframes.
+    tau_fs = np.round(ops.get("tau", 0.7) * ops.get("fs", 30))
+    if n_align < max(tau_fs, 2):
+        with BinaryFile(Ly=Ly, Lx=Lx, filename=str(reg_file), n_frames=n_align) as f_pre:
+            all_frames = f_pre.data[:n_align]
+            ops["meanImg"] = all_frames.mean(axis=0).astype(np.float32)
+            ops["max_proj"] = all_frames.max(axis=0).astype(np.float32)
+        # set tau so bin_size = max(1, n//nbinned, round(tau*fs)) <= nframes
+        ops["tau"] = 0
+
     with (
         BinaryFile(Ly=Ly, Lx=Lx, filename=str(reg_file), n_frames=n_align) as f_reg,
         BinaryFile(Ly=Ly, Lx=Lx, filename=str(raw_file), n_frames=n_align) as f_raw,
@@ -997,6 +1052,20 @@ def run_plane_bin(ops) -> bool:
         ops["reg_file_chan2"] = str(reg_file_chan2)
     np.save(ops["ops_path"], ops)
     return True
+
+
+def _cleanup_bin_files(plane_dir, keep_raw, keep_reg):
+    """delete bin files if user doesn't want them, swallowing OS errors."""
+    if not keep_raw:
+        try:
+            (plane_dir / "data_raw.bin").unlink(missing_ok=True)
+        except OSError:
+            pass
+    if not keep_reg:
+        try:
+            (plane_dir / "data.bin").unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 def run_plane(
@@ -1076,6 +1145,8 @@ def run_plane(
     from mbo_utilities.metadata import get_metadata
     from mbo_utilities.arrays import ScanImageArray
 
+    progress_callback = kwargs.pop("progress_callback", None)
+
     if "debug" in kwargs:
         logger.setLevel(logging.DEBUG)
         logger.info("Debug mode enabled.")
@@ -1147,8 +1218,33 @@ def run_plane(
         file = None
     else:
         skip_imwrite = False
-        # load file and metadata to determine plane/nframes for directory naming
-        should_write = _should_write_bin(Path(save_path) / "temp" / "ops.npy", force=force_reg)
+
+        # determine plane number for directory naming (from ops or input filename)
+        if "plane" in ops:
+            plane = ops["plane"]
+        else:
+            tag = derive_tag_from_filename(input_path)
+            plane = get_plane_num_from_tag(tag, fallback=1)
+
+        # compute plane_dir early so we can check if binaries already exist
+        if plane_name is not None:
+            subdir_name = plane_name
+        else:
+            # try to get nframes from input without loading the full array
+            nframes_hint = None
+            if input_arr is not None and hasattr(input_arr, "shape"):
+                nframes_hint = input_arr.shape[0] if input_arr.ndim >= 3 else None
+            subdir_name = generate_plane_dirname(
+                plane=plane,
+                nframes=nframes_hint,
+            )
+
+        plane_dir = save_path / subdir_name
+        plane_dir.mkdir(exist_ok=True)
+        ops_file = plane_dir / "ops.npy"
+
+        # check if binaries already exist in the actual output directory
+        should_write = _should_write_bin(ops_file, force=force_reg)
         if should_write:
             if input_arr is not None:
                 file = input_arr
@@ -1160,37 +1256,15 @@ def run_plane(
             else:
                 metadata = get_metadata(input_path)
         else:
+            print(f"Skipping data_raw.bin write, already exists and passes data validation checks.")
             file = None
-            metadata = {}
-
-        # determine plane number (for directory naming)
-        if "plane" in ops:
-            plane = ops["plane"]
-        elif "plane" in metadata:
-            plane = metadata["plane"]
-        else:
-            tag = derive_tag_from_filename(input_path)
-            plane = get_plane_num_from_tag(tag, fallback=1)
-
-        # determine nframes for directory naming
-        nframes = None
-        if file is not None:
-            nframes = file.shape[0] if file.ndim >= 3 else None
-        elif "nframes" in metadata:
-            nframes = metadata["nframes"]
-
-        # generate descriptive directory name
-        if plane_name is not None:
-            subdir_name = plane_name
-        else:
-            subdir_name = generate_plane_dirname(
-                plane=plane,
-                nframes=nframes,
-            )
-
-        plane_dir = save_path / subdir_name
-        plane_dir.mkdir(exist_ok=True)
-        ops_file = plane_dir / "ops.npy"
+            # load metadata from existing ops if available
+            if ops_file.exists():
+                existing = np.load(ops_file, allow_pickle=True).item()
+                metadata = {k: v for k, v in existing.items()
+                            if k in ("plane", "fs", "dx", "dy", "Ly", "Lx", "nframes")}
+            else:
+                metadata = {}
 
     # plane number handling (finalize)
     if "plane" in ops:
@@ -1211,6 +1285,8 @@ def run_plane(
     ops["source_input"] = str(input_path.name)
 
     # Write binary
+    if progress_callback:
+        progress_callback(step="writing_binary", message="Writing binary...")
     if not skip_imwrite and file is not None:
         md_combined = {**metadata, **ops}
         print(f"Writing binary to {plane_dir}...")
@@ -1290,7 +1366,21 @@ def run_plane(
              ops["nchannels"] = 2
              ops["align_by_chan"] = 2
 
+    # ensure ops paths point to current plane_dir before running suite2p.
+    # handles cases where data was moved from its original location.
+    ops["ops_path"] = str(ops_file)
+    ops["save_path"] = str(plane_dir.resolve())
+    raw_bin = plane_dir / "data_raw.bin"
+    if raw_bin.exists():
+        ops["raw_file"] = str(raw_bin)
+    reg_bin = plane_dir / "data.bin"
+    if reg_bin.exists():
+        ops["reg_file"] = str(reg_bin)
+    np.save(ops_file, ops)
+
     # Run Suite2p
+    if progress_callback:
+        progress_callback(step="suite2p", message="Running suite2p...")
     try:
         s2p_start = time.time()
         processed = run_plane_bin(ops) # This updates ops in-place and saves it
@@ -1311,13 +1401,16 @@ def run_plane(
     except Exception as e:
         print(f"Error in run_plane_bin: {e}")
         traceback.print_exc()
-        # Re-raise so caller knows processing failed
+        _cleanup_bin_files(plane_dir, keep_raw, keep_reg)
         raise
 
     if not processed:
+         _cleanup_bin_files(plane_dir, keep_raw, keep_reg)
          return ops_file
 
     # --- Post-Processing ---
+    if progress_callback:
+        progress_callback(step="postprocessing", message="Post-processing...")
 
     # 1. Accept All Cells
     if accept_all_cells:
@@ -1441,13 +1534,13 @@ def run_plane(
     if save_json:
         ops_to_json(ops_file)
 
-    if not keep_raw:
-         (plane_dir / "data_raw.bin").unlink(missing_ok=True)
-    if not keep_reg:
-         (plane_dir / "data.bin").unlink(missing_ok=True)
+    _cleanup_bin_files(plane_dir, keep_raw, keep_reg)
 
     # PC metrics
     save_pc_panels_and_metrics(ops_file, plane_dir / "pc_metrics")
+
+    if progress_callback:
+        progress_callback(step="done", message="Plane complete")
 
     return ops_file
 
