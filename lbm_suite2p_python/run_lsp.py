@@ -37,9 +37,7 @@ from lbm_suite2p_python.zplane import (
     plot_cell_filter_summary,
 )
 
-DEFAULT_CELL_FILTERS = [
-    {"name": "max_diameter", "min_diameter_um": 4, "max_diameter_um": 35}
-]
+DEFAULT_CELL_FILTERS = []
 from mbo_utilities.log import get as get_logger
 from mbo_utilities.metadata import (
     get_param,
@@ -197,8 +195,8 @@ def pipeline(
         Temporal smoothing window for dF/F traces (frames).
         If None, auto-calculated. Set to 1 to disable.
     cell_filters : list, optional
-        Filters to apply to detected ROIs. Default applies diameter
-        filter (4-35 um). Pass [] to disable all post-hoc filtering.
+        Filters to apply to detected ROIs. Default is no filters.
+        Example: [{"name": "max_diameter", "min_diameter_um": 4, "max_diameter_um": 35}]
     accept_all_cells : bool, default False
         If True, mark all detected ROIs as accepted, overriding
         Suite2p's built-in classifier results.
@@ -1158,8 +1156,8 @@ def run_plane(
         If True, mark all detected ROIs as accepted cells.
     cell_filters : list[dict], optional
         Filters to apply to detected ROIs (e.g. diameter, area).
-        Default: [{"name": "max_diameter", "min_diameter_um": 4, "max_diameter_um": 35}]
-        Pass [] to disable default filtering.
+        Default is no filters.
+        Example: [{"name": "max_diameter", "min_diameter_um": 4, "max_diameter_um": 35}]
     save_json : bool, default False
         Save ops as JSON.
     plane_name : str, optional

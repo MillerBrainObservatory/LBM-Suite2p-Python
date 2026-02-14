@@ -1126,11 +1126,12 @@ def plot_noise_distribution(
                 f"save_path should be a fully qualified file path, not a directory: {output_filename}"
             )
 
-    fig = plt.figure(figsize=(8, 5))
-    plt.hist(noise_levels, bins=50, color="gray", alpha=0.7, edgecolor="black")
+    fig, ax = plt.subplots(figsize=(8, 5), facecolor="black")
+    ax.set_facecolor("black")
+    ax.hist(noise_levels, bins=50, color="gray", alpha=0.7, edgecolor="dimgray")
 
     mean_noise: float = np.mean(noise_levels)  # noqa
-    plt.axvline(
+    ax.axvline(
         mean_noise,
         color="r",
         linestyle="dashed",
@@ -1138,16 +1139,16 @@ def plot_noise_distribution(
         label=f"Mean: {mean_noise:.2f}",
     )
 
-    plt.xlabel("Noise Level", fontsize=14, fontweight="bold")
-    plt.ylabel("Number of Neurons", fontsize=14, fontweight="bold")
-    plt.title(title, fontsize=16, fontweight="bold")
-    plt.legend(fontsize=12)
-
-    plt.xticks(fontsize=12)
-    plt.yticks(fontsize=12)
+    ax.set_xlabel("Noise Level", fontsize=14, fontweight="bold", color="white")
+    ax.set_ylabel("Number of Neurons", fontsize=14, fontweight="bold", color="white")
+    ax.set_title(title, fontsize=16, fontweight="bold", color="white")
+    ax.legend(fontsize=12, facecolor="black", edgecolor="gray", labelcolor="white")
+    ax.tick_params(colors="white", labelsize=12)
+    for spine in ax.spines.values():
+        spine.set_edgecolor("gray")
 
     if output_filename:
-        plt.savefig(output_filename, dpi=200, bbox_inches="tight")
+        plt.savefig(output_filename, dpi=200, bbox_inches="tight", facecolor="black")
         plt.close(fig)
     else:
         plt.show()
@@ -3741,11 +3742,12 @@ def plot_regional_zoom(
     # Color palette for boxes
     box_colors = ['red', 'blue', 'green', 'orange', 'yellow']
 
-    fig, axes = plt.subplots(2, 3, figsize=figsize)
+    fig, axes = plt.subplots(2, 3, figsize=figsize, facecolor="black")
     axes = axes.flatten()
 
     # Full image with boxes showing regions
     ax = axes[0]
+    ax.set_facecolor("black")
     ax.imshow(overlay)
     for (name, (y1, y2, x1, x2)), c in zip(regions.items(), box_colors):
         rect = Rectangle(
@@ -3753,12 +3755,14 @@ def plot_regional_zoom(
             fill=False, edgecolor=c, linewidth=2, label=name
         )
         ax.add_patch(rect)
-    ax.set_title(f"Full Image: {n_cells} cells\n(boxes show zoom regions)")
-    ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.02), ncol=3, fontsize=8)
+    ax.set_title(f"Full Image: {n_cells} cells\n(boxes show zoom regions)", color="white")
+    ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.02), ncol=3, fontsize=8,
+              facecolor="black", edgecolor="gray", labelcolor="white")
     ax.axis('off')
 
     # Zoomed views
     for ax, ((name, (y1, y2, x1, x2)), c) in zip(axes[1:], zip(regions.items(), box_colors)):
+        ax.set_facecolor("black")
         zoom_mask = mask[y1:y2, x1:x2]
         n_zoom = len(np.unique(zoom_mask)) - 1  # Exclude background
         ax.imshow(overlay[y1:y2, x1:x2])
@@ -3770,14 +3774,14 @@ def plot_regional_zoom(
     diameter = ops.get("diameter", "?")
     plt.suptitle(
         f"{plane_name} - Regional Comparison ({zs}x{zs}) - d={diameter}",
-        fontsize=14, fontweight='bold'
+        fontsize=14, fontweight='bold', color="white"
     )
     plt.tight_layout()
 
     if save_path:
         save_path = Path(save_path)
         save_path.parent.mkdir(parents=True, exist_ok=True)
-        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        plt.savefig(save_path, dpi=150, bbox_inches='tight', facecolor="black")
         plt.close(fig)
     else:
         plt.show()
@@ -3871,20 +3875,22 @@ def plot_filtered_cells(
     img_norm = normalize99(img)
     img_rgb = np.stack([img_norm] * 3, axis=-1).astype(np.float32)
 
-    fig, axes = plt.subplots(1, 3, figsize=figsize)
+    fig, axes = plt.subplots(1, 3, figsize=figsize, facecolor="black")
 
     # Panel 1: Kept cells (green)
     ax = axes[0]
+    ax.set_facecolor("black")
     overlay_kept = img_rgb.copy()
     if mask_kept.max() > 0:
         mask_px = mask_kept > 0
         overlay_kept[mask_px] = (1 - alpha) * overlay_kept[mask_px] + alpha * np.array([0, 1, 0])
     ax.imshow(overlay_kept)
-    ax.set_title(f"Kept: {n_kept} cells", fontsize=12, fontweight='bold', color='green')
+    ax.set_title(f"Kept: {n_kept} cells", fontsize=12, fontweight='bold', color='lime')
     ax.axis('off')
 
     # Panel 2: Removed cells (red)
     ax = axes[1]
+    ax.set_facecolor("black")
     overlay_removed = img_rgb.copy()
     if mask_removed.max() > 0:
         mask_px = mask_removed > 0
@@ -3895,6 +3901,7 @@ def plot_filtered_cells(
 
     # Panel 3: Both overlaid
     ax = axes[2]
+    ax.set_facecolor("black")
     overlay_both = img_rgb.copy()
     if mask_kept.max() > 0:
         mask_px = mask_kept > 0
@@ -3903,7 +3910,7 @@ def plot_filtered_cells(
         mask_px = mask_removed > 0
         overlay_both[mask_px] = (1 - alpha) * overlay_both[mask_px] + alpha * np.array([1, 0, 0])
     ax.imshow(overlay_both)
-    ax.set_title(f"Combined: {n_kept} kept (green) / {n_removed} removed (red)", fontsize=12, fontweight='bold')
+    ax.set_title(f"Combined: {n_kept} kept / {n_removed} removed", fontsize=12, fontweight='bold', color="white")
     ax.axis('off')
 
     # Add legend
@@ -3912,20 +3919,21 @@ def plot_filtered_cells(
         Patch(facecolor='green', alpha=0.7, label=f'Kept ({n_kept})'),
         Patch(facecolor='red', alpha=0.7, label=f'Removed ({n_removed})'),
     ]
-    axes[2].legend(handles=legend_elements, loc='upper right', fontsize=10)
+    axes[2].legend(handles=legend_elements, loc='upper right', fontsize=10,
+                   facecolor="black", edgecolor="gray", labelcolor="white")
 
     # Title
     if title is None:
         plane_name = plane_dir.name
-        title = f"{plane_name}: {n_original} → {n_kept} cells ({n_removed} removed)"
+        title = f"{plane_name}: {n_original} -> {n_kept} cells ({n_removed} removed)"
 
-    plt.suptitle(title, fontsize=14, fontweight='bold')
+    plt.suptitle(title, fontsize=14, fontweight='bold', color="white")
     plt.tight_layout()
 
     if save_path:
         save_path = Path(save_path)
         save_path.parent.mkdir(parents=True, exist_ok=True)
-        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        plt.savefig(save_path, dpi=150, bbox_inches='tight', facecolor="black")
         plt.close(fig)
     else:
         plt.show()
@@ -4033,7 +4041,8 @@ def plot_filter_exclusions(
         mask_rejected = stat_to_mask(stat[removed_mask], img_h, img_w, yoff, xoff)
 
         # create figure
-        fig, ax = plt.subplots(figsize=figsize)
+        fig, ax = plt.subplots(figsize=figsize, facecolor="black")
+        ax.set_facecolor("black")
 
         overlay = img_rgb.copy()
 
@@ -4055,7 +4064,7 @@ def plot_filter_exclusions(
         title = f"{name}: {n_rejected} excluded"
         if params_str:
             title += f" ({params_str})"
-        ax.set_title(title, fontsize=12, fontweight="bold")
+        ax.set_title(title, fontsize=12, fontweight="bold", color="white")
 
         # legend
         from matplotlib.patches import Patch
@@ -4063,13 +4072,14 @@ def plot_filter_exclusions(
             Patch(facecolor=(0.2, 0.8, 0.2), alpha=0.7, label=f"Accepted ({accepted_mask.sum()})"),
             Patch(facecolor=(0.9, 0.2, 0.2), alpha=0.7, label=f"Excluded ({n_rejected})"),
         ]
-        ax.legend(handles=legend_elements, loc="upper right", fontsize=10)
+        ax.legend(handles=legend_elements, loc="upper right", fontsize=10,
+                  facecolor="black", edgecolor="gray", labelcolor="white")
 
         plt.tight_layout()
 
         # save
         save_path = save_dir / f"14_filter_{name}.png"
-        plt.savefig(save_path, dpi=150, bbox_inches="tight")
+        plt.savefig(save_path, dpi=150, bbox_inches="tight", facecolor="black")
         plt.close(fig)
         print(f"  Saved {save_path.name}")
 
@@ -4228,13 +4238,14 @@ def plot_cell_filter_summary(
         ncols = 3
         nrows = (n_panels + 2) // 3
 
-    fig, axes = plt.subplots(nrows, ncols, figsize=figsize)
+    fig, axes = plt.subplots(nrows, ncols, figsize=figsize, facecolor="black")
     if n_panels == 1:
         axes = np.array([axes])
     axes = axes.flatten()
 
     # hide unused axes
     for i in range(n_panels, len(axes)):
+        axes[i].set_facecolor("black")
         axes[i].axis("off")
 
     # color scheme
@@ -4276,9 +4287,10 @@ def plot_cell_filter_summary(
             # for filter panels without explicit mask, just show the count in subtitle
             # (we don't have the exact removed_mask saved, just metadata)
 
+        ax.set_facecolor("black")
         ax.imshow(overlay)
         ax.axis("off")
-        ax.set_title(panel["title"], fontsize=11, fontweight="bold")
+        ax.set_title(panel["title"], fontsize=11, fontweight="bold", color="white")
 
         # add subtitle
         if "subtitle" in panel:
@@ -4286,7 +4298,7 @@ def plot_cell_filter_summary(
                 0.5, -0.02, panel["subtitle"],
                 transform=ax.transAxes,
                 ha="center", va="top",
-                fontsize=9, color="gray"
+                fontsize=9, color="lightgray"
             )
 
     # add legend to last panel
@@ -4295,19 +4307,20 @@ def plot_cell_filter_summary(
         Patch(facecolor=color_rejected, alpha=0.7, label="rejected"),
     ]
     axes[n_panels - 1].legend(
-        handles=legend_elements, loc="upper right", fontsize=9
+        handles=legend_elements, loc="upper right", fontsize=9,
+        facecolor="black", edgecolor="gray", labelcolor="white"
     )
 
     # overall title
     fig.suptitle(
-        f"Cell Filter Summary: {n_rois} total ROIs → {n_final_accepted} accepted",
-        fontsize=13, fontweight="bold", y=0.98
+        f"Cell Filter Summary: {n_rois} total ROIs -> {n_final_accepted} accepted",
+        fontsize=13, fontweight="bold", color="white", y=0.98
     )
 
     plt.tight_layout(rect=[0, 0, 1, 0.96])
 
     if save_path:
-        plt.savefig(save_path, dpi=150, bbox_inches="tight")
+        plt.savefig(save_path, dpi=150, bbox_inches="tight", facecolor="black")
         plt.close(fig)
     else:
         plt.show()
