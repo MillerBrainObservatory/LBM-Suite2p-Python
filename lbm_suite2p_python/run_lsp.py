@@ -1365,8 +1365,8 @@ def run_plane(
         md_combined = {**metadata, **ops}
         print(f"Writing binary to {plane_dir}...")
         bin_start = time.time()
-        # if 4D input, extract single plane; otherwise write as-is
-        write_planes = [plane] if file.ndim == 4 else None
+        # extract single plane for multi-z data (4D TZYX or 5D TCZYX)
+        write_planes = [plane] if file.ndim >= 4 else None
         imwrite(
             file,
             plane_dir,
