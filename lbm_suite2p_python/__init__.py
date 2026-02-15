@@ -9,11 +9,6 @@ from lbm_suite2p_python.run_lsp import (
     generate_plane_dirname,
 )
 
-# Cellpose workflow exports
-from lbm_suite2p_python.cellpose_workflow import (
-    redetect,
-    enhance_summary_image,
-)
 from lbm_suite2p_python.cellpose import (
     train_cellpose,
     annotate,
@@ -81,7 +76,6 @@ from lbm_suite2p_python import (
     conversion,
     utils,
     postprocessing,
-    normcorre,
 )
 
 try:
@@ -100,8 +94,6 @@ __all__ = [
     "generate_plane_dirname",
 
     # Cellpose / HITL Workflow
-    "redetect",
-    "enhance_summary_image",
     "train_cellpose",
     "annotate",
     "open_in_gui",
@@ -119,7 +111,6 @@ __all__ = [
     "conversion",
     "utils",
     "postprocessing",
-    "normcorre",
 
     # Grid Search
     "grid_search",
