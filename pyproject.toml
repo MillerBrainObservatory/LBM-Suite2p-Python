@@ -18,7 +18,7 @@ classifiers=[
 ]
 
 dependencies = [
-	"mbo_utilities>=2.5.3",
+	"mbo_utilities>=2.6.0",
 ]
 
 [project.scripts]
