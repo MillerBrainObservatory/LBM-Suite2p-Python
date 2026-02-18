@@ -1452,35 +1452,40 @@ def run_plane(
         ops["reg_file"] = str(reg_bin)
     np.save(ops_file, ops)
 
-    # Run Suite2p
-    if progress_callback:
-        progress_callback(step="suite2p", message="Running suite2p...")
-    try:
-        s2p_start = time.time()
-        processed = run_plane_bin(ops) # This updates ops in-place and saves it
+    # Run Suite2p (skip entirely when nothing needs to be done)
+    skip_suite2p = not needs_reg and not needs_detect
+    if skip_suite2p:
+        print("  Registration and detection already complete, skipping suite2p.")
+        print("  Re-generating post-processing and figures...")
+    else:
+        if progress_callback:
+            progress_callback(step="suite2p", message="Running suite2p...")
+        try:
+            s2p_start = time.time()
+            processed = run_plane_bin(ops)
 
-        if processed:
-             updated_ops = load_ops(ops_file)
-             _add_processing_step(
-                 updated_ops,
-                 "suite2p_pipeline",
-                 duration_seconds=time.time() - s2p_start,
-                 extra={
-                     "do_registration": updated_ops.get("do_registration", 1),
-                     "n_cells": len(np.load(plane_dir / "stat.npy", allow_pickle=True)) if (plane_dir / "stat.npy").exists() else 0
-                 }
-             )
-             np.save(ops_file, updated_ops)
+            if processed:
+                 updated_ops = load_ops(ops_file)
+                 _add_processing_step(
+                     updated_ops,
+                     "suite2p_pipeline",
+                     duration_seconds=time.time() - s2p_start,
+                     extra={
+                         "do_registration": updated_ops.get("do_registration", 1),
+                         "n_cells": len(np.load(plane_dir / "stat.npy", allow_pickle=True)) if (plane_dir / "stat.npy").exists() else 0
+                     }
+                 )
+                 np.save(ops_file, updated_ops)
 
-    except Exception as e:
-        print(f"Error in run_plane_bin: {e}")
-        traceback.print_exc()
-        _cleanup_bin_files(plane_dir, keep_raw, keep_reg)
-        raise
+        except Exception as e:
+            print(f"Error in run_plane_bin: {e}")
+            traceback.print_exc()
+            _cleanup_bin_files(plane_dir, keep_raw, keep_reg)
+            raise
 
-    if not processed:
-         _cleanup_bin_files(plane_dir, keep_raw, keep_reg)
-         return ops_file
+        if not processed:
+             _cleanup_bin_files(plane_dir, keep_raw, keep_reg)
+             return ops_file
 
     # --- Post-Processing ---
     if progress_callback:

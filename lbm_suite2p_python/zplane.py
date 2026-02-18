@@ -2829,8 +2829,17 @@ def plot_zplane_figures(
     # so we don't need to mask them here anymore
     # output_ops = mask_dead_zones_in_ops(output_ops)
 
-    # force remake of the heavy figures
+    # force remake of all figures (including segmentation overlays)
     for key in [
+        "correlation_image",
+        "correlation_segmentation",
+        "max_proj",
+        "max_proj_segmentation",
+        "meanImg",
+        "meanImg_segmentation",
+        "meanImgE",
+        "meanImgE_segmentation",
+        "quality_diagnostics",
         "registration",
         "traces_raw_20",
         "traces_raw_50",
@@ -2842,6 +2851,7 @@ def plot_zplane_figures(
         "noise_acc",
         "noise_rej",
         "rastermap",
+        "regional_zoom",
     ]:
         if key in expected_files:
             if expected_files[key].exists():
@@ -2869,9 +2879,121 @@ def plot_zplane_figures(
         n_rejected = F_rejected.shape[0]
         print(f"Plotting results for {n_accepted} accepted / {n_rejected} rejected ROIs")
 
-        # Rastermap (only for sufficient cell counts)
-        # rastermap sorts neurons by activity similarity for visualization
-        # we cache the model to avoid recomputing, but validate it matches current data
+        # ---- Segmentation overlays (generated first so failures below don't block them) ----
+        # suite2p stores images in two coordinate systems:
+        # - FULL space: refImg, meanImg, meanImgE (same size as original Ly x Lx)
+        # - CROPPED space: max_proj, Vcorr (size determined by yrange/xrange after registration)
+        # stat coordinates are in FULL image space.
+
+        stat_full = res["stat"]
+
+        def _is_valid_image(img):
+            if img is None:
+                return False
+            if isinstance(img, (int, float)) and img == 0:
+                return False
+            if isinstance(img, np.ndarray) and img.size == 0:
+                return False
+            return True
+
+        yrange = output_ops.get("yrange", [0, output_ops.get("Ly", 512)])
+        xrange = output_ops.get("xrange", [0, output_ops.get("Lx", 512)])
+        ymin, xmin = int(yrange[0]), int(xrange[0])
+
+        if ymin > 0 or xmin > 0:
+            stat_cropped = []
+            for s in stat_full:
+                s_adj = s.copy()
+                s_adj["ypix"] = s["ypix"] - ymin
+                s_adj["xpix"] = s["xpix"] - xmin
+                stat_cropped.append(s_adj)
+        else:
+            stat_cropped = stat_full
+
+        # full-space images (meanImg, meanImgE)
+        full_space_images = {
+            "meanImg": ("Mean Image", expected_files["meanImg_segmentation"]),
+            "meanImgE": ("Enhanced Mean Image", expected_files["meanImgE_segmentation"]),
+        }
+
+        for img_key, (title_name, save_file) in full_space_images.items():
+            try:
+                img = output_ops.get(img_key)
+                if _is_valid_image(img):
+                    if n_accepted > 0:
+                        plot_masks(
+                            img=img,
+                            stat=stat_full,
+                            mask_idx=iscell_mask,
+                            savepath=save_file,
+                            title=f"{title_name} - Accepted ROIs (n={n_accepted})"
+                        )
+                    else:
+                        plot_projection(
+                            output_ops,
+                            save_file,
+                            fig_label=kwargs.get("fig_label", plane_dir.stem),
+                            display_masks=False,
+                            add_scalebar=True,
+                            proj=img_key,
+                        )
+            except Exception as e:
+                print(f"  Warning: {img_key} segmentation failed: {e}")
+
+        # cropped-space images (max_proj)
+        cropped_space_images = {
+            "max_proj": ("Max Projection", expected_files["max_proj_segmentation"]),
+        }
+
+        for img_key, (title_name, save_file) in cropped_space_images.items():
+            try:
+                img = output_ops.get(img_key)
+                if _is_valid_image(img):
+                    if n_accepted > 0:
+                        plot_masks(
+                            img=img,
+                            stat=stat_cropped,
+                            mask_idx=iscell_mask,
+                            savepath=save_file,
+                            title=f"{title_name} - Accepted ROIs (n={n_accepted})"
+                        )
+                    else:
+                        plot_projection(
+                            output_ops,
+                            save_file,
+                            fig_label=kwargs.get("fig_label", plane_dir.stem),
+                            display_masks=False,
+                            add_scalebar=True,
+                            proj=img_key,
+                        )
+            except Exception as e:
+                print(f"  Warning: {img_key} segmentation failed: {e}")
+
+        # correlation image (Vcorr) - cropped space
+        try:
+            vcorr = output_ops.get("Vcorr")
+            if _is_valid_image(vcorr):
+                fig, ax = plt.subplots(figsize=(8, 8), facecolor="black")
+                ax.set_facecolor("black")
+                ax.imshow(vcorr, cmap="gray")
+                ax.set_title("Correlation Image", color="white", fontweight="bold")
+                ax.axis("off")
+                plt.tight_layout()
+                plt.savefig(expected_files["correlation_image"], dpi=150, facecolor="black")
+                plt.close(fig)
+
+                if n_accepted > 0:
+                    plot_masks(
+                        img=vcorr,
+                        stat=stat_cropped,
+                        mask_idx=iscell_mask,
+                        savepath=expected_files["correlation_segmentation"],
+                        title=f"Correlation Image - Accepted ROIs (n={n_accepted})"
+                    )
+        except Exception as e:
+            print(f"  Warning: correlation image failed: {e}")
+
+        # ---- Rastermap (optional) ----
         model = None
         if run_rastermap and n_accepted >= 2:
             try:
@@ -2889,11 +3011,9 @@ def plot_zplane_figures(
                 plot_file = expected_files["rastermap"]
                 need_recompute = True
 
-                # check if cached model exists and is valid for current cell count
                 if model_file.is_file():
                     try:
                         cached_model = np.load(model_file, allow_pickle=True).item()
-                        # Handle both direct model objects and dict wrappers
                         if hasattr(cached_model, "isort"):
                             cached_isort = cached_model.isort
                         elif isinstance(cached_model, dict) and "isort" in cached_model:
@@ -2906,7 +3026,6 @@ def plot_zplane_figures(
                             need_recompute = False
                             print(f"  Using cached rastermap model ({n_accepted} cells)")
                         else:
-                            # stale model - cell count changed since last run
                             cached_len = len(cached_isort) if cached_isort is not None else "?"
                             print(f"  Rastermap model stale (cached {cached_len} vs current {n_accepted} cells), recomputing...")
                             model_file.unlink()
@@ -2914,7 +3033,6 @@ def plot_zplane_figures(
                         print(f"  Failed to load cached rastermap model: {e}, recomputing...")
                         model_file.unlink(missing_ok=True)
 
-                # fit new model if needed
                 if need_recompute:
                     print(f"  Computing rastermap model for {n_accepted} cells...")
                     params = {
@@ -2927,7 +3045,6 @@ def plot_zplane_figures(
                     model = rastermap.Rastermap(**params).fit(spks_cells)
                     np.save(model_file, model)
 
-                # regenerate plot if missing (even if model was cached)
                 if model is not None and not plot_file.is_file():
                     plot_rastermap(
                         spks_cells,
@@ -2938,9 +3055,7 @@ def plot_zplane_figures(
                         title="Rastermap Sorted Activity",
                     )
 
-                # apply sorting to traces for downstream plots
                 if model is not None:
-                    # Handle both direct model objects and dict wrappers
                     if hasattr(model, "isort"):
                         isort = model.isort
                     elif isinstance(model, dict) and "isort" in model:
@@ -2953,255 +3068,132 @@ def plot_zplane_figures(
                         output_ops["isort"] = isort_global
                         F_accepted = F_accepted[isort]
 
-        # Compute dF/F
-        fs = output_ops.get("fs", 1.0)
-        tau = output_ops.get("tau", 1.0)
+        # ---- Trace plots and noise distributions ----
+        try:
+            fs = output_ops.get("fs", 1.0)
+            tau = output_ops.get("tau", 1.0)
 
-        # Compute unsmoothed dF/F for shot noise (smoothing reduces frame-to-frame variance)
-        if n_accepted > 0:
-            dffp_acc_unsmoothed = dff_rolling_percentile(
-                F_accepted,
-                percentile=dff_percentile,
-                window_size=dff_window_size,
-                smooth_window=1,  # No smoothing for shot noise
-                fs=fs,
-                tau=tau,
-            ) * 100
-            # Smoothed version for trace plotting
-            dffp_acc = dff_rolling_percentile(
-                F_accepted,
-                percentile=dff_percentile,
-                window_size=dff_window_size,
-                smooth_window=dff_smooth_window,
-                fs=fs,
-                tau=tau,
-            ) * 100
-        else:
-            dffp_acc_unsmoothed = np.zeros((0, F.shape[1]))
-            dffp_acc = np.zeros((0, F.shape[1]))
-
-        if n_rejected > 0:
-            dffp_rej_unsmoothed = dff_rolling_percentile(
-                F_rejected,
-                percentile=dff_percentile,
-                window_size=dff_window_size,
-                smooth_window=1,  # No smoothing for shot noise
-                fs=fs,
-                tau=tau,
-            ) * 100
-            # Smoothed version for trace plotting
-            dffp_rej = dff_rolling_percentile(
-                F_rejected,
-                percentile=dff_percentile,
-                window_size=dff_window_size,
-                smooth_window=dff_smooth_window,
-                fs=fs,
-                tau=tau,
-            ) * 100
-        else:
-            dffp_rej_unsmoothed = np.zeros((0, F.shape[1]))
-            dffp_rej = np.zeros((0, F.shape[1]))
-
-        # Trace plots (robust to any cell count >= 1)
-        # Sort traces by quality score (SNR, skewness, shot noise) for visualization
-        # Generate plots with 20, 50, and 100 cells if available
-
-        if n_accepted > 0:
-            # Get accepted cell stat for skewness
-            stat_accepted = [s for s, m in zip(res["stat"], iscell_mask) if m]
-
-            # Compute quality scores and sort
-            quality = compute_trace_quality_score(
-                F_accepted,
-                Fneu=res["Fneu"][iscell_mask] if "Fneu" in res else None,
-                stat=stat_accepted,
-                fs=fs,
-            )
-            quality_sort_idx = quality["sort_idx"]
-
-            # Sort traces by quality (best first)
-            dffp_acc_sorted = dffp_acc[quality_sort_idx]
-            F_accepted_sorted = F_accepted[quality_sort_idx]
-
-            # Generate trace plots at multiple cell counts
-            cell_counts = [20, 50, 100]
-            for n_cells in cell_counts:
-                if n_accepted >= n_cells:
-                    # dF/F traces (percent)
-                    plot_traces(
-                        dffp_acc_sorted,
-                        save_path=expected_files[f"traces_dff_{n_cells}"],
-                        num_neurons=n_cells,
-                        scale_bar_unit=r"% $\Delta$F/F$_0$",
-                        title=rf"Top {n_cells} $\Delta$F/F Traces by Quality (n={n_accepted} total)",
-                    )
-                    # Raw traces
-                    plot_traces(
-                        F_accepted_sorted,
-                        save_path=expected_files[f"traces_raw_{n_cells}"],
-                        num_neurons=n_cells,
-                        scale_bar_unit="a.u.",
-                        title=f"Top {n_cells} Raw Traces by Quality (n={n_accepted} total)",
-                    )
-                elif n_cells == 20:
-                    # Always generate 20-cell plot even if fewer cells available
-                    plot_traces(
-                        dffp_acc_sorted,
-                        save_path=expected_files["traces_dff_20"],
-                        num_neurons=min(20, n_accepted),
-                        scale_bar_unit=r"% $\Delta$F/F$_0$",
-                        title=rf"Top {min(20, n_accepted)} $\Delta$F/F Traces by Quality (n={n_accepted} total)",
-                    )
-                    plot_traces(
-                        F_accepted_sorted,
-                        save_path=expected_files["traces_raw_20"],
-                        num_neurons=min(20, n_accepted),
-                        scale_bar_unit="a.u.",
-                        title=f"Top {min(20, n_accepted)} Raw Traces by Quality (n={n_accepted} total)",
-                    )
-        else:
-            print("  No accepted cells - skipping accepted trace plots")
-
-        if n_rejected > 0:
-            plot_traces(
-                dffp_rej,
-                save_path=expected_files["traces_rejected"],
-                num_neurons=min(20, n_rejected),
-                scale_bar_unit=r"% $\Delta$F/F$_0$",
-                title=rf"$\Delta$F/F Traces - Rejected ROIs (n={n_rejected})",
-            )
-        else:
-            print("  No rejected ROIs - skipping rejected trace plots")
-
-        # Noise distributions (robust to any cell count >= 1)
-        # Use unsmoothed dF/F for shot noise (smoothing artificially reduces noise)
-        if n_accepted > 0:
-            dff_noise_acc = dff_shot_noise(dffp_acc_unsmoothed, fs)
-            plot_noise_distribution(
-                dff_noise_acc,
-                output_filename=expected_files["noise_acc"],
-                title=f"Shot-Noise Distribution (Accepted, n={n_accepted})",
-            )
-
-        if n_rejected > 0:
-            dff_noise_rej = dff_shot_noise(dffp_rej_unsmoothed, fs)
-            plot_noise_distribution(
-                dff_noise_rej,
-                output_filename=expected_files["noise_rej"],
-                title=f"Shot-Noise Distribution (Rejected, n={n_rejected})",
-            )
-
-        # Segmentation overlays
-        # Suite2p stores images in two coordinate systems:
-        # - FULL space: refImg, meanImg, meanImgE (same size as original Ly x Lx)
-        # - CROPPED space: max_proj, Vcorr (size determined by yrange/xrange after registration)
-        # The stat coordinates are in FULL image space.
-
-        stat_full = res["stat"]  # stat coordinates in full image space
-
-        # Helper to check if image is valid
-        def _is_valid_image(img):
-            if img is None:
-                return False
-            if isinstance(img, (int, float)) and img == 0:
-                return False
-            if isinstance(img, np.ndarray) and img.size == 0:
-                return False
-            return True
-
-        # Get crop parameters for images in cropped space
-        yrange = output_ops.get("yrange", [0, output_ops.get("Ly", 512)])
-        xrange = output_ops.get("xrange", [0, output_ops.get("Lx", 512)])
-        ymin, xmin = int(yrange[0]), int(xrange[0])
-
-        # Create stat with adjusted coordinates for cropped image space
-        if ymin > 0 or xmin > 0:
-            stat_cropped = []
-            for s in stat_full:
-                s_adj = s.copy()
-                s_adj["ypix"] = s["ypix"] - ymin
-                s_adj["xpix"] = s["xpix"] - xmin
-                stat_cropped.append(s_adj)
-        else:
-            stat_cropped = stat_full
-
-        # Images in FULL space - use stat_full
-        full_space_images = {
-            "meanImg": ("Mean Image", expected_files["meanImg_segmentation"]),
-            "meanImgE": ("Enhanced Mean Image", expected_files["meanImgE_segmentation"]),
-        }
-
-        for img_key, (title_name, save_file) in full_space_images.items():
-            img = output_ops.get(img_key)
-            if _is_valid_image(img):
-                if n_accepted > 0:
-                    plot_masks(
-                        img=img,
-                        stat=stat_full,
-                        mask_idx=iscell_mask,
-                        savepath=save_file,
-                        title=f"{title_name} - Accepted ROIs (n={n_accepted})"
-                    )
-                else:
-                    plot_projection(
-                        output_ops,
-                        save_file,
-                        fig_label=kwargs.get("fig_label", plane_dir.stem),
-                        display_masks=False,
-                        add_scalebar=True,
-                        proj=img_key,
-                    )
-
-        # Images in CROPPED space - use stat_cropped
-        cropped_space_images = {
-            "max_proj": ("Max Projection", expected_files["max_proj_segmentation"]),
-        }
-
-        for img_key, (title_name, save_file) in cropped_space_images.items():
-            img = output_ops.get(img_key)
-            if _is_valid_image(img):
-                if n_accepted > 0:
-                    plot_masks(
-                        img=img,
-                        stat=stat_cropped,
-                        mask_idx=iscell_mask,
-                        savepath=save_file,
-                        title=f"{title_name} - Accepted ROIs (n={n_accepted})"
-                    )
-                else:
-                    plot_projection(
-                        output_ops,
-                        save_file,
-                        fig_label=kwargs.get("fig_label", plane_dir.stem),
-                        display_masks=False,
-                        add_scalebar=True,
-                        proj=img_key,
-                    )
-
-        # Correlation image (Vcorr) - in CROPPED space
-        vcorr = output_ops.get("Vcorr")
-        if _is_valid_image(vcorr):
-            # Save correlation image without masks
-            fig, ax = plt.subplots(figsize=(8, 8), facecolor="black")
-            ax.set_facecolor("black")
-            ax.imshow(vcorr, cmap="gray")
-            ax.set_title("Correlation Image", color="white", fontweight="bold")
-            ax.axis("off")
-            plt.tight_layout()
-            plt.savefig(expected_files["correlation_image"], dpi=150, facecolor="black")
-            plt.close(fig)
-
-            # Correlation image with segmentation
+            # unsmoothed dF/F for shot noise
             if n_accepted > 0:
-                plot_masks(
-                    img=vcorr,
-                    stat=stat_cropped,
-                    mask_idx=iscell_mask,
-                    savepath=expected_files["correlation_segmentation"],
-                    title=f"Correlation Image - Accepted ROIs (n={n_accepted})"
+                dffp_acc_unsmoothed = dff_rolling_percentile(
+                    F_accepted,
+                    percentile=dff_percentile,
+                    window_size=dff_window_size,
+                    smooth_window=1,
+                    fs=fs,
+                    tau=tau,
+                ) * 100
+                dffp_acc = dff_rolling_percentile(
+                    F_accepted,
+                    percentile=dff_percentile,
+                    window_size=dff_window_size,
+                    smooth_window=dff_smooth_window,
+                    fs=fs,
+                    tau=tau,
+                ) * 100
+            else:
+                dffp_acc_unsmoothed = np.zeros((0, F.shape[1]))
+                dffp_acc = np.zeros((0, F.shape[1]))
+
+            if n_rejected > 0:
+                dffp_rej_unsmoothed = dff_rolling_percentile(
+                    F_rejected,
+                    percentile=dff_percentile,
+                    window_size=dff_window_size,
+                    smooth_window=1,
+                    fs=fs,
+                    tau=tau,
+                ) * 100
+                dffp_rej = dff_rolling_percentile(
+                    F_rejected,
+                    percentile=dff_percentile,
+                    window_size=dff_window_size,
+                    smooth_window=dff_smooth_window,
+                    fs=fs,
+                    tau=tau,
+                ) * 100
+            else:
+                dffp_rej_unsmoothed = np.zeros((0, F.shape[1]))
+                dffp_rej = np.zeros((0, F.shape[1]))
+
+            if n_accepted > 0:
+                stat_accepted = [s for s, m in zip(res["stat"], iscell_mask) if m]
+                quality = compute_trace_quality_score(
+                    F_accepted,
+                    Fneu=res["Fneu"][iscell_mask] if "Fneu" in res else None,
+                    stat=stat_accepted,
+                    fs=fs,
+                )
+                quality_sort_idx = quality["sort_idx"]
+                dffp_acc_sorted = dffp_acc[quality_sort_idx]
+                F_accepted_sorted = F_accepted[quality_sort_idx]
+
+                cell_counts = [20, 50, 100]
+                for n_cells in cell_counts:
+                    if n_accepted >= n_cells:
+                        plot_traces(
+                            dffp_acc_sorted,
+                            save_path=expected_files[f"traces_dff_{n_cells}"],
+                            num_neurons=n_cells,
+                            scale_bar_unit=r"% $\Delta$F/F$_0$",
+                            title=rf"Top {n_cells} $\Delta$F/F Traces by Quality (n={n_accepted} total)",
+                        )
+                        plot_traces(
+                            F_accepted_sorted,
+                            save_path=expected_files[f"traces_raw_{n_cells}"],
+                            num_neurons=n_cells,
+                            scale_bar_unit="a.u.",
+                            title=f"Top {n_cells} Raw Traces by Quality (n={n_accepted} total)",
+                        )
+                    elif n_cells == 20:
+                        plot_traces(
+                            dffp_acc_sorted,
+                            save_path=expected_files["traces_dff_20"],
+                            num_neurons=min(20, n_accepted),
+                            scale_bar_unit=r"% $\Delta$F/F$_0$",
+                            title=rf"Top {min(20, n_accepted)} $\Delta$F/F Traces by Quality (n={n_accepted} total)",
+                        )
+                        plot_traces(
+                            F_accepted_sorted,
+                            save_path=expected_files["traces_raw_20"],
+                            num_neurons=min(20, n_accepted),
+                            scale_bar_unit="a.u.",
+                            title=f"Top {min(20, n_accepted)} Raw Traces by Quality (n={n_accepted} total)",
+                        )
+            else:
+                print("  No accepted cells - skipping accepted trace plots")
+
+            if n_rejected > 0:
+                plot_traces(
+                    dffp_rej,
+                    save_path=expected_files["traces_rejected"],
+                    num_neurons=min(20, n_rejected),
+                    scale_bar_unit=r"% $\Delta$F/F$_0$",
+                    title=rf"$\Delta$F/F Traces - Rejected ROIs (n={n_rejected})",
+                )
+            else:
+                print("  No rejected ROIs - skipping rejected trace plots")
+
+            # noise distributions
+            if n_accepted > 0:
+                dff_noise_acc = dff_shot_noise(dffp_acc_unsmoothed, fs)
+                plot_noise_distribution(
+                    dff_noise_acc,
+                    output_filename=expected_files["noise_acc"],
+                    title=f"Shot-Noise Distribution (Accepted, n={n_accepted})",
                 )
 
-    # Summary images (no masks) - always generated
+            if n_rejected > 0:
+                dff_noise_rej = dff_shot_noise(dffp_rej_unsmoothed, fs)
+                plot_noise_distribution(
+                    dff_noise_rej,
+                    output_filename=expected_files["noise_rej"],
+                    title=f"Shot-Noise Distribution (Rejected, n={n_rejected})",
+                )
+        except Exception as e:
+            print(f"  Warning: trace/noise plots failed: {e}")
+
+    # summary images (no masks) - always generated
     fig_label = kwargs.get("fig_label", plane_dir.stem)
     for key in ["meanImg", "max_proj", "meanImgE"]:
         if key in output_ops and output_ops[key] is not None:
@@ -3217,13 +3209,13 @@ def plot_zplane_figures(
             except Exception as e:
                 print(f"  Failed to plot {key}: {e}")
 
-    # Quality diagnostics
+    # quality diagnostics
     try:
         plot_plane_diagnostics(plane_dir, save_path=expected_files["quality_diagnostics"])
     except Exception as e:
         print(f"  Failed to generate quality diagnostics: {e}")
 
-    # Regional zoom
+    # regional zoom
     try:
         plot_regional_zoom(
             plane_dir,

@@ -300,18 +300,24 @@ def grid_search(
             else:
                 print(f"\nUsing existing base binary: {base_bin_file}")
 
-            # run registration once on base
+            # run registration once on base (or skip if user disabled it)
             base_reg_file = base_dir / "data.bin"
+            user_wants_reg = ops.get("do_registration", 1) not in (0, False)
+
             if not base_reg_file.exists() or force_reg:
-                print(f"Running registration on base...")
-                reg_ops = copy.deepcopy(default_ops())
-                if base_ops_file.exists():
-                    reg_ops.update(load_ops(base_ops_file))
-                reg_ops["do_registration"] = 1
-                reg_ops["roidetect"] = 0
-                np.save(base_ops_file, reg_ops)
-                run_plane_bin(base_ops_file)
-                print(f"Registration complete.")
+                if user_wants_reg:
+                    print(f"Running registration on base...")
+                    reg_ops = copy.deepcopy(default_ops())
+                    if base_ops_file.exists():
+                        reg_ops.update(load_ops(base_ops_file))
+                    reg_ops["do_registration"] = 1
+                    reg_ops["roidetect"] = 0
+                    np.save(base_ops_file, reg_ops)
+                    run_plane_bin(base_ops_file)
+                    print(f"Registration complete.")
+                else:
+                    print(f"Registration disabled, using raw binary as base.")
+                    shutil.copy2(base_bin_file, base_reg_file)
             else:
                 print(f"Using existing registered binary: {base_reg_file}")
 
