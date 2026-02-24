@@ -1,16 +1,16 @@
 {
-  "timestamp": "2025-12-30T17:22:59.500022",
+  "timestamp": "2026-02-18T20:25:13.276818",
   "tests": [
     {
       "name": "test_plot_traces_basic",
       "status": "passed",
-      "duration_seconds": 0.47906041145324707,
+      "duration_seconds": 0.2488095760345459,
       "details": {}
     },
     {
       "name": "test_plot_traces_custom_label",
       "status": "passed",
-      "duration_seconds": 0.7540707588195801,
+      "duration_seconds": 0.48221492767333984,
       "details": {
         "labels_tested": [
           "100% \u0394F/F\u2080",
@@ -22,7 +22,7 @@
     {
       "name": "test_plot_traces_cell_indices",
       "status": "passed",
-      "duration_seconds": 0.25373172760009766,
+      "duration_seconds": 0.15871095657348633,
       "details": {
         "indices": [
           0,
@@ -36,7 +36,7 @@
     {
       "name": "test_dff_rolling_percentile",
       "status": "passed",
-      "duration_seconds": 0.010767459869384766,
+      "duration_seconds": 0.010622024536132812,
       "details": {
         "shape": [
           50,
@@ -49,7 +49,7 @@
     {
       "name": "test_dff_window_size_effect",
       "status": "passed",
-      "duration_seconds": 0.01468968391418457,
+      "duration_seconds": 0.0050504207611083984,
       "details": {
         "max_diff": 0.03420636286789755,
         "mean_diff": 0.0001773608992455071
@@ -60,10 +60,10 @@
   "failed": 0,
   "skipped": 0,
   "images": [
-    "C:\\Users\\flynn\\repos\\LBM-Suite2p-Python\\tests\\traces_basic.png",
-    "C:\\Users\\flynn\\repos\\LBM-Suite2p-Python\\tests\\traces_label_0.png",
-    "C:\\Users\\flynn\\repos\\LBM-Suite2p-Python\\tests\\traces_label_1.png",
-    "C:\\Users\\flynn\\repos\\LBM-Suite2p-Python\\tests\\traces_label_2.png",
-    "C:\\Users\\flynn\\repos\\LBM-Suite2p-Python\\tests\\traces_cell_indices.png"
+    "C:\\Users\\RBO\\repos\\LBM-Suite2p-Python\\tests\\traces_basic.png",
+    "C:\\Users\\RBO\\repos\\LBM-Suite2p-Python\\tests\\traces_label_0.png",
+    "C:\\Users\\RBO\\repos\\LBM-Suite2p-Python\\tests\\traces_label_1.png",
+    "C:\\Users\\RBO\\repos\\LBM-Suite2p-Python\\tests\\traces_label_2.png",
+    "C:\\Users\\RBO\\repos\\LBM-Suite2p-Python\\tests\\traces_cell_indices.png"
   ]
 }
