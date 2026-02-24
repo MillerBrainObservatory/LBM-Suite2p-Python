@@ -194,6 +194,19 @@ scores = result['score']          # Combined scores
 - **Skewness**: Positive skew indicates calcium transients (higher = better)
 - **Shot noise**: Frame-to-frame variability (lower = better, inverted in score)
 
+**Neuropil correction and rectification:**
+
+Neuropil subtraction (`F - 0.7 * Fneu`) can produce negative fluorescence values, especially in ROIs where the neuropil signal is strong relative to the soma. Negative values drag down the mean fluorescence while preserving the same standard deviation, which artificially suppresses the SNR toward or below 1.
+
+To correct this, `compute_trace_quality_score` and `compute_roi_stats` rectify the corrected trace by clipping negative values to zero before computing dF/F:
+
+```python
+F_corr = F - 0.7 * Fneu
+F_corr = np.maximum(F_corr, 0)  # rectify negatives
+```
+
+This ensures the baseline estimate (20th percentile) remains meaningful and SNR values are > 1 for active neurons. If you compute dF/F manually (e.g. via `dff_rolling_percentile`), apply the same rectification to your neuropil-corrected traces before passing them in.
+
 ```{figure} _images/dff/quality_score_breakdown.png
 :alt: Quality score breakdown
 :name: fig-quality-score
