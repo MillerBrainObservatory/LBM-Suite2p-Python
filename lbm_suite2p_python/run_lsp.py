@@ -260,36 +260,29 @@ def pipeline(
     # 2. Load Input to Determine Dimensionality
     # We need to know if it's 3D (single plane) or 4D (volume)
     is_list = isinstance(input_data, (list, tuple))
+    is_volumetric = False
 
-    if is_list:
-        # Check if list of files implies volume (files with plane tags)
-        # We'll just assume list = volume for now, as run_volume handles lists
-        is_volumetric = True
-        arr = None
+    # Always load array to check dimensions and ensure downstream functions have the array shape
+    # If input is already array, this is fast. If path or list of paths, it loads lazy array.
+    if _is_lazy_array(input_data):
+        arr = input_data
     else:
-        # Load array to check dimensions
-        # If input is already array, this is fast. If path, it loads lazy array.
-        if _is_lazy_array(input_data):
-            arr = input_data
-        else:
-            print(f"Loading input to determine dimensions: {input_data}")
-            arr = imread(input_data, **reader_kwargs)
+        print(f"Loading input to determine dimensions...")
+        arr = imread(input_data, **reader_kwargs)
 
-        # Apply ROI mode if applicable check dimensions
-        if roi_mode is not None and supports_roi(arr):
-             arr.roi = roi_mode
+    # Apply ROI mode if applicable check dimensions
+    if roi_mode is not None and supports_roi(arr):
+         arr.roi = roi_mode
 
-        # Check dims
-        # TZYX (4D) or TYX (3D)
-        if arr.ndim == 4:
+    # Check dims
+    # TZYX (4D) or TYX (3D)
+    if hasattr(arr, "ndim"):
+        if getattr(arr, "num_planes", 1) > 1:
+            is_volumetric = True
+        elif arr.ndim == 4 and not hasattr(arr, "num_planes"):
             is_volumetric = True
         elif arr.ndim == 3:
             is_volumetric = False
-            # Check if user asked for multiple planes on a 3D array?
-            # If array is 3D, it's one plane.
-            # Unless it's a stack of planes? But imread usually returns TYX for single plane tiff.
-            # If it's a stack of planes (ZYX?), current pipeline assumes Time is first dim.
-            # So 3D TYX is one plane.
         else:
              # handle odd cases
              is_volumetric = False
@@ -673,6 +666,9 @@ def run_volume(
         except Exception as e:
             print(f"ERROR processing plane {plane_num}: {e}")
             traceback.print_exc()
+
+    if not ops_files:
+        raise RuntimeError("run_volume failed: All planes resulted in exceptions during processing.")
 
     # Post-Loop: Merging and Volume Stats
 
@@ -1491,76 +1487,84 @@ def run_plane(
     if progress_callback:
         progress_callback(step="postprocessing", message="Post-processing...")
 
+    # Load original iscell first so we have the true suite2p classification
+    iscell_original = None
+    iscell_file = plane_dir / "iscell.npy"
+    if iscell_file.exists():
+        iscell_original = np.load(iscell_file, allow_pickle=True)
+
     # 1. Accept All Cells
     if accept_all_cells:
-        iscell_file = plane_dir / "iscell.npy"
-        if iscell_file.exists():
-            iscell = np.load(iscell_file, allow_pickle=True)
-            np.save(plane_dir / "iscell_suite2p.npy", iscell)
+        if iscell_original is not None:
+            np.save(plane_dir / "iscell_suite2p.npy", iscell_original.copy())
+            iscell = iscell_original.copy()
             iscell[:, 0] = 1
             np.save(iscell_file, iscell)
             print("  Marked all ROIs as accepted.")
 
     # 2. Cell Filtering
     if cell_filters:
-        print(f"  Applying cell filters: {[f['name'] for f in cell_filters]}")
-        filter_start = time.time()
-        try:
-            iscell_original = np.load(plane_dir / "iscell.npy", allow_pickle=True)
-            iscell_filtered, removed_mask, filter_results = apply_filters(
-                plane_dir=plane_dir,
-                filters=cell_filters,
-                save=True,
-            )
-            updated_ops = load_ops(ops_file)
-            _add_processing_step(
-                updated_ops,
-                "cell_filtering",
-                duration_seconds=time.time() - filter_start,
-                extra={"n_removed": int(removed_mask.sum())}
-            )
-            # convert filter_results list to dict keyed by filter name
-            filter_metadata = {}
-            for r in filter_results:
-                name = r["name"]
-                config = r.get("config", {})
-                info = r.get("info", {})
-                removed = r.get("removed_mask", np.zeros(0, dtype=bool))
-                # build params from config (user-specified) or info (computed)
-                params = {}
-                for key in ["min_diameter_um", "max_diameter_um", "min_diameter_px", "max_diameter_px",
-                            "min_area_px", "max_area_px", "min_mult", "max_mult", "max_ratio"]:
-                    if key in config and config[key] is not None:
-                        val = config[key]
-                        params[key] = round(val, 1) if isinstance(val, float) else val
-                if not params:
-                    for key in ["min_px", "max_px", "min_ratio", "max_ratio", "lower_px", "upper_px"]:
-                        if key in info and info[key] is not None:
-                            params[key] = round(info[key], 1)
-                filter_metadata[name] = {
-                    "params": params,
-                    "n_rejected": int(removed.sum()),
-                }
-            updated_ops["filter_metadata"] = filter_metadata
-            np.save(ops_file, updated_ops)
-
-            # Plots
+        logger.warning("Cell filtering is not ready yet. Filters will be ignored.")
+        # The following block is kept for reference as requested, but we skip executing the actual filters
+        if False:
+            print(f"  Applying cell filters: {[f['name'] for f in cell_filters]}")
+            filter_start = time.time()
             try:
-                 fig = plot_filtered_cells(
-                     plane_dir,
-                     iscell_original,
-                     iscell_filtered,
-                     save_path=plane_dir / "13_filtered_cells.png"
-                 )
-                 import matplotlib.pyplot as plt
-                 plt.close(fig)
-                 plot_filter_exclusions(plane_dir, iscell_filtered, filter_results, save_dir=plane_dir)
-                 plot_cell_filter_summary(plane_dir, save_path=plane_dir / "15_filter_summary.png")
-            except Exception as e:
-                 print(f"  Warning: Filter plots failed: {e}")
+                # Bug fixed: iscell_original is already loaded above, before accept_all_cells mutation
+                iscell_filtered, removed_mask, filter_results = apply_filters(
+                    plane_dir=plane_dir,
+                    filters=cell_filters,
+                    save=True,
+                )
+                updated_ops = load_ops(ops_file)
+                _add_processing_step(
+                    updated_ops,
+                    "cell_filtering",
+                    duration_seconds=time.time() - filter_start,
+                    extra={"n_removed": int(removed_mask.sum())}
+                )
+                # convert filter_results list to dict keyed by filter name
+                filter_metadata = {}
+                for r in filter_results:
+                    name = r["name"]
+                    config = r.get("config", {})
+                    info = r.get("info", {})
+                    removed = r.get("removed_mask", np.zeros(0, dtype=bool))
+                    # build params from config (user-specified) or info (computed)
+                    params = {}
+                    for key in ["min_diameter_um", "max_diameter_um", "min_diameter_px", "max_diameter_px",
+                                "min_area_px", "max_area_px", "min_mult", "max_mult", "max_ratio"]:
+                        if key in config and config[key] is not None:
+                            val = config[key]
+                            params[key] = round(val, 1) if isinstance(val, float) else val
+                    if not params:
+                        for key in ["min_px", "max_px", "min_ratio", "max_ratio", "lower_px", "upper_px"]:
+                            if key in info and info[key] is not None:
+                                params[key] = round(info[key], 1)
+                    filter_metadata[name] = {
+                        "params": params,
+                        "n_rejected": int(removed.sum()),
+                    }
+                updated_ops["filter_metadata"] = filter_metadata
+                np.save(ops_file, updated_ops)
 
-        except Exception as e:
-            print(f"  Warning: Cell filtering failed: {e}")
+                # Plots
+                try:
+                     fig = plot_filtered_cells(
+                         plane_dir,
+                         iscell_original,
+                         iscell_filtered,
+                         save_path=plane_dir / "13_filtered_cells.png"
+                     )
+                     import matplotlib.pyplot as plt
+                     plt.close(fig)
+                     plot_filter_exclusions(plane_dir, iscell_filtered, filter_results, save_dir=plane_dir)
+                     plot_cell_filter_summary(plane_dir, save_path=plane_dir / "15_filter_summary.png")
+                except Exception as e:
+                     print(f"  Warning: Filter plots failed: {e}")
+
+            except Exception as e:
+                print(f"  Warning: Cell filtering failed: {e}")
 
     # 3. dF/F Calculation
     F_file = plane_dir / "F.npy"
