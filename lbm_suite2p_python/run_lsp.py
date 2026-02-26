@@ -1518,8 +1518,9 @@ def run_plane(
                 if plane_0idx < len(_plane_shifts):
                     sv = _plane_shifts[plane_0idx]
                     write_kw["shift_vector"] = sv
-                    # compute per-plane padding so Ly/Lx match actual binary dims
-                    pt, pb, pl, pr = compute_pad_from_shifts([sv])
+                    write_kw["all_plane_shifts"] = _plane_shifts
+                    # use global padding so all planes share the same output dims
+                    pt, pb, pl, pr = compute_pad_from_shifts(_plane_shifts)
                     if hasattr(file, "shape"):
                         Ly_orig = file.shape[-2]
                         Lx_orig = file.shape[-1]
