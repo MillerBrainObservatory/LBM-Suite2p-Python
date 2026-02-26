@@ -1418,9 +1418,12 @@ def run_plane(
         if plane_name is not None:
             subdir_name = plane_name
         else:
-            # try to get nframes from input without loading the full array
-            nframes_hint = None
-            if input_arr is not None and hasattr(input_arr, "shape"):
+            # prefer the user-specified frame limit over raw array shape
+            nframes_hint = (
+                writer_kwargs.get("num_frames")
+                or ops.get("nframes")
+            )
+            if not nframes_hint and input_arr is not None and hasattr(input_arr, "shape"):
                 nframes_hint = input_arr.shape[0] if input_arr.ndim >= 3 else None
             subdir_name = generate_plane_dirname(
                 plane=plane,
