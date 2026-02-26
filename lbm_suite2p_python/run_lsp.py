@@ -1115,9 +1115,21 @@ def run_plane_bin(ops) -> bool:
         if "meanImgE" not in ops and "meanImg" in ops:
             from suite2p.registration import compute_enhanced_mean_image
 
-            ops["meanImgE"] = compute_enhanced_mean_image(
-                ops["meanImg"].astype(np.float32), ops
-            )
+            # compute on valid region only to avoid edge artifacts
+            # from zero-padding border
+            if "_pad_yrange" in ops and "_pad_xrange" in ops:
+                yr, xr = ops["yrange"], ops["xrange"]
+                full_mean = ops["meanImg"]
+                ops["meanImg"] = full_mean[yr[0]:yr[1], xr[0]:xr[1]]
+                enhanced_crop = compute_enhanced_mean_image(None, ops)
+                ops["meanImg"] = full_mean
+                meanImgE = np.zeros_like(full_mean, dtype=np.float32)
+                meanImgE[yr[0]:yr[1], xr[0]:xr[1]] = enhanced_crop
+                ops["meanImgE"] = meanImgE
+            else:
+                ops["meanImgE"] = compute_enhanced_mean_image(
+                    ops["meanImg"].astype(np.float32), ops
+                )
             print("  Computed meanImgE from meanImg")
 
     # for very short recordings, suite2p's bin_movie crashes when
@@ -1158,6 +1170,7 @@ def run_plane_bin(ops) -> bool:
             # registration-only then detection-only so we can clamp
             # xrange/yrange to the valid (non-padded) region in between.
             ops["roidetect"] = False
+            print("NOTE: running registration-only pass (detection deferred)")
             ops = pipeline(
                 f_reg=f_reg,
                 f_raw=f_raw,
@@ -1177,15 +1190,17 @@ def run_plane_bin(ops) -> bool:
             ops["xrange"] = [max(reg_xr[0], pad_xr[0]), min(reg_xr[1], pad_xr[1])]
             print(f"  Clamped valid region: yrange={ops['yrange']}, xrange={ops['xrange']}")
 
-            # recompute meanImgE within valid region so edge artifacts
-            # from zero-padding don't bleed into the enhanced image
+            # recompute meanImgE on the valid region only so the
+            # high-pass filter doesn't create edge artifacts at the
+            # zero-padding boundary.  compute_enhanced_mean_image reads
+            # ops["meanImg"] internally, so swap it temporarily.
             from suite2p.registration import compute_enhanced_mean_image
             yr, xr = ops["yrange"], ops["xrange"]
-            mean_crop = ops["meanImg"][yr[0]:yr[1], xr[0]:xr[1]]
-            enhanced_crop = compute_enhanced_mean_image(
-                mean_crop.astype(np.float32), ops
-            )
-            meanImgE = np.zeros_like(ops["meanImg"])
+            full_mean = ops["meanImg"]
+            ops["meanImg"] = full_mean[yr[0]:yr[1], xr[0]:xr[1]]
+            enhanced_crop = compute_enhanced_mean_image(None, ops)
+            ops["meanImg"] = full_mean  # restore
+            meanImgE = np.zeros_like(full_mean, dtype=np.float32)
             meanImgE[yr[0]:yr[1], xr[0]:xr[1]] = enhanced_crop
             ops["meanImgE"] = meanImgE
 
@@ -1219,9 +1234,19 @@ def run_plane_bin(ops) -> bool:
     if "meanImgE" not in ops and "meanImg" in ops:
         from suite2p.registration import compute_enhanced_mean_image
 
-        ops["meanImgE"] = compute_enhanced_mean_image(
-            ops["meanImg"].astype(np.float32), ops
-        )
+        if "_pad_yrange" in ops and "_pad_xrange" in ops:
+            yr, xr = ops["yrange"], ops["xrange"]
+            full_mean = ops["meanImg"]
+            ops["meanImg"] = full_mean[yr[0]:yr[1], xr[0]:xr[1]]
+            enhanced_crop = compute_enhanced_mean_image(None, ops)
+            ops["meanImg"] = full_mean
+            meanImgE = np.zeros_like(full_mean, dtype=np.float32)
+            meanImgE[yr[0]:yr[1], xr[0]:xr[1]] = enhanced_crop
+            ops["meanImgE"] = meanImgE
+        else:
+            ops["meanImgE"] = compute_enhanced_mean_image(
+                ops["meanImg"].astype(np.float32), ops
+            )
 
     if use_chan2:
         ops["reg_file_chan2"] = str(reg_file_chan2)
