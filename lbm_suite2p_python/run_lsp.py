@@ -608,6 +608,11 @@ def run_volume(
     else:
         num_planes = len(input_paths)
 
+    # Extract voxel size from input array metadata for propagation to per-plane ops
+    _volume_voxel = None
+    if input_arr is not None and hasattr(input_arr, "metadata"):
+        _volume_voxel = get_voxel_size(input_arr.metadata)
+
     # Normalize planes to process
     planes_indices = _normalize_planes(planes, num_planes)
 
@@ -649,6 +654,16 @@ def run_volume(
         current_ops = load_ops(ops) if ops else default_ops()
         current_ops["plane"] = plane_num
         current_ops["num_zplanes"] = num_planes  # useful info
+
+        # Propagate voxel size from volume metadata into per-plane ops
+        if _volume_voxel is not None:
+            if _volume_voxel.dz is not None:
+                current_ops.setdefault("dz", _volume_voxel.dz)
+                current_ops.setdefault("z_step", _volume_voxel.dz)
+            if _volume_voxel.dx != 1.0:
+                current_ops.setdefault("dx", _volume_voxel.dx)
+            if _volume_voxel.dy != 1.0:
+                current_ops.setdefault("dy", _volume_voxel.dy)
 
         # Call run_plane
         try:
@@ -1329,7 +1344,7 @@ def run_plane(
         metadata = {
             k: v
             for k, v in existing_ops.items()
-            if k in ("plane", "fs", "dx", "dy", "Ly", "Lx", "nframes")
+            if k in ("plane", "fs", "dx", "dy", "dz", "z_step", "Ly", "Lx", "nframes")
         }
         file = None
         # merge: defaults < existing (registration results, images, etc.) < user overrides
@@ -1350,7 +1365,7 @@ def run_plane(
         metadata = {
             k: v
             for k, v in existing_ops.items()
-            if k in ("plane", "fs", "dx", "dy", "Ly", "Lx", "nframes")
+            if k in ("plane", "fs", "dx", "dy", "dz", "z_step", "Ly", "Lx", "nframes")
         }
 
         # determine plane number for directory naming
@@ -1439,7 +1454,7 @@ def run_plane(
                 metadata = {
                     k: v
                     for k, v in existing_ops.items()
-                    if k in ("plane", "fs", "dx", "dy", "Ly", "Lx", "nframes")
+                    if k in ("plane", "fs", "dx", "dy", "dz", "z_step", "Ly", "Lx", "nframes")
                 }
                 # ensure registration metadata from previous runs is preserved
                 ops = {
@@ -1464,6 +1479,16 @@ def run_plane(
 
     metadata["plane"] = plane
     ops["save_path"] = str(plane_dir.resolve())
+
+    # propagate voxel size from metadata into ops (user ops take precedence via setdefault)
+    vs = get_voxel_size(metadata)
+    if vs.dz is not None:
+        ops.setdefault("dz", vs.dz)
+        ops.setdefault("z_step", vs.dz)
+    if vs.dx != 1.0:
+        ops.setdefault("dx", vs.dx)
+    if vs.dy != 1.0:
+        ops.setdefault("dy", vs.dy)
 
     # store source filename info in ops for traceability
     ops["source_dirname"] = plane_dir.name
