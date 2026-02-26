@@ -1043,14 +1043,15 @@ def run_plane_bin(ops) -> bool:
             else:
                 print(f"  {reg_file_path.name} already exists, skipping copy")
 
-            # Detect valid region (exclude dead zones from Suite3D shifts)
-            # This replicates what Suite2p's registration does via compute_crop()
-            # IMPORTANT: Skip auto-detection for anatomical_only mode since Cellpose
-            # returns masks in full image coordinates, not cropped coordinates
-            use_anatomical = ops.get("anatomical_only", 0) > 0
-            if "yrange" not in ops or "xrange" not in ops:
+            # use exact padding bounds when available; fall back to
+            # heuristic auto-detection from the mean image
+            if "_pad_yrange" in ops and "_pad_xrange" in ops:
+                ops["yrange"] = list(ops["_pad_yrange"])
+                ops["xrange"] = list(ops["_pad_xrange"])
+                print(f"  Valid region from padding: yrange={ops['yrange']}, xrange={ops['xrange']}")
+            elif "yrange" not in ops or "xrange" not in ops:
+                use_anatomical = ops.get("anatomical_only", 0) > 0
                 if use_anatomical:
-                    # For anatomical detection, always use full image to avoid coordinate mismatch
                     print(
                         "  Using full image dimensions for anatomical detection (avoids cropping issues)"
                     )
@@ -1061,7 +1062,6 @@ def run_plane_bin(ops) -> bool:
                     with BinaryFile(Ly=Ly, Lx=Lx, filename=str(raw_file_path)) as f:
                         meanImg_full = f.sampled_mean().astype(np.float32)
 
-                        # Find regions with valid data (threshold at 1% of max)
                         threshold = meanImg_full.max() * 0.01
                         valid_mask = meanImg_full > threshold
                         valid_rows = np.any(valid_mask, axis=1)
@@ -1135,6 +1135,8 @@ def run_plane_bin(ops) -> bool:
         # set tau so bin_size = max(1, n//nbinned, round(tau*fs)) <= nframes
         ops["tau"] = 0
 
+    has_pad_range = "_pad_yrange" in ops and "_pad_xrange" in ops
+
     with (
         BinaryFile(Ly=Ly, Lx=Lx, filename=str(reg_file), n_frames=n_align) as f_reg,
         BinaryFile(Ly=Ly, Lx=Lx, filename=str(raw_file), n_frames=n_align) as f_raw,
@@ -1149,15 +1151,69 @@ def run_plane_bin(ops) -> bool:
             else nullcontext()
         ) as f_raw_chan2,
     ):
-        ops = pipeline(
-            f_reg=f_reg,
-            f_raw=f_raw,
-            f_reg_chan2=f_reg_chan2 if use_chan2 else None,
-            f_raw_chan2=f_raw_chan2 if use_chan2 else None,
-            run_registration=run_registration,
-            ops=ops,
-            stat=None,
-        )
+        if has_pad_range and run_registration:
+            # when data was padded for axial alignment, suite2p's
+            # compute_crop only accounts for registration motion and
+            # ignores the zero-padded border.  split pipeline into
+            # registration-only then detection-only so we can clamp
+            # xrange/yrange to the valid (non-padded) region in between.
+            ops["roidetect"] = False
+            ops = pipeline(
+                f_reg=f_reg,
+                f_raw=f_raw,
+                f_reg_chan2=f_reg_chan2 if use_chan2 else None,
+                f_raw_chan2=f_raw_chan2 if use_chan2 else None,
+                run_registration=True,
+                ops=ops,
+                stat=None,
+            )
+
+            # clamp xrange/yrange to the valid data region
+            pad_yr = ops["_pad_yrange"]
+            pad_xr = ops["_pad_xrange"]
+            reg_yr = ops.get("yrange", [0, Ly])
+            reg_xr = ops.get("xrange", [0, Lx])
+            ops["yrange"] = [max(reg_yr[0], pad_yr[0]), min(reg_yr[1], pad_yr[1])]
+            ops["xrange"] = [max(reg_xr[0], pad_xr[0]), min(reg_xr[1], pad_xr[1])]
+            print(f"  Clamped valid region: yrange={ops['yrange']}, xrange={ops['xrange']}")
+
+            # recompute meanImgE within valid region so edge artifacts
+            # from zero-padding don't bleed into the enhanced image
+            from suite2p.registration import compute_enhanced_mean_image
+            yr, xr = ops["yrange"], ops["xrange"]
+            mean_crop = ops["meanImg"][yr[0]:yr[1], xr[0]:xr[1]]
+            enhanced_crop = compute_enhanced_mean_image(
+                mean_crop.astype(np.float32), ops
+            )
+            meanImgE = np.zeros_like(ops["meanImg"])
+            meanImgE[yr[0]:yr[1], xr[0]:xr[1]] = enhanced_crop
+            ops["meanImgE"] = meanImgE
+
+            if ops.get("ops_path"):
+                np.save(ops["ops_path"], ops)
+
+            # now run detection + extraction + classification
+            ops["roidetect"] = True
+            ops["do_registration"] = 0
+            ops = pipeline(
+                f_reg=f_reg,
+                f_raw=f_raw,
+                f_reg_chan2=f_reg_chan2 if use_chan2 else None,
+                f_raw_chan2=f_raw_chan2 if use_chan2 else None,
+                run_registration=False,
+                ops=ops,
+                stat=None,
+            )
+        else:
+            ops = pipeline(
+                f_reg=f_reg,
+                f_raw=f_raw,
+                f_reg_chan2=f_reg_chan2 if use_chan2 else None,
+                f_raw_chan2=f_raw_chan2 if use_chan2 else None,
+                run_registration=run_registration,
+                ops=ops,
+                stat=None,
+            )
 
     # ensure meanImgE is always present in final ops (safety net)
     if "meanImgE" not in ops and "meanImg" in ops:
