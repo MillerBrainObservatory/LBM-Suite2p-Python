@@ -1506,6 +1506,27 @@ def run_plane(
         bin_start = time.time()
         # extract single plane for multi-z data (4D TZYX or 5D TCZYX)
         write_planes = [plane] if file.ndim >= 4 else None
+
+        # apply per-plane axial shift from suite3d registration if available
+        write_kw = dict(writer_kwargs)
+        if md_combined.get("apply_shift") and md_combined.get("s3d-job"):
+            from mbo_utilities._writers import load_registration_shifts, compute_pad_from_shifts
+
+            _apply, _plane_shifts, _ = load_registration_shifts(md_combined)
+            if _apply and _plane_shifts is not None:
+                plane_0idx = plane - 1
+                if plane_0idx < len(_plane_shifts):
+                    sv = _plane_shifts[plane_0idx]
+                    write_kw["shift_vector"] = sv
+                    # compute per-plane padding so Ly/Lx match actual binary dims
+                    pt, pb, pl, pr = compute_pad_from_shifts([sv])
+                    if hasattr(file, "shape"):
+                        Ly_orig = file.shape[-2]
+                        Lx_orig = file.shape[-1]
+                        md_combined["Ly"] = Ly_orig + pt + pb
+                        md_combined["Lx"] = Lx_orig + pl + pr
+                    print(f"  Applying axial shift for plane {plane}: {sv}")
+
         imwrite(
             file,
             plane_dir,
@@ -1516,7 +1537,7 @@ def run_plane(
             overwrite=True,
             planes=write_planes,
             show_progress=False,
-            **writer_kwargs,
+            **write_kw,
         )
         # Record binary write
         # Reload ops from disk to get Lx, Ly, and other metadata added by imwrite
