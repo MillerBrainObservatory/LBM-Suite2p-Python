@@ -22,6 +22,7 @@ from lbm_suite2p_python.postprocessing import (
 
 from importlib.metadata import version, PackageNotFoundError
 
+
 def _get_version():
     try:
         return version("lbm_suite2p_python")
@@ -43,7 +44,6 @@ from mbo_utilities.metadata import (
     get_param,
     get_voxel_size,
 )
-
 
 
 logger = get_logger("run_lsp")
@@ -72,12 +72,15 @@ def _get_suite2p_version():
     """Get suite2p version string."""
     try:
         import suite2p
+
         return getattr(suite2p, "__version__", "unknown")
     except ImportError:
         return "not installed"
 
 
-def _add_processing_step(ops, step_name, input_files=None, duration_seconds=None, extra=None):
+def _add_processing_step(
+    ops, step_name, input_files=None, duration_seconds=None, extra=None
+):
     """
     Add a processing step to ops["processing_history"].
 
@@ -113,7 +116,11 @@ def _add_processing_step(ops, step_name, input_files=None, duration_seconds=None
     }
 
     if input_files is not None:
-        step_record["input_files"] = [str(f) for f in input_files] if not isinstance(input_files, str) else [input_files]
+        step_record["input_files"] = (
+            [str(f) for f in input_files]
+            if not isinstance(input_files, str)
+            else [input_files]
+        )
 
     if duration_seconds is not None:
         step_record["duration_seconds"] = round(duration_seconds, 2)
@@ -244,11 +251,19 @@ def pipeline(
     # 1. Handle Deprecations
     if roi is not None:
         import warnings
-        warnings.warn("'roi' is deprecated, use 'roi_mode'", DeprecationWarning, stacklevel=2)
+
+        warnings.warn(
+            "'roi' is deprecated, use 'roi_mode'", DeprecationWarning, stacklevel=2
+        )
         roi_mode = roi
     if num_frames is not None:
         import warnings
-        warnings.warn("'num_frames' is deprecated, use 'num_timepoints'", DeprecationWarning, stacklevel=2)
+
+        warnings.warn(
+            "'num_frames' is deprecated, use 'num_timepoints'",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         num_timepoints = num_frames
 
     # Normalize kwargs
@@ -272,7 +287,7 @@ def pipeline(
 
     # Apply ROI mode if applicable check dimensions
     if roi_mode is not None and supports_roi(arr):
-         arr.roi = roi_mode
+        arr.roi = roi_mode
 
     # Check dims
     # TZYX (4D) or TYX (3D)
@@ -284,16 +299,16 @@ def pipeline(
         elif arr.ndim == 3:
             is_volumetric = False
         else:
-             # handle odd cases
-             is_volumetric = False
+            # handle odd cases
+            is_volumetric = False
 
     # 3. Delegate
     if is_volumetric:
         print("Delegating to run_volume (4D input detected)...")
         if arr is not None:
-             input_arg = arr
+            input_arg = arr
         else:
-             input_arg = input_data
+            input_arg = input_data
 
         return run_volume(
             input_data=input_arg,
@@ -312,12 +327,12 @@ def pipeline(
             save_json=save_json,
             reader_kwargs=reader_kwargs,
             writer_kwargs=writer_kwargs,
-            **kwargs
+            **kwargs,
         )
     else:
         # run_plane returns a single Path, we wrap in list
         ops_path = run_plane(
-            input_data=arr, # Pass the array we loaded (with ROI applied)
+            input_data=arr,  # Pass the array we loaded (with ROI applied)
             save_path=save_path,
             ops=ops,
             # planes argument is ignored for single plane, or used to validate?
@@ -337,7 +352,7 @@ def pipeline(
             save_json=save_json,
             reader_kwargs=reader_kwargs,
             writer_kwargs=writer_kwargs,
-            **kwargs
+            **kwargs,
         )
         return [ops_path]
 
@@ -559,19 +574,19 @@ def run_volume(
     if _is_lazy_array(input_data):
         input_arr = input_data
         if hasattr(input_arr, "filenames"):
-             # For lazy arrays backed by files, use the first file's parent as default save_path
-             if save_path is None and input_arr.filenames:
-                 save_path = Path(input_arr.filenames[0]).parent / "suite2p_results"
+            # For lazy arrays backed by files, use the first file's parent as default save_path
+            if save_path is None and input_arr.filenames:
+                save_path = Path(input_arr.filenames[0]).parent / "suite2p_results"
     elif isinstance(input_data, (list, tuple)):
         input_paths = [Path(p) for p in input_data]
         if save_path is None and input_paths:
-             save_path = input_paths[0].parent
+            save_path = input_paths[0].parent
     elif isinstance(input_data, (str, Path)):
         # Single path representing a volume (e.g. 4D tiff, zarr)
         # We'll load it as an array to iterate planes
         input_path = Path(input_data)
         if save_path is None:
-             save_path = input_path.parent / (input_path.stem + "_results")
+            save_path = input_path.parent / (input_path.stem + "_results")
 
         # Load as array to determine planes
         input_arr = imread(input_path, **(reader_kwargs or {}))
@@ -579,7 +594,7 @@ def run_volume(
         raise TypeError(f"Invalid input_data type: {type(input_data)}")
 
     if save_path is None:
-         raise ValueError("save_path must be specified.")
+        raise ValueError("save_path must be specified.")
 
     save_path = Path(save_path)
     save_path.mkdir(parents=True, exist_ok=True)
@@ -587,16 +602,18 @@ def run_volume(
     # Determine num_planes
     if input_arr is not None:
         try:
-             num_planes = _get_num_planes(input_arr)
+            num_planes = _get_num_planes(input_arr)
         except:
-             num_planes = 1
+            num_planes = 1
     else:
         num_planes = len(input_paths)
 
     # Normalize planes to process
     planes_indices = _normalize_planes(planes, num_planes)
 
-    print(f"Processing {len(planes_indices)} planes in volume (Total planes: {num_planes})")
+    print(
+        f"Processing {len(planes_indices)} planes in volume (Total planes: {num_planes})"
+    )
     print(f"Output: {save_path}")
 
     progress_callback = kwargs.pop("progress_callback", None)
@@ -626,12 +643,12 @@ def run_volume(
                 current_input = input_paths[plane_idx]
             else:
                 # Fallback or error? Assuming input_files length matches num_planes
-                 current_input = input_paths[0] # Should not happen if logic is correct
+                current_input = input_paths[0]  # Should not happen if logic is correct
 
         # Prepare ops with plane number
         current_ops = load_ops(ops) if ops else default_ops()
         current_ops["plane"] = plane_num
-        current_ops["num_zplanes"] = num_planes # useful info
+        current_ops["num_zplanes"] = num_planes  # useful info
 
         # Call run_plane
         try:
@@ -652,7 +669,7 @@ def run_volume(
                 save_json=save_json,
                 reader_kwargs=reader_kwargs,
                 writer_kwargs=writer_kwargs,
-                **kwargs
+                **kwargs,
             )
             ops_files.append(ops_file)
 
@@ -668,7 +685,9 @@ def run_volume(
             traceback.print_exc()
 
     if not ops_files:
-        raise RuntimeError("run_volume failed: All planes resulted in exceptions during processing.")
+        raise RuntimeError(
+            "run_volume failed: All planes resulted in exceptions during processing."
+        )
 
     # Post-Loop: Merging and Volume Stats
 
@@ -686,44 +705,54 @@ def run_volume(
         print("Detected mROI data, attempting to merge...")
         merged_savepath = save_path / "merged_mrois"
         try:
-             merge_mrois(save_path, merged_savepath)
-             # Update ops_files to point to merged results
-             # We need to find the new ops files
-             # mbo_utilities check_and_merge_mrois returned list, but we don't have it.
-             # We'll glob the new directory
-             merged_ops = sorted(list(merged_savepath.glob("**/ops.npy")))
-             if merged_ops:
-                 ops_files = merged_ops
-                 print(f"Merged {len(ops_files)} planes to {merged_savepath}")
-                 save_path = merged_savepath # Update save_path for subsequent plots
+            merge_mrois(save_path, merged_savepath)
+            # Update ops_files to point to merged results
+            # We need to find the new ops files
+            # mbo_utilities check_and_merge_mrois returned list, but we don't have it.
+            # We'll glob the new directory
+            merged_ops = sorted(list(merged_savepath.glob("**/ops.npy")))
+            if merged_ops:
+                ops_files = merged_ops
+                print(f"Merged {len(ops_files)} planes to {merged_savepath}")
+                save_path = merged_savepath  # Update save_path for subsequent plots
         except Exception as e:
-             print(f"Merging failed: {e}")
+            print(f"Merging failed: {e}")
 
     # Generate volume statistics
     if ops_files:
         print("\nGenering volumetric statistics...")
         try:
-             # run_plane already does individual calls, but we need aggregate stats
-             stats_path = get_volume_stats(ops_files, overwrite=True)
+            # run_plane already does individual calls, but we need aggregate stats
+            stats_path = get_volume_stats(ops_files, overwrite=True)
 
-             # Volumetric plots
-             try:
-                 plot_volume_diagnostics(ops_files, save_path / "volume_quality_diagnostics.png")
-                 plot_orthoslices(ops_files, save_path / "orthoslices.png")
-                 plot_3d_roi_map(ops_files, save_path / "roi_map_3d.png", color_by="snr")
-                 plot_3d_roi_map(ops_files, save_path / "roi_map_3d_plane.png", color_by="plane")
-             except Exception as e:
-                  print(f"Warning: Volume plots failed: {e}")
-                  traceback.print_exc()
+            # Volumetric plots
+            try:
+                plot_volume_diagnostics(
+                    ops_files, save_path / "volume_quality_diagnostics.png"
+                )
+                plot_orthoslices(ops_files, save_path / "orthoslices.png")
+                plot_3d_roi_map(ops_files, save_path / "roi_map_3d.png", color_by="snr")
+                plot_3d_roi_map(
+                    ops_files, save_path / "roi_map_3d_plane.png", color_by="plane"
+                )
+            except Exception as e:
+                print(f"Warning: Volume plots failed: {e}")
+                traceback.print_exc()
 
         except Exception as e:
-             print(f"Warning: Volume statistics failed: {e}")
-             traceback.print_exc()
+            print(f"Warning: Volume statistics failed: {e}")
+            traceback.print_exc()
 
     return ops_files
 
 
-def _should_write_bin(ops_path: Path, force: bool = False, *, validate_chan2: bool | None = None, expected_dtype: np.dtype = np.int16) -> bool:
+def _should_write_bin(
+    ops_path: Path,
+    force: bool = False,
+    *,
+    validate_chan2: bool | None = None,
+    expected_dtype: np.dtype = np.int16,
+) -> bool:
     if force:
         return True
     ops_path = Path(ops_path)
@@ -742,32 +771,55 @@ def _should_write_bin(ops_path: Path, force: bool = False, *, validate_chan2: bo
     try:
         ops = np.load(ops_path, allow_pickle=True).item()
         if validate_chan2 is None:
-            validate_chan2 = (ops.get("align_by_chan", 1) == 2)
+            validate_chan2 = ops.get("align_by_chan", 1) == 2
         Ly = ops.get("Ly")
         Lx = ops.get("Lx")
-        nframes_raw = ops.get("nframes_chan1") or ops.get("nframes") or ops.get("num_frames")
+        nframes_raw = (
+            ops.get("nframes_chan1") or ops.get("nframes") or ops.get("num_frames")
+        )
         if (None in (nframes_raw, Ly, Lx)) or (nframes_raw <= 0 or Ly <= 0 or Lx <= 0):
             return True
-        expected_size_raw = int(nframes_raw) * int(Ly) * int(Lx) * np.dtype(expected_dtype).itemsize
+        expected_size_raw = (
+            int(nframes_raw) * int(Ly) * int(Lx) * np.dtype(expected_dtype).itemsize
+        )
         actual_size_raw = binary_to_validate.stat().st_size
         if actual_size_raw != expected_size_raw or actual_size_raw == 0:
             return True
         try:
-            arr = np.memmap(binary_to_validate, dtype=expected_dtype, mode="r", shape=(int(nframes_raw), int(Ly), int(Lx)))
+            arr = np.memmap(
+                binary_to_validate,
+                dtype=expected_dtype,
+                mode="r",
+                shape=(int(nframes_raw), int(Ly), int(Lx)),
+            )
             _ = arr[0, 0, 0]
             del arr
         except Exception:
             return True
         if validate_chan2:
             nframes_chan2 = ops.get("nframes_chan2")
-            if (not chan2_path.is_file()) or (nframes_chan2 is None) or (nframes_chan2 <= 0):
+            if (
+                (not chan2_path.is_file())
+                or (nframes_chan2 is None)
+                or (nframes_chan2 <= 0)
+            ):
                 return True
-            expected_size_chan2 = int(nframes_chan2) * int(Ly) * int(Lx) * np.dtype(expected_dtype).itemsize
+            expected_size_chan2 = (
+                int(nframes_chan2)
+                * int(Ly)
+                * int(Lx)
+                * np.dtype(expected_dtype).itemsize
+            )
             actual_size_chan2 = chan2_path.stat().st_size
             if actual_size_chan2 != expected_size_chan2 or actual_size_chan2 == 0:
                 return True
             try:
-                arr2 = np.memmap(chan2_path, dtype=expected_dtype, mode="r", shape=(int(nframes_chan2), int(Ly), int(Lx)))
+                arr2 = np.memmap(
+                    chan2_path,
+                    dtype=expected_dtype,
+                    mode="r",
+                    shape=(int(nframes_chan2), int(Ly), int(Lx)),
+                )
                 _ = arr2[0, 0, 0]
                 del arr2
             except Exception:
@@ -896,7 +948,9 @@ def run_plane_bin(ops) -> bool:
     if n_align <= 0:
         raise ValueError("Non-positive frame count after alignment selection.")
     if use_chan2 and (n_func != n_chan2):
-        print(f"[run_plane_bin] Trimming to {n_align} frames (func={n_func}, chan2={n_chan2}).")
+        print(
+            f"[run_plane_bin] Trimming to {n_align} frames (func={n_func}, chan2={n_chan2})."
+        )
 
     ops["functional_chan"] = 1
     ops["align_by_chan"] = 2 if use_chan2 else 1
@@ -946,18 +1000,23 @@ def run_plane_bin(ops) -> bool:
         estimated_gb = (Ly * Lx * n_align * 2) / 1e9  # Rough estimate
         spatial_scale = ops.get("spatial_scale", 0)
         if spatial_scale > 0:
-            estimated_gb /= (spatial_scale ** 2)
+            estimated_gb /= spatial_scale**2
 
         if estimated_gb > 50:  # Warn for datasets > 50GB
-            print(f"Large dataset warning: {estimated_gb:.1f} GB estimated for detection")
+            print(
+                f"Large dataset warning: {estimated_gb:.1f} GB estimated for detection"
+            )
             if spatial_scale == 0:
-                print(f"  Consider adding 'spatial_scale': 2 to reduce memory usage by 4x")
+                print(
+                    f"  Consider adding 'spatial_scale': 2 to reduce memory usage by 4x"
+                )
             print(f"  Or reduce 'batch_size' (current: {ops.get('batch_size', 500)})")
 
     # When skipping registration, copy data_raw.bin to data.bin and detect valid region
     if not run_registration:
         print("Registration skipped - copying data_raw.bin to data.bin...")
         import shutil
+
         raw_file_path = Path(raw_file)
         reg_file_path = Path(reg_file)
 
@@ -977,7 +1036,9 @@ def run_plane_bin(ops) -> bool:
             if "yrange" not in ops or "xrange" not in ops:
                 if use_anatomical:
                     # For anatomical detection, always use full image to avoid coordinate mismatch
-                    print("  Using full image dimensions for anatomical detection (avoids cropping issues)")
+                    print(
+                        "  Using full image dimensions for anatomical detection (avoids cropping issues)"
+                    )
                     ops["yrange"] = [0, Ly]
                     ops["xrange"] = [0, Lx]
                 else:
@@ -1030,12 +1091,15 @@ def run_plane_bin(ops) -> bool:
     # registration so we derive it here when missing.
     if not run_registration:
         if "meanImg" not in ops:
-            with BinaryFile(Ly=Ly, Lx=Lx, filename=str(reg_file), n_frames=n_align) as f_mean:
+            with BinaryFile(
+                Ly=Ly, Lx=Lx, filename=str(reg_file), n_frames=n_align
+            ) as f_mean:
                 ops["meanImg"] = f_mean.sampled_mean().astype(np.float32)
                 print("  Computed meanImg from binary")
 
         if "meanImgE" not in ops and "meanImg" in ops:
             from suite2p.registration import compute_enhanced_mean_image
+
             ops["meanImgE"] = compute_enhanced_mean_image(
                 ops["meanImg"].astype(np.float32), ops
             )
@@ -1047,7 +1111,9 @@ def run_plane_bin(ops) -> bool:
     # bin_size <= nframes.
     tau_fs = np.round(ops.get("tau", 0.7) * ops.get("fs", 30))
     if n_align < max(tau_fs, 2):
-        with BinaryFile(Ly=Ly, Lx=Lx, filename=str(reg_file), n_frames=n_align) as f_pre:
+        with BinaryFile(
+            Ly=Ly, Lx=Lx, filename=str(reg_file), n_frames=n_align
+        ) as f_pre:
             all_frames = f_pre.data[:n_align]
             ops["meanImg"] = all_frames.mean(axis=0).astype(np.float32)
             ops["max_proj"] = all_frames.max(axis=0).astype(np.float32)
@@ -1057,8 +1123,16 @@ def run_plane_bin(ops) -> bool:
     with (
         BinaryFile(Ly=Ly, Lx=Lx, filename=str(reg_file), n_frames=n_align) as f_reg,
         BinaryFile(Ly=Ly, Lx=Lx, filename=str(raw_file), n_frames=n_align) as f_raw,
-        (BinaryFile(Ly=Ly, Lx=Lx, filename=str(reg_file_chan2), n_frames=n_align) if use_chan2 else nullcontext()) as f_reg_chan2,
-        (BinaryFile(Ly=Ly, Lx=Lx, filename=str(chan2_file), n_frames=n_align) if use_chan2 else nullcontext()) as f_raw_chan2,
+        (
+            BinaryFile(Ly=Ly, Lx=Lx, filename=str(reg_file_chan2), n_frames=n_align)
+            if use_chan2
+            else nullcontext()
+        ) as f_reg_chan2,
+        (
+            BinaryFile(Ly=Ly, Lx=Lx, filename=str(chan2_file), n_frames=n_align)
+            if use_chan2
+            else nullcontext()
+        ) as f_raw_chan2,
     ):
         ops = pipeline(
             f_reg=f_reg,
@@ -1073,6 +1147,7 @@ def run_plane_bin(ops) -> bool:
     # ensure meanImgE is always present in final ops (safety net)
     if "meanImgE" not in ops and "meanImg" in ops:
         from suite2p.registration import compute_enhanced_mean_image
+
         ops["meanImgE"] = compute_enhanced_mean_image(
             ops["meanImg"].astype(np.float32), ops
         )
@@ -1195,21 +1270,25 @@ def run_plane(
         if filenames:
             input_path = Path(filenames[0])
         elif plane_name is None:
-            raise ValueError("plane_name is required when input is an array without filenames.")
+            raise ValueError(
+                "plane_name is required when input is an array without filenames."
+            )
         else:
             # dummy path for internal logic compatibility
             input_path = Path(f"{plane_name}.tif")
     elif isinstance(input_data, (str, Path)):
         input_path = Path(input_data)
     else:
-        raise TypeError(f"input_data must be path or lazy array, got {type(input_data)}")
+        raise TypeError(
+            f"input_data must be path or lazy array, got {type(input_data)}"
+        )
 
     input_parent = input_path.parent
 
     # Save path handling
     if save_path is None:
         if input_arr is not None:
-             raise ValueError("save_path is required when input is an array.")
+            raise ValueError("save_path is required when input is an array.")
 
         # binary inputs with ops.npy are processed in-place
         is_binary_input = input_path.suffix == ".bin"
@@ -1237,25 +1316,42 @@ def run_plane(
     writer_kwargs = writer_kwargs or {}
 
     # determine if we're processing existing binary in-place
-    if binary_with_ops and (input_path.parent == save_path or save_path == input_parent):
+    if binary_with_ops and (
+        input_path.parent == save_path or save_path == input_parent
+    ):
         print(f"Processing existing binary in-place: {input_path}")
         plane_dir = input_path.parent
         skip_imwrite = True
         ops_file = plane_dir / "ops.npy"
-        existing_ops = np.load(ops_file, allow_pickle=True).item() if ops_file.exists() else {}
-        metadata = {k: v for k, v in existing_ops.items() if k in ("plane", "fs", "dx", "dy", "Ly", "Lx", "nframes")}
+        existing_ops = (
+            np.load(ops_file, allow_pickle=True).item() if ops_file.exists() else {}
+        )
+        metadata = {
+            k: v
+            for k, v in existing_ops.items()
+            if k in ("plane", "fs", "dx", "dy", "Ly", "Lx", "nframes")
+        }
         file = None
         # merge: defaults < existing (registration results, images, etc.) < user overrides
-        ops = {**ops_default, **existing_ops, **ops_user, "data_path": str(input_path.resolve())}
+        ops = {
+            **ops_default,
+            **existing_ops,
+            **ops_user,
+            "data_path": str(input_path.resolve()),
+        }
     elif binary_with_ops:
         # binary input with ops but different save_path: copy files instead of re-encoding
         import shutil
+
         skip_imwrite = True
         file = None
         src_dir = input_path.parent
         existing_ops = np.load(src_dir / "ops.npy", allow_pickle=True).item()
-        metadata = {k: v for k, v in existing_ops.items()
-                    if k in ("plane", "fs", "dx", "dy", "Ly", "Lx", "nframes")}
+        metadata = {
+            k: v
+            for k, v in existing_ops.items()
+            if k in ("plane", "fs", "dx", "dy", "Ly", "Lx", "nframes")
+        }
 
         # determine plane number for directory naming
         if "plane" in ops:
@@ -1269,7 +1365,9 @@ def run_plane(
         if plane_name is not None:
             subdir_name = plane_name
         else:
-            nframes_hint = existing_ops.get("nframes_chan1") or existing_ops.get("nframes")
+            nframes_hint = existing_ops.get("nframes_chan1") or existing_ops.get(
+                "nframes"
+            )
             subdir_name = generate_plane_dirname(plane=plane, nframes=nframes_hint)
 
         plane_dir = save_path / subdir_name
@@ -1285,7 +1383,12 @@ def run_plane(
                 shutil.copy2(src, dst)
 
         # merge existing ops with user overrides
-        ops = {**ops_default, **existing_ops, **ops_user, "data_path": str(input_path.resolve())}
+        ops = {
+            **ops_default,
+            **existing_ops,
+            **ops_user,
+            "data_path": str(input_path.resolve()),
+        }
     else:
         skip_imwrite = False
 
@@ -1326,13 +1429,25 @@ def run_plane(
             else:
                 metadata = get_metadata(input_path)
         else:
-            print(f"Skipping data_raw.bin write, already exists and passes data validation checks.")
+            print(
+                f"Skipping data_raw.bin write, already exists and passes data validation checks."
+            )
             file = None
             # load metadata from existing ops if available
             if ops_file.exists():
-                existing = np.load(ops_file, allow_pickle=True).item()
-                metadata = {k: v for k, v in existing.items()
-                            if k in ("plane", "fs", "dx", "dy", "Ly", "Lx", "nframes")}
+                existing_ops = np.load(ops_file, allow_pickle=True).item()
+                metadata = {
+                    k: v
+                    for k, v in existing_ops.items()
+                    if k in ("plane", "fs", "dx", "dy", "Ly", "Lx", "nframes")
+                }
+                # ensure registration metadata from previous runs is preserved
+                ops = {
+                    **ops_default,
+                    **existing_ops,
+                    **ops_user,
+                    "data_path": str(input_path.resolve()),
+                }
             else:
                 metadata = {}
 
@@ -1380,11 +1495,11 @@ def run_plane(
         if ops_file.exists():
             ops = np.load(ops_file, allow_pickle=True).item()
         _add_processing_step(
-             ops,
-             "binary_write",
-             input_files=[str(input_path)],
-             duration_seconds=time.time() - bin_start,
-             extra={"plane": plane, "shape": list(file.shape)}
+            ops,
+            "binary_write",
+            input_files=[str(input_path)],
+            duration_seconds=time.time() - bin_start,
+            extra={"plane": plane, "shape": list(file.shape)},
         )
         np.save(ops_file, ops)
 
@@ -1395,13 +1510,13 @@ def run_plane(
     elif ops["roidetect"]:
         stat_file = plane_dir / "stat.npy"
         if stat_file.exists():
-             stat = np.load(stat_file, allow_pickle=True)
-             if stat is None or len(stat) == 0:
-                 needs_detect = True
-             else:
-                 needs_detect = False
+            stat = np.load(stat_file, allow_pickle=True)
+            if stat is None or len(stat) == 0:
+                needs_detect = True
+            else:
+                needs_detect = False
         else:
-             needs_detect = True
+            needs_detect = True
 
     # Check registration needs
     if force_reg:
@@ -1428,13 +1543,23 @@ def run_plane(
     if chan2_file is not None:
         chan2_path = Path(chan2_file)
         if chan2_path.exists():
-             chan2_data = imread(chan2_path, **reader_kwargs)
-             chan2_md = getattr(chan2_data, "metadata", {})
-             imwrite(chan2_data, plane_dir, ext=".bin", metadata=chan2_md, register_z=False, structural=True, show_progress=False)
-             ops["chan2_file"] = str((plane_dir / "data_chan2.bin").resolve())
-             ops["nframes_chan2"] = chan2_data.shape[0] if hasattr(chan2_data, "shape") else 0
-             ops["nchannels"] = 2
-             ops["align_by_chan"] = 2
+            chan2_data = imread(chan2_path, **reader_kwargs)
+            chan2_md = getattr(chan2_data, "metadata", {})
+            imwrite(
+                chan2_data,
+                plane_dir,
+                ext=".bin",
+                metadata=chan2_md,
+                register_z=False,
+                structural=True,
+                show_progress=False,
+            )
+            ops["chan2_file"] = str((plane_dir / "data_chan2.bin").resolve())
+            ops["nframes_chan2"] = (
+                chan2_data.shape[0] if hasattr(chan2_data, "shape") else 0
+            )
+            ops["nchannels"] = 2
+            ops["align_by_chan"] = 2
 
     # ensure ops paths point to current plane_dir before running suite2p.
     # handles cases where data was moved from its original location.
@@ -1461,17 +1586,21 @@ def run_plane(
             processed = run_plane_bin(ops)
 
             if processed:
-                 updated_ops = load_ops(ops_file)
-                 _add_processing_step(
-                     updated_ops,
-                     "suite2p_pipeline",
-                     duration_seconds=time.time() - s2p_start,
-                     extra={
-                         "do_registration": updated_ops.get("do_registration", 1),
-                         "n_cells": len(np.load(plane_dir / "stat.npy", allow_pickle=True)) if (plane_dir / "stat.npy").exists() else 0
-                     }
-                 )
-                 np.save(ops_file, updated_ops)
+                updated_ops = load_ops(ops_file)
+                _add_processing_step(
+                    updated_ops,
+                    "suite2p_pipeline",
+                    duration_seconds=time.time() - s2p_start,
+                    extra={
+                        "do_registration": updated_ops.get("do_registration", 1),
+                        "n_cells": len(
+                            np.load(plane_dir / "stat.npy", allow_pickle=True)
+                        )
+                        if (plane_dir / "stat.npy").exists()
+                        else 0,
+                    },
+                )
+                np.save(ops_file, updated_ops)
 
         except Exception as e:
             print(f"Error in run_plane_bin: {e}")
@@ -1480,8 +1609,8 @@ def run_plane(
             raise
 
         if not processed:
-             _cleanup_bin_files(plane_dir, keep_raw, keep_reg)
-             return ops_file
+            _cleanup_bin_files(plane_dir, keep_raw, keep_reg)
+            return ops_file
 
     # --- Post-Processing ---
     if progress_callback:
@@ -1521,7 +1650,7 @@ def run_plane(
                     updated_ops,
                     "cell_filtering",
                     duration_seconds=time.time() - filter_start,
-                    extra={"n_removed": int(removed_mask.sum())}
+                    extra={"n_removed": int(removed_mask.sum())},
                 )
                 # convert filter_results list to dict keyed by filter name
                 filter_metadata = {}
@@ -1532,13 +1661,31 @@ def run_plane(
                     removed = r.get("removed_mask", np.zeros(0, dtype=bool))
                     # build params from config (user-specified) or info (computed)
                     params = {}
-                    for key in ["min_diameter_um", "max_diameter_um", "min_diameter_px", "max_diameter_px",
-                                "min_area_px", "max_area_px", "min_mult", "max_mult", "max_ratio"]:
+                    for key in [
+                        "min_diameter_um",
+                        "max_diameter_um",
+                        "min_diameter_px",
+                        "max_diameter_px",
+                        "min_area_px",
+                        "max_area_px",
+                        "min_mult",
+                        "max_mult",
+                        "max_ratio",
+                    ]:
                         if key in config and config[key] is not None:
                             val = config[key]
-                            params[key] = round(val, 1) if isinstance(val, float) else val
+                            params[key] = (
+                                round(val, 1) if isinstance(val, float) else val
+                            )
                     if not params:
-                        for key in ["min_px", "max_px", "min_ratio", "max_ratio", "lower_px", "upper_px"]:
+                        for key in [
+                            "min_px",
+                            "max_px",
+                            "min_ratio",
+                            "max_ratio",
+                            "lower_px",
+                            "upper_px",
+                        ]:
                             if key in info and info[key] is not None:
                                 params[key] = round(info[key], 1)
                     filter_metadata[name] = {
@@ -1550,18 +1697,23 @@ def run_plane(
 
                 # Plots
                 try:
-                     fig = plot_filtered_cells(
-                         plane_dir,
-                         iscell_original,
-                         iscell_filtered,
-                         save_path=plane_dir / "13_filtered_cells.png"
-                     )
-                     import matplotlib.pyplot as plt
-                     plt.close(fig)
-                     plot_filter_exclusions(plane_dir, iscell_filtered, filter_results, save_dir=plane_dir)
-                     plot_cell_filter_summary(plane_dir, save_path=plane_dir / "15_filter_summary.png")
+                    fig = plot_filtered_cells(
+                        plane_dir,
+                        iscell_original,
+                        iscell_filtered,
+                        save_path=plane_dir / "13_filtered_cells.png",
+                    )
+                    import matplotlib.pyplot as plt
+
+                    plt.close(fig)
+                    plot_filter_exclusions(
+                        plane_dir, iscell_filtered, filter_results, save_dir=plane_dir
+                    )
+                    plot_cell_filter_summary(
+                        plane_dir, save_path=plane_dir / "15_filter_summary.png"
+                    )
                 except Exception as e:
-                     print(f"  Warning: Filter plots failed: {e}")
+                    print(f"  Warning: Filter plots failed: {e}")
 
             except Exception as e:
                 print(f"  Warning: Cell filtering failed: {e}")
@@ -1574,7 +1726,7 @@ def run_plane(
         dff_start = time.time()
         F = np.load(F_file)
         Fneu = np.load(Fneu_file)
-        F_corr = F - 0.7 * Fneu # Fixed neucoeff for now, could be parameter
+        F_corr = F - 0.7 * Fneu  # Fixed neucoeff for now, could be parameter
 
         current_ops = load_ops(ops_file)
         dff = dff_rolling_percentile(
@@ -1583,21 +1735,22 @@ def run_plane(
             percentile=dff_percentile,
             smooth_window=dff_smooth_window,
             fs=current_ops.get("fs", 30.0),
-            tau=current_ops.get("tau", 1.0)
+            tau=current_ops.get("tau", 1.0),
         )
         np.save(plane_dir / "dff.npy", dff)
 
         _add_processing_step(
-             current_ops,
-             "dff_calculation",
-             duration_seconds=time.time() - dff_start,
-             extra={"percentile": dff_percentile}
+            current_ops,
+            "dff_calculation",
+            duration_seconds=time.time() - dff_start,
+            extra={"percentile": dff_percentile},
         )
         np.save(ops_file, current_ops)
 
     # 3b. ROI statistics
     try:
         from lbm_suite2p_python.postprocessing import compute_roi_stats
+
         print("  Computing ROI statistics...")
         compute_roi_stats(plane_dir)
     except Exception as e:
@@ -1606,10 +1759,10 @@ def run_plane(
     # 4. Plots and Cleanup
     try:
         plot_zplane_figures(
-             plane_dir,
-             dff_percentile=dff_percentile,
-             dff_window_size=dff_window_size,
-             dff_smooth_window=dff_smooth_window
+            plane_dir,
+            dff_percentile=dff_percentile,
+            dff_window_size=dff_window_size,
+            dff_smooth_window=dff_smooth_window,
         )
     except Exception as e:
         print(f"  Warning: Plot generation failed: {e}")
@@ -1631,4 +1784,5 @@ def run_plane(
 def grid_search(*args, **kwargs):
     """Run a grid search over Suite2p parameters. See lbm_suite2p_python.grid_search module."""
     from lbm_suite2p_python.grid_search import grid_search as _grid_search
+
     return _grid_search(*args, **kwargs)
