@@ -8,7 +8,7 @@ version = "2.5.6"
 description = "Light Beads Microscopy Pipeline using Suite2p"
 readme = "README.md"
 license = "BSD-3-Clause"
-requires-python = ">=3.12.7, <3.12.10"
+requires-python = ">=3.12.7,<3.14"
 keywords = ["Pipeline", "Numpy", "Microscopy", "ScanImage", "Suite2p", "tiff"]
 urls = {homepage = "https://github.com/MillerBrainObservatory/LBM-Suite2p-Python"}
 classifiers=[
@@ -19,6 +19,7 @@ classifiers=[
 
 dependencies = [
 	"mbo_utilities>=2.6.3",
+	"suite2p_mbo>=2.0.1",
 	"setuptools<81",
 ]
 
@@ -27,11 +28,6 @@ lsp = "lbm_suite2p_python.__main__:main"
 cellpose-gui = "lbm_suite2p_python.gui:main"
 
 [project.optional-dependencies]
-# Suite2p cell extraction pipeline (core dependency for this package)
-suite2p = [
-	"suite2p_mbo>=2.0.1",
-]
-# Rastermap for activity clustering and visualization
 rastermap = [
 	"rastermap",
 ]
@@ -46,7 +42,7 @@ torch = [
 ]
 # All optional dependencies
 all = [
-	"lbm_suite2p_python[suite2p,rastermap,cellpose,torch]",
+	"lbm_suite2p_python[rastermap,cellpose,torch]",
 ]
 
 [dependency-groups]
