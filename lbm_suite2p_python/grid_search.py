@@ -246,12 +246,15 @@ def grid_search(
         print(f"Processing plane {plane_num}")
         print(f"{'='*60}")
 
-        # get plane dimensions
-        if num_planes > 1:
-            sample_frame = arr[0, plane_idx]
+        # get plane spatial dimensions
+        # mbo_utilities arrays are 5D TCZYX; legacy 4D TZYX and 3D TYX still supported
+        ndim = len(arr.shape)
+        if ndim == 5:
+            plane_Ly, plane_Lx = arr.shape[3], arr.shape[4]
+        elif ndim == 4:
+            plane_Ly, plane_Lx = arr.shape[2], arr.shape[3]
         else:
-            sample_frame = arr[0] if arr.ndim == 3 else arr[0, 0]
-        plane_Ly, plane_Lx = sample_frame.shape[-2], sample_frame.shape[-1]
+            plane_Ly, plane_Lx = arr.shape[-2], arr.shape[-1]
 
         # create plane subdirectory
         plane_tag = f"plane{plane_num:02d}" if len(planes_to_process) > 1 else ""

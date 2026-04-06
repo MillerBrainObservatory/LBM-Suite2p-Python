@@ -289,22 +289,13 @@ def pipeline(
     if roi_mode is not None and supports_roi(arr):
         arr.roi = roi_mode
 
-    # Check dims
-    # TZYX (4D) or TYX (3D)
-    if hasattr(arr, "ndim"):
-        if getattr(arr, "num_planes", 1) > 1:
-            is_volumetric = True
-        elif arr.ndim == 4 and not hasattr(arr, "num_planes"):
-            is_volumetric = True
-        elif arr.ndim == 3:
-            is_volumetric = False
-        else:
-            # handle odd cases
-            is_volumetric = False
+    # check if data is volumetric (multiple Z planes)
+    # mbo_utilities arrays expose nz; legacy arrays use num_planes or shape inference
+    is_volumetric = _get_num_planes(arr) > 1
 
     # 3. Delegate
     if is_volumetric:
-        print("Delegating to run_volume (4D input detected)...")
+        print("Delegating to run_volume (volumetric input detected)...")
         if arr is not None:
             input_arg = arr
         else:
@@ -581,6 +572,8 @@ def run_volume(
         input_paths = [Path(p) for p in input_data]
         if save_path is None and input_paths:
             save_path = input_paths[0].parent
+        # load as array to get actual plane count (files may contain interleaved planes)
+        input_arr = imread(input_paths, **(reader_kwargs or {}))
     elif isinstance(input_data, (str, Path)):
         # Single path representing a volume (e.g. 4D tiff, zarr)
         # We'll load it as an array to iterate planes
@@ -767,6 +760,9 @@ def _should_write_bin(
     *,
     validate_chan2: bool | None = None,
     expected_dtype: np.dtype = np.int16,
+    expected_nframes: int | None = None,
+    expected_ly: int | None = None,
+    expected_lx: int | None = None,
 ) -> bool:
     if force:
         return True
@@ -794,6 +790,20 @@ def _should_write_bin(
         )
         if (None in (nframes_raw, Ly, Lx)) or (nframes_raw <= 0 or Ly <= 0 or Lx <= 0):
             return True
+
+        # invalidate cache if requested dimensions differ from cached
+        if expected_nframes is not None and int(expected_nframes) != int(nframes_raw):
+            print(
+                f"Cache invalidated: cached nframes={nframes_raw}, requested={expected_nframes}"
+            )
+            return True
+        if expected_ly is not None and int(expected_ly) != int(Ly):
+            print(f"Cache invalidated: cached Ly={Ly}, requested={expected_ly}")
+            return True
+        if expected_lx is not None and int(expected_lx) != int(Lx):
+            print(f"Cache invalidated: cached Lx={Lx}, requested={expected_lx}")
+            return True
+
         expected_size_raw = (
             int(nframes_raw) * int(Ly) * int(Lx) * np.dtype(expected_dtype).itemsize
         )
@@ -1505,7 +1515,19 @@ def run_plane(
                 or ops.get("nframes")
             )
             if not nframes_hint and input_arr is not None and hasattr(input_arr, "shape"):
-                nframes_hint = input_arr.shape[0] if input_arr.ndim >= 3 else None
+                nframes_hint = input_arr.shape[0]
+            # if input was a path, peek at metadata for frame count
+            if not nframes_hint and input_arr is None and input_path is not None:
+                try:
+                    from mbo_utilities import get_metadata
+                    md = get_metadata(input_path)
+                    nframes_hint = (
+                        md.get("num_timepoints")
+                        or md.get("nframes")
+                        or md.get("num_frames")
+                    )
+                except Exception:
+                    nframes_hint = None
             subdir_name = generate_plane_dirname(
                 plane=plane,
                 nframes=nframes_hint,
@@ -1515,8 +1537,24 @@ def run_plane(
         plane_dir.mkdir(exist_ok=True)
         ops_file = plane_dir / "ops.npy"
 
+        # extract expected dims from input for cache validation
+        # honors writer_kwargs["num_frames"] limit if user requested fewer frames
+        exp_nframes = writer_kwargs.get("num_frames")
+        exp_ly = exp_lx = None
+        if input_arr is not None and hasattr(input_arr, "shape"):
+            if exp_nframes is None:
+                exp_nframes = input_arr.shape[0]
+            exp_ly = input_arr.shape[-2]
+            exp_lx = input_arr.shape[-1]
+
         # check if binaries already exist in the actual output directory
-        should_write = _should_write_bin(ops_file, force=force_reg)
+        should_write = _should_write_bin(
+            ops_file,
+            force=force_reg,
+            expected_nframes=exp_nframes,
+            expected_ly=exp_ly,
+            expected_lx=exp_lx,
+        )
         if should_write:
             if input_arr is not None:
                 file = input_arr
@@ -1585,8 +1623,8 @@ def run_plane(
         md_combined = {**metadata, **ops}
         print(f"Writing binary to {plane_dir}...")
         bin_start = time.time()
-        # extract single plane for multi-z data (4D TZYX or 5D TCZYX)
-        write_planes = [plane] if file.ndim >= 4 else None
+        # extract single plane if data is volumetric
+        write_planes = [plane] if _get_num_planes(file) > 1 else None
 
         # apply per-plane axial shift from suite3d registration if available
         write_kw = dict(writer_kwargs)

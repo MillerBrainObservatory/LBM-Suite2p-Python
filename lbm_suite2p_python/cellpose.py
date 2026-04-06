@@ -37,9 +37,10 @@ def _compute_projection(
     Parameters
     ----------
     arr : array-like
-        Input array (T, Y, X) for 3D or (T, Z, Y, X) for 4D.
+        Input array. mbo_utilities arrays are 5D TCZYX.
+        Legacy 4D TZYX and 3D TYX inputs are also supported.
     plane_idx : int, optional
-        For 4D arrays, which z-plane to extract (0-indexed).
+        For volumetric arrays, which z-plane to extract (0-indexed).
         If None, uses all planes for 3D segmentation.
     method : str
         Projection method: 'max', 'mean', 'std', or 'percentile'.
@@ -53,19 +54,23 @@ def _compute_projection(
     """
     ndim = len(arr.shape)
 
-    if ndim == 4:
-        # (T, Z, Y, X)
+    if ndim == 5:
+        # 5D TCZYX: use channel 0
         if plane_idx is not None:
-            # extract single plane -> (T, Y, X)
+            data = arr[:, 0, plane_idx, :, :]  # (T, Y, X)
+        else:
+            data = arr[:, 0, :, :, :]  # (T, Z, Y, X)
+    elif ndim == 4:
+        # legacy 4D TZYX
+        if plane_idx is not None:
             data = arr[:, plane_idx, :, :]
         else:
-            # keep all planes -> (T, Z, Y, X)
             data = arr[:]
     elif ndim == 3:
-        # (T, Y, X)
+        # legacy 3D TYX
         data = arr[:]
     else:
-        raise ValueError(f"Expected 3D or 4D array, got {ndim}D")
+        raise ValueError(f"Expected 3D, 4D, or 5D array, got {ndim}D")
 
     # convert to numpy if lazy
     if hasattr(data, "compute"):
@@ -577,18 +582,18 @@ def cellpose(
 
     # get array info
     shape = arr.shape
-    ndim = len(shape)
     num_planes = _get_num_planes(arr)
     num_frames = shape[0]
+    is_volumetric = num_planes > 1
 
     print(f"\nDataset info:")
     print(f"  Shape: {shape}")
     print(f"  Frames: {num_frames}")
     print(f"  Planes: {num_planes}")
-    print(f"  Data type: {'4D volumetric' if ndim == 4 else '3D planar'}")
+    print(f"  Data type: {'volumetric' if is_volumetric else 'planar'}")
 
     # normalize planes to 0-indexed list
-    if ndim == 4:
+    if is_volumetric:
         planes_to_process = _normalize_planes(planes, num_planes)
     else:
         planes_to_process = [None]  # single plane data
