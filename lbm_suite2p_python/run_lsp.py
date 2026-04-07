@@ -30,6 +30,34 @@ def _get_version():
         return "0.0.0"
 
 
+# canonical set of frame-count alias keys that mbo_utilities writes to
+# ops.npy. lbm_suite2p_python and mbo_utilities must keep these in
+# lockstep — when one updates the count (e.g. dual-channel trim), the
+# others must follow or downstream readers see contradictory values.
+_FRAME_COUNT_ALIASES = (
+    "nframes",
+    "num_frames",
+    "num_timepoints",
+    "n_frames",
+    "T",
+    "nt",
+    "timepoints",
+)
+
+
+def _set_frame_count_aliases(ops: dict, n: int) -> None:
+    """Set every frame-count alias in `ops` to `n`.
+
+    Centralizes the fan-out so adding a new alias only requires
+    updating `_FRAME_COUNT_ALIASES`. Channel-specific keys
+    (`nframes_chan1`, `nframes_chan2`) are NOT touched here — those
+    have their own semantics and must be set explicitly by the caller.
+    """
+    n = int(n)
+    for key in _FRAME_COUNT_ALIASES:
+        ops[key] = n
+
+
 from lbm_suite2p_python.zplane import (
     save_pc_panels_and_metrics,
     plot_zplane_figures,
@@ -980,7 +1008,12 @@ def run_plane_bin(ops) -> bool:
     ops["functional_chan"] = 1
     ops["align_by_chan"] = 2 if use_chan2 else 1
     ops["nchannels"] = 2 if use_chan2 else 1
-    ops["nframes"] = n_align
+    # Fan out the trimmed frame count to every alias mbo_utilities also
+    # writes (num_timepoints, num_frames, n_frames, T, nt, timepoints).
+    # Without this, dual-channel trimming leaves nframes=n_align but the
+    # other aliases stuck at the chan1 source value, and downstream
+    # readers get inconsistent answers from the same ops dict.
+    _set_frame_count_aliases(ops, n_align)
     ops["nframes_chan1"] = n_align
     if use_chan2:
         ops["nframes_chan2"] = n_align
@@ -1724,9 +1757,17 @@ def run_plane(
                 show_progress=False,
             )
             ops["chan2_file"] = str((plane_dir / "data_chan2.bin").resolve())
-            ops["nframes_chan2"] = (
-                chan2_data.shape[0] if hasattr(chan2_data, "shape") else 0
-            )
+            # Use shape5d (the always-5D contract) so natural-rank arrays
+            # (e.g. a 4D TZYX TiffArray with C=1 squeezed) report the
+            # real T dimension. shape[0] picks Y on a natural 4D array
+            # and crashes/mis-counts on a 2D one — same class of bug
+            # mbo_utilities just fixed in `_imwrite_base`.
+            if hasattr(chan2_data, "shape5d"):
+                ops["nframes_chan2"] = int(chan2_data.shape5d[0])
+            elif hasattr(chan2_data, "shape"):
+                ops["nframes_chan2"] = int(chan2_data.shape[0])
+            else:
+                ops["nframes_chan2"] = 0
             ops["nchannels"] = 2
             ops["align_by_chan"] = 2
 
