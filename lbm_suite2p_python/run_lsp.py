@@ -58,6 +58,102 @@ def _set_frame_count_aliases(ops: dict, n: int) -> None:
         ops[key] = n
 
 
+def _apply_reactive_metadata(
+    ops: dict,
+    source_metadata: dict | None,
+    source_shape: tuple | None = None,
+    frame_indices: list[int] | None = None,
+    plane_indices: list[int] | None = None,
+    logger=None,
+) -> None:
+    """Reactively scale fs/dz in `ops` from a source metadata dict and
+    the user's stride selections, in place.
+
+    Uses `mbo_utilities.metadata.OutputMetadata` so the scaling rules
+    stay aligned with the writer side. Without this, every-other-
+    timepoint produces ops.npy with raw source `fs` (factor of 2
+    wrong), and every-other-plane produces ops.npy with raw source `dz`.
+
+    Parameters
+    ----------
+    ops : dict
+        ops dict to mutate. Existing keys are NOT overwritten unless
+        the reactive value differs (so user-set explicit overrides win
+        over the reactive computation).
+    source_metadata : dict | None
+        Source acquisition metadata (must contain `fs`, `dz` etc. for
+        scaling to work). If None, function is a no-op.
+    source_shape : tuple | None
+        Source shape tuple (T, C, Z, Y, X). If None, OutputMetadata
+        falls back to whatever it can infer.
+    frame_indices : list[int] | None
+        0-based timepoint indices the user selected. The implicit
+        stride scales `fs`. None means no T-stride scaling.
+    plane_indices : list[int] | None
+        0-based z-plane indices the user selected (FULL list, not just
+        the current plane). The implicit stride scales `dz`. None
+        means no Z-stride scaling.
+    logger : optional
+        If provided, a missing `fs` produces a `.warning(...)` call.
+    """
+    if not source_metadata:
+        return
+
+    try:
+        from mbo_utilities.metadata import OutputMetadata, get_param
+    except ImportError:
+        # mbo_utilities not available — caller's choice to handle this
+        return
+
+    if logger is not None and get_param(source_metadata, "fs") is None:
+        logger.warning(
+            "Source metadata has no 'fs' field. Frame rate in ops.npy "
+            "may not reflect the acquisition rate. Set fs via the "
+            "metadata editor or fix the source TIFF metadata."
+        )
+
+    selections: dict = {}
+    if frame_indices is not None:
+        selections["T"] = list(frame_indices)
+    if plane_indices is not None:
+        selections["Z"] = list(plane_indices)
+
+    if not selections:
+        return
+
+    # OutputMetadata's accessors crash on `source_shape=None`. Default
+    # to an empty tuple — the reactive scaling for fs/dz only needs the
+    # selections, not the absolute shape.
+    out_meta = OutputMetadata(
+        source=dict(source_metadata),
+        source_shape=source_shape if source_shape is not None else (),
+        source_dims=("T", "C", "Z", "Y", "X"),
+        selections=selections,
+    )
+
+    scaled = out_meta.to_dict()
+    # Split-responsibility scaling:
+    #   - `fs` is owned by mbo's writer (`_imwrite_base` builds its own
+    #     OutputMetadata from `frames=` and scales fs there). If we
+    #     also scaled fs here, the writer would re-scale our already-
+    #     scaled value and end up with fs/4 instead of fs/2.
+    #   - `dz` (and dx/dy) are owned by lbm because mbo's writer only
+    #     sees the per-plane data, not the FULL plane selection list,
+    #     so it cannot compute the implicit z-stride.
+    # CRITICAL: only write dz/dx/dy when `plane_indices` was actually
+    # supplied. When the helper is called per-plane from run_plane (with
+    # plane_indices=None), the OutputMetadata `_z_step_factor` defaults
+    # to 1 and `scaled["dz"] = source_dz`. Writing that would CLOBBER a
+    # correctly-scaled value already in `ops` from run_volume's outer
+    # call (where the FULL plane list was in scope). So per-plane
+    # callers without plane context must not touch dz at all.
+    if plane_indices is not None:
+        for key in ("dz", "dx", "dy", "z_step",
+                    "umPerPixZ", "umPerPixX", "umPerPixY"):
+            if key in scaled and scaled[key] is not None:
+                ops[key] = scaled[key]
+
+
 from lbm_suite2p_python.zplane import (
     save_pc_panels_and_metrics,
     plot_zplane_figures,
@@ -174,6 +270,7 @@ def pipeline(
     force_reg: bool = False,
     force_detect: bool = False,
     num_timepoints: int = None,
+    frame_indices: list | None = None,
     dff_window_size: int = None,
     dff_percentile: int = 20,
     dff_smooth_window: int = None,
@@ -220,7 +317,15 @@ def pipeline(
     force_detect : bool, default False
         Force ROI detection even if stat.npy exists.
     num_timepoints : int, optional
-        Limit processing to first N frames.
+        Limit processing to first N frames (truncation only). For an
+        explicit set of frames or a strided selection, use
+        ``frame_indices`` instead.
+    frame_indices : list[int], optional
+        Explicit 0-based frame indices to process. Supports stride
+        (e.g. ``list(range(0, 1574, 2))`` for every other frame).
+        When provided, the implicit stride is used by `OutputMetadata`
+        to reactively scale `fs` (e.g. stride of 2 → `fs / 2` in the
+        output ops.npy). Takes precedence over ``num_timepoints``.
     dff_window_size : int, optional
         Window size for rolling percentile dF/F baseline (frames).
         If None, auto-calculated as ~10 * tau * fs.
@@ -299,6 +404,13 @@ def pipeline(
     writer_kwargs = writer_kwargs or {}
     if num_timepoints is not None:
         writer_kwargs["num_frames"] = num_timepoints
+    # frame_indices wins over num_timepoints — it carries both the
+    # count AND the stride. Convert to 1-based for mbo's imwrite which
+    # uses 1-based frame numbers.
+    if frame_indices is not None:
+        writer_kwargs["frames"] = [int(i) + 1 for i in frame_indices]
+        # don't double-pass num_frames; len(frame_indices) is implicit
+        writer_kwargs.pop("num_frames", None)
 
     # 2. Load Input to Determine Dimensionality
     # We need to know if it's 3D (single plane) or 4D (volume)
@@ -338,6 +450,7 @@ def pipeline(
             keep_raw=keep_raw,
             force_reg=force_reg,
             force_detect=force_detect,
+            frame_indices=frame_indices,
             dff_window_size=dff_window_size,
             dff_percentile=dff_percentile,
             dff_smooth_window=dff_smooth_window,
@@ -363,6 +476,7 @@ def pipeline(
             keep_raw=keep_raw,
             force_reg=force_reg,
             force_detect=force_detect,
+            frame_indices=frame_indices,
             dff_window_size=dff_window_size,
             dff_percentile=dff_percentile,
             dff_smooth_window=dff_smooth_window,
@@ -530,6 +644,7 @@ def run_volume(
     keep_raw: bool = False,
     force_reg: bool = False,
     force_detect: bool = False,
+    frame_indices: list | None = None,
     dff_window_size: int = None,
     dff_percentile: int = 20,
     dff_smooth_window: int = None,
@@ -637,6 +752,25 @@ def run_volume(
     # Normalize planes to process
     planes_indices = _normalize_planes(planes, num_planes)
 
+    # Build the FULL Z selection (0-based) — we pass this to every
+    # run_plane call so its OutputMetadata layer can compute the
+    # implicit z-stride and reactively scale dz. Without the full list
+    # in scope, each per-plane ops.npy would carry the unscaled source
+    # dz even though only every Nth plane was being processed.
+    _volume_z_selection = list(planes_indices) if planes_indices else None
+    # Snapshot the source acquisition metadata once — used by the
+    # reactive helper inside the per-plane loop to scale dz/fs.
+    _volume_source_meta = (
+        dict(input_arr.metadata)
+        if input_arr is not None and hasattr(input_arr, "metadata")
+        else None
+    )
+    _volume_source_shape = (
+        tuple(input_arr.shape5d)
+        if input_arr is not None and hasattr(input_arr, "shape5d")
+        else None
+    )
+
     print(
         f"Processing {len(planes_indices)} planes in volume (Total planes: {num_planes})"
     )
@@ -686,6 +820,22 @@ def run_volume(
             if _volume_voxel.dy != 1.0:
                 current_ops.setdefault("dy", _volume_voxel.dy)
 
+        # Reactively scale dz (and fs if frame_indices are provided)
+        # using the FULL plane selection. This MUST happen before
+        # run_plane fires, because run_plane sees only its own plane
+        # number and can't compute the implicit z-stride on its own.
+        # The helper overwrites dz/dx/dy/fs in current_ops so the
+        # `setdefault` calls above are effectively replaced when the
+        # reactive value differs.
+        _apply_reactive_metadata(
+            ops=current_ops,
+            source_metadata=_volume_source_meta,
+            source_shape=_volume_source_shape,
+            frame_indices=frame_indices,
+            plane_indices=_volume_z_selection,
+            logger=logger,
+        )
+
         # Call run_plane
         try:
             print(f"\n--- Volume Step: Plane {plane_num} ---")
@@ -697,6 +847,7 @@ def run_volume(
                 keep_raw=keep_raw,
                 force_reg=force_reg,
                 force_detect=force_detect,
+                frame_indices=frame_indices,
                 dff_window_size=dff_window_size,
                 dff_percentile=dff_percentile,
                 dff_smooth_window=dff_smooth_window,
@@ -1320,6 +1471,7 @@ def run_plane(
     keep_reg: bool = True,
     force_reg: bool = False,
     force_detect: bool = False,
+    frame_indices: list | None = None,
     dff_window_size: int = None,
     dff_percentile: int = 20,
     dff_smooth_window: int = None,
@@ -1370,6 +1522,13 @@ def run_plane(
         Example: [{"name": "max_diameter", "min_diameter_um": 4, "max_diameter_um": 35}]
     save_json : bool, default False
         Save ops as JSON.
+    frame_indices : list[int], optional
+        Explicit 0-based timepoint indices. Supports stride
+        (e.g. ``list(range(0, 1574, 2))`` for every other frame).
+        When provided, the binary on disk contains exactly these
+        frames, and `OutputMetadata` reactively scales `fs` in ops.npy
+        based on the implicit stride. Takes precedence over any
+        ``num_frames`` in ``writer_kwargs``.
     plane_name : str, optional
         Custom name for the plane subdirectory.
     reader_kwargs : dict, optional
@@ -1645,6 +1804,47 @@ def run_plane(
     if vs.dy != 1.0:
         ops.setdefault("dy", vs.dy)
 
+    # Propagate fs from source metadata into ops the same way dz/dx/dy
+    # are propagated above. WITHOUT this, lbm's `default_ops()` ships
+    # `fs=10.0` and that hardcoded default wins over the actual source
+    # acquisition fs when the metadata kwarg merge happens inside
+    # mbo's `imwrite` (the kwarg takes precedence over arr.metadata).
+    # Result: any downstream reactive scaling — including the writer's
+    # OutputMetadata fs/stride scaling — divides 10 instead of the
+    # real fs, producing nonsense like fs=5 from a 30Hz source +
+    # every-other-frame stride.
+    src_fs = metadata.get("fs") if metadata else None
+    if src_fs is None and file is not None and hasattr(file, "metadata"):
+        src_fs = (file.metadata or {}).get("fs")
+    if src_fs is not None:
+        # only override the lbm default — don't clobber a value the
+        # user explicitly set in their ops_user dict.
+        if ops.get("fs") in (None, 10.0) or "fs" not in ops_user:
+            ops["fs"] = float(src_fs)
+
+    # When called directly (not via run_volume), the caller may pass
+    # frame_indices for stride scaling. run_volume already invoked the
+    # reactive helper before reaching us, so re-running it here is a
+    # no-op when there's no T stride. When there IS a T stride from
+    # this entry point, scale fs from the source metadata via the
+    # reactive helper. plane_indices is None here because we only see
+    # one plane at a time at this layer.
+    if frame_indices is not None and file is not None:
+        _src_meta = (
+            dict(file.metadata) if hasattr(file, "metadata") else None
+        )
+        _src_shape = (
+            tuple(file.shape5d) if hasattr(file, "shape5d") else None
+        )
+        _apply_reactive_metadata(
+            ops=ops,
+            source_metadata=_src_meta,
+            source_shape=_src_shape,
+            frame_indices=frame_indices,
+            plane_indices=None,  # this layer only sees one plane
+            logger=logger,
+        )
+
     # store source filename info in ops for traceability
     ops["source_dirname"] = plane_dir.name
     ops["source_input"] = str(input_path.name)
@@ -1661,6 +1861,13 @@ def run_plane(
 
         # apply per-plane axial shift from suite3d registration if available
         write_kw = dict(writer_kwargs)
+        # If the caller gave us explicit frame indices, pass them as
+        # `frames=` (1-based) to imwrite. This wins over any stale
+        # `num_frames` truncation in writer_kwargs — strided semantics
+        # require an explicit index list, not a count.
+        if frame_indices is not None:
+            write_kw["frames"] = [int(i) + 1 for i in frame_indices]
+            write_kw.pop("num_frames", None)
         if md_combined.get("apply_shift") and md_combined.get("s3d-job"):
             from mbo_utilities._writers import load_registration_shifts, compute_pad_from_shifts
 
