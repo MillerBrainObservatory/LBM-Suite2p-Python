@@ -1,16 +1,16 @@
 {
-  "timestamp": "2026-04-07T10:19:28.108960",
+  "timestamp": "2026-04-07T10:21:21.497162",
   "tests": [
     {
       "name": "test_plot_traces_basic",
       "status": "passed",
-      "duration_seconds": 0.3957393169403076,
+      "duration_seconds": 0.27164506912231445,
       "details": {}
     },
     {
       "name": "test_plot_traces_custom_label",
       "status": "passed",
-      "duration_seconds": 0.5002052783966064,
+      "duration_seconds": 0.49973607063293457,
       "details": {
         "labels_tested": [
           "100% \u0394F/F\u2080",
@@ -22,7 +22,7 @@
     {
       "name": "test_plot_traces_cell_indices",
       "status": "passed",
-      "duration_seconds": 0.167830228805542,
+      "duration_seconds": 0.17082786560058594,
       "details": {
         "indices": [
           0,
@@ -36,7 +36,7 @@
     {
       "name": "test_dff_rolling_percentile",
       "status": "passed",
-      "duration_seconds": 0.005908012390136719,
+      "duration_seconds": 0.006012916564941406,
       "details": {
         "shape": [
           50,
@@ -49,7 +49,7 @@
     {
       "name": "test_dff_window_size_effect",
       "status": "passed",
-      "duration_seconds": 0.0,
+      "duration_seconds": 0.007757902145385742,
       "details": {
         "max_diff": 0.03420636286789755,
         "mean_diff": 0.0001773608992455071
