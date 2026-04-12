@@ -805,8 +805,9 @@ def run_volume(
                 # Fallback or error? Assuming input_files length matches num_planes
                 current_input = input_paths[0]  # Should not happen if logic is correct
 
-        # Prepare ops with plane number
-        current_ops = load_ops(ops) if ops else default_ops()
+        # Prepare ops with plane number — deepcopy so suite2p's in-place
+        # mutations (badframes, meanImg, Ly/Lx, etc.) don't leak across planes
+        current_ops = copy.deepcopy(load_ops(ops)) if ops else default_ops()
         current_ops["plane"] = plane_num
         current_ops["num_zplanes"] = num_planes  # useful info
 
