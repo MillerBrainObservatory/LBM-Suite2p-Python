@@ -29,6 +29,10 @@ def _get_num_planes(arr):
     """
     Get number of z-planes from a lazy array.
 
+    mbo_utilities arrays are always 5D TCZYX, so Z is at shape[2].
+    Falls back to legacy 4D TZYX (Z at shape[1]) and other heuristics
+    for non-mbo arrays.
+
     Parameters
     ----------
     arr : array-like
@@ -37,15 +41,18 @@ def _get_num_planes(arr):
     Returns
     -------
     int
-        Number of z-planes (1 for 3D arrays, Z dimension for 4D).
+        Number of z-planes (1 if no Z dimension).
     """
-    if hasattr(arr, "num_planes"):
+    # mbo_utilities Shape5DMixin
+    if hasattr(arr, "nz"):
+        return arr.nz
+    if hasattr(arr, "num_planes") and arr.num_planes is not None:
         return arr.num_planes
-    if hasattr(arr, "num_channels"):
-        return arr.num_channels
     shape = arr.shape
+    if len(shape) == 5:
+        return shape[2]  # 5D TCZYX
     if len(shape) == 4:
-        return shape[1]  # TZYX format
+        return shape[1]  # legacy 4D TZYX
     return 1
 
 

@@ -22,11 +22,136 @@ from lbm_suite2p_python.postprocessing import (
 
 from importlib.metadata import version, PackageNotFoundError
 
+
 def _get_version():
     try:
         return version("lbm_suite2p_python")
     except PackageNotFoundError:
         return "0.0.0"
+
+
+# canonical set of frame-count alias keys that mbo_utilities writes to
+# ops.npy. lbm_suite2p_python and mbo_utilities must keep these in
+# lockstep — when one updates the count (e.g. dual-channel trim), the
+# others must follow or downstream readers see contradictory values.
+_FRAME_COUNT_ALIASES = (
+    "nframes",
+    "num_frames",
+    "num_timepoints",
+    "n_frames",
+    "T",
+    "nt",
+    "timepoints",
+)
+
+
+def _set_frame_count_aliases(ops: dict, n: int) -> None:
+    """Set every frame-count alias in `ops` to `n`.
+
+    Centralizes the fan-out so adding a new alias only requires
+    updating `_FRAME_COUNT_ALIASES`. Channel-specific keys
+    (`nframes_chan1`, `nframes_chan2`) are NOT touched here — those
+    have their own semantics and must be set explicitly by the caller.
+    """
+    n = int(n)
+    for key in _FRAME_COUNT_ALIASES:
+        ops[key] = n
+
+
+def _apply_reactive_metadata(
+    ops: dict,
+    source_metadata: dict | None,
+    source_shape: tuple | None = None,
+    frame_indices: list[int] | None = None,
+    plane_indices: list[int] | None = None,
+    logger=None,
+) -> None:
+    """Reactively scale fs/dz in `ops` from a source metadata dict and
+    the user's stride selections, in place.
+
+    Uses `mbo_utilities.metadata.OutputMetadata` so the scaling rules
+    stay aligned with the writer side. Without this, every-other-
+    timepoint produces ops.npy with raw source `fs` (factor of 2
+    wrong), and every-other-plane produces ops.npy with raw source `dz`.
+
+    Parameters
+    ----------
+    ops : dict
+        ops dict to mutate. Existing keys are NOT overwritten unless
+        the reactive value differs (so user-set explicit overrides win
+        over the reactive computation).
+    source_metadata : dict | None
+        Source acquisition metadata (must contain `fs`, `dz` etc. for
+        scaling to work). If None, function is a no-op.
+    source_shape : tuple | None
+        Source shape tuple (T, C, Z, Y, X). If None, OutputMetadata
+        falls back to whatever it can infer.
+    frame_indices : list[int] | None
+        0-based timepoint indices the user selected. The implicit
+        stride scales `fs`. None means no T-stride scaling.
+    plane_indices : list[int] | None
+        0-based z-plane indices the user selected (FULL list, not just
+        the current plane). The implicit stride scales `dz`. None
+        means no Z-stride scaling.
+    logger : optional
+        If provided, a missing `fs` produces a `.warning(...)` call.
+    """
+    if not source_metadata:
+        return
+
+    try:
+        from mbo_utilities.metadata import OutputMetadata, get_param
+    except ImportError:
+        # mbo_utilities not available — caller's choice to handle this
+        return
+
+    if logger is not None and get_param(source_metadata, "fs") is None:
+        logger.warning(
+            "Source metadata has no 'fs' field. Frame rate in ops.npy "
+            "may not reflect the acquisition rate. Set fs via the "
+            "metadata editor or fix the source TIFF metadata."
+        )
+
+    selections: dict = {}
+    if frame_indices is not None:
+        selections["T"] = list(frame_indices)
+    if plane_indices is not None:
+        selections["Z"] = list(plane_indices)
+
+    if not selections:
+        return
+
+    # OutputMetadata's accessors crash on `source_shape=None`. Default
+    # to an empty tuple — the reactive scaling for fs/dz only needs the
+    # selections, not the absolute shape.
+    out_meta = OutputMetadata(
+        source=dict(source_metadata),
+        source_shape=source_shape if source_shape is not None else (),
+        source_dims=("T", "C", "Z", "Y", "X"),
+        selections=selections,
+    )
+
+    scaled = out_meta.to_dict()
+    # Split-responsibility scaling:
+    #   - `fs` is owned by mbo's writer (`_imwrite_base` builds its own
+    #     OutputMetadata from `frames=` and scales fs there). If we
+    #     also scaled fs here, the writer would re-scale our already-
+    #     scaled value and end up with fs/4 instead of fs/2.
+    #   - `dz` (and dx/dy) are owned by lbm because mbo's writer only
+    #     sees the per-plane data, not the FULL plane selection list,
+    #     so it cannot compute the implicit z-stride.
+    # CRITICAL: only write dz/dx/dy when `plane_indices` was actually
+    # supplied. When the helper is called per-plane from run_plane (with
+    # plane_indices=None), the OutputMetadata `_z_step_factor` defaults
+    # to 1 and `scaled["dz"] = source_dz`. Writing that would CLOBBER a
+    # correctly-scaled value already in `ops` from run_volume's outer
+    # call (where the FULL plane list was in scope). So per-plane
+    # callers without plane context must not touch dz at all.
+    if plane_indices is not None:
+        for key in ("dz", "dx", "dy", "z_step",
+                    "umPerPixZ", "umPerPixX", "umPerPixY"):
+            if key in scaled and scaled[key] is not None:
+                ops[key] = scaled[key]
 
 
 from lbm_suite2p_python.zplane import (
@@ -43,7 +168,6 @@ from mbo_utilities.metadata import (
     get_param,
     get_voxel_size,
 )
-
 
 
 logger = get_logger("run_lsp")
@@ -72,12 +196,15 @@ def _get_suite2p_version():
     """Get suite2p version string."""
     try:
         import suite2p
+
         return getattr(suite2p, "__version__", "unknown")
     except ImportError:
         return "not installed"
 
 
-def _add_processing_step(ops, step_name, input_files=None, duration_seconds=None, extra=None):
+def _add_processing_step(
+    ops, step_name, input_files=None, duration_seconds=None, extra=None
+):
     """
     Add a processing step to ops["processing_history"].
 
@@ -113,7 +240,11 @@ def _add_processing_step(ops, step_name, input_files=None, duration_seconds=None
     }
 
     if input_files is not None:
-        step_record["input_files"] = [str(f) for f in input_files] if not isinstance(input_files, str) else [input_files]
+        step_record["input_files"] = (
+            [str(f) for f in input_files]
+            if not isinstance(input_files, str)
+            else [input_files]
+        )
 
     if duration_seconds is not None:
         step_record["duration_seconds"] = round(duration_seconds, 2)
@@ -139,6 +270,7 @@ def pipeline(
     force_reg: bool = False,
     force_detect: bool = False,
     num_timepoints: int = None,
+    frame_indices: list | None = None,
     dff_window_size: int = None,
     dff_percentile: int = 20,
     dff_smooth_window: int = None,
@@ -185,7 +317,15 @@ def pipeline(
     force_detect : bool, default False
         Force ROI detection even if stat.npy exists.
     num_timepoints : int, optional
-        Limit processing to first N frames.
+        Limit processing to first N frames (truncation only). For an
+        explicit set of frames or a strided selection, use
+        ``frame_indices`` instead.
+    frame_indices : list[int], optional
+        Explicit 0-based frame indices to process. Supports stride
+        (e.g. ``list(range(0, 1574, 2))`` for every other frame).
+        When provided, the implicit stride is used by `OutputMetadata`
+        to reactively scale `fs` (e.g. stride of 2 → `fs / 2` in the
+        output ops.npy). Takes precedence over ``num_timepoints``.
     dff_window_size : int, optional
         Window size for rolling percentile dF/F baseline (frames).
         If None, auto-calculated as ~10 * tau * fs.
@@ -244,11 +384,19 @@ def pipeline(
     # 1. Handle Deprecations
     if roi is not None:
         import warnings
-        warnings.warn("'roi' is deprecated, use 'roi_mode'", DeprecationWarning, stacklevel=2)
+
+        warnings.warn(
+            "'roi' is deprecated, use 'roi_mode'", DeprecationWarning, stacklevel=2
+        )
         roi_mode = roi
     if num_frames is not None:
         import warnings
-        warnings.warn("'num_frames' is deprecated, use 'num_timepoints'", DeprecationWarning, stacklevel=2)
+
+        warnings.warn(
+            "'num_frames' is deprecated, use 'num_timepoints'",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         num_timepoints = num_frames
 
     # Normalize kwargs
@@ -256,51 +404,42 @@ def pipeline(
     writer_kwargs = writer_kwargs or {}
     if num_timepoints is not None:
         writer_kwargs["num_frames"] = num_timepoints
+    # frame_indices wins over num_timepoints — it carries both the
+    # count AND the stride. Convert to 1-based for mbo's imwrite which
+    # uses 1-based frame numbers.
+    if frame_indices is not None:
+        writer_kwargs["frames"] = [int(i) + 1 for i in frame_indices]
+        # don't double-pass num_frames; len(frame_indices) is implicit
+        writer_kwargs.pop("num_frames", None)
 
     # 2. Load Input to Determine Dimensionality
     # We need to know if it's 3D (single plane) or 4D (volume)
     is_list = isinstance(input_data, (list, tuple))
+    is_volumetric = False
 
-    if is_list:
-        # Check if list of files implies volume (files with plane tags)
-        # We'll just assume list = volume for now, as run_volume handles lists
-        is_volumetric = True
-        arr = None
+    # Always load array to check dimensions and ensure downstream functions have the array shape
+    # If input is already array, this is fast. If path or list of paths, it loads lazy array.
+    if _is_lazy_array(input_data):
+        arr = input_data
     else:
-        # Load array to check dimensions
-        # If input is already array, this is fast. If path, it loads lazy array.
-        if _is_lazy_array(input_data):
-            arr = input_data
-        else:
-            print(f"Loading input to determine dimensions: {input_data}")
-            arr = imread(input_data, **reader_kwargs)
+        print(f"Loading input to determine dimensions...")
+        arr = imread(input_data, **reader_kwargs)
 
-        # Apply ROI mode if applicable check dimensions
-        if roi_mode is not None and supports_roi(arr):
-             arr.roi = roi_mode
+    # Apply ROI mode if applicable check dimensions
+    if roi_mode is not None and supports_roi(arr):
+        arr.roi = roi_mode
 
-        # Check dims
-        # TZYX (4D) or TYX (3D)
-        if arr.ndim == 4:
-            is_volumetric = True
-        elif arr.ndim == 3:
-            is_volumetric = False
-            # Check if user asked for multiple planes on a 3D array?
-            # If array is 3D, it's one plane.
-            # Unless it's a stack of planes? But imread usually returns TYX for single plane tiff.
-            # If it's a stack of planes (ZYX?), current pipeline assumes Time is first dim.
-            # So 3D TYX is one plane.
-        else:
-             # handle odd cases
-             is_volumetric = False
+    # check if data is volumetric (multiple Z planes)
+    # mbo_utilities arrays expose nz; legacy arrays use num_planes or shape inference
+    is_volumetric = _get_num_planes(arr) > 1
 
     # 3. Delegate
     if is_volumetric:
-        print("Delegating to run_volume (4D input detected)...")
+        print("Delegating to run_volume (volumetric input detected)...")
         if arr is not None:
-             input_arg = arr
+            input_arg = arr
         else:
-             input_arg = input_data
+            input_arg = input_data
 
         return run_volume(
             input_data=input_arg,
@@ -311,6 +450,7 @@ def pipeline(
             keep_raw=keep_raw,
             force_reg=force_reg,
             force_detect=force_detect,
+            frame_indices=frame_indices,
             dff_window_size=dff_window_size,
             dff_percentile=dff_percentile,
             dff_smooth_window=dff_smooth_window,
@@ -319,12 +459,12 @@ def pipeline(
             save_json=save_json,
             reader_kwargs=reader_kwargs,
             writer_kwargs=writer_kwargs,
-            **kwargs
+            **kwargs,
         )
     else:
         # run_plane returns a single Path, we wrap in list
         ops_path = run_plane(
-            input_data=arr, # Pass the array we loaded (with ROI applied)
+            input_data=arr,  # Pass the array we loaded (with ROI applied)
             save_path=save_path,
             ops=ops,
             # planes argument is ignored for single plane, or used to validate?
@@ -336,6 +476,7 @@ def pipeline(
             keep_raw=keep_raw,
             force_reg=force_reg,
             force_detect=force_detect,
+            frame_indices=frame_indices,
             dff_window_size=dff_window_size,
             dff_percentile=dff_percentile,
             dff_smooth_window=dff_smooth_window,
@@ -344,7 +485,7 @@ def pipeline(
             save_json=save_json,
             reader_kwargs=reader_kwargs,
             writer_kwargs=writer_kwargs,
-            **kwargs
+            **kwargs,
         )
         return [ops_path]
 
@@ -503,6 +644,7 @@ def run_volume(
     keep_raw: bool = False,
     force_reg: bool = False,
     force_detect: bool = False,
+    frame_indices: list | None = None,
     dff_window_size: int = None,
     dff_percentile: int = 20,
     dff_smooth_window: int = None,
@@ -566,19 +708,21 @@ def run_volume(
     if _is_lazy_array(input_data):
         input_arr = input_data
         if hasattr(input_arr, "filenames"):
-             # For lazy arrays backed by files, use the first file's parent as default save_path
-             if save_path is None and input_arr.filenames:
-                 save_path = Path(input_arr.filenames[0]).parent / "suite2p_results"
+            # For lazy arrays backed by files, use the first file's parent as default save_path
+            if save_path is None and input_arr.filenames:
+                save_path = Path(input_arr.filenames[0]).parent / "suite2p_results"
     elif isinstance(input_data, (list, tuple)):
         input_paths = [Path(p) for p in input_data]
         if save_path is None and input_paths:
-             save_path = input_paths[0].parent
+            save_path = input_paths[0].parent
+        # load as array to get actual plane count (files may contain interleaved planes)
+        input_arr = imread(input_paths, **(reader_kwargs or {}))
     elif isinstance(input_data, (str, Path)):
         # Single path representing a volume (e.g. 4D tiff, zarr)
         # We'll load it as an array to iterate planes
         input_path = Path(input_data)
         if save_path is None:
-             save_path = input_path.parent / (input_path.stem + "_results")
+            save_path = input_path.parent / (input_path.stem + "_results")
 
         # Load as array to determine planes
         input_arr = imread(input_path, **(reader_kwargs or {}))
@@ -586,7 +730,7 @@ def run_volume(
         raise TypeError(f"Invalid input_data type: {type(input_data)}")
 
     if save_path is None:
-         raise ValueError("save_path must be specified.")
+        raise ValueError("save_path must be specified.")
 
     save_path = Path(save_path)
     save_path.mkdir(parents=True, exist_ok=True)
@@ -594,16 +738,42 @@ def run_volume(
     # Determine num_planes
     if input_arr is not None:
         try:
-             num_planes = _get_num_planes(input_arr)
+            num_planes = _get_num_planes(input_arr)
         except:
-             num_planes = 1
+            num_planes = 1
     else:
         num_planes = len(input_paths)
+
+    # Extract voxel size from input array metadata for propagation to per-plane ops
+    _volume_voxel = None
+    if input_arr is not None and hasattr(input_arr, "metadata"):
+        _volume_voxel = get_voxel_size(input_arr.metadata)
 
     # Normalize planes to process
     planes_indices = _normalize_planes(planes, num_planes)
 
-    print(f"Processing {len(planes_indices)} planes in volume (Total planes: {num_planes})")
+    # Build the FULL Z selection (0-based) — we pass this to every
+    # run_plane call so its OutputMetadata layer can compute the
+    # implicit z-stride and reactively scale dz. Without the full list
+    # in scope, each per-plane ops.npy would carry the unscaled source
+    # dz even though only every Nth plane was being processed.
+    _volume_z_selection = list(planes_indices) if planes_indices else None
+    # Snapshot the source acquisition metadata once — used by the
+    # reactive helper inside the per-plane loop to scale dz/fs.
+    _volume_source_meta = (
+        dict(input_arr.metadata)
+        if input_arr is not None and hasattr(input_arr, "metadata")
+        else None
+    )
+    _volume_source_shape = (
+        tuple(input_arr.shape5d)
+        if input_arr is not None and hasattr(input_arr, "shape5d")
+        else None
+    )
+
+    print(
+        f"Processing {len(planes_indices)} planes in volume (Total planes: {num_planes})"
+    )
     print(f"Output: {save_path}")
 
     progress_callback = kwargs.pop("progress_callback", None)
@@ -633,12 +803,39 @@ def run_volume(
                 current_input = input_paths[plane_idx]
             else:
                 # Fallback or error? Assuming input_files length matches num_planes
-                 current_input = input_paths[0] # Should not happen if logic is correct
+                current_input = input_paths[0]  # Should not happen if logic is correct
 
-        # Prepare ops with plane number
-        current_ops = load_ops(ops) if ops else default_ops()
+        # Prepare ops with plane number — deepcopy so suite2p's in-place
+        # mutations (badframes, meanImg, Ly/Lx, etc.) don't leak across planes
+        current_ops = copy.deepcopy(load_ops(ops)) if ops else default_ops()
         current_ops["plane"] = plane_num
-        current_ops["num_zplanes"] = num_planes # useful info
+        current_ops["num_zplanes"] = num_planes  # useful info
+
+        # Propagate voxel size from volume metadata into per-plane ops
+        if _volume_voxel is not None:
+            if _volume_voxel.dz is not None:
+                current_ops.setdefault("dz", _volume_voxel.dz)
+                current_ops.setdefault("z_step", _volume_voxel.dz)
+            if _volume_voxel.dx != 1.0:
+                current_ops.setdefault("dx", _volume_voxel.dx)
+            if _volume_voxel.dy != 1.0:
+                current_ops.setdefault("dy", _volume_voxel.dy)
+
+        # Reactively scale dz (and fs if frame_indices are provided)
+        # using the FULL plane selection. This MUST happen before
+        # run_plane fires, because run_plane sees only its own plane
+        # number and can't compute the implicit z-stride on its own.
+        # The helper overwrites dz/dx/dy/fs in current_ops so the
+        # `setdefault` calls above are effectively replaced when the
+        # reactive value differs.
+        _apply_reactive_metadata(
+            ops=current_ops,
+            source_metadata=_volume_source_meta,
+            source_shape=_volume_source_shape,
+            frame_indices=frame_indices,
+            plane_indices=_volume_z_selection,
+            logger=logger,
+        )
 
         # Call run_plane
         try:
@@ -651,6 +848,7 @@ def run_volume(
                 keep_raw=keep_raw,
                 force_reg=force_reg,
                 force_detect=force_detect,
+                frame_indices=frame_indices,
                 dff_window_size=dff_window_size,
                 dff_percentile=dff_percentile,
                 dff_smooth_window=dff_smooth_window,
@@ -659,7 +857,7 @@ def run_volume(
                 save_json=save_json,
                 reader_kwargs=reader_kwargs,
                 writer_kwargs=writer_kwargs,
-                **kwargs
+                **kwargs,
             )
             ops_files.append(ops_file)
 
@@ -673,6 +871,11 @@ def run_volume(
         except Exception as e:
             print(f"ERROR processing plane {plane_num}: {e}")
             traceback.print_exc()
+
+    if not ops_files:
+        raise RuntimeError(
+            "run_volume failed: All planes resulted in exceptions during processing."
+        )
 
     # Post-Loop: Merging and Volume Stats
 
@@ -690,44 +893,57 @@ def run_volume(
         print("Detected mROI data, attempting to merge...")
         merged_savepath = save_path / "merged_mrois"
         try:
-             merge_mrois(save_path, merged_savepath)
-             # Update ops_files to point to merged results
-             # We need to find the new ops files
-             # mbo_utilities check_and_merge_mrois returned list, but we don't have it.
-             # We'll glob the new directory
-             merged_ops = sorted(list(merged_savepath.glob("**/ops.npy")))
-             if merged_ops:
-                 ops_files = merged_ops
-                 print(f"Merged {len(ops_files)} planes to {merged_savepath}")
-                 save_path = merged_savepath # Update save_path for subsequent plots
+            merge_mrois(save_path, merged_savepath)
+            # Update ops_files to point to merged results
+            # We need to find the new ops files
+            # mbo_utilities check_and_merge_mrois returned list, but we don't have it.
+            # We'll glob the new directory
+            merged_ops = sorted(list(merged_savepath.glob("**/ops.npy")))
+            if merged_ops:
+                ops_files = merged_ops
+                print(f"Merged {len(ops_files)} planes to {merged_savepath}")
+                save_path = merged_savepath  # Update save_path for subsequent plots
         except Exception as e:
-             print(f"Merging failed: {e}")
+            print(f"Merging failed: {e}")
 
     # Generate volume statistics
     if ops_files:
         print("\nGenering volumetric statistics...")
         try:
-             # run_plane already does individual calls, but we need aggregate stats
-             stats_path = get_volume_stats(ops_files, overwrite=True)
+            # run_plane already does individual calls, but we need aggregate stats
+            stats_path = get_volume_stats(ops_files, overwrite=True)
 
-             # Volumetric plots
-             try:
-                 plot_volume_diagnostics(ops_files, save_path / "volume_quality_diagnostics.png")
-                 plot_orthoslices(ops_files, save_path / "orthoslices.png")
-                 plot_3d_roi_map(ops_files, save_path / "roi_map_3d.png", color_by="snr")
-                 plot_3d_roi_map(ops_files, save_path / "roi_map_3d_plane.png", color_by="plane")
-             except Exception as e:
-                  print(f"Warning: Volume plots failed: {e}")
-                  traceback.print_exc()
+            # Volumetric plots
+            try:
+                plot_volume_diagnostics(
+                    ops_files, save_path / "volume_quality_diagnostics.png"
+                )
+                plot_orthoslices(ops_files, save_path / "orthoslices.png")
+                plot_3d_roi_map(ops_files, save_path / "roi_map_3d.png", color_by="snr")
+                plot_3d_roi_map(
+                    ops_files, save_path / "roi_map_3d_plane.png", color_by="plane"
+                )
+            except Exception as e:
+                print(f"Warning: Volume plots failed: {e}")
+                traceback.print_exc()
 
         except Exception as e:
-             print(f"Warning: Volume statistics failed: {e}")
-             traceback.print_exc()
+            print(f"Warning: Volume statistics failed: {e}")
+            traceback.print_exc()
 
     return ops_files
 
 
-def _should_write_bin(ops_path: Path, force: bool = False, *, validate_chan2: bool | None = None, expected_dtype: np.dtype = np.int16) -> bool:
+def _should_write_bin(
+    ops_path: Path,
+    force: bool = False,
+    *,
+    validate_chan2: bool | None = None,
+    expected_dtype: np.dtype = np.int16,
+    expected_nframes: int | None = None,
+    expected_ly: int | None = None,
+    expected_lx: int | None = None,
+) -> bool:
     if force:
         return True
     ops_path = Path(ops_path)
@@ -746,32 +962,69 @@ def _should_write_bin(ops_path: Path, force: bool = False, *, validate_chan2: bo
     try:
         ops = np.load(ops_path, allow_pickle=True).item()
         if validate_chan2 is None:
-            validate_chan2 = (ops.get("align_by_chan", 1) == 2)
+            validate_chan2 = ops.get("align_by_chan", 1) == 2
         Ly = ops.get("Ly")
         Lx = ops.get("Lx")
-        nframes_raw = ops.get("nframes_chan1") or ops.get("nframes") or ops.get("num_frames")
+        nframes_raw = (
+            ops.get("nframes_chan1") or ops.get("nframes") or ops.get("num_frames")
+        )
         if (None in (nframes_raw, Ly, Lx)) or (nframes_raw <= 0 or Ly <= 0 or Lx <= 0):
             return True
-        expected_size_raw = int(nframes_raw) * int(Ly) * int(Lx) * np.dtype(expected_dtype).itemsize
+
+        # invalidate cache if requested dimensions differ from cached
+        if expected_nframes is not None and int(expected_nframes) != int(nframes_raw):
+            print(
+                f"Cache invalidated: cached nframes={nframes_raw}, requested={expected_nframes}"
+            )
+            return True
+        if expected_ly is not None and int(expected_ly) != int(Ly):
+            print(f"Cache invalidated: cached Ly={Ly}, requested={expected_ly}")
+            return True
+        if expected_lx is not None and int(expected_lx) != int(Lx):
+            print(f"Cache invalidated: cached Lx={Lx}, requested={expected_lx}")
+            return True
+
+        expected_size_raw = (
+            int(nframes_raw) * int(Ly) * int(Lx) * np.dtype(expected_dtype).itemsize
+        )
         actual_size_raw = binary_to_validate.stat().st_size
         if actual_size_raw != expected_size_raw or actual_size_raw == 0:
             return True
         try:
-            arr = np.memmap(binary_to_validate, dtype=expected_dtype, mode="r", shape=(int(nframes_raw), int(Ly), int(Lx)))
+            arr = np.memmap(
+                binary_to_validate,
+                dtype=expected_dtype,
+                mode="r",
+                shape=(int(nframes_raw), int(Ly), int(Lx)),
+            )
             _ = arr[0, 0, 0]
             del arr
         except Exception:
             return True
         if validate_chan2:
             nframes_chan2 = ops.get("nframes_chan2")
-            if (not chan2_path.is_file()) or (nframes_chan2 is None) or (nframes_chan2 <= 0):
+            if (
+                (not chan2_path.is_file())
+                or (nframes_chan2 is None)
+                or (nframes_chan2 <= 0)
+            ):
                 return True
-            expected_size_chan2 = int(nframes_chan2) * int(Ly) * int(Lx) * np.dtype(expected_dtype).itemsize
+            expected_size_chan2 = (
+                int(nframes_chan2)
+                * int(Ly)
+                * int(Lx)
+                * np.dtype(expected_dtype).itemsize
+            )
             actual_size_chan2 = chan2_path.stat().st_size
             if actual_size_chan2 != expected_size_chan2 or actual_size_chan2 == 0:
                 return True
             try:
-                arr2 = np.memmap(chan2_path, dtype=expected_dtype, mode="r", shape=(int(nframes_chan2), int(Ly), int(Lx)))
+                arr2 = np.memmap(
+                    chan2_path,
+                    dtype=expected_dtype,
+                    mode="r",
+                    shape=(int(nframes_chan2), int(Ly), int(Lx)),
+                )
                 _ = arr2[0, 0, 0]
                 del arr2
             except Exception:
@@ -900,12 +1153,19 @@ def run_plane_bin(ops) -> bool:
     if n_align <= 0:
         raise ValueError("Non-positive frame count after alignment selection.")
     if use_chan2 and (n_func != n_chan2):
-        print(f"[run_plane_bin] Trimming to {n_align} frames (func={n_func}, chan2={n_chan2}).")
+        print(
+            f"[run_plane_bin] Trimming to {n_align} frames (func={n_func}, chan2={n_chan2})."
+        )
 
     ops["functional_chan"] = 1
     ops["align_by_chan"] = 2 if use_chan2 else 1
     ops["nchannels"] = 2 if use_chan2 else 1
-    ops["nframes"] = n_align
+    # Fan out the trimmed frame count to every alias mbo_utilities also
+    # writes (num_timepoints, num_frames, n_frames, T, nt, timepoints).
+    # Without this, dual-channel trimming leaves nframes=n_align but the
+    # other aliases stuck at the chan1 source value, and downstream
+    # readers get inconsistent answers from the same ops dict.
+    _set_frame_count_aliases(ops, n_align)
     ops["nframes_chan1"] = n_align
     if use_chan2:
         ops["nframes_chan2"] = n_align
@@ -950,18 +1210,23 @@ def run_plane_bin(ops) -> bool:
         estimated_gb = (Ly * Lx * n_align * 2) / 1e9  # Rough estimate
         spatial_scale = ops.get("spatial_scale", 0)
         if spatial_scale > 0:
-            estimated_gb /= (spatial_scale ** 2)
+            estimated_gb /= spatial_scale**2
 
         if estimated_gb > 50:  # Warn for datasets > 50GB
-            print(f"Large dataset warning: {estimated_gb:.1f} GB estimated for detection")
+            print(
+                f"Large dataset warning: {estimated_gb:.1f} GB estimated for detection"
+            )
             if spatial_scale == 0:
-                print(f"  Consider adding 'spatial_scale': 2 to reduce memory usage by 4x")
+                print(
+                    f"  Consider adding 'spatial_scale': 2 to reduce memory usage by 4x"
+                )
             print(f"  Or reduce 'batch_size' (current: {ops.get('batch_size', 500)})")
 
     # When skipping registration, copy data_raw.bin to data.bin and detect valid region
     if not run_registration:
         print("Registration skipped - copying data_raw.bin to data.bin...")
         import shutil
+
         raw_file_path = Path(raw_file)
         reg_file_path = Path(reg_file)
 
@@ -973,15 +1238,18 @@ def run_plane_bin(ops) -> bool:
             else:
                 print(f"  {reg_file_path.name} already exists, skipping copy")
 
-            # Detect valid region (exclude dead zones from Suite3D shifts)
-            # This replicates what Suite2p's registration does via compute_crop()
-            # IMPORTANT: Skip auto-detection for anatomical_only mode since Cellpose
-            # returns masks in full image coordinates, not cropped coordinates
-            use_anatomical = ops.get("anatomical_only", 0) > 0
-            if "yrange" not in ops or "xrange" not in ops:
+            # use exact padding bounds when available; fall back to
+            # heuristic auto-detection from the mean image
+            if "_pad_yrange" in ops and "_pad_xrange" in ops:
+                ops["yrange"] = list(ops["_pad_yrange"])
+                ops["xrange"] = list(ops["_pad_xrange"])
+                print(f"  Valid region from padding: yrange={ops['yrange']}, xrange={ops['xrange']}")
+            elif "yrange" not in ops or "xrange" not in ops:
+                use_anatomical = ops.get("anatomical_only", 0) > 0
                 if use_anatomical:
-                    # For anatomical detection, always use full image to avoid coordinate mismatch
-                    print("  Using full image dimensions for anatomical detection (avoids cropping issues)")
+                    print(
+                        "  Using full image dimensions for anatomical detection (avoids cropping issues)"
+                    )
                     ops["yrange"] = [0, Ly]
                     ops["xrange"] = [0, Lx]
                 else:
@@ -989,7 +1257,6 @@ def run_plane_bin(ops) -> bool:
                     with BinaryFile(Ly=Ly, Lx=Lx, filename=str(raw_file_path)) as f:
                         meanImg_full = f.sampled_mean().astype(np.float32)
 
-                        # Find regions with valid data (threshold at 1% of max)
                         threshold = meanImg_full.max() * 0.01
                         valid_mask = meanImg_full > threshold
                         valid_rows = np.any(valid_mask, axis=1)
@@ -1034,15 +1301,30 @@ def run_plane_bin(ops) -> bool:
     # registration so we derive it here when missing.
     if not run_registration:
         if "meanImg" not in ops:
-            with BinaryFile(Ly=Ly, Lx=Lx, filename=str(reg_file), n_frames=n_align) as f_mean:
+            with BinaryFile(
+                Ly=Ly, Lx=Lx, filename=str(reg_file), n_frames=n_align
+            ) as f_mean:
                 ops["meanImg"] = f_mean.sampled_mean().astype(np.float32)
                 print("  Computed meanImg from binary")
 
         if "meanImgE" not in ops and "meanImg" in ops:
             from suite2p.registration import compute_enhanced_mean_image
-            ops["meanImgE"] = compute_enhanced_mean_image(
-                ops["meanImg"].astype(np.float32), ops
-            )
+
+            # compute on valid region only to avoid edge artifacts
+            # from zero-padding border
+            if "_pad_yrange" in ops and "_pad_xrange" in ops:
+                yr, xr = ops["yrange"], ops["xrange"]
+                full_mean = ops["meanImg"]
+                ops["meanImg"] = full_mean[yr[0]:yr[1], xr[0]:xr[1]]
+                enhanced_crop = compute_enhanced_mean_image(None, ops)
+                ops["meanImg"] = full_mean
+                meanImgE = np.zeros_like(full_mean, dtype=np.float32)
+                meanImgE[yr[0]:yr[1], xr[0]:xr[1]] = enhanced_crop
+                ops["meanImgE"] = meanImgE
+            else:
+                ops["meanImgE"] = compute_enhanced_mean_image(
+                    ops["meanImg"].astype(np.float32), ops
+                )
             print("  Computed meanImgE from meanImg")
 
     # for very short recordings, suite2p's bin_movie crashes when
@@ -1051,35 +1333,115 @@ def run_plane_bin(ops) -> bool:
     # bin_size <= nframes.
     tau_fs = np.round(ops.get("tau", 0.7) * ops.get("fs", 30))
     if n_align < max(tau_fs, 2):
-        with BinaryFile(Ly=Ly, Lx=Lx, filename=str(reg_file), n_frames=n_align) as f_pre:
+        with BinaryFile(
+            Ly=Ly, Lx=Lx, filename=str(reg_file), n_frames=n_align
+        ) as f_pre:
             all_frames = f_pre.data[:n_align]
             ops["meanImg"] = all_frames.mean(axis=0).astype(np.float32)
             ops["max_proj"] = all_frames.max(axis=0).astype(np.float32)
         # set tau so bin_size = max(1, n//nbinned, round(tau*fs)) <= nframes
         ops["tau"] = 0
 
+    has_pad_range = "_pad_yrange" in ops and "_pad_xrange" in ops
+
     with (
         BinaryFile(Ly=Ly, Lx=Lx, filename=str(reg_file), n_frames=n_align) as f_reg,
         BinaryFile(Ly=Ly, Lx=Lx, filename=str(raw_file), n_frames=n_align) as f_raw,
-        (BinaryFile(Ly=Ly, Lx=Lx, filename=str(reg_file_chan2), n_frames=n_align) if use_chan2 else nullcontext()) as f_reg_chan2,
-        (BinaryFile(Ly=Ly, Lx=Lx, filename=str(chan2_file), n_frames=n_align) if use_chan2 else nullcontext()) as f_raw_chan2,
+        (
+            BinaryFile(Ly=Ly, Lx=Lx, filename=str(reg_file_chan2), n_frames=n_align)
+            if use_chan2
+            else nullcontext()
+        ) as f_reg_chan2,
+        (
+            BinaryFile(Ly=Ly, Lx=Lx, filename=str(chan2_file), n_frames=n_align)
+            if use_chan2
+            else nullcontext()
+        ) as f_raw_chan2,
     ):
-        ops = pipeline(
-            f_reg=f_reg,
-            f_raw=f_raw,
-            f_reg_chan2=f_reg_chan2 if use_chan2 else None,
-            f_raw_chan2=f_raw_chan2 if use_chan2 else None,
-            run_registration=run_registration,
-            ops=ops,
-            stat=None,
-        )
+        if has_pad_range and run_registration:
+            # when data was padded for axial alignment, suite2p's
+            # compute_crop only accounts for registration motion and
+            # ignores the zero-padded border.  split pipeline into
+            # registration-only then detection-only so we can clamp
+            # xrange/yrange to the valid (non-padded) region in between.
+            ops["roidetect"] = False
+            print("NOTE: running registration-only pass (detection deferred)")
+            ops = pipeline(
+                f_reg=f_reg,
+                f_raw=f_raw,
+                f_reg_chan2=f_reg_chan2 if use_chan2 else None,
+                f_raw_chan2=f_raw_chan2 if use_chan2 else None,
+                run_registration=True,
+                ops=ops,
+                stat=None,
+            )
+
+            # clamp xrange/yrange to the valid data region
+            pad_yr = ops["_pad_yrange"]
+            pad_xr = ops["_pad_xrange"]
+            reg_yr = ops.get("yrange", [0, Ly])
+            reg_xr = ops.get("xrange", [0, Lx])
+            ops["yrange"] = [max(reg_yr[0], pad_yr[0]), min(reg_yr[1], pad_yr[1])]
+            ops["xrange"] = [max(reg_xr[0], pad_xr[0]), min(reg_xr[1], pad_xr[1])]
+            print(f"  Clamped valid region: yrange={ops['yrange']}, xrange={ops['xrange']}")
+
+            # recompute meanImgE on the valid region only so the
+            # high-pass filter doesn't create edge artifacts at the
+            # zero-padding boundary.  compute_enhanced_mean_image reads
+            # ops["meanImg"] internally, so swap it temporarily.
+            from suite2p.registration import compute_enhanced_mean_image
+            yr, xr = ops["yrange"], ops["xrange"]
+            full_mean = ops["meanImg"]
+            ops["meanImg"] = full_mean[yr[0]:yr[1], xr[0]:xr[1]]
+            enhanced_crop = compute_enhanced_mean_image(None, ops)
+            ops["meanImg"] = full_mean  # restore
+            meanImgE = np.zeros_like(full_mean, dtype=np.float32)
+            meanImgE[yr[0]:yr[1], xr[0]:xr[1]] = enhanced_crop
+            ops["meanImgE"] = meanImgE
+
+            if ops.get("ops_path"):
+                np.save(ops["ops_path"], ops)
+
+            # now run detection + extraction + classification
+            ops["roidetect"] = True
+            ops["do_registration"] = 0
+            ops = pipeline(
+                f_reg=f_reg,
+                f_raw=f_raw,
+                f_reg_chan2=f_reg_chan2 if use_chan2 else None,
+                f_raw_chan2=f_raw_chan2 if use_chan2 else None,
+                run_registration=False,
+                ops=ops,
+                stat=None,
+            )
+        else:
+            ops = pipeline(
+                f_reg=f_reg,
+                f_raw=f_raw,
+                f_reg_chan2=f_reg_chan2 if use_chan2 else None,
+                f_raw_chan2=f_raw_chan2 if use_chan2 else None,
+                run_registration=run_registration,
+                ops=ops,
+                stat=None,
+            )
 
     # ensure meanImgE is always present in final ops (safety net)
     if "meanImgE" not in ops and "meanImg" in ops:
         from suite2p.registration import compute_enhanced_mean_image
-        ops["meanImgE"] = compute_enhanced_mean_image(
-            ops["meanImg"].astype(np.float32), ops
-        )
+
+        if "_pad_yrange" in ops and "_pad_xrange" in ops:
+            yr, xr = ops["yrange"], ops["xrange"]
+            full_mean = ops["meanImg"]
+            ops["meanImg"] = full_mean[yr[0]:yr[1], xr[0]:xr[1]]
+            enhanced_crop = compute_enhanced_mean_image(None, ops)
+            ops["meanImg"] = full_mean
+            meanImgE = np.zeros_like(full_mean, dtype=np.float32)
+            meanImgE[yr[0]:yr[1], xr[0]:xr[1]] = enhanced_crop
+            ops["meanImgE"] = meanImgE
+        else:
+            ops["meanImgE"] = compute_enhanced_mean_image(
+                ops["meanImg"].astype(np.float32), ops
+            )
 
     if use_chan2:
         ops["reg_file_chan2"] = str(reg_file_chan2)
@@ -1110,6 +1472,7 @@ def run_plane(
     keep_reg: bool = True,
     force_reg: bool = False,
     force_detect: bool = False,
+    frame_indices: list | None = None,
     dff_window_size: int = None,
     dff_percentile: int = 20,
     dff_smooth_window: int = None,
@@ -1160,6 +1523,13 @@ def run_plane(
         Example: [{"name": "max_diameter", "min_diameter_um": 4, "max_diameter_um": 35}]
     save_json : bool, default False
         Save ops as JSON.
+    frame_indices : list[int], optional
+        Explicit 0-based timepoint indices. Supports stride
+        (e.g. ``list(range(0, 1574, 2))`` for every other frame).
+        When provided, the binary on disk contains exactly these
+        frames, and `OutputMetadata` reactively scales `fs` in ops.npy
+        based on the implicit stride. Takes precedence over any
+        ``num_frames`` in ``writer_kwargs``.
     plane_name : str, optional
         Custom name for the plane subdirectory.
     reader_kwargs : dict, optional
@@ -1199,21 +1569,25 @@ def run_plane(
         if filenames:
             input_path = Path(filenames[0])
         elif plane_name is None:
-            raise ValueError("plane_name is required when input is an array without filenames.")
+            raise ValueError(
+                "plane_name is required when input is an array without filenames."
+            )
         else:
             # dummy path for internal logic compatibility
             input_path = Path(f"{plane_name}.tif")
     elif isinstance(input_data, (str, Path)):
         input_path = Path(input_data)
     else:
-        raise TypeError(f"input_data must be path or lazy array, got {type(input_data)}")
+        raise TypeError(
+            f"input_data must be path or lazy array, got {type(input_data)}"
+        )
 
     input_parent = input_path.parent
 
     # Save path handling
     if save_path is None:
         if input_arr is not None:
-             raise ValueError("save_path is required when input is an array.")
+            raise ValueError("save_path is required when input is an array.")
 
         # binary inputs with ops.npy are processed in-place
         is_binary_input = input_path.suffix == ".bin"
@@ -1241,25 +1615,42 @@ def run_plane(
     writer_kwargs = writer_kwargs or {}
 
     # determine if we're processing existing binary in-place
-    if binary_with_ops and (input_path.parent == save_path or save_path == input_parent):
+    if binary_with_ops and (
+        input_path.parent == save_path or save_path == input_parent
+    ):
         print(f"Processing existing binary in-place: {input_path}")
         plane_dir = input_path.parent
         skip_imwrite = True
         ops_file = plane_dir / "ops.npy"
-        existing_ops = np.load(ops_file, allow_pickle=True).item() if ops_file.exists() else {}
-        metadata = {k: v for k, v in existing_ops.items() if k in ("plane", "fs", "dx", "dy", "Ly", "Lx", "nframes")}
+        existing_ops = (
+            np.load(ops_file, allow_pickle=True).item() if ops_file.exists() else {}
+        )
+        metadata = {
+            k: v
+            for k, v in existing_ops.items()
+            if k in ("plane", "fs", "dx", "dy", "dz", "z_step", "Ly", "Lx", "nframes")
+        }
         file = None
         # merge: defaults < existing (registration results, images, etc.) < user overrides
-        ops = {**ops_default, **existing_ops, **ops_user, "data_path": str(input_path.resolve())}
+        ops = {
+            **ops_default,
+            **existing_ops,
+            **ops_user,
+            "data_path": str(input_path.resolve()),
+        }
     elif binary_with_ops:
         # binary input with ops but different save_path: copy files instead of re-encoding
         import shutil
+
         skip_imwrite = True
         file = None
         src_dir = input_path.parent
         existing_ops = np.load(src_dir / "ops.npy", allow_pickle=True).item()
-        metadata = {k: v for k, v in existing_ops.items()
-                    if k in ("plane", "fs", "dx", "dy", "Ly", "Lx", "nframes")}
+        metadata = {
+            k: v
+            for k, v in existing_ops.items()
+            if k in ("plane", "fs", "dx", "dy", "dz", "z_step", "Ly", "Lx", "nframes")
+        }
 
         # determine plane number for directory naming
         if "plane" in ops:
@@ -1273,7 +1664,9 @@ def run_plane(
         if plane_name is not None:
             subdir_name = plane_name
         else:
-            nframes_hint = existing_ops.get("nframes_chan1") or existing_ops.get("nframes")
+            nframes_hint = existing_ops.get("nframes_chan1") or existing_ops.get(
+                "nframes"
+            )
             subdir_name = generate_plane_dirname(plane=plane, nframes=nframes_hint)
 
         plane_dir = save_path / subdir_name
@@ -1289,7 +1682,12 @@ def run_plane(
                 shutil.copy2(src, dst)
 
         # merge existing ops with user overrides
-        ops = {**ops_default, **existing_ops, **ops_user, "data_path": str(input_path.resolve())}
+        ops = {
+            **ops_default,
+            **existing_ops,
+            **ops_user,
+            "data_path": str(input_path.resolve()),
+        }
     else:
         skip_imwrite = False
 
@@ -1304,10 +1702,25 @@ def run_plane(
         if plane_name is not None:
             subdir_name = plane_name
         else:
-            # try to get nframes from input without loading the full array
-            nframes_hint = None
-            if input_arr is not None and hasattr(input_arr, "shape"):
-                nframes_hint = input_arr.shape[0] if input_arr.ndim >= 3 else None
+            # prefer the user-specified frame limit over raw array shape
+            nframes_hint = (
+                writer_kwargs.get("num_frames")
+                or ops.get("nframes")
+            )
+            if not nframes_hint and input_arr is not None and hasattr(input_arr, "shape"):
+                nframes_hint = input_arr.shape[0]
+            # if input was a path, peek at metadata for frame count
+            if not nframes_hint and input_arr is None and input_path is not None:
+                try:
+                    from mbo_utilities import get_metadata
+                    md = get_metadata(input_path)
+                    nframes_hint = (
+                        md.get("num_timepoints")
+                        or md.get("nframes")
+                        or md.get("num_frames")
+                    )
+                except Exception:
+                    nframes_hint = None
             subdir_name = generate_plane_dirname(
                 plane=plane,
                 nframes=nframes_hint,
@@ -1317,8 +1730,24 @@ def run_plane(
         plane_dir.mkdir(exist_ok=True)
         ops_file = plane_dir / "ops.npy"
 
+        # extract expected dims from input for cache validation
+        # honors writer_kwargs["num_frames"] limit if user requested fewer frames
+        exp_nframes = writer_kwargs.get("num_frames")
+        exp_ly = exp_lx = None
+        if input_arr is not None and hasattr(input_arr, "shape"):
+            if exp_nframes is None:
+                exp_nframes = input_arr.shape[0]
+            exp_ly = input_arr.shape[-2]
+            exp_lx = input_arr.shape[-1]
+
         # check if binaries already exist in the actual output directory
-        should_write = _should_write_bin(ops_file, force=force_reg)
+        should_write = _should_write_bin(
+            ops_file,
+            force=force_reg,
+            expected_nframes=exp_nframes,
+            expected_ly=exp_ly,
+            expected_lx=exp_lx,
+        )
         if should_write:
             if input_arr is not None:
                 file = input_arr
@@ -1330,13 +1759,25 @@ def run_plane(
             else:
                 metadata = get_metadata(input_path)
         else:
-            print(f"Skipping data_raw.bin write, already exists and passes data validation checks.")
+            print(
+                f"Skipping data_raw.bin write, already exists and passes data validation checks."
+            )
             file = None
             # load metadata from existing ops if available
             if ops_file.exists():
-                existing = np.load(ops_file, allow_pickle=True).item()
-                metadata = {k: v for k, v in existing.items()
-                            if k in ("plane", "fs", "dx", "dy", "Ly", "Lx", "nframes")}
+                existing_ops = np.load(ops_file, allow_pickle=True).item()
+                metadata = {
+                    k: v
+                    for k, v in existing_ops.items()
+                    if k in ("plane", "fs", "dx", "dy", "dz", "z_step", "Ly", "Lx", "nframes")
+                }
+                # ensure registration metadata from previous runs is preserved
+                ops = {
+                    **ops_default,
+                    **existing_ops,
+                    **ops_user,
+                    "data_path": str(input_path.resolve()),
+                }
             else:
                 metadata = {}
 
@@ -1354,6 +1795,57 @@ def run_plane(
     metadata["plane"] = plane
     ops["save_path"] = str(plane_dir.resolve())
 
+    # propagate voxel size from metadata into ops (user ops take precedence via setdefault)
+    vs = get_voxel_size(metadata)
+    if vs.dz is not None:
+        ops.setdefault("dz", vs.dz)
+        ops.setdefault("z_step", vs.dz)
+    if vs.dx != 1.0:
+        ops.setdefault("dx", vs.dx)
+    if vs.dy != 1.0:
+        ops.setdefault("dy", vs.dy)
+
+    # Propagate fs from source metadata into ops the same way dz/dx/dy
+    # are propagated above. WITHOUT this, lbm's `default_ops()` ships
+    # `fs=10.0` and that hardcoded default wins over the actual source
+    # acquisition fs when the metadata kwarg merge happens inside
+    # mbo's `imwrite` (the kwarg takes precedence over arr.metadata).
+    # Result: any downstream reactive scaling — including the writer's
+    # OutputMetadata fs/stride scaling — divides 10 instead of the
+    # real fs, producing nonsense like fs=5 from a 30Hz source +
+    # every-other-frame stride.
+    src_fs = metadata.get("fs") if metadata else None
+    if src_fs is None and file is not None and hasattr(file, "metadata"):
+        src_fs = (file.metadata or {}).get("fs")
+    if src_fs is not None:
+        # only override the lbm default — don't clobber a value the
+        # user explicitly set in their ops_user dict.
+        if ops.get("fs") in (None, 10.0) or "fs" not in ops_user:
+            ops["fs"] = float(src_fs)
+
+    # When called directly (not via run_volume), the caller may pass
+    # frame_indices for stride scaling. run_volume already invoked the
+    # reactive helper before reaching us, so re-running it here is a
+    # no-op when there's no T stride. When there IS a T stride from
+    # this entry point, scale fs from the source metadata via the
+    # reactive helper. plane_indices is None here because we only see
+    # one plane at a time at this layer.
+    if frame_indices is not None and file is not None:
+        _src_meta = (
+            dict(file.metadata) if hasattr(file, "metadata") else None
+        )
+        _src_shape = (
+            tuple(file.shape5d) if hasattr(file, "shape5d") else None
+        )
+        _apply_reactive_metadata(
+            ops=ops,
+            source_metadata=_src_meta,
+            source_shape=_src_shape,
+            frame_indices=frame_indices,
+            plane_indices=None,  # this layer only sees one plane
+            logger=logger,
+        )
+
     # store source filename info in ops for traceability
     ops["source_dirname"] = plane_dir.name
     ops["source_input"] = str(input_path.name)
@@ -1365,8 +1857,37 @@ def run_plane(
         md_combined = {**metadata, **ops}
         print(f"Writing binary to {plane_dir}...")
         bin_start = time.time()
-        # extract single plane for multi-z data (4D TZYX or 5D TCZYX)
-        write_planes = [plane] if file.ndim >= 4 else None
+        # extract single plane if data is volumetric
+        write_planes = [plane] if _get_num_planes(file) > 1 else None
+
+        # apply per-plane axial shift from suite3d registration if available
+        write_kw = dict(writer_kwargs)
+        # If the caller gave us explicit frame indices, pass them as
+        # `frames=` (1-based) to imwrite. This wins over any stale
+        # `num_frames` truncation in writer_kwargs — strided semantics
+        # require an explicit index list, not a count.
+        if frame_indices is not None:
+            write_kw["frames"] = [int(i) + 1 for i in frame_indices]
+            write_kw.pop("num_frames", None)
+        if md_combined.get("apply_shift") and md_combined.get("s3d-job"):
+            from mbo_utilities._writers import load_registration_shifts, compute_pad_from_shifts
+
+            _apply, _plane_shifts, _ = load_registration_shifts(md_combined)
+            if _apply and _plane_shifts is not None:
+                plane_0idx = plane - 1
+                if plane_0idx < len(_plane_shifts):
+                    sv = _plane_shifts[plane_0idx]
+                    write_kw["shift_vector"] = sv
+                    write_kw["all_plane_shifts"] = _plane_shifts
+                    # use global padding so all planes share the same output dims
+                    pt, pb, pl, pr = compute_pad_from_shifts(_plane_shifts)
+                    if hasattr(file, "shape"):
+                        Ly_orig = file.shape[-2]
+                        Lx_orig = file.shape[-1]
+                        md_combined["Ly"] = Ly_orig + pt + pb
+                        md_combined["Lx"] = Lx_orig + pl + pr
+                    print(f"  Applying axial shift for plane {plane}: {sv}")
+
         imwrite(
             file,
             plane_dir,
@@ -1377,18 +1898,18 @@ def run_plane(
             overwrite=True,
             planes=write_planes,
             show_progress=False,
-            **writer_kwargs,
+            **write_kw,
         )
         # Record binary write
         # Reload ops from disk to get Lx, Ly, and other metadata added by imwrite
         if ops_file.exists():
             ops = np.load(ops_file, allow_pickle=True).item()
         _add_processing_step(
-             ops,
-             "binary_write",
-             input_files=[str(input_path)],
-             duration_seconds=time.time() - bin_start,
-             extra={"plane": plane, "shape": list(file.shape)}
+            ops,
+            "binary_write",
+            input_files=[str(input_path)],
+            duration_seconds=time.time() - bin_start,
+            extra={"plane": plane, "shape": list(file.shape)},
         )
         np.save(ops_file, ops)
 
@@ -1399,13 +1920,13 @@ def run_plane(
     elif ops["roidetect"]:
         stat_file = plane_dir / "stat.npy"
         if stat_file.exists():
-             stat = np.load(stat_file, allow_pickle=True)
-             if stat is None or len(stat) == 0:
-                 needs_detect = True
-             else:
-                 needs_detect = False
+            stat = np.load(stat_file, allow_pickle=True)
+            if stat is None or len(stat) == 0:
+                needs_detect = True
+            else:
+                needs_detect = False
         else:
-             needs_detect = True
+            needs_detect = True
 
     # Check registration needs
     if force_reg:
@@ -1432,13 +1953,31 @@ def run_plane(
     if chan2_file is not None:
         chan2_path = Path(chan2_file)
         if chan2_path.exists():
-             chan2_data = imread(chan2_path, **reader_kwargs)
-             chan2_md = getattr(chan2_data, "metadata", {})
-             imwrite(chan2_data, plane_dir, ext=".bin", metadata=chan2_md, register_z=False, structural=True, show_progress=False)
-             ops["chan2_file"] = str((plane_dir / "data_chan2.bin").resolve())
-             ops["nframes_chan2"] = chan2_data.shape[0] if hasattr(chan2_data, "shape") else 0
-             ops["nchannels"] = 2
-             ops["align_by_chan"] = 2
+            chan2_data = imread(chan2_path, **reader_kwargs)
+            chan2_md = getattr(chan2_data, "metadata", {})
+            imwrite(
+                chan2_data,
+                plane_dir,
+                ext=".bin",
+                metadata=chan2_md,
+                register_z=False,
+                structural=True,
+                show_progress=False,
+            )
+            ops["chan2_file"] = str((plane_dir / "data_chan2.bin").resolve())
+            # Use shape5d (the always-5D contract) so natural-rank arrays
+            # (e.g. a 4D TZYX TiffArray with C=1 squeezed) report the
+            # real T dimension. shape[0] picks Y on a natural 4D array
+            # and crashes/mis-counts on a 2D one — same class of bug
+            # mbo_utilities just fixed in `_imwrite_base`.
+            if hasattr(chan2_data, "shape5d"):
+                ops["nframes_chan2"] = int(chan2_data.shape5d[0])
+            elif hasattr(chan2_data, "shape"):
+                ops["nframes_chan2"] = int(chan2_data.shape[0])
+            else:
+                ops["nframes_chan2"] = 0
+            ops["nchannels"] = 2
+            ops["align_by_chan"] = 2
 
     # ensure ops paths point to current plane_dir before running suite2p.
     # handles cases where data was moved from its original location.
@@ -1465,17 +2004,21 @@ def run_plane(
             processed = run_plane_bin(ops)
 
             if processed:
-                 updated_ops = load_ops(ops_file)
-                 _add_processing_step(
-                     updated_ops,
-                     "suite2p_pipeline",
-                     duration_seconds=time.time() - s2p_start,
-                     extra={
-                         "do_registration": updated_ops.get("do_registration", 1),
-                         "n_cells": len(np.load(plane_dir / "stat.npy", allow_pickle=True)) if (plane_dir / "stat.npy").exists() else 0
-                     }
-                 )
-                 np.save(ops_file, updated_ops)
+                updated_ops = load_ops(ops_file)
+                _add_processing_step(
+                    updated_ops,
+                    "suite2p_pipeline",
+                    duration_seconds=time.time() - s2p_start,
+                    extra={
+                        "do_registration": updated_ops.get("do_registration", 1),
+                        "n_cells": len(
+                            np.load(plane_dir / "stat.npy", allow_pickle=True)
+                        )
+                        if (plane_dir / "stat.npy").exists()
+                        else 0,
+                    },
+                )
+                np.save(ops_file, updated_ops)
 
         except Exception as e:
             print(f"Error in run_plane_bin: {e}")
@@ -1484,83 +2027,114 @@ def run_plane(
             raise
 
         if not processed:
-             _cleanup_bin_files(plane_dir, keep_raw, keep_reg)
-             return ops_file
+            _cleanup_bin_files(plane_dir, keep_raw, keep_reg)
+            return ops_file
 
     # --- Post-Processing ---
     if progress_callback:
         progress_callback(step="postprocessing", message="Post-processing...")
 
+    # Load original iscell first so we have the true suite2p classification
+    iscell_original = None
+    iscell_file = plane_dir / "iscell.npy"
+    if iscell_file.exists():
+        iscell_original = np.load(iscell_file, allow_pickle=True)
+
     # 1. Accept All Cells
     if accept_all_cells:
-        iscell_file = plane_dir / "iscell.npy"
-        if iscell_file.exists():
-            iscell = np.load(iscell_file, allow_pickle=True)
-            np.save(plane_dir / "iscell_suite2p.npy", iscell)
+        if iscell_original is not None:
+            np.save(plane_dir / "iscell_suite2p.npy", iscell_original.copy())
+            iscell = iscell_original.copy()
             iscell[:, 0] = 1
             np.save(iscell_file, iscell)
             print("  Marked all ROIs as accepted.")
 
     # 2. Cell Filtering
     if cell_filters:
-        print(f"  Applying cell filters: {[f['name'] for f in cell_filters]}")
-        filter_start = time.time()
-        try:
-            iscell_original = np.load(plane_dir / "iscell.npy", allow_pickle=True)
-            iscell_filtered, removed_mask, filter_results = apply_filters(
-                plane_dir=plane_dir,
-                filters=cell_filters,
-                save=True,
-            )
-            updated_ops = load_ops(ops_file)
-            _add_processing_step(
-                updated_ops,
-                "cell_filtering",
-                duration_seconds=time.time() - filter_start,
-                extra={"n_removed": int(removed_mask.sum())}
-            )
-            # convert filter_results list to dict keyed by filter name
-            filter_metadata = {}
-            for r in filter_results:
-                name = r["name"]
-                config = r.get("config", {})
-                info = r.get("info", {})
-                removed = r.get("removed_mask", np.zeros(0, dtype=bool))
-                # build params from config (user-specified) or info (computed)
-                params = {}
-                for key in ["min_diameter_um", "max_diameter_um", "min_diameter_px", "max_diameter_px",
-                            "min_area_px", "max_area_px", "min_mult", "max_mult", "max_ratio"]:
-                    if key in config and config[key] is not None:
-                        val = config[key]
-                        params[key] = round(val, 1) if isinstance(val, float) else val
-                if not params:
-                    for key in ["min_px", "max_px", "min_ratio", "max_ratio", "lower_px", "upper_px"]:
-                        if key in info and info[key] is not None:
-                            params[key] = round(info[key], 1)
-                filter_metadata[name] = {
-                    "params": params,
-                    "n_rejected": int(removed.sum()),
-                }
-            updated_ops["filter_metadata"] = filter_metadata
-            np.save(ops_file, updated_ops)
-
-            # Plots
+        logger.warning("Cell filtering is not ready yet. Filters will be ignored.")
+        # The following block is kept for reference as requested, but we skip executing the actual filters
+        if False:
+            print(f"  Applying cell filters: {[f['name'] for f in cell_filters]}")
+            filter_start = time.time()
             try:
-                 fig = plot_filtered_cells(
-                     plane_dir,
-                     iscell_original,
-                     iscell_filtered,
-                     save_path=plane_dir / "13_filtered_cells.png"
-                 )
-                 import matplotlib.pyplot as plt
-                 plt.close(fig)
-                 plot_filter_exclusions(plane_dir, iscell_filtered, filter_results, save_dir=plane_dir)
-                 plot_cell_filter_summary(plane_dir, save_path=plane_dir / "15_filter_summary.png")
-            except Exception as e:
-                 print(f"  Warning: Filter plots failed: {e}")
+                # Bug fixed: iscell_original is already loaded above, before accept_all_cells mutation
+                iscell_filtered, removed_mask, filter_results = apply_filters(
+                    plane_dir=plane_dir,
+                    filters=cell_filters,
+                    save=True,
+                )
+                updated_ops = load_ops(ops_file)
+                _add_processing_step(
+                    updated_ops,
+                    "cell_filtering",
+                    duration_seconds=time.time() - filter_start,
+                    extra={"n_removed": int(removed_mask.sum())},
+                )
+                # convert filter_results list to dict keyed by filter name
+                filter_metadata = {}
+                for r in filter_results:
+                    name = r["name"]
+                    config = r.get("config", {})
+                    info = r.get("info", {})
+                    removed = r.get("removed_mask", np.zeros(0, dtype=bool))
+                    # build params from config (user-specified) or info (computed)
+                    params = {}
+                    for key in [
+                        "min_diameter_um",
+                        "max_diameter_um",
+                        "min_diameter_px",
+                        "max_diameter_px",
+                        "min_area_px",
+                        "max_area_px",
+                        "min_mult",
+                        "max_mult",
+                        "max_ratio",
+                    ]:
+                        if key in config and config[key] is not None:
+                            val = config[key]
+                            params[key] = (
+                                round(val, 1) if isinstance(val, float) else val
+                            )
+                    if not params:
+                        for key in [
+                            "min_px",
+                            "max_px",
+                            "min_ratio",
+                            "max_ratio",
+                            "lower_px",
+                            "upper_px",
+                        ]:
+                            if key in info and info[key] is not None:
+                                params[key] = round(info[key], 1)
+                    filter_metadata[name] = {
+                        "params": params,
+                        "n_rejected": int(removed.sum()),
+                    }
+                updated_ops["filter_metadata"] = filter_metadata
+                np.save(ops_file, updated_ops)
 
-        except Exception as e:
-            print(f"  Warning: Cell filtering failed: {e}")
+                # Plots
+                try:
+                    fig = plot_filtered_cells(
+                        plane_dir,
+                        iscell_original,
+                        iscell_filtered,
+                        save_path=plane_dir / "13_filtered_cells.png",
+                    )
+                    import matplotlib.pyplot as plt
+
+                    plt.close(fig)
+                    plot_filter_exclusions(
+                        plane_dir, iscell_filtered, filter_results, save_dir=plane_dir
+                    )
+                    plot_cell_filter_summary(
+                        plane_dir, save_path=plane_dir / "15_filter_summary.png"
+                    )
+                except Exception as e:
+                    print(f"  Warning: Filter plots failed: {e}")
+
+            except Exception as e:
+                print(f"  Warning: Cell filtering failed: {e}")
 
     # 3. dF/F Calculation
     F_file = plane_dir / "F.npy"
@@ -1570,7 +2144,7 @@ def run_plane(
         dff_start = time.time()
         F = np.load(F_file)
         Fneu = np.load(Fneu_file)
-        F_corr = F - 0.7 * Fneu # Fixed neucoeff for now, could be parameter
+        F_corr = F - 0.7 * Fneu  # Fixed neucoeff for now, could be parameter
 
         current_ops = load_ops(ops_file)
         dff = dff_rolling_percentile(
@@ -1579,21 +2153,22 @@ def run_plane(
             percentile=dff_percentile,
             smooth_window=dff_smooth_window,
             fs=current_ops.get("fs", 30.0),
-            tau=current_ops.get("tau", 1.0)
+            tau=current_ops.get("tau", 1.0),
         )
         np.save(plane_dir / "dff.npy", dff)
 
         _add_processing_step(
-             current_ops,
-             "dff_calculation",
-             duration_seconds=time.time() - dff_start,
-             extra={"percentile": dff_percentile}
+            current_ops,
+            "dff_calculation",
+            duration_seconds=time.time() - dff_start,
+            extra={"percentile": dff_percentile},
         )
         np.save(ops_file, current_ops)
 
     # 3b. ROI statistics
     try:
         from lbm_suite2p_python.postprocessing import compute_roi_stats
+
         print("  Computing ROI statistics...")
         compute_roi_stats(plane_dir)
     except Exception as e:
@@ -1602,10 +2177,10 @@ def run_plane(
     # 4. Plots and Cleanup
     try:
         plot_zplane_figures(
-             plane_dir,
-             dff_percentile=dff_percentile,
-             dff_window_size=dff_window_size,
-             dff_smooth_window=dff_smooth_window
+            plane_dir,
+            dff_percentile=dff_percentile,
+            dff_window_size=dff_window_size,
+            dff_smooth_window=dff_smooth_window,
         )
     except Exception as e:
         print(f"  Warning: Plot generation failed: {e}")
@@ -1627,4 +2202,5 @@ def run_plane(
 def grid_search(*args, **kwargs):
     """Run a grid search over Suite2p parameters. See lbm_suite2p_python.grid_search module."""
     from lbm_suite2p_python.grid_search import grid_search as _grid_search
+
     return _grid_search(*args, **kwargs)

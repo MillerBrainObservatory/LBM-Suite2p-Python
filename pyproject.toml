@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lbm_suite2p_python"
-version = "2.5.5"
+version = "2.5.7"
 description = "Light Beads Microscopy Pipeline using Suite2p"
 readme = "README.md"
 license = "BSD-3-Clause"
-requires-python = ">=3.12.7, <3.12.10"
+requires-python = ">=3.12.7,<3.14"
 keywords = ["Pipeline", "Numpy", "Microscopy", "ScanImage", "Suite2p", "tiff"]
 urls = {homepage = "https://github.com/MillerBrainObservatory/LBM-Suite2p-Python"}
 classifiers=[
@@ -18,7 +18,8 @@ classifiers=[
 ]
 
 dependencies = [
-	"mbo_utilities>=2.6.2",
+	"mbo_utilities>=2.6.3",
+	"suite2p_mbo>=2.0.1",
 	"setuptools<81",
 ]
 
@@ -27,11 +28,6 @@ lsp = "lbm_suite2p_python.__main__:main"
 cellpose-gui = "lbm_suite2p_python.gui:main"
 
 [project.optional-dependencies]
-# Suite2p cell extraction pipeline (core dependency for this package)
-suite2p = [
-	"suite2p_mbo>=2.0.1",
-]
-# Rastermap for activity clustering and visualization
 rastermap = [
 	"rastermap",
 ]
@@ -46,7 +42,7 @@ torch = [
 ]
 # All optional dependencies
 all = [
-	"lbm_suite2p_python[suite2p,rastermap,cellpose,torch]",
+	"lbm_suite2p_python[rastermap,cellpose,torch]",
 ]
 
 [dependency-groups]
@@ -75,19 +71,6 @@ docs = [
 	"scipy",
 	"pandas",
 	"suite2p_mbo",
-]
-
-[[tool.uv.index]]
-name = "pytorch-cu126"
-url = "https://download.pytorch.org/whl/cu126"
-explicit = true
-
-[tool.uv.sources]
-torch = [
-  { index = "pytorch-cu126", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
-]
-torchvision = [
-  { index = "pytorch-cu126", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
 
 # https://github.com/charliermarsh/ruff

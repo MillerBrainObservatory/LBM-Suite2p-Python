@@ -77,8 +77,12 @@ def _save_filtered_iscell(plane_dir, iscell_filtered, iscell_original=None):
     iscell_path = plane_dir / "iscell.npy"
 
     # Load original to preserve probabilities
-    if iscell_original is None and iscell_path.exists():
-        iscell_original = np.load(iscell_path, allow_pickle=True)
+    if iscell_original is None:
+        backup_path = plane_dir / "iscell_suite2p.npy"
+        if backup_path.exists():
+            iscell_original = np.load(backup_path, allow_pickle=True)
+        elif iscell_path.exists():
+            iscell_original = np.load(iscell_path, allow_pickle=True)
 
     if iscell_original is not None and iscell_original.ndim == 2:
         # Preserve probability column
@@ -611,7 +615,7 @@ def apply_filters(
 
     # Save final result if requested
     if save and plane_dir is not None:
-        _save_filtered_iscell(plane_dir, iscell_current)
+        _save_filtered_iscell(plane_dir, iscell_current, iscell_original=iscell_orig)
 
     n_total = total_removed.sum()
     n_orig = iscell_orig.sum()
@@ -1031,13 +1035,14 @@ def compute_trace_quality_score(
 
     n_neurons = F.shape[0]
 
-    # Neuropil correction
+    # neuropil correction and rectification
     if Fneu is not None:
         F_corr = F - 0.7 * Fneu
     else:
         F_corr = F
+    F_corr = np.maximum(F_corr, 0)
 
-    # Compute baseline and dF/F
+    # compute baseline and dF/F
     baseline = np.percentile(F_corr, 20, axis=1, keepdims=True)
     baseline = np.maximum(baseline, 1e-6)
     dff = (F_corr - baseline) / baseline
@@ -1203,8 +1208,9 @@ def compute_roi_stats(plane_dir, fs=None):
 
     n_rois = F.shape[0]
 
-    # neuropil correction and dF/F
+    # neuropil correction, rectify negatives, and dF/F
     F_corr = F - 0.7 * Fneu
+    F_corr = np.maximum(F_corr, 0)
     baseline = np.percentile(F_corr, 20, axis=1, keepdims=True)
     baseline = np.maximum(baseline, 1e-6)
     dff = (F_corr - baseline) / baseline

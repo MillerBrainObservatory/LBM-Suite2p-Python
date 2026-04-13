@@ -6,7 +6,6 @@
 #     "numpy",
 #     "h5py",
 #     "scipy",
-#     "mat73",
 # ]
 # ///
 
@@ -42,25 +41,20 @@ def _():
 
 @app.cell
 def _(mo):
-    data_path = mo.ui.text(
-        value="//rbo-s1/S1_DATA/lbm/jdemas/bi_hemisphere/output",
-        label="Path",
-        full_width=True,
-    )
+    data_path = "//rbo-s1/S1_DATA/lbm/jdemas/bi_hemisphere/output"
     plane_num = mo.ui.number(value=1, start=1, stop=30, label="Plane")
     return data_path, plane_num
 
 
 @app.cell
-def _(data_path, mo, plane_num):
-    mo.hstack([data_path, plane_num], widths=[0.9, 0.1])
+def _(mo, plane_num):
+    mo.hstack([mo.md(f"**Path:** `//rbo-s1/S1_DATA/lbm/jdemas/bi_hemisphere/output`"), plane_num], widths=[0.9, 0.1])
     return
 
 
 @app.cell
 def _(Path, data_path, h5py, np, plane_num, zoom):
     import scipy.io as sio
-    import mat73
 
     def _load(fp):
         d = {}
@@ -80,13 +74,6 @@ def _(Path, data_path, h5py, np, plane_num, zoom):
         except OSError:
             pass
 
-        # try mat73 (another v7.3 loader)
-        try:
-            d = mat73.loadmat(str(fp))
-            return d
-        except:
-            pass
-
         # try scipy (matlab v5/v7)
         try:
             raw = sio.loadmat(str(fp), squeeze_me=True)
@@ -99,7 +86,7 @@ def _(Path, data_path, h5py, np, plane_num, zoom):
 
         return d
 
-    _p = Path(data_path.value) / f"caiman_output_plane_{plane_num.value}.mat"
+    _p = Path(data_path) / f"caiman_output_plane_{plane_num.value}.mat"
     if _p.exists():
         D = _load(_p)
         Cn = D.get("Cn", D.get("Ym"))

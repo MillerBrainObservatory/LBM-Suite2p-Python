@@ -3228,6 +3228,7 @@ def plot_zplane_figures(
 
     return output_ops
 
+
 def normalize99(img):
     """
     Normalize image using 1st and 99th percentile values.
@@ -3832,8 +3833,8 @@ def plot_filtered_cells(
     """
     plane_dir = Path(plane_dir)
 
-    # load results
-    res = load_planar_results(plane_dir)
+    # load results (using direct load to avoid unnecessarily reloading iscell.npy which may be modified)
+    stat = np.load(plane_dir / "stat.npy", allow_pickle=True)
     ops = load_ops(plane_dir)
 
     # get background image with coordinate offsets
@@ -3848,8 +3849,6 @@ def plot_filtered_cells(
 
     iscell_original = iscell_original.astype(bool)
     iscell_filtered = iscell_filtered.astype(bool)
-
-    stat = res["stat"]
 
     # Identify kept and removed cells
     kept_mask = iscell_filtered
