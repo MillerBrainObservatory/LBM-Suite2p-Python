@@ -14,7 +14,7 @@ import tempfile
 from pathlib import Path
 
 import numpy as np
-from mbo_utilities.util import load_npy
+from mbo_utilities.file_io import load_npy
 
 
 def detect_format(path: str | Path) -> str:

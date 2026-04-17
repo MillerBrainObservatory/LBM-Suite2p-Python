@@ -1618,8 +1618,16 @@ def run_plane(
     if binary_with_ops and (
         input_path.parent == save_path or save_path == input_parent
     ):
-        print(f"Processing existing binary in-place: {input_path}")
+        # find correct source dir for this plane (same logic as copy branch)
+        target_plane = ops.get("plane", 1)
         plane_dir = input_path.parent
+        if input_arr is not None and hasattr(input_arr, "filenames"):
+            for fname in input_arr.filenames:
+                fpath = Path(fname)
+                if f"zplane{target_plane:02d}" in fpath.parent.name:
+                    plane_dir = fpath.parent
+                    break
+        print(f"Processing existing binary in-place: {plane_dir}")
         skip_imwrite = True
         ops_file = plane_dir / "ops.npy"
         existing_ops = (
@@ -1644,7 +1652,20 @@ def run_plane(
 
         skip_imwrite = True
         file = None
+
+        # find correct source directory for the target plane.
+        # input_path always points to the first plane's data.bin when
+        # called from run_volume with a lazy array, so we search the
+        # parent directory for the subdirectory matching the target plane.
+        target_plane = ops.get("plane", 1)
         src_dir = input_path.parent
+        if input_arr is not None and hasattr(input_arr, "filenames"):
+            for fname in input_arr.filenames:
+                fpath = Path(fname)
+                if f"zplane{target_plane:02d}" in fpath.parent.name:
+                    src_dir = fpath.parent
+                    break
+
         existing_ops = np.load(src_dir / "ops.npy", allow_pickle=True).item()
         metadata = {
             k: v
@@ -1913,19 +1934,19 @@ def run_plane(
         )
         np.save(ops_file, ops)
 
-    # Determine processing needs
+    # Determine processing needs.
+    # check whether detection outputs exist in the destination, not just
+    # what roidetect says in the (possibly copied) ops. if stat.npy is
+    # missing, detection hasn't run here yet regardless of source state.
+    stat_file = plane_dir / "stat.npy"
     needs_detect = False
     if force_detect:
         needs_detect = True
-    elif ops["roidetect"]:
-        stat_file = plane_dir / "stat.npy"
-        if stat_file.exists():
-            stat = np.load(stat_file, allow_pickle=True)
-            if stat is None or len(stat) == 0:
-                needs_detect = True
-            else:
-                needs_detect = False
-        else:
+    elif not stat_file.exists():
+        needs_detect = True
+    elif ops.get("roidetect", 1):
+        stat = np.load(stat_file, allow_pickle=True)
+        if stat is None or len(stat) == 0:
             needs_detect = True
 
     # Check registration needs
