@@ -7,7 +7,7 @@ from scipy.ndimage import percentile_filter
 from scipy.stats import norm
 
 from mbo_utilities.metadata import get_voxel_size
-from mbo_utilities.util import load_npy
+from mbo_utilities.file_io import load_npy
 
 
 def _normalize_iscell(iscell):
