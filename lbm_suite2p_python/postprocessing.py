@@ -146,14 +146,22 @@ def filter_by_diameter(
 
     if "radius" not in stat[0]:
         from suite2p.detection.stats import roi_stats
+        # upstream signature: roi_stats(stats, Ly, Lx, diameter=[12.,12.],
+        #   max_overlap=0.75, do_soma_crop=True, npix_norm_min, npix_norm_max, median).
+        # fork used to pass `aspect` and `do_crop` which no longer exist; diameter
+        # is now required to be a 2-element list.
+        _diam = ops.get("diameter")
+        if _diam is None:
+            _diam = [12.0, 12.0]
+        elif not isinstance(_diam, (list, tuple)):
+            _diam = [float(_diam), float(_diam)]
         stat = roi_stats(
             stat,
             ops["Ly"],
             ops["Lx"],
-            aspect=ops.get("aspect", None),
-            diameter=ops.get("diameter", None),
-            max_overlap=ops.get("max_overlap", None),
-            do_crop=ops.get("soma_crop", 1),
+            diameter=list(_diam),
+            max_overlap=ops.get("max_overlap") or 0.75,
+            do_soma_crop=bool(ops.get("soma_crop", True)),
         )
 
     radii = np.array([s["radius"] for s in stat])

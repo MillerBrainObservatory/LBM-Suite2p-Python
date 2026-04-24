@@ -2,25 +2,122 @@ import logging
 import time
 from datetime import datetime
 from pathlib import Path
-import os
 import traceback
-from contextlib import nullcontext
-from itertools import product
 import copy
-import gc
 
 import numpy as np
 
 from lbm_suite2p_python.default_ops import default_ops
+from lbm_suite2p_python.db_settings import save_ops_db_settings
 from lbm_suite2p_python.postprocessing import (
     ops_to_json,
-    load_planar_results,
     load_ops,
     dff_rolling_percentile,
     apply_filters,
 )
 
 from importlib.metadata import version, PackageNotFoundError
+
+
+def _call_upstream_pipeline(ops, f_reg, f_raw, f_reg_chan2, f_raw_chan2,
+                            run_registration, stat=None):
+    """Compat wrapper around upstream `suite2p.run_s2p.pipeline` that
+    preserves the fork's `ops`-in / `ops`-out contract.
+
+    Upstream's pipeline now takes a nested `settings` dict, requires
+    `save_path` positionally, and returns a 12-tuple of discrete outputs
+    instead of a merged ops. This helper:
+      1. Splits the flat fork ops into (db, settings) via db_settings helpers.
+      2. Resolves torch_device from ops if set.
+      3. Calls pipeline with the upstream signature.
+      4. Folds reg_outputs / detect_outputs dicts back into the flat ops
+         dict so downstream fork code (which reads e.g. ops['meanImg'],
+         ops['yrange']) keeps working.
+    """
+    from suite2p.run_s2p import pipeline as _upstream_pipeline
+    from suite2p import default_settings as _us_default_settings
+    from lbm_suite2p_python.db_settings import ops_to_db_settings
+
+    save_path = ops.get("save_path") or ops.get("ops_path")
+    if save_path is None:
+        raise ValueError("ops must carry 'save_path' or 'ops_path' to call upstream pipeline")
+    save_path = str(Path(save_path).parent) if str(save_path).endswith("ops.npy") else str(save_path)
+
+    # build settings by overlaying ops-derived values onto the full upstream
+    # default schema. upstream frequently grows new required keys
+    # (upsample_meanImg, batch_size, ...) that won't exist in an ops dict
+    # built by the fork — falling back to upstream defaults keeps us safe
+    # as upstream evolves without a db_settings.py patch on every release.
+    _, derived = ops_to_db_settings(ops)
+    settings = _us_default_settings()
+    def _deep_merge(base, overlay):
+        for k, v in overlay.items():
+            if isinstance(v, dict) and isinstance(base.get(k), dict):
+                _deep_merge(base[k], v)
+            else:
+                base[k] = v
+    _deep_merge(settings, derived)
+
+    # resolve torch device (default cuda, fall back to cpu on allocation)
+    try:
+        import torch
+        dev_name = ops.get("torch_device") or settings.get("torch_device") or "cuda"
+        try:
+            device = torch.device(dev_name)
+            # probe a tiny allocation to validate cuda is actually usable
+            if device.type == "cuda":
+                torch.zeros(1, device=device)
+        except Exception:
+            device = torch.device("cpu")
+    except ImportError:
+        device = None
+
+    (reg_outputs, detect_outputs, stat, F, Fneu, F_chan2, Fneu_chan2,
+     spks, iscell, redcell, zcorr, plane_times) = _upstream_pipeline(
+        save_path=save_path,
+        f_reg=f_reg,
+        f_raw=f_raw,
+        f_reg_chan2=f_reg_chan2,
+        f_raw_chan2=f_raw_chan2,
+        run_registration=run_registration,
+        settings=settings,
+        badframes=ops.get("badframes"),
+        stat=stat,
+        device=device if device is not None else None,
+    )
+
+    # fold outputs back into flat ops for fork consumers
+    if isinstance(reg_outputs, dict):
+        for k, v in reg_outputs.items():
+            ops[k] = v
+    if isinstance(detect_outputs, dict):
+        for k, v in detect_outputs.items():
+            # don't clobber diameter — keep whatever was passed in unless upstream
+            # actually refined it (and collapse list to scalar for fork consumers)
+            if k == "diameter" and v is not None:
+                if isinstance(v, (list, tuple)) and len(v) >= 1:
+                    v = float(v[0]) if len(v) < 2 or v[0] == v[1] else (float(v[0]) + float(v[1])) / 2
+                ops[k] = v
+            elif k != "diameter":
+                ops[k] = v
+    ops["plane_times"] = plane_times
+    return ops
+
+
+def _compute_enhanced_mean_image(img, ops):
+    """Compat shim for upstream's removal of `compute_enhanced_mean_image`.
+
+    Upstream suite2p replaced `compute_enhanced_mean_image(img, ops)` with
+    `highpass_mean_image(I, aspect=1.0)` — the ops dict is no longer read
+    (aspect is now the only knob, pulled from ops by the caller). Some
+    fork call sites pass `None` for `img` and rely on ops["meanImg"]; we
+    reproduce that fallback here.
+    """
+    from suite2p.registration import highpass_mean_image
+    if img is None:
+        img = ops["meanImg"]
+    aspect = ops.get("aspect", 1.0) or 1.0
+    return highpass_mean_image(np.asarray(img).astype(np.float32), aspect=float(aspect))
 
 
 def _get_version():
@@ -140,13 +237,6 @@ def _apply_reactive_metadata(
     #   - `dz` (and dx/dy) are owned by lbm because mbo's writer only
     #     sees the per-plane data, not the FULL plane selection list,
     #     so it cannot compute the implicit z-stride.
-    # CRITICAL: only write dz/dx/dy when `plane_indices` was actually
-    # supplied. When the helper is called per-plane from run_plane (with
-    # plane_indices=None), the OutputMetadata `_z_step_factor` defaults
-    # to 1 and `scaled["dz"] = source_dz`. Writing that would CLOBBER a
-    # correctly-scaled value already in `ops` from run_volume's outer
-    # call (where the FULL plane list was in scope). So per-plane
-    # callers without plane context must not touch dz at all.
     if plane_indices is not None:
         for key in ("dz", "dx", "dy", "z_step",
                     "umPerPixZ", "umPerPixX", "umPerPixY"):
@@ -263,6 +353,8 @@ def pipeline(
     input_data,
     save_path: str | Path = None,
     ops: dict = None,
+    db: dict | None = None,
+    settings: dict | None = None,
     planes: list | int = None,
     roi_mode: int = None,
     keep_reg: bool = True,
@@ -389,6 +481,7 @@ def pipeline(
             "'roi' is deprecated, use 'roi_mode'", DeprecationWarning, stacklevel=2
         )
         roi_mode = roi
+
     if num_frames is not None:
         import warnings
 
@@ -399,23 +492,22 @@ def pipeline(
         )
         num_timepoints = num_frames
 
-    # Normalize kwargs
+    # flatten (db, settings) into ops so downstream run_volume / run_plane
+    # don't each need to forward the pair. explicit ops keys still win.
+    if db is not None or settings is not None:
+        from lbm_suite2p_python.db_settings import merge_db_settings_into_ops
+        ops = merge_db_settings_into_ops(ops if isinstance(ops, dict) else None, db, settings)
+
     reader_kwargs = reader_kwargs or {}
     writer_kwargs = writer_kwargs or {}
     if num_timepoints is not None:
         writer_kwargs["num_frames"] = num_timepoints
-    # frame_indices wins over num_timepoints — it carries both the
-    # count AND the stride. Convert to 1-based for mbo's imwrite which
-    # uses 1-based frame numbers.
+
+    # 1-based frame numbers.
     if frame_indices is not None:
         writer_kwargs["frames"] = [int(i) + 1 for i in frame_indices]
         # don't double-pass num_frames; len(frame_indices) is implicit
         writer_kwargs.pop("num_frames", None)
-
-    # 2. Load Input to Determine Dimensionality
-    # We need to know if it's 3D (single plane) or 4D (volume)
-    is_list = isinstance(input_data, (list, tuple))
-    is_volumetric = False
 
     # Always load array to check dimensions and ensure downstream functions have the array shape
     # If input is already array, this is fast. If path or list of paths, it loads lazy array.
@@ -681,6 +773,8 @@ def run_volume(
         Force re-registration.
     force_detect : bool, default False
         Force detection.
+    frame_indices : list, default None
+        List of frame indices to process.
     dff_window_size, dff_percentile, dff_smooth_window : optional
         dF/F calculation parameters.
     accept_all_cells : bool, default False
@@ -810,6 +904,18 @@ def run_volume(
         current_ops = copy.deepcopy(load_ops(ops)) if ops else default_ops()
         current_ops["plane"] = plane_num
         current_ops["num_zplanes"] = num_planes  # useful info
+
+        # if the source was saved as a plane-subset (e.g. every-other-plane),
+        # mbo stamps `selected_planes_0based` into the file metadata. use
+        # that to translate the local plane index back to source-plane
+        # identity so output dirs read `zplane07_...` rather than
+        # `zplane02_...`. `ops["plane"]` stays as the local index because
+        # downstream slicing (`planes=[ops["plane"]]` in run_plane) must
+        # index into the *loaded* array, which only has the saved subset.
+        if input_arr is not None and hasattr(input_arr, "metadata"):
+            _source_idx = (input_arr.metadata or {}).get("selected_planes_0based")
+            if _source_idx is not None and plane_idx < len(_source_idx):
+                current_ops["source_plane_num"] = int(_source_idx[plane_idx]) + 1
 
         # Propagate voxel size from volume metadata into per-plane ops
         if _volume_voxel is not None:
@@ -1204,7 +1310,6 @@ def run_plane_bin(ops) -> bool:
     ops["anatomical_red"] = False
     ops["chan2_thres"] = 0.1
 
-    # Memory estimation warning for large datasets
     if ops.get("roidetect", True) and ops.get("anatomical_only", 0) > 0:
         # Estimate memory usage for Cellpose detection
         estimated_gb = (Ly * Lx * n_align * 2) / 1e9  # Rough estimate
@@ -1308,21 +1413,19 @@ def run_plane_bin(ops) -> bool:
                 print("  Computed meanImg from binary")
 
         if "meanImgE" not in ops and "meanImg" in ops:
-            from suite2p.registration import compute_enhanced_mean_image
-
             # compute on valid region only to avoid edge artifacts
             # from zero-padding border
             if "_pad_yrange" in ops and "_pad_xrange" in ops:
                 yr, xr = ops["yrange"], ops["xrange"]
                 full_mean = ops["meanImg"]
                 ops["meanImg"] = full_mean[yr[0]:yr[1], xr[0]:xr[1]]
-                enhanced_crop = compute_enhanced_mean_image(None, ops)
+                enhanced_crop = _compute_enhanced_mean_image(None, ops)
                 ops["meanImg"] = full_mean
                 meanImgE = np.zeros_like(full_mean, dtype=np.float32)
                 meanImgE[yr[0]:yr[1], xr[0]:xr[1]] = enhanced_crop
                 ops["meanImgE"] = meanImgE
             else:
-                ops["meanImgE"] = compute_enhanced_mean_image(
+                ops["meanImgE"] = _compute_enhanced_mean_image(
                     ops["meanImg"].astype(np.float32), ops
                 )
             print("  Computed meanImgE from meanImg")
@@ -1344,11 +1447,17 @@ def run_plane_bin(ops) -> bool:
 
     has_pad_range = "_pad_yrange" in ops and "_pad_xrange" in ops
 
+    # upstream's BinaryFile defaults to write=False (read-only) and errors on
+    # missing files. reg_file / reg_file_chan2 are registration DESTINATIONS
+    # — they may not exist yet on a fresh run — so we pass write=True to pick
+    # up the "r+ if exists else w+" behavior the fork used to rely on.
+    # raw_file / chan2_file are input sources (already produced by mbo's
+    # imwrite or upstream copy) and stay read-only.
     with (
-        BinaryFile(Ly=Ly, Lx=Lx, filename=str(reg_file), n_frames=n_align) as f_reg,
+        BinaryFile(Ly=Ly, Lx=Lx, filename=str(reg_file), n_frames=n_align, write=True) as f_reg,
         BinaryFile(Ly=Ly, Lx=Lx, filename=str(raw_file), n_frames=n_align) as f_raw,
         (
-            BinaryFile(Ly=Ly, Lx=Lx, filename=str(reg_file_chan2), n_frames=n_align)
+            BinaryFile(Ly=Ly, Lx=Lx, filename=str(reg_file_chan2), n_frames=n_align, write=True)
             if use_chan2
             else nullcontext()
         ) as f_reg_chan2,
@@ -1366,13 +1475,12 @@ def run_plane_bin(ops) -> bool:
             # xrange/yrange to the valid (non-padded) region in between.
             ops["roidetect"] = False
             print("NOTE: running registration-only pass (detection deferred)")
-            ops = pipeline(
-                f_reg=f_reg,
-                f_raw=f_raw,
-                f_reg_chan2=f_reg_chan2 if use_chan2 else None,
-                f_raw_chan2=f_raw_chan2 if use_chan2 else None,
+            ops = _call_upstream_pipeline(
+                ops,
+                f_reg, f_raw,
+                f_reg_chan2 if use_chan2 else None,
+                f_raw_chan2 if use_chan2 else None,
                 run_registration=True,
-                ops=ops,
                 stat=None,
             )
 
@@ -1389,63 +1497,76 @@ def run_plane_bin(ops) -> bool:
             # high-pass filter doesn't create edge artifacts at the
             # zero-padding boundary.  compute_enhanced_mean_image reads
             # ops["meanImg"] internally, so swap it temporarily.
-            from suite2p.registration import compute_enhanced_mean_image
             yr, xr = ops["yrange"], ops["xrange"]
             full_mean = ops["meanImg"]
             ops["meanImg"] = full_mean[yr[0]:yr[1], xr[0]:xr[1]]
-            enhanced_crop = compute_enhanced_mean_image(None, ops)
+            enhanced_crop = _compute_enhanced_mean_image(None, ops)
             ops["meanImg"] = full_mean  # restore
             meanImgE = np.zeros_like(full_mean, dtype=np.float32)
             meanImgE[yr[0]:yr[1], xr[0]:xr[1]] = enhanced_crop
             ops["meanImgE"] = meanImgE
 
+            # upstream's pipeline(run_registration=False) reloads reg_outputs.npy
+            # from disk and uses ITS yrange/xrange for detection — not whatever
+            # we just clamped into the in-memory ops dict. if we don't update
+            # the on-disk file, detection sees the full (pre-clamp) valid
+            # region and cellpose happily picks up ROIs in the zero-padded
+            # corners. patch reg_outputs.npy in place with the clamped values
+            # and the clamped meanImgE before the detection-only second call.
+            _reg_save_dir = Path(ops["save_path"])
+            _reg_outputs_path = _reg_save_dir / "reg_outputs.npy"
+            if _reg_outputs_path.exists():
+                _reg_disk = np.load(_reg_outputs_path, allow_pickle=True).item()
+                _reg_disk["yrange"] = ops["yrange"]
+                _reg_disk["xrange"] = ops["xrange"]
+                _reg_disk["meanImgE"] = meanImgE
+                np.save(_reg_outputs_path, _reg_disk, allow_pickle=True)
+                print(f"  Updated {_reg_outputs_path.name} with clamped valid region")
+
             if ops.get("ops_path"):
-                np.save(ops["ops_path"], ops)
+                save_ops_db_settings(ops["ops_path"], ops)
 
             # now run detection + extraction + classification
             ops["roidetect"] = True
             ops["do_registration"] = 0
-            ops = pipeline(
-                f_reg=f_reg,
-                f_raw=f_raw,
-                f_reg_chan2=f_reg_chan2 if use_chan2 else None,
-                f_raw_chan2=f_raw_chan2 if use_chan2 else None,
+            ops = _call_upstream_pipeline(
+                ops,
+                f_reg, f_raw,
+                f_reg_chan2 if use_chan2 else None,
+                f_raw_chan2 if use_chan2 else None,
                 run_registration=False,
-                ops=ops,
                 stat=None,
             )
         else:
-            ops = pipeline(
-                f_reg=f_reg,
-                f_raw=f_raw,
-                f_reg_chan2=f_reg_chan2 if use_chan2 else None,
-                f_raw_chan2=f_raw_chan2 if use_chan2 else None,
+            ops = _call_upstream_pipeline(
+                ops,
+                f_reg, f_raw,
+                f_reg_chan2 if use_chan2 else None,
+                f_raw_chan2 if use_chan2 else None,
                 run_registration=run_registration,
-                ops=ops,
                 stat=None,
             )
 
     # ensure meanImgE is always present in final ops (safety net)
     if "meanImgE" not in ops and "meanImg" in ops:
-        from suite2p.registration import compute_enhanced_mean_image
 
         if "_pad_yrange" in ops and "_pad_xrange" in ops:
             yr, xr = ops["yrange"], ops["xrange"]
             full_mean = ops["meanImg"]
             ops["meanImg"] = full_mean[yr[0]:yr[1], xr[0]:xr[1]]
-            enhanced_crop = compute_enhanced_mean_image(None, ops)
+            enhanced_crop = _compute_enhanced_mean_image(None, ops)
             ops["meanImg"] = full_mean
             meanImgE = np.zeros_like(full_mean, dtype=np.float32)
             meanImgE[yr[0]:yr[1], xr[0]:xr[1]] = enhanced_crop
             ops["meanImgE"] = meanImgE
         else:
-            ops["meanImgE"] = compute_enhanced_mean_image(
+            ops["meanImgE"] = _compute_enhanced_mean_image(
                 ops["meanImg"].astype(np.float32), ops
             )
 
     if use_chan2:
         ops["reg_file_chan2"] = str(reg_file_chan2)
-    np.save(ops["ops_path"], ops)
+    save_ops_db_settings(ops["ops_path"], ops)
     return True
 
 
@@ -1467,6 +1588,8 @@ def run_plane(
     input_data,
     save_path: str | Path | None = None,
     ops: dict | str | Path = None,
+    db: dict | None = None,
+    settings: dict | None = None,
     chan2_file: str | Path | None = None,
     keep_raw: bool = False,
     keep_reg: bool = True,
@@ -1605,9 +1728,15 @@ def run_plane(
     is_binary_input = input_path.suffix == ".bin"
     binary_with_ops = is_binary_input and (input_path.parent / "ops.npy").exists()
 
-    # load ops defaults and user settings first (needed for plane number)
+    # load ops defaults and user settings first (needed for plane number).
+    # accepts EITHER ops=... (legacy flat dict) OR db=... / settings=... (new
+    # upstream-shaped dicts). when both are supplied, db/settings are
+    # flattened first and any explicit ops keys win the merge.
+    from lbm_suite2p_python.db_settings import merge_db_settings_into_ops
     ops_default = default_ops()
     ops_user = load_ops(ops) if ops else {}
+    if db is not None or settings is not None:
+        ops_user = merge_db_settings_into_ops(ops_user, db, settings)
     ops = {**ops_default, **ops_user, "data_path": str(input_path.resolve())}
 
     # normalize kwargs
@@ -1682,13 +1811,18 @@ def run_plane(
             tag = derive_tag_from_filename(input_path)
             plane = get_plane_num_from_tag(tag, fallback=1)
 
+        # source_plane_num (set by run_volume when the loaded array came
+        # from a plane-subset save) overrides `plane` for dir naming only.
+        # keeps slicing (which uses ops["plane"] as a local index) intact.
+        naming_plane = ops.get("source_plane_num", plane)
+
         if plane_name is not None:
             subdir_name = plane_name
         else:
             nframes_hint = existing_ops.get("nframes_chan1") or existing_ops.get(
                 "nframes"
             )
-            subdir_name = generate_plane_dirname(plane=plane, nframes=nframes_hint)
+            subdir_name = generate_plane_dirname(plane=naming_plane, nframes=nframes_hint)
 
         plane_dir = save_path / subdir_name
         plane_dir.mkdir(exist_ok=True)
@@ -1719,6 +1853,10 @@ def run_plane(
             tag = derive_tag_from_filename(input_path)
             plane = get_plane_num_from_tag(tag, fallback=1)
 
+        # source_plane_num (set by run_volume when the loaded array came
+        # from a plane-subset save) overrides `plane` for dir naming only.
+        naming_plane = ops.get("source_plane_num", plane)
+
         # compute plane_dir early so we can check if binaries already exist
         if plane_name is not None:
             subdir_name = plane_name
@@ -1743,7 +1881,7 @@ def run_plane(
                 except Exception:
                     nframes_hint = None
             subdir_name = generate_plane_dirname(
-                plane=plane,
+                plane=naming_plane,
                 nframes=nframes_hint,
             )
 
@@ -1881,7 +2019,7 @@ def run_plane(
         # extract single plane if data is volumetric
         write_planes = [plane] if _get_num_planes(file) > 1 else None
 
-        # apply per-plane axial shift from suite3d registration if available
+        # apply per-plane axial shift if plane_shifts is present in metadata
         write_kw = dict(writer_kwargs)
         # If the caller gave us explicit frame indices, pass them as
         # `frames=` (1-based) to imwrite. This wins over any stale
@@ -1890,7 +2028,7 @@ def run_plane(
         if frame_indices is not None:
             write_kw["frames"] = [int(i) + 1 for i in frame_indices]
             write_kw.pop("num_frames", None)
-        if md_combined.get("apply_shift") and md_combined.get("s3d-job"):
+        if md_combined.get("apply_shift") and md_combined.get("plane_shifts") is not None:
             from mbo_utilities._writers import load_registration_shifts, compute_pad_from_shifts
 
             _apply, _plane_shifts, _ = load_registration_shifts(md_combined)
@@ -1932,7 +2070,7 @@ def run_plane(
             duration_seconds=time.time() - bin_start,
             extra={"plane": plane, "shape": list(file.shape)},
         )
-        np.save(ops_file, ops)
+        save_ops_db_settings(ops_file, ops)
 
     # Determine processing needs.
     # check whether detection outputs exist in the destination, not just
@@ -2010,7 +2148,7 @@ def run_plane(
     reg_bin = plane_dir / "data.bin"
     if reg_bin.exists():
         ops["reg_file"] = str(reg_bin)
-    np.save(ops_file, ops)
+    save_ops_db_settings(ops_file, ops)
 
     # Run Suite2p (skip entirely when nothing needs to be done)
     skip_suite2p = not needs_reg and not needs_detect
@@ -2039,7 +2177,7 @@ def run_plane(
                         else 0,
                     },
                 )
-                np.save(ops_file, updated_ops)
+                save_ops_db_settings(ops_file, updated_ops)
 
         except Exception as e:
             print(f"Error in run_plane_bin: {e}")
@@ -2132,7 +2270,7 @@ def run_plane(
                         "n_rejected": int(removed.sum()),
                     }
                 updated_ops["filter_metadata"] = filter_metadata
-                np.save(ops_file, updated_ops)
+                save_ops_db_settings(ops_file, updated_ops)
 
                 # Plots
                 try:
@@ -2184,7 +2322,7 @@ def run_plane(
             duration_seconds=time.time() - dff_start,
             extra={"percentile": dff_percentile},
         )
-        np.save(ops_file, current_ops)
+        save_ops_db_settings(ops_file, current_ops)
 
     # 3b. ROI statistics
     try:

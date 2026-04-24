@@ -962,7 +962,20 @@ def plot_projection(
     matplotlib.figure.Figure
         The generated figure.
     """
-    from suite2p.detection.stats import ROI
+    # upstream removed `ROI` from suite2p.detection.stats; inline the only
+    # method we used — stats_dicts_to_3d_array — as a local helper so this
+    # plotting path keeps working under both fork and upstream suite2p.
+    def _stats_dicts_to_3d_array(stat_list, Ly, Lx, label_id=True):
+        arr = np.zeros((len(stat_list), Ly, Lx), dtype=np.float32)
+        for i, s in enumerate(stat_list):
+            ypix = np.asarray(s.get("ypix", []), dtype=int)
+            xpix = np.asarray(s.get("xpix", []), dtype=int)
+            if ypix.size == 0:
+                continue
+            valid = (ypix >= 0) & (ypix < Ly) & (xpix >= 0) & (xpix < Lx)
+            ypix, xpix = ypix[valid], xpix[valid]
+            arr[i, ypix, xpix] = (i + 1) if label_id else 1.0
+        return arr
     if proj == "meanImg":
         txt = "Mean-Image"
     elif proj == "max_proj":
@@ -978,6 +991,23 @@ def plot_projection(
         output_directory = Path(output_directory)
 
     data = ops[proj]
+    # crop projection to the valid (non-padded) region so zero-padded
+    # borders from axial alignment don't leak into summary images.
+    # yrange/xrange are stored in full-frame coordinates; when upstream
+    # didn't set them, fall back to the full image.
+    _full_Ly = data.shape[0]
+    _full_Lx = data.shape[1]
+    _yr = ops.get("yrange") or [0, _full_Ly]
+    _xr = ops.get("xrange") or [0, _full_Lx]
+    _y0, _y1 = int(_yr[0]), int(_yr[1])
+    _x0, _x1 = int(_xr[0]), int(_xr[1])
+    # clamp to actual image bounds (defensive: yrange from upstream may
+    # extend beyond image if padding metadata is inconsistent)
+    _y0 = max(0, min(_y0, _full_Ly))
+    _y1 = max(_y0, min(_y1, _full_Ly))
+    _x0 = max(0, min(_x0, _full_Lx))
+    _x1 = max(_x0, min(_x1, _full_Lx))
+    data = data[_y0:_y1, _x0:_x1]
     shape = data.shape
     fig, ax = plt.subplots(figsize=(6, 6), facecolor="black")
     vmin = np.nanpercentile(data, 2) if vmin is None else vmin
@@ -1010,9 +1040,14 @@ def plot_projection(
         res = load_planar_results(ops)
         stat = res["stat"]
         iscell_mask = res["iscell"][:, 0].astype(bool)
-        im = ROI.stats_dicts_to_3d_array(
-            stat, Ly=get_param(ops, "Ly", default=512), Lx=get_param(ops, "Lx", default=512), label_id=True
+        # build overlay in full-frame space (stat ypix/xpix are full-frame
+        # absolute coords from upstream), then crop to the same valid
+        # region as the underlying projection image so masks and data
+        # stay aligned.
+        im = _stats_dicts_to_3d_array(
+            stat, Ly=get_param(ops, "Ly", default=_full_Ly), Lx=get_param(ops, "Lx", default=_full_Lx), label_id=True
         )
+        im = im[:, _y0:_y1, _x0:_x1]
         im[im == 0] = np.nan
         accepted_cells = np.sum(iscell_mask)
         rejected_cells = np.sum(~iscell_mask)
@@ -1369,23 +1404,34 @@ def save_pc_panels_and_metrics(ops, savepath, pcs=(0, 1, 2, 3)):
             f" Got: {pcs}"
         )
 
-    regPC = ops["regPC"]  # shape (2, nPC, Ly, Lx)
-    regDX = ops["regDX"]  # shape (nPC, 3)
+    regPC = ops["regPC"]  # shape (2, nPC, Ly, Lx) in full-frame space
+    regDX = ops["regDX"]  # shape (nPC, 3 or 4)
     savepath = Path(savepath)
+
+    # crop PC panels to the valid (non-padded) region so the saved TIFF
+    # doesn't include zero-padded borders from axial alignment.
+    _full_Ly = regPC.shape[2]
+    _full_Lx = regPC.shape[3]
+    _yr = ops.get("yrange") or [0, _full_Ly]
+    _xr = ops.get("xrange") or [0, _full_Lx]
+    _y0 = max(0, min(int(_yr[0]), _full_Ly))
+    _y1 = max(_y0, min(int(_yr[1]), _full_Ly))
+    _x0 = max(0, min(int(_xr[0]), _full_Lx))
+    _x1 = max(_x0, min(int(_xr[1]), _full_Lx))
 
     alt_frames = []
     alt_labels = []
     for view, view_name in zip([0, 1], ["Low", "High"]):
         # side-by-side: PC1 | PC2
-        left = regPC[view, pcs[0]]
-        right = regPC[view, pcs[1]]
+        left = regPC[view, pcs[0]][_y0:_y1, _x0:_x1]
+        right = regPC[view, pcs[1]][_y0:_y1, _x0:_x1]
         combined = np.hstack([left, right])
         alt_frames.append(combined.astype(np.float32))
         alt_labels.append(f"PC{pcs[0] + 1}/{pcs[1] + 1} {view_name}")
 
         # side-by-side: PC3 | PC4
-        left = regPC[view, pcs[2]]
-        right = regPC[view, pcs[3]]
+        left = regPC[view, pcs[2]][_y0:_y1, _x0:_x1]
+        right = regPC[view, pcs[3]][_y0:_y1, _x0:_x1]
         combined = np.hstack([left, right])
         alt_frames.append(combined.astype(np.float32))
         alt_labels.append(f"PC{pcs[2] + 1}/{pcs[3] + 1} {view_name}")
@@ -1395,10 +1441,10 @@ def save_pc_panels_and_metrics(ops, savepath, pcs=(0, 1, 2, 3)):
     for left, right in [(pcs[0], pcs[1]), (pcs[2], pcs[3])]:
         for view, view_name in zip([0, 1], ["Low", "High"]):
             fig, axes = plt.subplots(1, 2, figsize=(10, 5))
-            axes[0].imshow(regPC[view, left], cmap="gray")
+            axes[0].imshow(regPC[view, left][_y0:_y1, _x0:_x1], cmap="gray")
             axes[0].set_title(f"PC{left + 1} {view_name}")
             axes[0].axis("off")
-            axes[1].imshow(regPC[view, right], cmap="gray")
+            axes[1].imshow(regPC[view, right][_y0:_y1, _x0:_x1], cmap="gray")
             axes[1].set_title(f"PC{right + 1} {view_name}")
             axes[1].axis("off")
             fig.tight_layout()
@@ -1418,7 +1464,11 @@ def save_pc_panels_and_metrics(ops, savepath, pcs=(0, 1, 2, 3)):
         metadata={"Labels": panel_labels},
     )
 
-    df = pd.DataFrame(regDX, columns=["Rigid", "Avg_NR", "Max_NR"])
+    # upstream widened regDX from 3 cols (Rigid, Avg_NR, Max_NR) to 4 cols
+    # (adding Avg_Combined = mean rigid+nonrigid). accept either shape.
+    regDX = np.asarray(regDX)
+    cols = ["Rigid", "Avg_NR", "Max_NR", "Avg_Combined"][: regDX.shape[1]]
+    df = pd.DataFrame(regDX, columns=cols)
     metrics = {
         "Avg_Rigid": df["Rigid"].mean(),
         "Avg_Average_NR": df["Avg_NR"].mean(),
@@ -1427,6 +1477,9 @@ def save_pc_panels_and_metrics(ops, savepath, pcs=(0, 1, 2, 3)):
         "Max_Average_NR": df["Avg_NR"].max(),
         "Max_Max_NR": df["Max_NR"].max(),
     }
+    if "Avg_Combined" in df.columns:
+        metrics["Avg_Combined"] = df["Avg_Combined"].mean()
+        metrics["Max_Combined"] = df["Avg_Combined"].max()
     csv_path = savepath.with_suffix(".csv")
     pd.DataFrame([metrics]).to_csv(csv_path, index=False)
 
