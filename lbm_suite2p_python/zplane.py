@@ -845,16 +845,22 @@ def plot_masks(
         savepath: str | Path = None,
         colors=None,
         title=None,
+        *,
+        ops: dict = None,
+        proj_key: str = None,
+        figsize: tuple = (6, 6),
+        dpi: int = 300,
 ):
     """
-    Draw ROI overlays onto the mean image.
+    Draw ROI overlays onto a projection image.
 
     Parameters
     ----------
     img : ndarray (Ly x Lx)
         Background image to overlay on.
     stat : list[dict]
-        Suite2p ROI stat dictionaries (with "ypix", "xpix", "lam").
+        Suite2p ROI stat dictionaries (with "ypix", "xpix", "lam") in
+        full-frame coordinates.
     mask_idx : ndarray[bool]
         Boolean array selecting which ROIs to plot.
     savepath : str or Path, optional
@@ -864,22 +870,37 @@ def plot_masks(
         If None, colors are assigned via HSV colormap.
     title : str, optional
         Title string to place on the figure.
+    ops : dict, optional
+        Suite2p ops dictionary. When provided together with ``proj_key``,
+        the image is cropped to the valid (non-zero-padded) region and
+        stat coordinates are translated into the cropped-image space.
+    proj_key : str, optional
+        Projection key that ``img`` was taken from (e.g. ``"meanImg"``,
+        ``"max_proj"``). Required alongside ``ops`` to select the correct
+        coordinate-space offset.
+    figsize : tuple, optional
+        Figure size in inches. Default (6, 6) to match
+        :func:`plot_projection`.
+    dpi : int, optional
+        Output DPI. Default 300.
     """
+    # crop to the valid region when ops info is provided, and compute the
+    # offset needed to move full-frame stat coordinates into image space
+    stat_yoff = 0
+    stat_xoff = 0
+    if ops is not None and proj_key is not None:
+        img, stat_yoff, stat_xoff = _crop_projection_to_valid(ops, img, proj_key)
 
-    # Normalize background image using percentile stretch for better contrast
-    # this prevents dark images when min/max are extreme outliers
+    # percentile stretch for consistent contrast
     vmin = np.nanpercentile(img, 1)
     vmax = np.nanpercentile(img, 99)
     normalized = (img - vmin) / (vmax - vmin + 1e-6)
     normalized = np.clip(normalized, 0, 1)
-    # Set NaN regions to 0 (black background)
     normalized = np.nan_to_num(normalized, nan=0.0)
     canvas = np.tile(normalized, (3, 1, 1)).transpose(1, 2, 0)
 
-    # Get image dimensions for bounds checking
     Ly, Lx = img.shape[:2]
 
-    # Assign colors if not provided
     n_masks = mask_idx.sum()
     if colors is None:
         colors = plt.cm.hsv(np.linspace(0, 1, n_masks + 1))[:, :3]  # noqa
@@ -887,13 +908,14 @@ def plot_masks(
     c = 0
     for n, s in enumerate(stat):
         if mask_idx[n]:
-            ypix, xpix, lam = s["ypix"], s["xpix"], s["lam"]
+            ypix = s["ypix"] - stat_yoff
+            xpix = s["xpix"] - stat_xoff
+            lam = s["lam"]
 
-            # Bounds checking - only keep pixels within image dimensions
             valid_mask = (ypix >= 0) & (ypix < Ly) & (xpix >= 0) & (xpix < Lx)
             if not np.any(valid_mask):
                 c += 1
-                continue  # Skip ROI if no valid pixels
+                continue
 
             ypix = ypix[valid_mask]
             xpix = xpix[valid_mask]
@@ -907,7 +929,7 @@ def plot_masks(
                         0.5 * canvas[ypix, xpix, k] + 0.5 * col[k] * lam
                 )
 
-    fig, ax = plt.subplots(figsize=(10, 10), facecolor="black")
+    fig, ax = plt.subplots(figsize=figsize, facecolor="black")
     ax.set_facecolor("black")
     ax.imshow(canvas, interpolation="nearest")
     if title is not None:
@@ -918,7 +940,7 @@ def plot_masks(
     if savepath:
         if Path(savepath).is_dir():
             raise ValueError("savepath must be a file path, not a directory.")
-        plt.savefig(savepath, dpi=300, facecolor="black")
+        plt.savefig(savepath, dpi=dpi, facecolor="black")
         plt.close(fig)
     else:
         plt.show()
@@ -991,23 +1013,13 @@ def plot_projection(
         output_directory = Path(output_directory)
 
     data = ops[proj]
-    # crop projection to the valid (non-padded) region so zero-padded
-    # borders from axial alignment don't leak into summary images.
-    # yrange/xrange are stored in full-frame coordinates; when upstream
-    # didn't set them, fall back to the full image.
-    _full_Ly = data.shape[0]
-    _full_Lx = data.shape[1]
-    _yr = ops.get("yrange") or [0, _full_Ly]
-    _xr = ops.get("xrange") or [0, _full_Lx]
-    _y0, _y1 = int(_yr[0]), int(_yr[1])
-    _x0, _x1 = int(_xr[0]), int(_xr[1])
-    # clamp to actual image bounds (defensive: yrange from upstream may
-    # extend beyond image if padding metadata is inconsistent)
-    _y0 = max(0, min(_y0, _full_Ly))
-    _y1 = max(_y0, min(_y1, _full_Ly))
-    _x0 = max(0, min(_x0, _full_Lx))
-    _x1 = max(_x0, min(_x1, _full_Lx))
-    data = data[_y0:_y1, _x0:_x1]
+    # crop to the valid (non-padded) region. max_proj/Vcorr are already
+    # sliced by suite2p to yrange/xrange — further cropping them with
+    # yrange again would cut into real data. _crop_projection_to_valid
+    # handles both spaces and also returns the full-frame offset used to
+    # align mask overlays.
+    _full_Ly, _full_Lx = data.shape[:2]
+    data, _stat_yoff, _stat_xoff = _crop_projection_to_valid(ops, data, proj)
     shape = data.shape
     fig, ax = plt.subplots(figsize=(6, 6), facecolor="black")
     vmin = np.nanpercentile(data, 2) if vmin is None else vmin
@@ -1041,13 +1053,19 @@ def plot_projection(
         stat = res["stat"]
         iscell_mask = res["iscell"][:, 0].astype(bool)
         # build overlay in full-frame space (stat ypix/xpix are full-frame
-        # absolute coords from upstream), then crop to the same valid
-        # region as the underlying projection image so masks and data
-        # stay aligned.
+        # absolute coords from upstream), then slice the same full-frame
+        # rectangle that the projection was cropped to so masks and data
+        # stay aligned regardless of full-vs-cropped image space.
+        _full_Ly_ops = get_param(ops, "Ly", default=_stat_yoff + shape[0])
+        _full_Lx_ops = get_param(ops, "Lx", default=_stat_xoff + shape[1])
         im = _stats_dicts_to_3d_array(
-            stat, Ly=get_param(ops, "Ly", default=_full_Ly), Lx=get_param(ops, "Lx", default=_full_Lx), label_id=True
+            stat, Ly=_full_Ly_ops, Lx=_full_Lx_ops, label_id=True
         )
-        im = im[:, _y0:_y1, _x0:_x1]
+        _full_y0 = _stat_yoff
+        _full_y1 = _stat_yoff + shape[0]
+        _full_x0 = _stat_xoff
+        _full_x1 = _stat_xoff + shape[1]
+        im = im[:, _full_y0:_full_y1, _full_x0:_full_x1]
         im[im == 0] = np.nan
         accepted_cells = np.sum(iscell_mask)
         rejected_cells = np.sum(~iscell_mask)
@@ -2949,27 +2967,18 @@ def plot_zplane_figures(
                 return False
             return True
 
-        yrange = output_ops.get("yrange", [0, output_ops.get("Ly", 512)])
-        xrange = output_ops.get("xrange", [0, output_ops.get("Lx", 512)])
-        ymin, xmin = int(yrange[0]), int(xrange[0])
+        # plot_masks receives full-frame stat coords and ops+proj_key; it
+        # will crop the image to the valid (non-padded) region and map
+        # stat coords into the cropped image space. This matches
+        # plot_projection's cropping so mask/no-mask figures are identical
+        # in size and layout.
+        segmentation_images = [
+            ("meanImg", "Mean Image", expected_files["meanImg_segmentation"]),
+            ("meanImgE", "Enhanced Mean Image", expected_files["meanImgE_segmentation"]),
+            ("max_proj", "Max Projection", expected_files["max_proj_segmentation"]),
+        ]
 
-        if ymin > 0 or xmin > 0:
-            stat_cropped = []
-            for s in stat_full:
-                s_adj = s.copy()
-                s_adj["ypix"] = s["ypix"] - ymin
-                s_adj["xpix"] = s["xpix"] - xmin
-                stat_cropped.append(s_adj)
-        else:
-            stat_cropped = stat_full
-
-        # full-space images (meanImg, meanImgE)
-        full_space_images = {
-            "meanImg": ("Mean Image", expected_files["meanImg_segmentation"]),
-            "meanImgE": ("Enhanced Mean Image", expected_files["meanImgE_segmentation"]),
-        }
-
-        for img_key, (title_name, save_file) in full_space_images.items():
+        for img_key, title_name, save_file in segmentation_images:
             try:
                 img = output_ops.get(img_key)
                 if _is_valid_image(img):
@@ -2979,7 +2988,9 @@ def plot_zplane_figures(
                             stat=stat_full,
                             mask_idx=iscell_mask,
                             savepath=save_file,
-                            title=f"{title_name} - Accepted ROIs (n={n_accepted})"
+                            title=f"{title_name} - Accepted ROIs (n={n_accepted})",
+                            ops=output_ops,
+                            proj_key=img_key,
                         )
                     else:
                         plot_projection(
@@ -2993,55 +3004,31 @@ def plot_zplane_figures(
             except Exception as e:
                 print(f"  Warning: {img_key} segmentation failed: {e}")
 
-        # cropped-space images (max_proj)
-        cropped_space_images = {
-            "max_proj": ("Max Projection", expected_files["max_proj_segmentation"]),
-        }
-
-        for img_key, (title_name, save_file) in cropped_space_images.items():
-            try:
-                img = output_ops.get(img_key)
-                if _is_valid_image(img):
-                    if n_accepted > 0:
-                        plot_masks(
-                            img=img,
-                            stat=stat_cropped,
-                            mask_idx=iscell_mask,
-                            savepath=save_file,
-                            title=f"{title_name} - Accepted ROIs (n={n_accepted})"
-                        )
-                    else:
-                        plot_projection(
-                            output_ops,
-                            save_file,
-                            fig_label=kwargs.get("fig_label", plane_dir.stem),
-                            display_masks=False,
-                            add_scalebar=True,
-                            proj=img_key,
-                        )
-            except Exception as e:
-                print(f"  Warning: {img_key} segmentation failed: {e}")
-
-        # correlation image (Vcorr) - cropped space
+        # correlation image (Vcorr) - cropped space. Render the no-mask
+        # version through the cropping helper so it matches the mask
+        # variant's extent.
         try:
             vcorr = output_ops.get("Vcorr")
             if _is_valid_image(vcorr):
-                fig, ax = plt.subplots(figsize=(8, 8), facecolor="black")
+                vcorr_crop, _, _ = _crop_projection_to_valid(output_ops, vcorr, "Vcorr")
+                fig, ax = plt.subplots(figsize=(6, 6), facecolor="black")
                 ax.set_facecolor("black")
-                ax.imshow(vcorr, cmap="gray")
+                ax.imshow(vcorr_crop, cmap="gray")
                 ax.set_title("Correlation Image", color="white", fontweight="bold")
                 ax.axis("off")
                 plt.tight_layout()
-                plt.savefig(expected_files["correlation_image"], dpi=150, facecolor="black")
+                plt.savefig(expected_files["correlation_image"], dpi=300, facecolor="black")
                 plt.close(fig)
 
                 if n_accepted > 0:
                     plot_masks(
                         img=vcorr,
-                        stat=stat_cropped,
+                        stat=stat_full,
                         mask_idx=iscell_mask,
                         savepath=expected_files["correlation_segmentation"],
-                        title=f"Correlation Image - Accepted ROIs (n={n_accepted})"
+                        title=f"Correlation Image - Accepted ROIs (n={n_accepted})",
+                        ops=output_ops,
+                        proj_key="Vcorr",
                     )
         except Exception as e:
             print(f"  Warning: correlation image failed: {e}")
@@ -3504,6 +3491,90 @@ def get_background_image(ops, img_key="max_proj"):
     return img, yoff, xoff
 
 
+def get_valid_region(ops, img_h, img_w, yoff=0, xoff=0):
+    """
+    Return the valid (non-zero-padded) bounding box in displayed-image coords.
+
+    When axial shifts are applied, each zplane is written into a padded
+    canvas; the per-plane data occupies only a sub-rectangle and everything
+    outside is zero. ops stores this as ``_pad_yrange`` / ``_pad_xrange``
+    in padded-image coordinates. This helper converts those bounds into
+    the coordinate space of the image actually being displayed (which may
+    be further cropped by suite2p's own ``yrange`` / ``xrange``).
+
+    Parameters
+    ----------
+    ops : dict
+        Suite2p ops dictionary.
+    img_h, img_w : int
+        Height and width of the displayed image.
+    yoff, xoff : int, optional
+        Offsets returned by :func:`get_background_image` (the
+        crop-to-padded-space translation).
+
+    Returns
+    -------
+    tuple of int
+        ``(vy1, vy2, vx1, vx2)`` — valid-region bounds in displayed-image
+        coordinates. If no padding metadata is present, returns the full
+        image extent ``(0, img_h, 0, img_w)``.
+    """
+    pad_yr = ops.get("_pad_yrange")
+    pad_xr = ops.get("_pad_xrange")
+    if pad_yr is None or pad_xr is None:
+        return 0, img_h, 0, img_w
+
+    vy1 = max(0, int(pad_yr[0]) - int(yoff))
+    vy2 = min(img_h, int(pad_yr[1]) - int(yoff))
+    vx1 = max(0, int(pad_xr[0]) - int(xoff))
+    vx2 = min(img_w, int(pad_xr[1]) - int(xoff))
+
+    # guard against degenerate bounds
+    if vy2 <= vy1 or vx2 <= vx1:
+        return 0, img_h, 0, img_w
+    return vy1, vy2, vx1, vx2
+
+
+def _crop_projection_to_valid(ops, img, proj_key):
+    """
+    Crop a projection image to its valid (non-zero-padded) region.
+
+    Suite2p stores projections in two coordinate systems: ``max_proj`` and
+    ``Vcorr`` are already sliced by suite2p to ``yrange`` / ``xrange``;
+    ``meanImg`` / ``meanImgE`` / ``refImg`` are in the full padded frame.
+    In both cases we further crop to the axial-shift valid region so
+    summary figures across planes share the same content extent.
+
+    Parameters
+    ----------
+    ops : dict
+        Suite2p ops dictionary.
+    img : np.ndarray
+        The projection image to crop.
+    proj_key : str
+        The key in ``ops`` the image came from.
+
+    Returns
+    -------
+    cropped : np.ndarray
+        Image cropped to the valid region.
+    stat_yoff, stat_xoff : int
+        Offsets to subtract from full-frame ``ypix`` / ``xpix`` stat
+        coordinates to land them in the cropped image's coordinate space.
+    """
+    full_Ly, full_Lx = img.shape[:2]
+    cropped_keys = {"max_proj", "Vcorr"}
+    if proj_key in cropped_keys:
+        img_yoff = int(ops.get("yrange", [0, full_Ly])[0])
+        img_xoff = int(ops.get("xrange", [0, full_Lx])[0])
+    else:
+        img_yoff = 0
+        img_xoff = 0
+    y0, y1, x0, x1 = get_valid_region(ops, full_Ly, full_Lx, img_yoff, img_xoff)
+    cropped = img[y0:y1, x0:x1]
+    return cropped, img_yoff + y0, img_xoff + x0
+
+
 def stat_to_mask(stat, Ly, Lx, yoff=0, xoff=0):
     """
     Convert Suite2p stat array to a 2D labeled mask.
@@ -3773,15 +3844,21 @@ def plot_regional_zoom(
     # Create overlay
     overlay = mask_overlay(img, mask, alpha=alpha)
 
-    # Define corner and edge regions
-    cy, cx = img_h // 2, img_w // 2
-    zs = zoom_size
+    # bound region boxes to the valid (non-zero-padded) area so corners don't
+    # land in axial-shift padding
+    vy1, vy2, vx1, vx2 = get_valid_region(ops, img_h, img_w, yoff, xoff)
+    valid_h = vy2 - vy1
+    valid_w = vx2 - vx1
+
+    # clamp zoom size to the valid extent
+    zs = min(int(zoom_size), valid_h, valid_w)
+    cy, cx = (vy1 + vy2) // 2, (vx1 + vx2) // 2
 
     regions = {
-        "Top-Left": (0, zs, 0, zs),
-        "Top-Right": (0, zs, img_w - zs, img_w),
-        "Bottom-Left": (img_h - zs, img_h, 0, zs),
-        "Bottom-Right": (img_h - zs, img_h, img_w - zs, img_w),
+        "Top-Left": (vy1, vy1 + zs, vx1, vx1 + zs),
+        "Top-Right": (vy1, vy1 + zs, vx2 - zs, vx2),
+        "Bottom-Left": (vy2 - zs, vy2, vx1, vx1 + zs),
+        "Bottom-Right": (vy2 - zs, vy2, vx2 - zs, vx2),
         "Center": (cy - zs // 2, cy + zs // 2, cx - zs // 2, cx + zs // 2),
     }
 

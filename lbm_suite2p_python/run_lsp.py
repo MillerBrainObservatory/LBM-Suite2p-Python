@@ -72,19 +72,27 @@ def _call_upstream_pipeline(ops, f_reg, f_raw, f_reg_chan2, f_raw_chan2,
     except ImportError:
         device = None
 
-    (reg_outputs, detect_outputs, stat, F, Fneu, F_chan2, Fneu_chan2,
-     spks, iscell, redcell, zcorr, plane_times) = _upstream_pipeline(
-        save_path=save_path,
-        f_reg=f_reg,
-        f_raw=f_raw,
-        f_reg_chan2=f_reg_chan2,
-        f_raw_chan2=f_raw_chan2,
-        run_registration=run_registration,
-        settings=settings,
-        badframes=ops.get("badframes"),
-        stat=stat,
-        device=device if device is not None else None,
-    )
+    # extraction leak: upstream's create_neuropil_masks treats pixels
+    # outside ops["yrange"]/ops["xrange"] as valid neuropil candidates
+    # because cell_pix is zero there. for axially-padded LBM data that
+    # pulls zero-valued padding into Fneu and corrupts dF/F at boundary
+    # ROIs. the shim monkeypatches create_cell_pix for this call only so
+    # the donut grower never walks into padding.
+    from lbm_suite2p_python._padding_shim import padding_aware_extraction
+    with padding_aware_extraction(ops):
+        (reg_outputs, detect_outputs, stat, F, Fneu, F_chan2, Fneu_chan2,
+         spks, iscell, redcell, zcorr, plane_times) = _upstream_pipeline(
+            save_path=save_path,
+            f_reg=f_reg,
+            f_raw=f_raw,
+            f_reg_chan2=f_reg_chan2,
+            f_raw_chan2=f_raw_chan2,
+            run_registration=run_registration,
+            settings=settings,
+            badframes=ops.get("badframes"),
+            stat=stat,
+            device=device if device is not None else None,
+        )
 
     # fold outputs back into flat ops for fork consumers
     if isinstance(reg_outputs, dict):
@@ -153,6 +161,164 @@ def _set_frame_count_aliases(ops: dict, n: int) -> None:
     n = int(n)
     for key in _FRAME_COUNT_ALIASES:
         ops[key] = n
+
+
+# detection outputs produced by suite2p in the plane dir. copied into a
+# new plane_dir alongside ops.npy so figure regeneration works when the
+# user reruns against a different save_path.
+_DETECTION_OUTPUT_FILES = (
+    "stat.npy", "iscell.npy", "F.npy", "Fneu.npy",
+    "spks.npy", "dff.npy", "redcell.npy", "zcorr.npy",
+    "reg_outputs.npy", "detect_outputs.npy",
+    "F_chan2.npy", "Fneu_chan2.npy",
+    "roi_stats.npy",
+)
+
+
+def _resolve_source_plane_dir(input_arr, input_path, target_plane, source_plane_num=None):
+    """Find the source directory for a specific plane.
+
+    Raises instead of silently falling back to ``input_path.parent`` when
+    a match can't be found uniquely. Previously a missed lookup caused
+    plane 1's files to be copied into plane N's output dir (see the
+    'Copying data.bin from zplane01 -> zplane02' bug).
+
+    Parameters
+    ----------
+    input_arr : lazy array or None
+        Lazy array from ``mbo.imread`` — expected to carry a ``filenames``
+        attribute for volumetric Suite2p arrays.
+    input_path : Path
+        Fallback path (used only for single-plane inputs).
+    target_plane : int
+        1-based plane number we're trying to process.
+    source_plane_num : int, optional
+        1-based source-plane identity when the loaded array represents a
+        plane subset (e.g. every-other). Takes precedence over
+        ``target_plane`` for the zplane-name match.
+
+    Returns
+    -------
+    Path
+        Source plane directory.
+    """
+    search_plane = source_plane_num if source_plane_num is not None else target_plane
+
+    if input_arr is not None and hasattr(input_arr, "filenames") and input_arr.filenames:
+        matches = []
+        for fname in input_arr.filenames:
+            fpath = Path(fname)
+            if f"zplane{search_plane:02d}" in fpath.parent.name:
+                matches.append(fpath.parent)
+        if len(matches) == 1:
+            return matches[0]
+        if len(matches) > 1:
+            raise RuntimeError(
+                f"Ambiguous source directory for plane {search_plane}: "
+                f"multiple matches in input_arr.filenames: {matches}. "
+                "Narrow the input to a single plane or clean up the source tree."
+            )
+        # zero matches — but if the input only contains a single plane
+        # whose name doesn't carry a zplane number (e.g. processed
+        # single-plane), and that's the plane we're looking for, fall
+        # back to that single filename's parent.
+        if len(input_arr.filenames) == 1:
+            return Path(input_arr.filenames[0]).parent
+        raise FileNotFoundError(
+            f"No source directory for plane {search_plane} in input_arr. "
+            f"Searched filenames: {[str(p) for p in input_arr.filenames]}. "
+            "The per-plane lookup scans for 'zplane{NN:02d}' in each "
+            "filename's parent dir name."
+        )
+
+    # no lazy array — input was a direct path. only safe when the input
+    # itself is already a plane dir.
+    return input_path.parent
+
+
+def _copy_if_needed(src: Path, dst: Path, *, overwrite_empty: bool = True) -> bool:
+    """Copy src -> dst when dst is missing (or empty, if overwrite_empty).
+
+    Returns True when a copy actually happened. Never clobbers a
+    non-empty destination.
+    """
+    import shutil
+    if not src.exists():
+        return False
+    if dst.exists():
+        if not (overwrite_empty and dst.stat().st_size == 0):
+            return False
+    print(f"  Copying {src.name} from {src.parent} -> {dst.parent}")
+    shutil.copy2(src, dst)
+    return True
+
+
+def _stage_source_into_plane_dir(
+    src_dir: Path,
+    plane_dir: Path,
+    source_mode: str,
+    ops: dict,
+) -> None:
+    """Stage files from a source plane dir into ``plane_dir`` per ``source_mode``.
+
+    Modes:
+
+    - ``"copy"``: copy everything — raw + registered binaries + detection
+      outputs + ops.npy. Self-contained output dir; matches the pre-fix
+      behavior for datasets that still have ``data_raw.bin``.
+    - ``"copy_reg"``: skip ``data_raw.bin``; copy ``data.bin``,
+      ``data_chan2.bin``, detection outputs, ops.npy. Right default when
+      you want to re-run detection settings and the raw binary was
+      already discarded.
+    - ``"link"``: don't copy any binary. Copy detection outputs and
+      ops.npy. Point ``ops['raw_file']`` / ``ops['reg_file']`` /
+      ``ops['chan2_file']`` at the source paths. Source binaries are
+      read-only from this plane's perspective — registration must be off
+      (the caller should enforce).
+    - ``"auto"``: ``copy`` if source has ``data_raw.bin``, otherwise
+      ``copy_reg``. Never picks ``link`` implicitly — that's an opt-in.
+
+    ``ops`` is mutated in place for the link paths.
+    """
+    src_dir = Path(src_dir)
+    plane_dir = Path(plane_dir)
+    plane_dir.mkdir(parents=True, exist_ok=True)
+
+    # auto resolution
+    if source_mode == "auto":
+        source_mode = "copy" if (src_dir / "data_raw.bin").exists() else "copy_reg"
+
+    valid_modes = {"copy", "copy_reg", "link"}
+    if source_mode not in valid_modes:
+        raise ValueError(
+            f"Invalid source_mode={source_mode!r}. "
+            f"Expected one of {sorted(valid_modes)}."
+        )
+
+    # ops.npy + detection outputs are always staged into plane_dir so
+    # figures/post-processing can read them locally.
+    _copy_if_needed(src_dir / "ops.npy", plane_dir / "ops.npy")
+    for fname in _DETECTION_OUTPUT_FILES:
+        _copy_if_needed(src_dir / fname, plane_dir / fname)
+
+    if source_mode == "copy":
+        for fname in ("data_raw.bin", "data.bin", "data_chan2.bin"):
+            _copy_if_needed(src_dir / fname, plane_dir / fname)
+    elif source_mode == "copy_reg":
+        for fname in ("data.bin", "data_chan2.bin"):
+            _copy_if_needed(src_dir / fname, plane_dir / fname)
+        # don't carry a stale raw_file pointer — there's no raw on disk
+        # in plane_dir and we don't want it to point back at source.
+        ops.pop("raw_file", None)
+    else:  # link
+        for ops_key, fname in (
+            ("raw_file", "data_raw.bin"),
+            ("reg_file", "data.bin"),
+            ("chan2_file", "data_chan2.bin"),
+        ):
+            src_bin = src_dir / fname
+            if src_bin.exists():
+                ops[ops_key] = str(src_bin.resolve())
 
 
 def _apply_reactive_metadata(
@@ -237,9 +403,13 @@ def _apply_reactive_metadata(
     #   - `dz` (and dx/dy) are owned by lbm because mbo's writer only
     #     sees the per-plane data, not the FULL plane selection list,
     #     so it cannot compute the implicit z-stride.
+    # We also propagate `_metadata_provenance` so the next pass (a
+    # re-run of this ops through OutputMetadata) reads the stamped
+    # base+stride and doesn't double-scale dz.
     if plane_indices is not None:
         for key in ("dz", "dx", "dy", "z_step",
-                    "umPerPixZ", "umPerPixX", "umPerPixY"):
+                    "umPerPixZ", "umPerPixX", "umPerPixY",
+                    "_metadata_provenance"):
             if key in scaled and scaled[key] is not None:
                 ops[key] = scaled[key]
 
@@ -369,6 +539,7 @@ def pipeline(
     cell_filters: list = None,
     accept_all_cells: bool = False,
     save_json: bool = False,
+    source_mode: str = "auto",
     reader_kwargs: dict = None,
     writer_kwargs: dict = None,
     # deprecated parameters
@@ -549,6 +720,7 @@ def pipeline(
             accept_all_cells=accept_all_cells,
             cell_filters=cell_filters,
             save_json=save_json,
+            source_mode=source_mode,
             reader_kwargs=reader_kwargs,
             writer_kwargs=writer_kwargs,
             **kwargs,
@@ -575,6 +747,7 @@ def pipeline(
             accept_all_cells=accept_all_cells,
             cell_filters=cell_filters,
             save_json=save_json,
+            source_mode=source_mode,
             reader_kwargs=reader_kwargs,
             writer_kwargs=writer_kwargs,
             **kwargs,
@@ -743,6 +916,7 @@ def run_volume(
     accept_all_cells: bool = False,
     cell_filters: list = None,
     save_json: bool = False,
+    source_mode: str = "auto",
     reader_kwargs: dict = None,
     writer_kwargs: dict = None,
     **kwargs,
@@ -961,6 +1135,7 @@ def run_volume(
                 accept_all_cells=accept_all_cells,
                 cell_filters=cell_filters,
                 save_json=save_json,
+                source_mode=source_mode,
                 reader_kwargs=reader_kwargs,
                 writer_kwargs=writer_kwargs,
                 **kwargs,
@@ -1212,18 +1387,36 @@ def run_plane_bin(ops) -> bool:
             f"save_path={ops.get('save_path')}"
         )
 
-    # resolve all path keys relative to actual plane directory
+    # resolve path keys. rewrite stale absolutes (ops was moved) but
+    # preserve an already-valid absolute path (source_mode="link" points
+    # raw_file/reg_file/chan2_file at the source dir — clobbering those
+    # would either break the link or force a redundant copy).
     ops["save_path"] = str(ops_parent)
     ops["ops_path"] = str(ops_parent / "ops.npy")
-    if ops.get("raw_file"):
-        raw_name = Path(ops["raw_file"]).name
-        ops["raw_file"] = str(ops_parent / raw_name)
-    if ops.get("chan2_file"):
-        chan2_name = Path(ops["chan2_file"]).name
-        ops["chan2_file"] = str(ops_parent / chan2_name)
-    if ops.get("reg_file"):
-        reg_name = Path(ops["reg_file"]).name
-        ops["reg_file"] = str(ops_parent / reg_name)
+
+    def _repoint_if_stale(ops_key: str, default_name: str) -> None:
+        current = ops.get(ops_key)
+        if not current:
+            return
+        current_path = Path(current)
+        if current_path.exists():
+            return  # live pointer (local or linked source) — keep it
+        local = ops_parent / current_path.name
+        if local.exists():
+            ops[ops_key] = str(local)
+            return
+        fallback = ops_parent / default_name
+        if fallback.exists():
+            ops[ops_key] = str(fallback)
+            return
+        # no live path available — clear the stale pointer so downstream
+        # `if raw_file is None` / `reg_file.exists()` checks fire cleanly
+        # instead of marching a bad path into suite2p.
+        ops.pop(ops_key, None)
+
+    _repoint_if_stale("raw_file", "data_raw.bin")
+    _repoint_if_stale("chan2_file", "data_chan2.bin")
+    _repoint_if_stale("reg_file", "data.bin")
 
     # ensure image arrays are numpy ndarrays (can become lists after dict merges)
     for key in ("meanImg", "meanImgE", "refImg", "max_proj", "Vcorr"):
@@ -1242,14 +1435,32 @@ def run_plane_bin(ops) -> bool:
         )
     Ly, Lx = int(Ly), int(Lx)
 
+    # run_registration governs whether we actually need data_raw.bin.
+    # compute it here (up from the block that previously defined it) so
+    # the raw_file check below can be relaxed when registration is off.
+    run_registration = bool(ops.get("do_registration", True))
+    run_detection = bool(ops.get("roidetect", True))
+
     raw_file = ops.get("raw_file")
     n_func = ops.get("nframes_chan1") or ops.get("nframes") or ops.get("n_frames")
-    if raw_file is None or n_func is None:
-        raise KeyError("Missing raw_file or nframes_chan1")
+    if n_func is None:
+        raise KeyError("Missing nframes_chan1 / nframes / n_frames in ops")
+    if run_registration and raw_file is None:
+        raise KeyError(
+            "Missing raw_file in ops — required when do_registration=1. "
+            "Set do_registration=0 to run detection-only against an "
+            "existing data.bin."
+        )
     n_func = int(n_func)
 
-    reg_file = ops_parent / "data.bin"
-    ops["reg_file"] = str(reg_file)
+    # reg_file may already point at a linked source binary; only pin it
+    # to plane_dir/data.bin when ops has no pointer yet.
+    existing_reg = ops.get("reg_file")
+    if existing_reg and Path(existing_reg).exists():
+        reg_file = Path(existing_reg)
+    else:
+        reg_file = ops_parent / "data.bin"
+        ops["reg_file"] = str(reg_file)
 
     chan2_file = ops.get("chan2_file", "")
     use_chan2 = bool(chan2_file) and Path(chan2_file).exists()
@@ -1292,8 +1503,8 @@ def run_plane_bin(ops) -> bool:
     # so compute_enhanced_mean_image() reinitializes them from diameter.
     # prevents inheriting spatscale_pix=0 from a failed run, which causes
     # meanImgE to be computed with a [1,1] filter (all 0.5 output).
-    run_registration = bool(ops.get("do_registration", True))
-    run_detection = bool(ops.get("roidetect", True))
+    # (run_registration / run_detection were resolved earlier, near the
+    # raw_file check — keep them in scope here.)
     if run_registration:
         # full reset: clear both registration and detection intermediates
         for key in ["spatscale_pix", "Vcorr", "Vmax", "Vmap", "Vsplit", "ihop"]:
@@ -1327,70 +1538,87 @@ def run_plane_bin(ops) -> bool:
                 )
             print(f"  Or reduce 'batch_size' (current: {ops.get('batch_size', 500)})")
 
-    # When skipping registration, copy data_raw.bin to data.bin and detect valid region
+    # When skipping registration, make sure data.bin is available and
+    # synthesize the reg-output fields detection expects. The registered
+    # binary may already exist locally, be linked to a source dir, or
+    # need to be materialized from data_raw.bin.
     if not run_registration:
-        print("Registration skipped - copying data_raw.bin to data.bin...")
         import shutil
 
-        raw_file_path = Path(raw_file)
         reg_file_path = Path(reg_file)
+        raw_file_path = Path(raw_file) if raw_file else None
 
-        # Copy data_raw.bin to data.bin if it doesn't exist or is empty
-        if raw_file_path.exists():
-            if not reg_file_path.exists() or reg_file_path.stat().st_size == 0:
-                print(f"  Copying {raw_file_path.name} -> {reg_file_path.name}")
-                shutil.copy2(raw_file_path, reg_file_path)
+        # materialize data.bin from data_raw.bin only when necessary
+        if raw_file_path and raw_file_path.exists() and (
+            not reg_file_path.exists() or reg_file_path.stat().st_size == 0
+        ):
+            print(f"  Materializing {reg_file_path.name} from {raw_file_path.name}")
+            shutil.copy2(raw_file_path, reg_file_path)
+
+        if not reg_file_path.exists():
+            raise FileNotFoundError(
+                f"Registration was skipped but no usable registered binary is "
+                f"available. reg_file={reg_file_path}, raw_file={raw_file}. "
+                "Either turn registration back on, point source_mode at a "
+                "directory containing data.bin, or use source_mode='link' "
+                "to reference an existing source binary."
+            )
+
+        # yrange/xrange: prefer exact padding bounds when the writer set
+        # them; otherwise infer from whichever binary is available.
+        if "_pad_yrange" in ops and "_pad_xrange" in ops:
+            ops["yrange"] = list(ops["_pad_yrange"])
+            ops["xrange"] = list(ops["_pad_xrange"])
+            print(f"  Valid region from padding: yrange={ops['yrange']}, xrange={ops['xrange']}")
+        elif "yrange" not in ops or "xrange" not in ops:
+            use_anatomical = ops.get("anatomical_only", 0) > 0
+            if use_anatomical:
+                print(
+                    "  Using full image dimensions for anatomical detection (avoids cropping issues)"
+                )
+                ops["yrange"] = [0, Ly]
+                ops["xrange"] = [0, Lx]
             else:
-                print(f"  {reg_file_path.name} already exists, skipping copy")
+                # prefer data_raw.bin for detection of valid region (it's
+                # closer to acquisition), fall back to data.bin.
+                detect_from = (
+                    raw_file_path
+                    if raw_file_path and raw_file_path.exists()
+                    else reg_file_path
+                )
+                print(f"  Detecting valid region from {detect_from.name}...")
+                with BinaryFile(Ly=Ly, Lx=Lx, filename=str(detect_from)) as f:
+                    meanImg_full = f.sampled_mean().astype(np.float32)
 
-            # use exact padding bounds when available; fall back to
-            # heuristic auto-detection from the mean image
-            if "_pad_yrange" in ops and "_pad_xrange" in ops:
-                ops["yrange"] = list(ops["_pad_yrange"])
-                ops["xrange"] = list(ops["_pad_xrange"])
-                print(f"  Valid region from padding: yrange={ops['yrange']}, xrange={ops['xrange']}")
-            elif "yrange" not in ops or "xrange" not in ops:
-                use_anatomical = ops.get("anatomical_only", 0) > 0
-                if use_anatomical:
-                    print(
-                        "  Using full image dimensions for anatomical detection (avoids cropping issues)"
-                    )
-                    ops["yrange"] = [0, Ly]
-                    ops["xrange"] = [0, Lx]
-                else:
-                    print("  Detecting valid region to exclude dead zones...")
-                    with BinaryFile(Ly=Ly, Lx=Lx, filename=str(raw_file_path)) as f:
-                        meanImg_full = f.sampled_mean().astype(np.float32)
+                    threshold = meanImg_full.max() * 0.01
+                    valid_mask = meanImg_full > threshold
+                    valid_rows = np.any(valid_mask, axis=1)
+                    valid_cols = np.any(valid_mask, axis=0)
 
-                        threshold = meanImg_full.max() * 0.01
-                        valid_mask = meanImg_full > threshold
-                        valid_rows = np.any(valid_mask, axis=1)
-                        valid_cols = np.any(valid_mask, axis=0)
+                    if valid_rows.sum() > 0 and valid_cols.sum() > 0:
+                        y_indices = np.where(valid_rows)[0]
+                        x_indices = np.where(valid_cols)[0]
+                        yrange = [int(y_indices[0]), int(y_indices[-1] + 1)]
+                        xrange = [int(x_indices[0]), int(x_indices[-1] + 1)]
+                    else:
+                        yrange = [0, Ly]
+                        xrange = [0, Lx]
 
-                        if valid_rows.sum() > 0 and valid_cols.sum() > 0:
-                            y_indices = np.where(valid_rows)[0]
-                            x_indices = np.where(valid_cols)[0]
-                            yrange = [int(y_indices[0]), int(y_indices[-1] + 1)]
-                            xrange = [int(x_indices[0]), int(x_indices[-1] + 1)]
-                        else:
-                            yrange = [0, Ly]
-                            xrange = [0, Lx]
+                    ops["yrange"] = yrange
+                    ops["xrange"] = xrange
+                    print(f"  Valid region: yrange={yrange}, xrange={xrange}")
 
-                        ops["yrange"] = yrange
-                        ops["xrange"] = xrange
-                        print(f"  Valid region: yrange={yrange}, xrange={xrange}")
+        # registration outputs that detection expects
+        if "badframes" not in ops:
+            ops["badframes"] = np.zeros(n_align, dtype=bool)
+        if "xoff" not in ops:
+            ops["xoff"] = np.zeros(n_align, dtype=np.float32)
+        if "yoff" not in ops:
+            ops["yoff"] = np.zeros(n_align, dtype=np.float32)
+        if "corrXY" not in ops:
+            ops["corrXY"] = np.ones(n_align, dtype=np.float32)
 
-            # Set registration outputs that detection expects
-            if "badframes" not in ops:
-                ops["badframes"] = np.zeros(n_align, dtype=bool)
-            if "xoff" not in ops:
-                ops["xoff"] = np.zeros(n_align, dtype=np.float32)
-            if "yoff" not in ops:
-                ops["yoff"] = np.zeros(n_align, dtype=np.float32)
-            if "corrXY" not in ops:
-                ops["corrXY"] = np.ones(n_align, dtype=np.float32)
-
-        # Also copy channel 2 if it exists
+        # Also materialize channel 2 registered binary if source chan2 exists
         if use_chan2:
             chan2_path = Path(chan2_file)
             reg_chan2_path = Path(reg_file_chan2)
@@ -1453,9 +1681,20 @@ def run_plane_bin(ops) -> bool:
     # up the "r+ if exists else w+" behavior the fork used to rely on.
     # raw_file / chan2_file are input sources (already produced by mbo's
     # imwrite or upstream copy) and stay read-only.
+    # f_raw is only needed when registration runs; open it conditionally
+    # so detection-only runs don't require data_raw.bin at all.
+    _open_raw = (
+        raw_file is not None
+        and Path(raw_file).exists()
+        and run_registration
+    )
     with (
         BinaryFile(Ly=Ly, Lx=Lx, filename=str(reg_file), n_frames=n_align, write=True) as f_reg,
-        BinaryFile(Ly=Ly, Lx=Lx, filename=str(raw_file), n_frames=n_align) as f_raw,
+        (
+            BinaryFile(Ly=Ly, Lx=Lx, filename=str(raw_file), n_frames=n_align)
+            if _open_raw
+            else nullcontext()
+        ) as f_raw,
         (
             BinaryFile(Ly=Ly, Lx=Lx, filename=str(reg_file_chan2), n_frames=n_align, write=True)
             if use_chan2
@@ -1484,14 +1723,47 @@ def run_plane_bin(ops) -> bool:
                 stat=None,
             )
 
-            # clamp xrange/yrange to the valid data region
+            # clamp yrange/xrange so the valid window excludes ALL sources
+            # of zero contamination:
+            #   1. axial padding at the canvas borders (`_pad_yrange` /
+            #      `_pad_xrange` = intersection of plane-shift bounds),
+            #   2. per-frame registration motion trimming.
+            #
+            # upstream's `reg_yr` is computed assuming the full canvas is
+            # valid pre-registration — it tells us how many rows at top
+            # (`reg_yr[0]`) and bottom (`Ly - reg_yr[1]`) are unusable due
+            # to motion alone. on a padded canvas those same motion trims
+            # apply INSIDE the pad window, so we ADD them to pad_yr rather
+            # than taking the intersection. naive `max(pad_yr[0], reg_yr[0])`
+            # leaves a thin zero-contaminated strip that leaks into
+            # max_proj / correlation images and into cellpose's input near
+            # the edges. same logic for x.
             pad_yr = ops["_pad_yrange"]
             pad_xr = ops["_pad_xrange"]
             reg_yr = ops.get("yrange", [0, Ly])
             reg_xr = ops.get("xrange", [0, Lx])
-            ops["yrange"] = [max(reg_yr[0], pad_yr[0]), min(reg_yr[1], pad_yr[1])]
-            ops["xrange"] = [max(reg_xr[0], pad_xr[0]), min(reg_xr[1], pad_xr[1])]
-            print(f"  Clamped valid region: yrange={ops['yrange']}, xrange={ops['xrange']}")
+            top_trim = int(max(0, reg_yr[0]))
+            bot_trim = int(max(0, Ly - reg_yr[1]))
+            left_trim = int(max(0, reg_xr[0]))
+            right_trim = int(max(0, Lx - reg_xr[1]))
+            ops["yrange"] = [
+                int(pad_yr[0]) + top_trim,
+                int(pad_yr[1]) - bot_trim,
+            ]
+            ops["xrange"] = [
+                int(pad_xr[0]) + left_trim,
+                int(pad_xr[1]) - right_trim,
+            ]
+            # defensive: ensure at least a 1-pixel window (extreme motion
+            # on thin pads could collapse the window to zero size).
+            ops["yrange"][1] = max(ops["yrange"][0] + 1, ops["yrange"][1])
+            ops["xrange"][1] = max(ops["xrange"][0] + 1, ops["xrange"][1])
+            print(
+                f"  Clamped valid region: yrange={ops['yrange']} "
+                f"xrange={ops['xrange']} "
+                f"(pad={list(pad_yr)},{list(pad_xr)}; "
+                f"motion_trim=T{top_trim}/B{bot_trim}/L{left_trim}/R{right_trim})"
+            )
 
             # recompute meanImgE on the valid region only so the
             # high-pass filter doesn't create edge artifacts at the
@@ -1603,6 +1875,7 @@ def run_plane(
     cell_filters: list = None,
     save_json: bool = False,
     plane_name: str | None = None,
+    source_mode: str = "auto",
     reader_kwargs: dict = None,
     writer_kwargs: dict = None,
     **kwargs,
@@ -1747,15 +2020,13 @@ def run_plane(
     if binary_with_ops and (
         input_path.parent == save_path or save_path == input_parent
     ):
-        # find correct source dir for this plane (same logic as copy branch)
+        # resolve the plane-specific source dir. _resolve_source_plane_dir
+        # raises on ambiguity / no match instead of silently using input_path.parent.
         target_plane = ops.get("plane", 1)
-        plane_dir = input_path.parent
-        if input_arr is not None and hasattr(input_arr, "filenames"):
-            for fname in input_arr.filenames:
-                fpath = Path(fname)
-                if f"zplane{target_plane:02d}" in fpath.parent.name:
-                    plane_dir = fpath.parent
-                    break
+        source_plane_num = ops.get("source_plane_num")
+        plane_dir = _resolve_source_plane_dir(
+            input_arr, input_path, target_plane, source_plane_num=source_plane_num
+        )
         print(f"Processing existing binary in-place: {plane_dir}")
         skip_imwrite = True
         ops_file = plane_dir / "ops.npy"
@@ -1776,24 +2047,17 @@ def run_plane(
             "data_path": str(input_path.resolve()),
         }
     elif binary_with_ops:
-        # binary input with ops but different save_path: copy files instead of re-encoding
-        import shutil
-
+        # binary input with ops but different save_path: stage files into
+        # the new plane_dir per source_mode, instead of re-encoding.
         skip_imwrite = True
         file = None
 
-        # find correct source directory for the target plane.
-        # input_path always points to the first plane's data.bin when
-        # called from run_volume with a lazy array, so we search the
-        # parent directory for the subdirectory matching the target plane.
+        # resolve the plane-specific source dir (raises on ambiguity / miss).
         target_plane = ops.get("plane", 1)
-        src_dir = input_path.parent
-        if input_arr is not None and hasattr(input_arr, "filenames"):
-            for fname in input_arr.filenames:
-                fpath = Path(fname)
-                if f"zplane{target_plane:02d}" in fpath.parent.name:
-                    src_dir = fpath.parent
-                    break
+        source_plane_num = ops.get("source_plane_num")
+        src_dir = _resolve_source_plane_dir(
+            input_arr, input_path, target_plane, source_plane_num=source_plane_num
+        )
 
         existing_ops = np.load(src_dir / "ops.npy", allow_pickle=True).item()
         metadata = {
@@ -1828,21 +2092,36 @@ def run_plane(
         plane_dir.mkdir(exist_ok=True)
         ops_file = plane_dir / "ops.npy"
 
-        # copy binaries and ops from source if not already present
-        for fname in ("data_raw.bin", "data.bin", "data_chan2.bin", "ops.npy"):
-            src = src_dir / fname
-            dst = plane_dir / fname
-            if src.exists() and (not dst.exists() or dst.stat().st_size == 0):
-                print(f"  Copying {fname} from {src_dir} -> {plane_dir}")
-                shutil.copy2(src, dst)
-
-        # merge existing ops with user overrides
+        # merge existing ops with user overrides BEFORE staging, so the
+        # stage call can mutate link-mode path pointers on the final ops
+        # dict without them being wiped by a later merge.
         ops = {
             **ops_default,
             **existing_ops,
             **ops_user,
             "data_path": str(input_path.resolve()),
         }
+
+        # link mode can't safely co-exist with do_registration=1 because
+        # registration would need to write the source data.bin. flip to
+        # copy_reg and warn instead of corrupting the source binary.
+        _effective_mode = source_mode
+        if _effective_mode == "link" and ops_user.get("do_registration", 1):
+            logger.warning(
+                "source_mode='link' requires do_registration=0 (link mode "
+                "is read-only from the source binary). Falling back to "
+                "'copy_reg' so registration can proceed safely."
+            )
+            _effective_mode = "copy_reg"
+
+        # stage ops.npy + detection outputs + binaries per mode. ops is
+        # mutated in place for link mode to point raw_file/reg_file at
+        # the source paths; for copy_reg mode a stale raw_file pointer
+        # is popped so the later plane_dir path-pinning doesn't resurrect
+        # it from a non-existent plane_dir/data_raw.bin.
+        _stage_source_into_plane_dir(
+            src_dir, plane_dir, _effective_mode, ops,
+        )
     else:
         skip_imwrite = False
 
@@ -2073,27 +2352,42 @@ def run_plane(
         save_ops_db_settings(ops_file, ops)
 
     # Determine processing needs.
-    # check whether detection outputs exist in the destination, not just
-    # what roidetect says in the (possibly copied) ops. if stat.npy is
-    # missing, detection hasn't run here yet regardless of source state.
-    stat_file = plane_dir / "stat.npy"
-    needs_detect = False
-    if force_detect:
-        needs_detect = True
-    elif not stat_file.exists():
-        needs_detect = True
-    elif ops.get("roidetect", 1):
-        stat = np.load(stat_file, allow_pickle=True)
-        if stat is None or len(stat) == 0:
-            needs_detect = True
+    # explicit user toggles win over file-state inference: when the caller
+    # turned off registration AND detection (and didn't pass a force flag),
+    # honor the intent and skip suite2p entirely regardless of what's on
+    # disk. post-processing below still runs and guards its own inputs.
+    user_skip_reg = (not ops.get("do_registration", 1)) and not force_reg
+    user_skip_detect = (not ops.get("roidetect", 1)) and not force_detect
 
-    # Check registration needs
-    if force_reg:
-        needs_reg = True
-    elif not ops_file.exists():
-        needs_reg = True
+    stat_file = plane_dir / "stat.npy"
+
+    if user_skip_reg and user_skip_detect:
+        needs_reg = False
+        needs_detect = False
     else:
-        needs_reg = _should_register(ops_file)
+        # detection: needed when stat.npy is missing or empty, unless the
+        # user explicitly disabled roidetect (file state can't fabricate
+        # detection results).
+        needs_detect = False
+        if force_detect:
+            needs_detect = True
+        elif not stat_file.exists():
+            needs_detect = not user_skip_detect
+        elif ops.get("roidetect", 1):
+            stat = np.load(stat_file, allow_pickle=True)
+            if stat is None or len(stat) == 0:
+                needs_detect = True
+
+        # registration: needed when ops is missing or _should_register says
+        # so, unless the user explicitly disabled do_registration.
+        if force_reg:
+            needs_reg = True
+        elif user_skip_reg:
+            needs_reg = False
+        elif not ops_file.exists():
+            needs_reg = True
+        else:
+            needs_reg = _should_register(ops_file)
 
     # Update ops logic
     if force_reg:
@@ -2153,8 +2447,20 @@ def run_plane(
     # Run Suite2p (skip entirely when nothing needs to be done)
     skip_suite2p = not needs_reg and not needs_detect
     if skip_suite2p:
-        print("  Registration and detection already complete, skipping suite2p.")
+        if user_skip_reg and user_skip_detect:
+            print("  Suite2p disabled by user toggles; regenerating figures only.")
+        else:
+            print("  Registration and detection already complete, skipping suite2p.")
         print("  Re-generating post-processing and figures...")
+        # when the user toggled everything off and there's nothing to
+        # regenerate from, bail cleanly instead of letting each
+        # post-processing step emit its own "file not found" warning.
+        if user_skip_reg and user_skip_detect and not stat_file.exists():
+            print(
+                f"  Skipping plane: {plane_dir.name} has no stat.npy — "
+                "nothing to regenerate with registration and detection off."
+            )
+            return ops_file
     else:
         if progress_callback:
             progress_callback(step="suite2p", message="Running suite2p...")
