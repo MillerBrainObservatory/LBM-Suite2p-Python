@@ -1497,12 +1497,12 @@ wheels = [
 
 [[package]]
 name = "lbm-suite2p-python"
-version = "2.5.8"
+version = "3.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "mbo-utilities" },
     { name = "setuptools" },
-    { name = "suite2p-mbo" },
+    { name = "suite2p" },
 ]
 
 [package.optional-dependencies]
@@ -1558,7 +1558,7 @@ requires-dist = [
     { name = "mbo-utilities", specifier = ">=2.6.3" },
     { name = "rastermap", marker = "extra == 'rastermap'" },
     { name = "setuptools", specifier = "<81" },
-    { name = "suite2p-mbo", specifier = ">=2.0.1" },
+    { name = "suite2p", specifier = ">=1.0.0.1" },
     { name = "torch", marker = "extra == 'torch'", specifier = ">=2.7.0" },
     { name = "torchvision", marker = "extra == 'torch'", specifier = ">=0.22.0" },
 ]
@@ -3415,6 +3415,28 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/28/e3/55dcc2cfbc3ca9c29519eb6884dd1415ecb53b0e934862d3559ddcb7e20b/stack_data-0.6.3.tar.gz", hash = "sha256:836a778de4fec4dcd1dcd89ed8abff8a221f58308462e1c4aa2a3cf30148f0b9", size = 44707, upload-time = "2023-09-30T13:58:05.479Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f1/7b/ce1eafaf1a76852e2ec9b22edecf1daa58175c090266e9f6c64afcd81d91/stack_data-0.6.3-py3-none-any.whl", hash = "sha256:d5558e0c25a4cb0853cddad3d77da9891a08cb85dd9f9f91b9f8cd66e511e695", size = 24521, upload-time = "2023-09-30T13:58:03.53Z" },
+]
+
+[[package]]
+name = "suite2p"
+version = "1.0.0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cellpose" },
+    { name = "importlib-metadata" },
+    { name = "matplotlib" },
+    { name = "natsort" },
+    { name = "numba" },
+    { name = "numpy" },
+    { name = "scanimage-tiff-reader" },
+    { name = "scikit-learn" },
+    { name = "scipy" },
+    { name = "tifffile" },
+    { name = "torch" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d7/1d/386d35f71e4e53383dbd1ff6533810cd0192f055b387fdefa557422b147f/suite2p-1.0.0.1.tar.gz", hash = "sha256:9d59c77cf61eefb7f20867b171879886f8bdc82b46cd671c38c0aa06b3cbfc60", size = 9692208, upload-time = "2026-02-11T17:45:42.15Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c3/7c/534c6c158b5a203848b16839a43b3c7b783d21fffa224d1f47c77e75e00a/suite2p-1.0.0.1-py3-none-any.whl", hash = "sha256:51b93ac4e6e33a1a4cd0242fa7c6b7ee92a9b6cdc99cf9b2533fce8247049b18", size = 682770, upload-time = "2026-02-11T17:45:40.094Z" },
 ]
 
 [[package]]
