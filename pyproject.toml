@@ -18,7 +18,7 @@ classifiers=[
 ]
 
 dependencies = [
-	"mbo_utilities>=2.6.3",
+	"mbo_utilities>=2.7.7",
 	"suite2p>=1.0.0.1",
 	"setuptools<81",
 ]
