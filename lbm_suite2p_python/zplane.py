@@ -2873,6 +2873,8 @@ def plot_zplane_figures(
         "meanImg_segmentation": plane_dir / "03_mean_segmentation.png",
         "meanImgE": plane_dir / "04_mean_enhanced.png",
         "meanImgE_segmentation": plane_dir / "04_mean_enhanced_segmentation.png",
+        # rejected-cell overlay on the projection used for cellpose detection
+        "rejected_segmentation": plane_dir / "04b_rejected_segmentation.png",
         # Diagnostics and analysis
         "quality_diagnostics": plane_dir / "05_quality_diagnostics.png",
         "registration": plane_dir / "06_registration.png",
@@ -2910,6 +2912,7 @@ def plot_zplane_figures(
         "meanImg_segmentation",
         "meanImgE",
         "meanImgE_segmentation",
+        "rejected_segmentation",
         "quality_diagnostics",
         "registration",
         "traces_raw_20",
@@ -3003,6 +3006,52 @@ def plot_zplane_figures(
                         )
             except Exception as e:
                 print(f"  Warning: {img_key} segmentation failed: {e}")
+
+        # rejected-cell overlay on the projection actually used for cellpose
+        # detection. anatomical_only mapping (from default_ops.py):
+        #   0 -> Vcorr (functional sparse mode)
+        #   1 -> max_proj / meanImg (combined; we display max_proj as the
+        #        closest visualizable proxy since the ratio isn't stored)
+        #   2 -> meanImg
+        #   3 -> meanImgE
+        #   4 -> max_proj
+        try:
+            if n_rejected > 0:
+                anatomical_only = int(output_ops.get("anatomical_only", 0) or 0)
+                proj_lookup = {
+                    0: ("Vcorr", "Correlation Image"),
+                    1: ("max_proj", "Max Projection (max_proj / meanImg)"),
+                    2: ("meanImg", "Mean Image"),
+                    3: ("meanImgE", "Enhanced Mean Image"),
+                    4: ("max_proj", "Max Projection"),
+                }
+                rej_key, rej_title = proj_lookup.get(anatomical_only, ("meanImg", "Mean Image"))
+                rej_img = output_ops.get(rej_key)
+                # fallback chain if the chosen projection isn't available
+                if not _is_valid_image(rej_img):
+                    for fk in ("meanImg", "max_proj", "meanImgE", "Vcorr"):
+                        if _is_valid_image(output_ops.get(fk)):
+                            rej_key = fk
+                            rej_title = {
+                                "meanImg": "Mean Image",
+                                "max_proj": "Max Projection",
+                                "meanImgE": "Enhanced Mean Image",
+                                "Vcorr": "Correlation Image",
+                            }[fk]
+                            rej_img = output_ops.get(fk)
+                            break
+                if _is_valid_image(rej_img):
+                    plot_masks(
+                        img=rej_img,
+                        stat=stat_full,
+                        mask_idx=~iscell_mask,
+                        savepath=expected_files["rejected_segmentation"],
+                        title=f"{rej_title} - Rejected ROIs (n={n_rejected})",
+                        ops=output_ops,
+                        proj_key=rej_key,
+                    )
+        except Exception as e:
+            print(f"  Warning: rejected segmentation failed: {e}")
 
         # correlation image (Vcorr) - cropped space. Render the no-mask
         # version through the cropping helper so it matches the mask

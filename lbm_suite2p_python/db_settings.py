@@ -192,10 +192,10 @@ _BASELINE_UPSTREAM_TO_FORK = {
 def _ensure_diameter_list(value: Any) -> list[float]:
     """Upstream expects diameter as [dy, dx]. Fork may store a scalar int."""
     if value is None:
-        return [12.0, 12.0]
+        return [6.0, 6.0]
     if isinstance(value, (list, tuple)):
         if len(value) == 0:
-            return [12.0, 12.0]
+            return [6.0, 6.0]
         if len(value) == 1:
             return [float(value[0]), float(value[0])]
         return [float(value[0]), float(value[1])]
