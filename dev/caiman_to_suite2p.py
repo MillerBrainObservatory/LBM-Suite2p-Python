@@ -105,6 +105,125 @@ def load_caiman_plane(filepath):
     return data
 
 
+def load_caiman_plane_v5(filepath):
+    """load a v5/v7 .mat (high_resolution dataset format) via scipy.io.
+
+    fields:
+      A_keep (n_pixels, n_neurons) sparse  : full-fov spatial footprints
+      C_keep, T_keep (n_neurons, n_frames)
+      Cn, Ym (Ly, Lx)
+      rVals (n_neurons, 1)
+    """
+    import scipy.io
+    raw = scipy.io.loadmat(filepath)
+    return {k: v for k, v in raw.items() if not k.startswith("__")}
+
+
+def load_caiman_plane_auto(filepath):
+    """try v7.3 (h5py) first, fall back to v5 (scipy.io)."""
+    try:
+        return load_caiman_plane(filepath), "v7.3"
+    except OSError:
+        return load_caiman_plane_v5(filepath), "v5"
+
+
+def full_fov_to_stat(A_keep, fov_shape):
+    """build suite2p stat from a sparse full-fov footprint matrix.
+
+    A_keep: scipy.sparse.csc_matrix (n_pixels, n_neurons), matlab column-major flat.
+    fov_shape: (Ly, Lx)
+    """
+    import scipy.sparse
+    Ly, Lx = fov_shape
+    if not scipy.sparse.issparse(A_keep):
+        A_keep = scipy.sparse.csc_matrix(A_keep)
+    A = A_keep.tocsc()
+    if A.shape[0] != Ly * Lx:
+        raise ValueError(
+            f"A_keep n_pixels={A.shape[0]} != Ly*Lx={Ly*Lx} for fov {fov_shape}"
+        )
+
+    indptr = A.indptr
+    indices = A.indices
+    values = A.data
+    n_neurons = A.shape[1]
+
+    stat = []
+    for j in range(n_neurons):
+        s, e = indptr[j], indptr[j + 1]
+        flat_idx = indices[s:e]
+        weights = values[s:e].astype(np.float32)
+        ys, xs = np.unravel_index(flat_idx, (Ly, Lx), order="F")
+        npix = int(len(flat_idx))
+
+        if npix == 0:
+            stat.append({
+                "ypix": np.array([0], dtype=np.int32),
+                "xpix": np.array([0], dtype=np.int32),
+                "lam": np.array([1.0], dtype=np.float32),
+                "npix": 1,
+                "overlap": np.zeros(1, dtype=bool),
+                "med": [0.0, 0.0],
+                "radius": 1.0,
+                "aspect_ratio": 1.0,
+                "compact": 1.0,
+                "footprint": 0.0,
+                "skew": 0.0,
+                "std": 0.0,
+            })
+            continue
+
+        keep = weights > 0
+        if not keep.all():
+            ys = ys[keep]
+            xs = xs[keep]
+            weights = weights[keep]
+            npix = int(len(ys))
+            if npix == 0:
+                stat.append({
+                    "ypix": np.array([0], dtype=np.int32),
+                    "xpix": np.array([0], dtype=np.int32),
+                    "lam": np.array([1.0], dtype=np.float32),
+                    "npix": 1,
+                    "overlap": np.zeros(1, dtype=bool),
+                    "med": [0.0, 0.0],
+                    "radius": 1.0,
+                    "aspect_ratio": 1.0,
+                    "compact": 1.0,
+                    "footprint": 0.0,
+                    "skew": 0.0,
+                    "std": 0.0,
+                })
+                continue
+
+        w_sum = float(weights.sum())
+        lam = (weights / w_sum) if w_sum > 0 else np.full(npix, 1.0 / npix, dtype=np.float32)
+
+        med_y = float(np.median(ys))
+        med_x = float(np.median(xs))
+        y_range = int(ys.max() - ys.min() + 1)
+        x_range = int(xs.max() - xs.min() + 1)
+        aspect = max(y_range, x_range) / max(1, min(y_range, x_range))
+        radius = float(np.sqrt(npix / np.pi))
+
+        stat.append({
+            "ypix": ys.astype(np.int32),
+            "xpix": xs.astype(np.int32),
+            "lam": lam.astype(np.float32),
+            "npix": npix,
+            "overlap": np.zeros(npix, dtype=bool),
+            "med": [med_y, med_x],
+            "radius": radius,
+            "aspect_ratio": float(aspect),
+            "compact": float(npix / (np.pi * radius**2)) if radius > 0 else 1.0,
+            "footprint": 0.0,
+            "skew": 0.0,
+            "std": 0.0,
+        })
+
+    return np.array(stat, dtype=object)
+
+
 def caiman_to_stat(ac_keep, acx, acy, fov_shape):
     """build a suite2p stat array from cropped footprints and centroids."""
     n_neurons, fp_h, fp_w = ac_keep.shape
@@ -185,6 +304,10 @@ def write_plane_outputs(data, out_dir, fs=10.0, source_label="caiman_matlab",
                         source_file="", snr_min=None):
     """write suite2p plane outputs from a per-plane caiman field dict.
 
+    handles two source formats:
+      bi_hemisphere (v7.3): cropped Ac_keep (n,9,9) + acx, acy
+      high_resolution (v5): sparse A_keep (n_pixels, n) full-fov
+
     if snr_min is set, computes SNR (matlab compute_event_exceptionality + norminv)
     on T_keep and drops cells below the threshold before writing.
     """
@@ -198,15 +321,20 @@ def write_plane_outputs(data, out_dir, fs=10.0, source_label="caiman_matlab",
         raise ValueError("no Cn or Ym available for FOV shape")
     Ly, Lx = int(fov_shape[0]), int(fov_shape[1])
 
-    ac = data["Ac_keep"]
-    n_neurons = int(ac.shape[0])
+    is_full_fov = "A_keep" in data and "Ac_keep" not in data
+    if is_full_fov:
+        A = data["A_keep"]
+        n_neurons = int(A.shape[1])
+    else:
+        ac = data["Ac_keep"]
+        n_neurons = int(ac.shape[0])
+        acx = np.asarray(data["acx"]).flatten()
+        acy = np.asarray(data["acy"]).flatten()
 
     F = _orient_traces(data["T_keep"], n_neurons)
     n_frames = int(F.shape[1])
     spks = _orient_traces(data["C_keep"], n_neurons)
 
-    acx = np.asarray(data["acx"]).flatten()
-    acy = np.asarray(data["acy"]).flatten()
     rvals = None
     if "rVals" in data:
         rv = np.asarray(data["rVals"]).flatten()
@@ -222,11 +350,14 @@ def write_plane_outputs(data, out_dir, fs=10.0, source_label="caiman_matlab",
               f"({100.0 * kept / n_neurons:.1f}%)")
         if kept == 0:
             raise RuntimeError("no rois passed SNR threshold")
-        ac = ac[keep]
         F = F[keep]
         spks = spks[keep]
-        acx = acx[keep]
-        acy = acy[keep]
+        if is_full_fov:
+            A = A[:, keep]
+        else:
+            ac = ac[keep]
+            acx = acx[keep]
+            acy = acy[keep]
         if rvals is not None:
             rvals = rvals[keep]
         n_neurons = kept
@@ -234,7 +365,10 @@ def write_plane_outputs(data, out_dir, fs=10.0, source_label="caiman_matlab",
     Fneu = np.zeros_like(F)
 
     print(f"  rois={n_neurons:,} frames={n_frames} fov={Ly}x{Lx}")
-    stat = caiman_to_stat(ac, acx, acy, (Ly, Lx))
+    if is_full_fov:
+        stat = full_fov_to_stat(A, (Ly, Lx))
+    else:
+        stat = caiman_to_stat(ac, acx, acy, (Ly, Lx))
 
     iscell = np.ones((n_neurons, 2), dtype=np.float32)
     if rvals is not None:
@@ -284,10 +418,10 @@ def write_plane_outputs(data, out_dir, fs=10.0, source_label="caiman_matlab",
 def convert_plane(mat_path, out_dir, fs=10.0, snr_min=None):
     """convert one caiman_output_plane_N.mat into a suite2p plane directory."""
     print(f"[{mat_path.name}] loading...")
-    data = load_caiman_plane(mat_path)
+    data, fmt = load_caiman_plane_auto(mat_path)
     write_plane_outputs(
         data, out_dir, fs=fs,
-        source_label="caiman_matlab", source_file=mat_path,
+        source_label=f"caiman_matlab_{fmt}", source_file=mat_path,
         snr_min=snr_min,
     )
 

@@ -112,3 +112,82 @@ Suite2p `default_ops()` keys: 89  |  Present in zplane02: 88  |  Differ from def
 | `suite2p_version` | `1.0.5` | *missing* |
 | `tau` | 1 | 1.3 |
 | `two_step_registration` | False | 1 |
+
+Worker starting (pid=42480)
+2026-04-26 21:18:16,995 - mbo.worker - INFO - Worker started: task=suite2p, pid=42480
+Worker started: task=suite2p, pid=42480
+2026-04-26 21:18:18,033 - mbo.worker - INFO - Applied custom metadata to ops: ['animal_model', 'dz', 'test']
+Applied custom metadata to ops: ['animal_model', 'dz', 'test']
+
+Counting frames:   0%|          | 0/2 [00:00<?, ?it/s]
+Counting frames: 100%|##########| 2/2 [00:00<?, ?it/s]
+2026-04-26 21:18:18,063 - mbo.worker - INFO - task_suite2p: source fs=14.0, dz=15.0, input_path='D:\\mbo_studio_demo\\raw'
+task_suite2p: source fs=14.0, dz=15.0, input_path='D:\\mbo_studio_demo\\raw'
+2026-04-26 21:18:18,063 - mbo.worker - INFO - task_suite2p: applied reactive metadata -> fs=7.0, dz=30.0 (t-stride from 787 indices, z-stride from 7 planes)
+task_suite2p: applied reactive metadata -> fs=7.0, dz=30.0 (t-stride from 787 indices, z-stride from 7 planes)
+2026-04-26 21:18:18,063 - mbo.worker - INFO - Input: D:\mbo_studio_demo\raw
+Input: D:\mbo_studio_demo\raw
+2026-04-26 21:18:18,063 - mbo.worker - INFO - Output: D:\mbo_studio_demo\raw_to_cellpose
+Output: D:\mbo_studio_demo\raw_to_cellpose
+2026-04-26 21:18:18,063 - mbo.worker - INFO - Planes: [1, 3, 5, 7, 9, 11, 13]
+Planes: [1, 3, 5, 7, 9, 11, 13]
+2026-04-26 21:18:18,063 - mbo.worker - INFO - task_suite2p: computing axial plane shifts...
+task_suite2p: computing axial plane shifts...
+2026-04-26 21:19:14,363 - mbo.worker - INFO - task_suite2p: axial shifts wired into ops (apply_shift=True, 14 planes)
+task_suite2p: axial shifts wired into ops (apply_shift=True, 14 planes)
+Loading input to determine dimensions...
+
+Counting frames:   0%|          | 0/2 [00:00<?, ?it/s]
+Counting frames: 100%|##########| 2/2 [00:00<?, ?it/s]
+Delegating to run_volume (volumetric input detected)...
+Processing 7 planes in volume (Total planes: 14)
+Output: D:\mbo_studio_demo\raw_to_cellpose
+
+--- Volume Step: Plane 1 ---
+Importing suite2p packages...
+Writing binary to D:\mbo_studio_demo\raw_to_cellpose\zplane01_tp00001-00787...
+  Applying axial shift for plane 1: [0 0]
+NOTE: running registration-only pass (detection deferred)
+WARNING: skipping cell detection (settings['run']['do_detection']=False)
+  Clamped valid region: yrange=[102, 545] xrange=[6, 447] (pad=[97, 550],[5, 448]; motion_trim=T5/B5/L1/R1)
+  Updated reg_outputs.npy with clamped valid region
+  Computing dF/F...
+  Computing ROI statistics...
+Plotting results for 38 accepted / 2 rejected ROIs
+1500 frames needed for registration metrics, found 787. Skipping PC metrics.
+
+--- Volume Step: Plane 3 ---
+Importing suite2p packages...
+Writing binary to D:\mbo_studio_demo\raw_to_cellpose\zplane03_tp00001-00787...
+  Applying axial shift for plane 3: [16 -2]
+NOTE: running registration-only pass (detection deferred)
+WARNING: skipping cell detection (settings['run']['do_detection']=False)
+  Clamped valid region: yrange=[104, 543] xrange=[6, 447] (pad=[97, 550],[5, 448]; motion_trim=T7/B7/L1/R1)
+  Updated reg_outputs.npy with clamped valid region
+  Computing dF/F...
+  Computing ROI statistics...
+Plotting results for 66 accepted / 8 rejected ROIs
+1500 frames needed for registration metrics, found 787. Skipping PC metrics.
+
+--- Volume Step: Plane 5 ---
+Importing suite2p packages...
+Writing binary to D:\mbo_studio_demo\raw_to_cellpose\zplane05_tp00001-00787...
+  Applying axial shift for plane 5: [32 -4]
+NOTE: running registration-only pass (detection deferred)
+WARNING: skipping cell detection (settings['run']['do_detection']=False)
+  Clamped valid region: yrange=[104, 543] xrange=[6, 447] (pad=[97, 550],[5, 448]; motion_trim=T7/B7/L1/R1)
+  Updated reg_outputs.npy with clamped valid region
+  Computing dF/F...
+  Computing ROI statistics...
+Plotting results for 48 accepted / 0 rejected ROIs
+  No rejected ROIs - skipping rejected trace plots
+1500 frames needed for registration metrics, found 787. Skipping PC metrics.
+
+--- Volume Step: Plane 7 ---
+Importing suite2p packages...
+Writing binary to D:\mbo_studio_demo\raw_to_cellpose\zplane07_tp00001-00787...
+  Applying axial shift for plane 7: [48 -4]
+NOTE: running registration-only pass (detection deferred)
+WARNING: skipping cell detection (settings['run']['do_detection']=False)
+  Clamped valid region: yrange=[102, 545] xrange=[6, 447] (pad=[97, 550],[5, 448]; motion_trim=T5/B5/L1/R1)
+  Updated reg_outputs.npy with clamped valid region
