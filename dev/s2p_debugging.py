@@ -6,7 +6,7 @@ if __name__ == "__main__":
     ops = {
         "diameter": 4,
         "anatomical_only": 3,
-        "spatial_hp_cp": 3,
+        # "spatial_hp_cp": 3,
         "denoise": 1,
         "two_step_registration": 1,
     }

@@ -130,7 +130,7 @@ def s2p_ops():
             3,
         # run cellpose to get masks on 1: max_proj / mean_img; 2: mean_img; 3: mean_img enhanced, 4: max_proj
         "diameter": 4,  # LBM default cell diameter in pixels (cellpose estimates if 0)
-        "cellprob_threshold": 0,  # cellprob_threshold for cellpose (0 = upstream default)
+        "cellprob_threshold": -6,  # permissive LBM default for cellpose (upstream is 0.0)
         "flow_threshold": 0,  # flow_threshold for cellpose (0 = flow-check disabled)
         "spatial_hp_cp": 0.5,  # high-pass image spatially by a multiple of the diameter
         # cellpose model: 'cpsam' (default) or path to custom model trained with lsp.train_cellpose()
@@ -176,7 +176,7 @@ def default_ops(metadata=None, ops=None):
         anatomical_only=3
         diameter=4
         spatial_hp_cp=0.5
-        cellprob_threshold=0
+        cellprob_threshold=-6
         flow_threshold=0
         spatial_scale=1
         tau=1.3
