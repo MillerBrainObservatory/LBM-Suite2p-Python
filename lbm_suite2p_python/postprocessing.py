@@ -166,7 +166,15 @@ def filter_by_diameter(
 
     radii = np.array([s["radius"] for s in stat])
     diameters_px = 2 * radii
-    median_diam = ops.get("diameter", np.median(diameters_px))
+    # ops["diameter"] is np.ndarray([dy, dx]) post-pipeline; collapse to scalar
+    # for the multiplier comparison below.
+    raw_diam = ops.get("diameter")
+    if raw_diam is None:
+        median_diam = float(np.median(diameters_px))
+    elif isinstance(raw_diam, (list, tuple, np.ndarray)) and np.size(raw_diam) >= 1:
+        median_diam = float(np.mean(raw_diam))
+    else:
+        median_diam = float(raw_diam)
     lower, upper = min_mult * median_diam, max_mult * median_diam
 
     valid = (diameters_px >= lower) & (diameters_px <= upper)
