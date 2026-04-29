@@ -18,7 +18,7 @@ classifiers=[
 ]
 
 dependencies = [
-	"mbo_utilities>=2.7.7",
+	"mbo_utilities>=3.0.0",
 	"suite2p>=1.0.0.1",
 	"setuptools<81",
 ]
@@ -35,14 +35,9 @@ rastermap = [
 cellpose = [
 	"cellpose>=4.0.6",
 ]
-# PyTorch for neural network operations (Cellpose, etc.)
-torch = [
-	"torch>=2.7.0",
-	"torchvision>=0.22.0",
-]
 # All optional dependencies
 all = [
-	"lbm_suite2p_python[rastermap,cellpose,torch]",
+	"lbm_suite2p_python[rastermap,cellpose]",
 ]
 
 [dependency-groups]
@@ -70,7 +65,7 @@ docs = [
 	"scikit-image",
 	"scipy",
 	"pandas",
-	"suite2p_mbo",
+	"suite2p",
 ]
 
 # https://github.com/charliermarsh/ruff
