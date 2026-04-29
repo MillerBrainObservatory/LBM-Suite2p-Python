@@ -946,6 +946,131 @@ def plot_masks(
         plt.show()
 
 
+def plot_accepted_rejected_overlay(
+        img: np.ndarray,
+        stat,
+        iscell_mask: np.ndarray,
+        savepath: str | Path = None,
+        title: str = None,
+        *,
+        ops: dict = None,
+        proj_key: str = None,
+        figsize: tuple = (6, 6),
+        dpi: int = 300,
+):
+    """
+    Draw accepted (green) and rejected (red) ROI overlays on a projection.
+
+    Matches the dark formatting and top-of-figure count labels used by other
+    segmentation summary figures.
+
+    Parameters
+    ----------
+    img : ndarray (Ly x Lx)
+        Background projection image.
+    stat : list[dict]
+        Suite2p ROI stat dictionaries (full-frame coordinates).
+    iscell_mask : ndarray[bool]
+        Boolean array, True for accepted ROIs.
+    savepath : str or Path, optional
+        Path to save the figure. If None, displays with plt.show().
+    title : str, optional
+        Projection-name title rendered above the count labels.
+    ops : dict, optional
+        Suite2p ops dictionary. With ``proj_key``, the image is cropped to
+        the valid (non-padded) region and stat coordinates are translated
+        accordingly.
+    proj_key : str, optional
+        Projection key matching ``img`` (e.g. ``"meanImg"``, ``"max_proj"``).
+    figsize : tuple, optional
+        Figure size. Default (6, 6) to match other segmentation figures.
+    dpi : int, optional
+        Output DPI. Default 300.
+    """
+    stat_yoff = 0
+    stat_xoff = 0
+    if ops is not None and proj_key is not None:
+        img, stat_yoff, stat_xoff = _crop_projection_to_valid(ops, img, proj_key)
+
+    vmin = np.nanpercentile(img, 1)
+    vmax = np.nanpercentile(img, 99)
+    normalized = (img - vmin) / (vmax - vmin + 1e-6)
+    normalized = np.clip(normalized, 0, 1)
+    normalized = np.nan_to_num(normalized, nan=0.0)
+
+    Ly, Lx = img.shape[:2]
+    iscell_mask = np.asarray(iscell_mask, dtype=bool)
+
+    accepted_mask = np.zeros((Ly, Lx), dtype=bool)
+    rejected_mask = np.zeros((Ly, Lx), dtype=bool)
+    for n, s in enumerate(stat):
+        ypix = np.asarray(s.get("ypix", []), dtype=int) - stat_yoff
+        xpix = np.asarray(s.get("xpix", []), dtype=int) - stat_xoff
+        if ypix.size == 0:
+            continue
+        valid = (ypix >= 0) & (ypix < Ly) & (xpix >= 0) & (xpix < Lx)
+        if not np.any(valid):
+            continue
+        ypix, xpix = ypix[valid], xpix[valid]
+        if iscell_mask[n]:
+            accepted_mask[ypix, xpix] = True
+        else:
+            rejected_mask[ypix, xpix] = True
+
+    n_accepted = int(iscell_mask.sum())
+    n_rejected = int((~iscell_mask).sum())
+
+    fig, ax = plt.subplots(figsize=figsize, facecolor="black")
+    ax.set_facecolor("black")
+    ax.imshow(normalized, cmap="gray", vmin=0, vmax=1)
+
+    green_overlay = np.zeros((Ly, Lx, 4), dtype=np.float32)
+    green_overlay[..., 1] = 1.0
+    green_overlay[..., 3] = feather_mask(accepted_mask, max_alpha=0.9)
+    ax.imshow(green_overlay)
+
+    red_overlay = np.zeros((Ly, Lx, 4), dtype=np.float32)
+    red_overlay[..., 0] = 1.0
+    red_overlay[..., 3] = feather_mask(rejected_mask, max_alpha=0.9)
+    ax.imshow(red_overlay)
+
+    label_y = 1.07 if title else 1.02
+    if title:
+        ax.text(
+            0.5, 1.02, title,
+            transform=ax.transAxes,
+            fontsize=12, fontweight="bold", fontname="Courier New",
+            color="white", ha="center", va="bottom",
+        )
+        label_y = 1.10
+    ax.text(
+        0.37, label_y,
+        f"Accepted: {n_accepted:03d}",
+        transform=ax.transAxes,
+        fontsize=14, fontweight="bold", fontname="Courier New",
+        color="lime", ha="right", va="bottom",
+    )
+    ax.text(
+        0.63, label_y,
+        f"Rejected: {n_rejected:03d}",
+        transform=ax.transAxes,
+        fontsize=14, fontweight="bold", fontname="Courier New",
+        color="red", ha="left", va="bottom",
+    )
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.axis("off")
+    plt.tight_layout()
+
+    if savepath:
+        if Path(savepath).is_dir():
+            raise ValueError("savepath must be a file path, not a directory.")
+        plt.savefig(savepath, dpi=dpi, facecolor="black")
+        plt.close(fig)
+    else:
+        plt.show()
+
+
 def plot_projection(
     ops,
     output_directory=None,
@@ -3041,12 +3166,12 @@ def plot_zplane_figures(
                             rej_img = output_ops.get(fk)
                             break
                 if _is_valid_image(rej_img):
-                    plot_masks(
+                    plot_accepted_rejected_overlay(
                         img=rej_img,
                         stat=stat_full,
-                        mask_idx=~iscell_mask,
+                        iscell_mask=iscell_mask,
                         savepath=expected_files["rejected_segmentation"],
-                        title=f"{rej_title} - Rejected ROIs (n={n_rejected})",
+                        title=rej_title,
                         ops=output_ops,
                         proj_key=rej_key,
                     )
