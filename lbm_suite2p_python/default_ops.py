@@ -119,6 +119,14 @@ def s2p_ops():
             1.0,  # adjust the automatically determined threshold by this scalar multiplier
         "max_overlap":
             0.75,  # cells with more overlap than this get removed during triage, before refinement
+        # disable upstream's npix_norm filter (suite2p>=1.0.0.x) — its
+        # detect.py call site applies 0.0/100.0 if these aren't set, which
+        # culls 100x-median-sized ROIs. suite2p_mbo had no such filter and
+        # LBM cells at diameter=4 trip the upper bound when many small
+        # cells skew the median low. -1 / inf mirrors roi_stats's own
+        # function-level defaults (effectively off).
+        "npix_norm_min": -1.0,
+        "npix_norm_max": float("inf"),
         "high_pass":
             100,  # running mean subtraction across bins with a window of size "high_pass" (use low values for 1P)
         "spatial_hp_detect":
