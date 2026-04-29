@@ -99,13 +99,10 @@ def _call_upstream_pipeline(ops, f_reg, f_raw, f_reg_chan2, f_raw_chan2,
         for k, v in reg_outputs.items():
             ops[k] = v
     if isinstance(detect_outputs, dict):
+        from lbm_suite2p_python.db_settings import _ensure_diameter_array
         for k, v in detect_outputs.items():
-            # don't clobber diameter — keep whatever was passed in unless upstream
-            # actually refined it (and collapse list to scalar for fork consumers)
             if k == "diameter" and v is not None:
-                if isinstance(v, (list, tuple)) and len(v) >= 1:
-                    v = float(v[0]) if len(v) < 2 or v[0] == v[1] else (float(v[0]) + float(v[1])) / 2
-                ops[k] = v
+                ops[k] = _ensure_diameter_array(v)
             elif k != "diameter":
                 ops[k] = v
     ops["plane_times"] = plane_times
