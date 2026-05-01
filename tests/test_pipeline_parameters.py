@@ -12,7 +12,7 @@ Usage:
 
 Environment:
     Set TEST_DATA_PATH to override the default test data location:
-    export TEST_DATA_PATH="E:\\tests\\lbm\\lbm_suite2p_python"
+    export TEST_DATA_PATH="~/.mbo/tests/lbm/lbm_suite2p_python"
 """
 
 import json
@@ -27,7 +27,7 @@ import numpy as np
 import pytest
 
 # Test configuration
-DEFAULT_TEST_DATA_PATH = Path(r"E:\tests\lbm\lbm_suite2p_python")
+DEFAULT_TEST_DATA_PATH = Path.home() / ".mbo" / "tests" / "lbm" / "lbm_suite2p_python"
 TEST_OUTPUT_DIR = Path(__file__).parent / "_test_outputs"
 SUMMARY_FILE = TEST_OUTPUT_DIR / "test_summary.json"
 IMAGES_DIR = Path(__file__).parent  # Save images directly to tests/ folder
