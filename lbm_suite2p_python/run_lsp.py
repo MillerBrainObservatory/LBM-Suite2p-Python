@@ -417,6 +417,7 @@ from lbm_suite2p_python.zplane import (
     plot_filtered_cells,
     plot_filter_exclusions,
     plot_cell_filter_summary,
+    plot_volume_accepted_rejected_overlay,
 )
 
 DEFAULT_CELL_FILTERS = []
@@ -1240,6 +1241,9 @@ def run_volume(
                 plot_3d_roi_map(
                     ops_files, save_path / "roi_map_3d_plane.png", color_by="plane"
                 )
+                plot_volume_accepted_rejected_overlay(
+                    ops_files, save_path / "volume_segmentation_overlay.png"
+                )
             except Exception as e:
                 print(f"Warning: Volume plots failed: {e}")
                 traceback.print_exc()
@@ -1557,8 +1561,16 @@ def run_plane_bin(ops) -> bool:
     # (run_registration / run_detection were resolved earlier, near the
     # raw_file check — keep them in scope here.)
     if run_registration:
-        # full reset: clear both registration and detection intermediates
-        for key in ["spatscale_pix", "Vcorr", "Vmax", "Vmap", "Vsplit", "ihop"]:
+        # full reset: clear both registration and detection intermediates.
+        # registration outputs (badframes/xoff/yoff/corrXY) are cleared too —
+        # otherwise a prior divergent run leaves badframes=True for most
+        # frames and detection silently excludes them on the rerun even
+        # though the new registration succeeded.
+        for key in [
+            "spatscale_pix", "Vcorr", "Vmax", "Vmap", "Vsplit", "ihop",
+            "badframes", "xoff", "yoff", "corrXY",
+            "xoff1", "yoff1", "corrXY1",
+        ]:
             if key in ops:
                 del ops[key]
     elif run_detection:

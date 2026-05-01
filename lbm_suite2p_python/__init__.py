@@ -39,6 +39,8 @@ from lbm_suite2p_python.zplane import (
     plot_filtered_cells,
     plot_diameter_histogram,
     plot_projection,
+    plot_accepted_rejected_overlay,
+    plot_volume_accepted_rejected_overlay,
 )
 
 from lbm_suite2p_python.volume import (
@@ -151,4 +153,6 @@ __all__ = [
     "plot_volume_signal",
     "plot_volume_neuron_counts",
     "consolidate_volume",
+    "plot_accepted_rejected_overlay",
+    "plot_volume_accepted_rejected_overlay",
 ]

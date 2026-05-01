@@ -946,6 +946,66 @@ def plot_masks(
         plt.show()
 
 
+def _build_accepted_rejected_canvas(
+        img: np.ndarray,
+        stat,
+        iscell_mask: np.ndarray,
+        *,
+        ops: dict = None,
+        proj_key: str = None,
+        accepted_color=(0.0, 1.0, 0.0),
+        rejected_color=(1.0, 0.0, 0.0),
+):
+    """
+    Build an RGB canvas of a projection with accepted/rejected ROIs blended
+    on top using suite2p ``lam`` weights — the same per-pixel opacity used
+    by :func:`plot_masks`.
+
+    Returns
+    -------
+    canvas : ndarray (Ly, Lx, 3)
+    n_accepted, n_rejected : int
+    """
+    stat_yoff = 0
+    stat_xoff = 0
+    if ops is not None and proj_key is not None:
+        img, stat_yoff, stat_xoff = _crop_projection_to_valid(ops, img, proj_key)
+
+    vmin = np.nanpercentile(img, 1)
+    vmax = np.nanpercentile(img, 99)
+    normalized = (img - vmin) / (vmax - vmin + 1e-6)
+    normalized = np.clip(normalized, 0, 1)
+    normalized = np.nan_to_num(normalized, nan=0.0)
+    canvas = np.tile(normalized, (3, 1, 1)).transpose(1, 2, 0).astype(np.float32)
+
+    Ly, Lx = img.shape[:2]
+    iscell_mask = np.asarray(iscell_mask, dtype=bool)
+
+    accepted_color = np.asarray(accepted_color, dtype=np.float32)
+    rejected_color = np.asarray(rejected_color, dtype=np.float32)
+
+    for n, s in enumerate(stat):
+        ypix = np.asarray(s.get("ypix", []), dtype=int) - stat_yoff
+        xpix = np.asarray(s.get("xpix", []), dtype=int) - stat_xoff
+        lam = np.asarray(s.get("lam", []), dtype=np.float32)
+        if ypix.size == 0:
+            continue
+        valid = (ypix >= 0) & (ypix < Ly) & (xpix >= 0) & (xpix < Lx)
+        if not np.any(valid):
+            continue
+        ypix, xpix, lam = ypix[valid], xpix[valid], lam[valid]
+        lam = lam / (lam.max() + 1e-10)
+        col = accepted_color if iscell_mask[n] else rejected_color
+        for k in range(3):
+            canvas[ypix, xpix, k] = (
+                0.5 * canvas[ypix, xpix, k] + 0.5 * col[k] * lam
+            )
+
+    n_accepted = int(iscell_mask.sum())
+    n_rejected = int((~iscell_mask).sum())
+    return canvas, n_accepted, n_rejected
+
+
 def plot_accepted_rejected_overlay(
         img: np.ndarray,
         stat,
@@ -961,8 +1021,9 @@ def plot_accepted_rejected_overlay(
     """
     Draw accepted (green) and rejected (red) ROI overlays on a projection.
 
-    Matches the dark formatting and top-of-figure count labels used by other
-    segmentation summary figures.
+    Uses the same lam-weighted per-pixel opacity as :func:`plot_masks` so
+    feathering matches the rest of the segmentation figures. Adds dark
+    formatting and ``Accepted``/``Rejected`` count labels at the top.
 
     Parameters
     ----------
@@ -987,54 +1048,15 @@ def plot_accepted_rejected_overlay(
     dpi : int, optional
         Output DPI. Default 300.
     """
-    stat_yoff = 0
-    stat_xoff = 0
-    if ops is not None and proj_key is not None:
-        img, stat_yoff, stat_xoff = _crop_projection_to_valid(ops, img, proj_key)
-
-    vmin = np.nanpercentile(img, 1)
-    vmax = np.nanpercentile(img, 99)
-    normalized = (img - vmin) / (vmax - vmin + 1e-6)
-    normalized = np.clip(normalized, 0, 1)
-    normalized = np.nan_to_num(normalized, nan=0.0)
-
-    Ly, Lx = img.shape[:2]
-    iscell_mask = np.asarray(iscell_mask, dtype=bool)
-
-    accepted_mask = np.zeros((Ly, Lx), dtype=bool)
-    rejected_mask = np.zeros((Ly, Lx), dtype=bool)
-    for n, s in enumerate(stat):
-        ypix = np.asarray(s.get("ypix", []), dtype=int) - stat_yoff
-        xpix = np.asarray(s.get("xpix", []), dtype=int) - stat_xoff
-        if ypix.size == 0:
-            continue
-        valid = (ypix >= 0) & (ypix < Ly) & (xpix >= 0) & (xpix < Lx)
-        if not np.any(valid):
-            continue
-        ypix, xpix = ypix[valid], xpix[valid]
-        if iscell_mask[n]:
-            accepted_mask[ypix, xpix] = True
-        else:
-            rejected_mask[ypix, xpix] = True
-
-    n_accepted = int(iscell_mask.sum())
-    n_rejected = int((~iscell_mask).sum())
+    canvas, n_accepted, n_rejected = _build_accepted_rejected_canvas(
+        img, stat, iscell_mask, ops=ops, proj_key=proj_key,
+    )
 
     fig, ax = plt.subplots(figsize=figsize, facecolor="black")
     ax.set_facecolor("black")
-    ax.imshow(normalized, cmap="gray", vmin=0, vmax=1)
+    ax.imshow(canvas, interpolation="nearest")
 
-    green_overlay = np.zeros((Ly, Lx, 4), dtype=np.float32)
-    green_overlay[..., 1] = 1.0
-    green_overlay[..., 3] = feather_mask(accepted_mask, max_alpha=0.9)
-    ax.imshow(green_overlay)
-
-    red_overlay = np.zeros((Ly, Lx, 4), dtype=np.float32)
-    red_overlay[..., 0] = 1.0
-    red_overlay[..., 3] = feather_mask(rejected_mask, max_alpha=0.9)
-    ax.imshow(red_overlay)
-
-    label_y = 1.07 if title else 1.02
+    label_y = 1.02
     if title:
         ax.text(
             0.5, 1.02, title,
@@ -1061,6 +1083,192 @@ def plot_accepted_rejected_overlay(
     ax.set_yticks([])
     ax.axis("off")
     plt.tight_layout()
+
+    if savepath:
+        if Path(savepath).is_dir():
+            raise ValueError("savepath must be a file path, not a directory.")
+        plt.savefig(savepath, dpi=dpi, facecolor="black")
+        plt.close(fig)
+    else:
+        plt.show()
+
+
+def plot_volume_accepted_rejected_overlay(
+        ops_files,
+        savepath: str | Path = None,
+        *,
+        ncols: int = None,
+        figsize: tuple = None,
+        dpi: int = 200,
+):
+    """
+    Volumetric version of :func:`plot_accepted_rejected_overlay`.
+
+    One subplot per z-plane showing the projection used by cellpose with
+    accepted ROIs in green and rejected in red. Uses the same lam-weighted
+    opacity as :func:`plot_masks`. Per-subplot titles show the plane's
+    ``Accepted: N`` (lime) and ``Rejected: N`` (red) counts; an overall
+    title at the very top reports total accepted/rejected across the volume.
+
+    Parameters
+    ----------
+    ops_files : list of str or Path
+        Paths to per-plane ``ops.npy`` files.
+    savepath : str or Path, optional
+        Where to save the figure. If None, calls plt.show().
+    ncols : int, optional
+        Number of columns in the subplot grid. Defaults to a near-square
+        layout.
+    figsize : tuple, optional
+        Figure size. Defaults based on the grid shape.
+    dpi : int, optional
+        Output DPI. Default 200.
+    """
+    ops_files = [Path(p) for p in ops_files]
+    n_planes = len(ops_files)
+    if n_planes == 0:
+        raise ValueError("ops_files is empty")
+
+    if ncols is None:
+        ncols = int(np.ceil(np.sqrt(n_planes)))
+    nrows = int(np.ceil(n_planes / ncols))
+    if figsize is None:
+        figsize = (4 * ncols, 4.4 * nrows)
+
+    proj_lookup = {
+        0: ("Vcorr", "Correlation Image"),
+        1: ("max_proj", "Max Projection"),
+        2: ("meanImg", "Mean Image"),
+        3: ("meanImgE", "Enhanced Mean Image"),
+        4: ("max_proj", "Max Projection"),
+    }
+    fallback_titles = {
+        "meanImg": "Mean Image",
+        "max_proj": "Max Projection",
+        "meanImgE": "Enhanced Mean Image",
+        "Vcorr": "Correlation Image",
+    }
+
+    def _is_valid_image(im):
+        if im is None:
+            return False
+        if isinstance(im, (int, float)) and im == 0:
+            return False
+        if isinstance(im, np.ndarray) and im.size == 0:
+            return False
+        return True
+
+    def _plane_num(ops, fallback):
+        raw = ops.get("plane", None)
+        if raw is None:
+            return fallback
+        if isinstance(raw, (int, np.integer)):
+            return int(raw)
+        digits = "".join(c for c in str(raw) if c.isdigit())
+        return int(digits) if digits else fallback
+
+    plane_entries = []
+    for i, ops_file in enumerate(ops_files):
+        try:
+            ops = load_ops(ops_file)
+        except Exception as e:
+            print(f"  Warning: could not load {ops_file}: {e}")
+            continue
+        try:
+            res = load_planar_results(ops)
+        except Exception as e:
+            print(f"  Warning: could not load planar results for {ops_file}: {e}")
+            continue
+
+        stat = res["stat"]
+        iscell_mask = res["iscell"][:, 0].astype(bool)
+
+        anatomical_only = int(ops.get("anatomical_only", 0) or 0)
+        proj_key, proj_title = proj_lookup.get(anatomical_only, ("meanImg", "Mean Image"))
+        img = ops.get(proj_key)
+        if not _is_valid_image(img):
+            for fk in ("meanImg", "max_proj", "meanImgE", "Vcorr"):
+                if _is_valid_image(ops.get(fk)):
+                    proj_key = fk
+                    proj_title = fallback_titles[fk]
+                    img = ops.get(fk)
+                    break
+        if not _is_valid_image(img):
+            continue
+
+        plane_entries.append({
+            "plane": _plane_num(ops, i),
+            "ops": ops,
+            "img": img,
+            "stat": stat,
+            "iscell_mask": iscell_mask,
+            "proj_key": proj_key,
+            "proj_title": proj_title,
+        })
+
+    if not plane_entries:
+        raise RuntimeError("No valid plane data found in ops_files")
+
+    plane_entries.sort(key=lambda e: e["plane"])
+
+    fig, axes = plt.subplots(nrows, ncols, figsize=figsize, facecolor="black")
+    axes = np.atleast_1d(axes).ravel()
+
+    total_accepted = 0
+    total_rejected = 0
+
+    for idx, ax in enumerate(axes):
+        ax.set_facecolor("black")
+        if idx >= len(plane_entries):
+            ax.axis("off")
+            continue
+        e = plane_entries[idx]
+        canvas, n_acc, n_rej = _build_accepted_rejected_canvas(
+            e["img"], e["stat"], e["iscell_mask"],
+            ops=e["ops"], proj_key=e["proj_key"],
+        )
+        total_accepted += n_acc
+        total_rejected += n_rej
+
+        ax.imshow(canvas, interpolation="nearest")
+        ax.set_xticks([])
+        ax.set_yticks([])
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+
+        ax.text(
+            0.02, 1.10, f"plane {e['plane']:02d}",
+            transform=ax.transAxes,
+            fontsize=10, fontweight="bold", fontname="Courier New",
+            color="white", ha="left", va="bottom",
+        )
+        ax.text(
+            0.48, 1.10, f"Accepted: {n_acc:03d}",
+            transform=ax.transAxes,
+            fontsize=10, fontweight="bold", fontname="Courier New",
+            color="lime", ha="right", va="bottom",
+        )
+        ax.text(
+            0.52, 1.10, f"Rejected: {n_rej:03d}",
+            transform=ax.transAxes,
+            fontsize=10, fontweight="bold", fontname="Courier New",
+            color="red", ha="left", va="bottom",
+        )
+
+    fig.text(
+        0.49, 0.985,
+        f"Total Accepted: {total_accepted:04d}",
+        color="lime", fontsize=16, fontweight="bold", fontname="Courier New",
+        ha="right", va="top",
+    )
+    fig.text(
+        0.51, 0.985,
+        f"Total Rejected: {total_rejected:04d}",
+        color="red", fontsize=16, fontweight="bold", fontname="Courier New",
+        ha="left", va="top",
+    )
+
+    plt.tight_layout(rect=(0, 0, 1, 0.96))
 
     if savepath:
         if Path(savepath).is_dir():
