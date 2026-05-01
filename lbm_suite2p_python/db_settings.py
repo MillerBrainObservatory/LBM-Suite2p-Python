@@ -172,6 +172,20 @@ _FORK_TO_UPSTREAM_RENAMES: dict[str, str] = {
     "nbinned": "nbins",
     "high_pass": "highpass_time",
     "spatial_hp_cp": "highpass_spatial",
+    "pretrained_model": "cellpose_model",
+}
+
+# fork's anatomical_only int (1-4) selects which image cellpose runs on.
+# upstream replaced this with a string in cellpose_settings.img. mapping:
+#   1 -> 'max_proj / meanImg'  (log ratio)
+#   2 -> 'meanImg'
+#   3 -> enhanced_mean_img  (REMOVED upstream — no equivalent string;
+#                            falls through to max_proj branch)
+#   4 -> 'max_proj'  (anything not matching the two strings hits else: img=max_proj)
+_ANATOMICAL_ONLY_TO_IMG: dict[int, str] = {
+    1: "max_proj / meanImg",
+    2: "meanImg",
+    4: "max_proj",
 }
 _UPSTREAM_TO_FORK_RENAMES = {v: k for k, v in _FORK_TO_UPSTREAM_RENAMES.items()}
 
@@ -189,17 +203,24 @@ _BASELINE_UPSTREAM_TO_FORK = {
 }
 
 
-def _ensure_diameter_list(value: Any) -> list[float]:
-    """Upstream expects diameter as [dy, dx]. Fork may store a scalar int."""
+def _ensure_diameter_array(value: Any) -> np.ndarray:
+    """Coerce diameter to an `np.ndarray` of shape (2,), mirroring suite2p
+    `pipeline_s2p.py:150-160`: scalar -> [d, d]; list/tuple -> array; size-1
+    array -> [d, d]; size>=2 ndarray passes through. None falls back to
+    [6., 6.] (fork-only — upstream doesn't accept None at this point).
+    """
     if value is None:
-        return [12.0, 12.0]
+        return np.array([6.0, 6.0])
+    if not isinstance(value, (list, tuple, np.ndarray)):
+        return np.array([value, value])
     if isinstance(value, (list, tuple)):
         if len(value) == 0:
-            return [12.0, 12.0]
-        if len(value) == 1:
-            return [float(value[0]), float(value[0])]
-        return [float(value[0]), float(value[1])]
-    return [float(value), float(value)]
+            return np.array([6.0, 6.0])
+        value = np.array(value)
+    if value.size == 1:
+        v = value.item()
+        return np.array([v, v])
+    return value
 
 
 def _ensure_do_registration_int(value: Any) -> int:
@@ -255,7 +276,7 @@ def ops_to_db_settings(ops: dict) -> tuple[dict, dict]:
     for key in _SETTINGS_TOP_LEVEL:
         if key in lookup:
             if key == "diameter":
-                settings[key] = _ensure_diameter_list(lookup[key])
+                settings[key] = _ensure_diameter_array(lookup[key])
             else:
                 settings[key] = lookup[key]
 
@@ -319,6 +340,33 @@ def ops_to_db_settings(ops: dict) -> tuple[dict, dict]:
     for key in _DETECTION_CELLPOSE_KEYS:
         if key in lookup:
             cellpose[key] = lookup[key]
+
+    # fork's anatomical_only int picks which image cellpose runs on.
+    # upstream encodes this via cellpose_settings.img; without this
+    # mapping anatomical_only=4 silently degrades to anatomical_only=1
+    # (the upstream default 'max_proj / meanImg' = log ratio image)
+    # because the translator only sets algorithm='cellpose' otherwise.
+    anat = lookup.get("anatomical_only")
+    if anat and "img" not in cellpose:
+        try:
+            anat_int = int(anat)
+        except (TypeError, ValueError):
+            anat_int = None
+        if anat_int in _ANATOMICAL_ONLY_TO_IMG:
+            cellpose["img"] = _ANATOMICAL_ONLY_TO_IMG[anat_int]
+        elif anat_int == 3:
+            # upstream removed enhanced_mean_img — closest fallback is
+            # 'meanImg' (same source family, no median-ratio enhancement).
+            # warn the caller so they know something changed.
+            import warnings
+            warnings.warn(
+                "anatomical_only=3 (enhanced_mean_img) is no longer supported "
+                "upstream; falling back to cellpose_settings.img='meanImg'. "
+                "Use anatomical_only in {1, 2, 4} to avoid this fallback.",
+                stacklevel=2,
+            )
+            cellpose["img"] = "max_proj"
+
     if cellpose:
         detection["cellpose_settings"] = cellpose
 
@@ -348,16 +396,9 @@ def db_settings_to_ops(db: dict | None, settings: dict | None) -> dict:
         if key in settings:
             value = settings[key]
             if key == "diameter":
-                # fork's run_plane_bin / cellpose path / rigid reg assume a
-                # scalar diameter (e.g. `np.isnan(ops["diameter"])`), but
-                # upstream stores it as [dy, dx]. Collapse to a single
-                # value for fork consumers — use dy if equal, else the
-                # mean rounded to 1 decimal.
-                if isinstance(value, (list, tuple)) and len(value) >= 1:
-                    if len(value) >= 2 and float(value[0]) != float(value[1]):
-                        value = round((float(value[0]) + float(value[1])) / 2, 1)
-                    else:
-                        value = float(value[0])
+                # keep upstream's [dy, dx] np.ndarray shape — fork consumers
+                # that need a scalar should use np.mean / [0] explicitly.
+                value = _ensure_diameter_array(value)
             ops[key] = value
 
     # flat sections

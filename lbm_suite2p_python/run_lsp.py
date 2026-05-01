@@ -99,13 +99,10 @@ def _call_upstream_pipeline(ops, f_reg, f_raw, f_reg_chan2, f_raw_chan2,
         for k, v in reg_outputs.items():
             ops[k] = v
     if isinstance(detect_outputs, dict):
+        from lbm_suite2p_python.db_settings import _ensure_diameter_array
         for k, v in detect_outputs.items():
-            # don't clobber diameter — keep whatever was passed in unless upstream
-            # actually refined it (and collapse list to scalar for fork consumers)
             if k == "diameter" and v is not None:
-                if isinstance(v, (list, tuple)) and len(v) >= 1:
-                    v = float(v[0]) if len(v) < 2 or v[0] == v[1] else (float(v[0]) + float(v[1])) / 2
-                ops[k] = v
+                ops[k] = _ensure_diameter_array(v)
             elif k != "diameter":
                 ops[k] = v
     ops["plane_times"] = plane_times
@@ -420,6 +417,7 @@ from lbm_suite2p_python.zplane import (
     plot_filtered_cells,
     plot_filter_exclusions,
     plot_cell_filter_summary,
+    plot_volume_accepted_rejected_overlay,
 )
 
 DEFAULT_CELL_FILTERS = []
@@ -431,6 +429,43 @@ from mbo_utilities.metadata import (
 
 
 logger = get_logger("run_lsp")
+
+
+_external_logging_attached = False
+
+
+def _attach_external_loggers(level: int = logging.INFO) -> None:
+    """Surface suite2p / cellpose progress messages on stdout.
+
+    Mainline suite2p (`suite2p.detection.anatomical`,
+    `suite2p.registration.*`) and cellpose (`cellpose.models`) use plain
+    `logging.getLogger(__name__)` loggers with no handlers attached. Their
+    `logger.info(...)` calls — registration progress, ">>>> CELLPOSE finding
+    masks", median-diameter reports — propagate to root and get silently
+    dropped by the default WARNING-level lastResort handler. Without this
+    hookup the user can't tell whether detection is running or what params
+    cellpose actually picked. Idempotent, called once per pipeline entry.
+    """
+    global _external_logging_attached
+    if _external_logging_attached:
+        return
+    fmt = logging.Formatter("%(name)s: %(message)s")
+    for name in ("suite2p", "cellpose"):
+        lg = logging.getLogger(name)
+        if lg.level == logging.NOTSET or lg.level > level:
+            lg.setLevel(level)
+        has_stream = any(
+            isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler)
+            for h in lg.handlers
+        )
+        if not has_stream:
+            h = logging.StreamHandler()
+            h.setFormatter(fmt)
+            h.setLevel(level)
+            lg.addHandler(h)
+        lg.propagate = False
+    _external_logging_attached = True
+
 
 from lbm_suite2p_python._benchmarking import get_cpu_percent, get_ram_used
 from lbm_suite2p_python.volume import (
@@ -643,6 +678,8 @@ def pipeline(
     """
     from mbo_utilities import imread
     from mbo_utilities.arrays import supports_roi
+
+    _attach_external_loggers()
 
     # 1. Handle Deprecations
     if roi is not None:
@@ -1204,6 +1241,9 @@ def run_volume(
                 plot_3d_roi_map(
                     ops_files, save_path / "roi_map_3d_plane.png", color_by="plane"
                 )
+                plot_volume_accepted_rejected_overlay(
+                    ops_files, save_path / "volume_segmentation_overlay.png"
+                )
             except Exception as e:
                 print(f"Warning: Volume plots failed: {e}")
                 traceback.print_exc()
@@ -1445,12 +1485,31 @@ def run_plane_bin(ops) -> bool:
     n_func = ops.get("nframes_chan1") or ops.get("nframes") or ops.get("n_frames")
     if n_func is None:
         raise KeyError("Missing nframes_chan1 / nframes / n_frames in ops")
+
+    # Graceful fallback for "reload a completed plane" workflow:
+    # - keep_raw=False (default) deletes data_raw.bin after a run.
+    # - When the user reloads that plane_dir and clicks Run again, the
+    #   GUI hands us an ops where raw_file is missing but reg_file (the
+    #   registered data.bin) is present. Re-registration needs raw data,
+    #   but detection/extraction can still run against data.bin.
+    # - Instead of crashing, downgrade to detection-only and log why.
     if run_registration and raw_file is None:
-        raise KeyError(
-            "Missing raw_file in ops — required when do_registration=1. "
-            "Set do_registration=0 to run detection-only against an "
-            "existing data.bin."
-        )
+        _existing_reg = ops.get("reg_file")
+        if _existing_reg and Path(_existing_reg).exists():
+            print(
+                "NOTE: raw_file missing but reg_file exists — downgrading "
+                "do_registration=1 → 0 (detection/extraction only against "
+                f"{Path(_existing_reg).name}). Pass keep_raw=True on the "
+                "first run if you want to re-register a reloaded plane."
+            )
+            ops["do_registration"] = 0
+            run_registration = False
+        else:
+            raise KeyError(
+                "Missing raw_file in ops — required when do_registration=1. "
+                "Set do_registration=0 to run detection-only against an "
+                "existing data.bin."
+            )
     n_func = int(n_func)
 
     # reg_file may already point at a linked source binary; only pin it
@@ -1488,16 +1547,12 @@ def run_plane_bin(ops) -> bool:
         ops["nframes_chan2"] = n_align
 
     if "diameter" in ops:
-        # save user's input diameter before suite2p/cellpose overwrites it
-        # cellpose estimates actual cell diameters and saves median to ops["diameter"]
+        # save user's input diameter for provenance — cellpose later overwrites
+        # ops["diameter"] with the estimated median from detection.
+        # do not default/coerce here: db_settings._ensure_diameter_list
+        # converts to [dy, dx] at the upstream-pipeline boundary, and mainline
+        # suite2p / cellpose handle None / scalar / list / aspect-pair natively.
         ops["diameter_user"] = ops["diameter"]
-        if ops["diameter"] is not None and np.isnan(ops["diameter"]):
-            ops["diameter"] = 8
-            ops["diameter_user"] = 8
-        if (ops["diameter"] in (None, 0)) and ops.get("anatomical_only", 0) > 0:
-            ops["diameter"] = 8
-            ops["diameter_user"] = 8
-            print("Warning: diameter was not set, defaulting to 8.")
 
     # reset detection-derived parameters when re-running registration or detection
     # so compute_enhanced_mean_image() reinitializes them from diameter.
@@ -1506,8 +1561,16 @@ def run_plane_bin(ops) -> bool:
     # (run_registration / run_detection were resolved earlier, near the
     # raw_file check — keep them in scope here.)
     if run_registration:
-        # full reset: clear both registration and detection intermediates
-        for key in ["spatscale_pix", "Vcorr", "Vmax", "Vmap", "Vsplit", "ihop"]:
+        # full reset: clear both registration and detection intermediates.
+        # registration outputs (badframes/xoff/yoff/corrXY) are cleared too —
+        # otherwise a prior divergent run leaves badframes=True for most
+        # frames and detection silently excludes them on the rerun even
+        # though the new registration succeeded.
+        for key in [
+            "spatscale_pix", "Vcorr", "Vmax", "Vmap", "Vsplit", "ihop",
+            "badframes", "xoff", "yoff", "corrXY",
+            "xoff1", "yoff1", "corrXY1",
+        ]:
             if key in ops:
                 del ops[key]
     elif run_detection:
@@ -2102,10 +2165,29 @@ def run_plane(
             "data_path": str(input_path.resolve()),
         }
 
+        # auto-resolve source_mode based on user intent + disk state:
+        #
+        # - explicit `do_registration=0` from the user means "I'm reusing
+        #   the registered binary, just sweeping detection/extraction".
+        #   the safe + cheap mode here is `link` — zero copies, source
+        #   binary is read-only, and N sweeps over the same plane don't
+        #   produce N redundant copies of data.bin.
+        # - otherwise fall back to the original disk-based heuristic:
+        #   `copy` if raw exists (registration can proceed locally), else
+        #   `copy_reg` (no raw on disk, raw_file gets popped, downstream
+        #   gracefully downgrades to detection-only).
+        _effective_mode = source_mode
+        if _effective_mode == "auto":
+            if ops_user.get("do_registration", 1) == 0:
+                _effective_mode = "link"
+            else:
+                _effective_mode = (
+                    "copy" if (src_dir / "data_raw.bin").exists() else "copy_reg"
+                )
+
         # link mode can't safely co-exist with do_registration=1 because
         # registration would need to write the source data.bin. flip to
         # copy_reg and warn instead of corrupting the source binary.
-        _effective_mode = source_mode
         if _effective_mode == "link" and ops_user.get("do_registration", 1):
             logger.warning(
                 "source_mode='link' requires do_registration=0 (link mode "

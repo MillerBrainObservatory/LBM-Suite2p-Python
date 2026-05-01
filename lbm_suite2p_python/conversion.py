@@ -20,6 +20,8 @@ from pathlib import Path
 import numpy as np
 from mbo_utilities.file_io import load_npy
 
+from lbm_suite2p_python.db_settings import _ensure_diameter_array
+
 
 # file signatures for format detection
 SUITE2P_REQUIRED = ["stat.npy", "iscell.npy", "ops.npy"]
@@ -436,7 +438,7 @@ def cellpose_to_suite2p(
     meta_path = cellpose_dir / "cellpose_meta.npy"
     if meta_path.exists():
         cp_meta = np.load(meta_path, allow_pickle=True).item()
-        ops["diameter"] = cp_meta.get("diameter", ops.get("diameter"))
+        ops["diameter"] = _ensure_diameter_array(cp_meta.get("diameter", ops.get("diameter")))
         ops["cellprob_threshold"] = cp_meta.get("cellprob_threshold")
         ops["flow_threshold"] = cp_meta.get("flow_threshold")
 

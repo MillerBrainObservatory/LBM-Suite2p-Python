@@ -119,6 +119,14 @@ def s2p_ops():
             1.0,  # adjust the automatically determined threshold by this scalar multiplier
         "max_overlap":
             0.75,  # cells with more overlap than this get removed during triage, before refinement
+        # disable upstream's npix_norm filter (suite2p>=1.0.0.x) — its
+        # detect.py call site applies 0.0/100.0 if these aren't set, which
+        # culls 100x-median-sized ROIs. suite2p_mbo had no such filter and
+        # LBM cells at diameter=4 trip the upper bound when many small
+        # cells skew the median low. -1 / inf mirrors roi_stats's own
+        # function-level defaults (effectively off).
+        "npix_norm_min": -1.0,
+        "npix_norm_max": float("inf"),
         "high_pass":
             100,  # running mean subtraction across bins with a window of size "high_pass" (use low values for 1P)
         "spatial_hp_detect":
@@ -130,7 +138,7 @@ def s2p_ops():
             3,
         # run cellpose to get masks on 1: max_proj / mean_img; 2: mean_img; 3: mean_img enhanced, 4: max_proj
         "diameter": 4,  # LBM default cell diameter in pixels (cellpose estimates if 0)
-        "cellprob_threshold": 0,  # cellprob_threshold for cellpose (0 = upstream default)
+        "cellprob_threshold": -6,  # permissive LBM default for cellpose (upstream is 0.0)
         "flow_threshold": 0,  # flow_threshold for cellpose (0 = flow-check disabled)
         "spatial_hp_cp": 0.5,  # high-pass image spatially by a multiple of the diameter
         # cellpose model: 'cpsam' (default) or path to custom model trained with lsp.train_cellpose()
@@ -176,7 +184,7 @@ def default_ops(metadata=None, ops=None):
         anatomical_only=3
         diameter=4
         spatial_hp_cp=0.5
-        cellprob_threshold=0
+        cellprob_threshold=-6
         flow_threshold=0
         spatial_scale=1
         tau=1.3

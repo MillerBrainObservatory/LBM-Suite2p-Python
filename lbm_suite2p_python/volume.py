@@ -1068,13 +1068,13 @@ def plot_orthoslices(
     save_path: str | Path = None,
     figsize: tuple = (16, 6),
     use_mean: bool = True,
+    interpolate: bool = False,
 ) -> plt.Figure:
     """
     Generate orthogonal maximum intensity projections (XY, XZ, YZ) of the volume.
 
-    Creates a 3-panel figure showing the volume from three orthogonal views,
-    with proper interpolation to isotropic resolution. Axes are displayed
-    in micrometers using voxel size metadata.
+    Creates a 3-panel figure showing the volume from three orthogonal views.
+    Axes are displayed in micrometers using voxel size metadata.
 
     Parameters
     ----------
@@ -1086,13 +1086,17 @@ def plot_orthoslices(
         Figure size in inches.
     use_mean : bool, default True
         If True, use meanImg. If False, use refImg (registered reference).
+    interpolate : bool, default False
+        If True, resample the volume in Z to isotropic resolution and use
+        bilinear interpolation in the XZ/YZ panels. Off by default since
+        LBM volumes are typically very thin in Z (e.g. 14 planes), where
+        interpolation can be misleading.
 
     Returns
     -------
     fig : matplotlib.figure.Figure
         The generated figure object.
     """
-    from scipy.ndimage import zoom
     from lbm_suite2p_python.postprocessing import load_ops
 
     if not ops_files:
@@ -1159,14 +1163,20 @@ def plot_orthoslices(
     vol_y_um = ny * dy_um
     vol_z_um = (nz - 1) * dz_um if nz > 1 else dz_um
 
-    # interpolate volume to isotropic resolution for proper orthoslices
-    xy_res = (dx_um + dy_um) / 2
-    z_zoom = dz_um / xy_res if xy_res > 0 else 1.0
-    z_zoom = min(z_zoom, 10.0)  # cap to avoid memory issues
-    if z_zoom > 1.1:
-        volume_resampled = zoom(volume, (z_zoom, 1, 1), order=1)
+    # optionally resample volume in z to isotropic resolution
+    if interpolate:
+        from scipy.ndimage import zoom
+        xy_res = (dx_um + dy_um) / 2
+        z_zoom = dz_um / xy_res if xy_res > 0 else 1.0
+        z_zoom = min(z_zoom, 10.0)  # cap to avoid memory issues
+        if z_zoom > 1.1:
+            volume_resampled = zoom(volume, (z_zoom, 1, 1), order=1)
+        else:
+            volume_resampled = volume
     else:
         volume_resampled = volume
+
+    imshow_interp = "bilinear" if interpolate else "nearest"
 
     # compute projections
     xy_proj = np.max(volume, axis=0)
@@ -1199,7 +1209,7 @@ def plot_orthoslices(
     ax2.set_facecolor("black")
     im2 = ax2.imshow(xz_proj, cmap="magma", aspect="auto", extent=xz_extent,
                      vmin=np.percentile(xz_proj, 1), vmax=np.percentile(xz_proj, 99.5),
-                     interpolation="bilinear")
+                     interpolation=imshow_interp)
     ax2.set_xlabel("X (μm)", fontsize=10, fontweight="bold", color="white")
     ax2.set_ylabel("Z (μm)", fontsize=10, fontweight="bold", color="white")
     ax2.set_title("XZ Projection", fontsize=11, fontweight="bold", color="white")
@@ -1212,7 +1222,7 @@ def plot_orthoslices(
     ax3.set_facecolor("black")
     im3 = ax3.imshow(yz_proj.T, cmap="magma", aspect="auto", extent=yz_extent,
                      vmin=np.percentile(yz_proj, 1), vmax=np.percentile(yz_proj, 99.5),
-                     interpolation="bilinear")
+                     interpolation=imshow_interp)
     ax3.set_xlabel("Z (μm)", fontsize=10, fontweight="bold", color="white")
     ax3.set_ylabel("Y (μm)", fontsize=10, fontweight="bold", color="white")
     ax3.set_title("YZ Projection", fontsize=11, fontweight="bold", color="white")
