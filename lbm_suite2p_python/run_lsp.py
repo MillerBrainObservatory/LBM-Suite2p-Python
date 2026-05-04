@@ -472,6 +472,7 @@ from lbm_suite2p_python.volume import (
     plot_volume_diagnostics,
     plot_orthoslices,
     plot_3d_roi_map,
+    plot_3d_rastermap_clusters,
     get_volume_stats,
 )
 from mbo_utilities.arrays import (
@@ -554,6 +555,26 @@ def _add_processing_step(
 add_processing_step = _add_processing_step
 
 
+def _extract_rastermap_section(rastermap_kwargs, section):
+    """Pull the sub-dict for "planar" or "volumetric" from a unified rastermap_kwargs.
+
+    Returns None when the section was not requested. Returns an empty dict
+    (meaning "use defaults") when the key is present with a None / empty value.
+    """
+    if not rastermap_kwargs or section not in rastermap_kwargs:
+        return None
+    sub = rastermap_kwargs[section]
+    return {} if sub is None else dict(sub)
+
+
+def _extract_planar_rastermap_kwargs(rastermap_kwargs):
+    return _extract_rastermap_section(rastermap_kwargs, "planar")
+
+
+def _extract_volumetric_rastermap_kwargs(rastermap_kwargs):
+    return _extract_rastermap_section(rastermap_kwargs, "volumetric")
+
+
 def pipeline(
     input_data,
     save_path: str | Path = None,
@@ -573,6 +594,7 @@ def pipeline(
     dff_smooth_window: int = None,
     cell_filters: list = None,
     accept_all_cells: bool = False,
+    rastermap_kwargs: dict = None,
     save_json: bool = False,
     source_mode: str = "auto",
     reader_kwargs: dict = None,
@@ -633,11 +655,24 @@ def pipeline(
         Temporal smoothing window for dF/F traces (frames).
         If None, auto-calculated. Set to 1 to disable.
     cell_filters : list, optional
-        Filters to apply to detected ROIs. Default is no filters.
+        Filters to apply to detected ROIs. Default is no filters (off).
+        Currently supports diameter bounds in microns or pixels.
         Example: [{"name": "max_diameter", "min_diameter_um": 4, "max_diameter_um": 35}]
     accept_all_cells : bool, default False
         If True, mark all detected ROIs as accepted, overriding
         Suite2p's built-in classifier results.
+    rastermap_kwargs : dict, optional
+        Rastermap configuration. Default None (rastermap disabled).
+        Pass a dict with optional ``"planar"`` and ``"volumetric"`` keys
+        to enable each independently — presence of the key turns it on.
+        Each sub-dict holds ``rastermap.Rastermap()`` overrides; an empty
+        dict (or None) means use built-in defaults.
+        Example::
+
+            rastermap_kwargs={
+                "planar": {"n_clusters": 50, "n_PCs": 64},
+                "volumetric": {"n_clusters": 40},
+            }
     save_json : bool, default False
         Save ops as JSON in addition to .npy format.
     reader_kwargs : dict, optional
@@ -756,6 +791,7 @@ def pipeline(
             dff_smooth_window=dff_smooth_window,
             accept_all_cells=accept_all_cells,
             cell_filters=cell_filters,
+            rastermap_kwargs=rastermap_kwargs,
             save_json=save_json,
             source_mode=source_mode,
             reader_kwargs=reader_kwargs,
@@ -763,6 +799,8 @@ def pipeline(
             **kwargs,
         )
     else:
+        # run_plane is planar-only — extract just the planar sub-dict
+        planar_kwargs = _extract_planar_rastermap_kwargs(rastermap_kwargs)
         # run_plane returns a single Path, we wrap in list
         ops_path = run_plane(
             input_data=arr,  # Pass the array we loaded (with ROI applied)
@@ -783,6 +821,7 @@ def pipeline(
             dff_smooth_window=dff_smooth_window,
             accept_all_cells=accept_all_cells,
             cell_filters=cell_filters,
+            rastermap_kwargs=planar_kwargs,
             save_json=save_json,
             source_mode=source_mode,
             reader_kwargs=reader_kwargs,
@@ -952,6 +991,7 @@ def run_volume(
     dff_smooth_window: int = None,
     accept_all_cells: bool = False,
     cell_filters: list = None,
+    rastermap_kwargs: dict = None,
     save_json: bool = False,
     source_mode: str = "auto",
     reader_kwargs: dict = None,
@@ -992,6 +1032,11 @@ def run_volume(
         Mark all ROIs as accepted.
     cell_filters : list, optional
         Filters to apply (see run_plane).
+    rastermap_kwargs : dict, optional
+        Unified rastermap config. Default None (off). Keys ``"planar"`` /
+        ``"volumetric"`` independently enable each mode; their values hold
+        rastermap.Rastermap() overrides (empty dict / None = defaults).
+        See pipeline() for the full schema.
     save_json : bool, default False
         Save ops as JSON.
     **kwargs
@@ -1083,6 +1128,12 @@ def run_volume(
 
     progress_callback = kwargs.pop("progress_callback", None)
 
+    # decompose unified rastermap_kwargs into planar (per-plane) and
+    # volumetric (post-loop). Each is None when the user did not enable
+    # that mode, an empty dict when they enabled it without overrides.
+    planar_rastermap_kwargs = _extract_planar_rastermap_kwargs(rastermap_kwargs)
+    volumetric_rastermap_kwargs = _extract_volumetric_rastermap_kwargs(rastermap_kwargs)
+
     ops_files = []
 
     # Iterate
@@ -1171,6 +1222,7 @@ def run_volume(
                 dff_smooth_window=dff_smooth_window,
                 accept_all_cells=accept_all_cells,
                 cell_filters=cell_filters,
+                rastermap_kwargs=planar_rastermap_kwargs,
                 save_json=save_json,
                 source_mode=source_mode,
                 reader_kwargs=reader_kwargs,
@@ -1247,6 +1299,17 @@ def run_volume(
             except Exception as e:
                 print(f"Warning: Volume plots failed: {e}")
                 traceback.print_exc()
+
+            if volumetric_rastermap_kwargs is not None:
+                try:
+                    plot_3d_rastermap_clusters(
+                        save_path,
+                        save_path=save_path / "rastermap_3d.png",
+                        rastermap_kwargs=volumetric_rastermap_kwargs,
+                    )
+                except Exception as e:
+                    print(f"Warning: Volumetric rastermap failed: {e}")
+                    traceback.print_exc()
 
         except Exception as e:
             print(f"Warning: Volume statistics failed: {e}")
@@ -1936,6 +1999,7 @@ def run_plane(
     dff_smooth_window: int = None,
     accept_all_cells: bool = False,
     cell_filters: list = None,
+    rastermap_kwargs: dict = None,
     save_json: bool = False,
     plane_name: str | None = None,
     source_mode: str = "auto",
@@ -1980,6 +2044,11 @@ def run_plane(
         Filters to apply to detected ROIs (e.g. diameter, area).
         Default is no filters.
         Example: [{"name": "max_diameter", "min_diameter_um": 4, "max_diameter_um": 35}]
+    rastermap_kwargs : dict, optional
+        Per-plane rastermap config. Default None (off). Pass a dict
+        (possibly empty) to enable; contents override the cell-count-aware
+        defaults passed to rastermap.Rastermap().
+        Example: {"n_clusters": 50, "n_PCs": 64}.
     save_json : bool, default False
         Save ops as JSON.
     frame_indices : list[int], optional
@@ -2524,10 +2593,20 @@ def run_plane(
     reg_bin = plane_dir / "data.bin"
     if reg_bin.exists():
         ops["reg_file"] = str(reg_bin)
-    save_ops_db_settings(ops_file, ops)
 
     # Run Suite2p (skip entirely when nothing needs to be done)
     skip_suite2p = not needs_reg and not needs_detect
+
+    # Only persist settings/db/ops here when suite2p is about to run that
+    # actually needs the path updates above. Skipping this save in the
+    # cache-hit path keeps settings.npy as a faithful record of how the
+    # on-disk artifacts were produced — the user's in-memory edits don't
+    # get persisted to settings.npy unless they actually drove a re-run.
+    # Post-processing keeps its own save call below (with the dff_* knobs
+    # tucked into ops as top-level keys) so dF/F-only re-runs still
+    # record the params that drew the new figures.
+    if not skip_suite2p:
+        save_ops_db_settings(ops_file, ops)
     if skip_suite2p:
         if user_skip_reg and user_skip_detect:
             print("  Suite2p disabled by user toggles; regenerating figures only.")
@@ -2596,92 +2675,74 @@ def run_plane(
             np.save(iscell_file, iscell)
             print("  Marked all ROIs as accepted.")
 
-    # 2. Cell Filtering
+    # 2. Cell Filtering (off by default — empty list)
     if cell_filters:
-        logger.warning("Cell filtering is not ready yet. Filters will be ignored.")
-        # The following block is kept for reference as requested, but we skip executing the actual filters
-        if False:
-            print(f"  Applying cell filters: {[f['name'] for f in cell_filters]}")
-            filter_start = time.time()
+        print(f"  Applying cell filters: {[f['name'] for f in cell_filters]}")
+        filter_start = time.time()
+        try:
+            iscell_filtered, removed_mask, filter_results = apply_filters(
+                plane_dir=plane_dir,
+                filters=cell_filters,
+                save=True,
+            )
+            updated_ops = load_ops(ops_file)
+            _add_processing_step(
+                updated_ops,
+                "cell_filtering",
+                duration_seconds=time.time() - filter_start,
+                extra={"n_removed": int(removed_mask.sum())},
+            )
+            # flatten filter_results into per-filter metadata for ops.npy
+            filter_metadata = {}
+            for r in filter_results:
+                name = r["name"]
+                config = r.get("config", {})
+                info = r.get("info", {})
+                removed = r.get("removed_mask", np.zeros(0, dtype=bool))
+                params = {}
+                for key in [
+                    "min_diameter_um",
+                    "max_diameter_um",
+                    "min_diameter_px",
+                    "max_diameter_px",
+                ]:
+                    if key in config and config[key] is not None:
+                        val = config[key]
+                        params[key] = (
+                            round(val, 1) if isinstance(val, float) else val
+                        )
+                if not params:
+                    for key in ["min_px", "max_px"]:
+                        if key in info and info[key] is not None:
+                            params[key] = round(info[key], 1)
+                filter_metadata[name] = {
+                    "params": params,
+                    "n_rejected": int(removed.sum()),
+                }
+            updated_ops["filter_metadata"] = filter_metadata
+            save_ops_db_settings(ops_file, updated_ops)
+
             try:
-                # Bug fixed: iscell_original is already loaded above, before accept_all_cells mutation
-                iscell_filtered, removed_mask, filter_results = apply_filters(
-                    plane_dir=plane_dir,
-                    filters=cell_filters,
-                    save=True,
+                fig = plot_filtered_cells(
+                    plane_dir,
+                    iscell_original,
+                    iscell_filtered,
+                    save_path=plane_dir / "13_filtered_cells.png",
                 )
-                updated_ops = load_ops(ops_file)
-                _add_processing_step(
-                    updated_ops,
-                    "cell_filtering",
-                    duration_seconds=time.time() - filter_start,
-                    extra={"n_removed": int(removed_mask.sum())},
+                import matplotlib.pyplot as plt
+
+                plt.close(fig)
+                plot_filter_exclusions(
+                    plane_dir, iscell_filtered, filter_results, save_dir=plane_dir
                 )
-                # convert filter_results list to dict keyed by filter name
-                filter_metadata = {}
-                for r in filter_results:
-                    name = r["name"]
-                    config = r.get("config", {})
-                    info = r.get("info", {})
-                    removed = r.get("removed_mask", np.zeros(0, dtype=bool))
-                    # build params from config (user-specified) or info (computed)
-                    params = {}
-                    for key in [
-                        "min_diameter_um",
-                        "max_diameter_um",
-                        "min_diameter_px",
-                        "max_diameter_px",
-                        "min_area_px",
-                        "max_area_px",
-                        "min_mult",
-                        "max_mult",
-                        "max_ratio",
-                    ]:
-                        if key in config and config[key] is not None:
-                            val = config[key]
-                            params[key] = (
-                                round(val, 1) if isinstance(val, float) else val
-                            )
-                    if not params:
-                        for key in [
-                            "min_px",
-                            "max_px",
-                            "min_ratio",
-                            "max_ratio",
-                            "lower_px",
-                            "upper_px",
-                        ]:
-                            if key in info and info[key] is not None:
-                                params[key] = round(info[key], 1)
-                    filter_metadata[name] = {
-                        "params": params,
-                        "n_rejected": int(removed.sum()),
-                    }
-                updated_ops["filter_metadata"] = filter_metadata
-                save_ops_db_settings(ops_file, updated_ops)
-
-                # Plots
-                try:
-                    fig = plot_filtered_cells(
-                        plane_dir,
-                        iscell_original,
-                        iscell_filtered,
-                        save_path=plane_dir / "13_filtered_cells.png",
-                    )
-                    import matplotlib.pyplot as plt
-
-                    plt.close(fig)
-                    plot_filter_exclusions(
-                        plane_dir, iscell_filtered, filter_results, save_dir=plane_dir
-                    )
-                    plot_cell_filter_summary(
-                        plane_dir, save_path=plane_dir / "15_filter_summary.png"
-                    )
-                except Exception as e:
-                    print(f"  Warning: Filter plots failed: {e}")
-
+                plot_cell_filter_summary(
+                    plane_dir, save_path=plane_dir / "15_filter_summary.png"
+                )
             except Exception as e:
-                print(f"  Warning: Cell filtering failed: {e}")
+                print(f"  Warning: Filter plots failed: {e}")
+
+        except Exception as e:
+            print(f"  Warning: Cell filtering failed: {e}")
 
     # 3. dF/F Calculation
     F_file = plane_dir / "F.npy"
@@ -2703,6 +2764,16 @@ def run_plane(
             tau=current_ops.get("tau", 1.0),
         )
         np.save(plane_dir / "dff.npy", dff)
+
+        # Record the dF/F params that actually drew the dff.npy +
+        # figures. These live as top-level ops keys (NOT in the suite2p
+        # settings schema), so save_ops_db_settings writes them to
+        # ops.npy but leaves settings.npy / db.npy untouched. That keeps
+        # settings.npy as a record of suite2p stages and lets ops.npy
+        # carry the post-processing knobs separately.
+        current_ops["dff_window_size"] = dff_window_size
+        current_ops["dff_percentile"] = dff_percentile
+        current_ops["dff_smooth_window"] = dff_smooth_window
 
         _add_processing_step(
             current_ops,
@@ -2728,6 +2799,8 @@ def run_plane(
             dff_percentile=dff_percentile,
             dff_window_size=dff_window_size,
             dff_smooth_window=dff_smooth_window,
+            run_rastermap=rastermap_kwargs is not None,
+            rastermap_kwargs=rastermap_kwargs,
         )
     except Exception as e:
         print(f"  Warning: Plot generation failed: {e}")

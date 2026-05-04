@@ -3165,7 +3165,7 @@ def mask_dead_zones_in_ops(ops, threshold=0.01):
 
 def plot_zplane_figures(
     plane_dir, dff_percentile=8, dff_window_size=None, dff_smooth_window=None,
-    run_rastermap=False, **kwargs
+    run_rastermap=False, rastermap_kwargs=None, **kwargs
 ):
     """
     Re-generate Suite2p figures for a merged plane.
@@ -3185,6 +3185,10 @@ def plot_zplane_figures(
         transients while reducing noise. Set to 1 to disable.
     run_rastermap : bool, optional
         If True, compute and plot rastermap sorting of cells.
+    rastermap_kwargs : dict, optional
+        Override defaults passed to rastermap.Rastermap(). Merged over
+        the cell-count-aware defaults (n_clusters, n_PCs, locality,
+        time_lag_window, grid_upsample). Ignored if run_rastermap=False.
     kwargs : dict
         Extra keyword args (e.g. fig_label).
     """
@@ -3464,6 +3468,8 @@ def plot_zplane_figures(
                         "time_lag_window": 15,
                         "grid_upsample": 10 if n_accepted >= 200 else 0,
                     }
+                    if rastermap_kwargs:
+                        params.update(rastermap_kwargs)
                     model = rastermap.Rastermap(**params).fit(spks_cells)
                     np.save(model_file, model)
 

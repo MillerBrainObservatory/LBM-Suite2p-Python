@@ -189,6 +189,31 @@ _ANATOMICAL_ONLY_TO_IMG: dict[int, str] = {
 }
 _UPSTREAM_TO_FORK_RENAMES = {v: k for k, v in _FORK_TO_UPSTREAM_RENAMES.items()}
 
+# per-section flat-key disambiguation. Several upstream sections share
+# an upstream key. When flattened to ops, the second iteration clobbers
+# the first; on the reverse derivation, the surviving value gets fanned
+# back into BOTH sections — silently corrupting one of them.
+# This map gives the colliding (section, upstream_key) pair its own
+# distinct flat-ops key so the round-trip preserves both values.
+#
+# Discovered collisions (audit via _SETTINGS_SECTIONS + detection groups):
+#   "batch_size" — registration vs extraction.
+#                  registration keeps the legacy flat name "batch_size"
+#                  (matches lsp's default_ops + historical fork ops);
+#                  extraction gets "extract_batch_size".
+#   "block_size" — registration vs detection (suite2p uses the same
+#                  upstream key for the rigid-block geometry AND the
+#                  pca-denoise / sparsery block size).
+#                  registration keeps the legacy flat name "block_size";
+#                  detection gets "det_block_size".
+#
+# Both rename targets match the field names that mbo's GUI dataclass
+# already uses (`extract_batch_size`, `det_block_size_y/_x`).
+_SECTION_FLAT_RENAMES: dict[tuple[str, str], str] = {
+    ("extraction", "batch_size"): "extract_batch_size",
+    ("detection", "block_size"): "det_block_size",
+}
+
 # baseline values differ between fork and upstream:
 #   fork dcnv.preprocess branches on "maximin" / "constant" / "constant_prctile"
 #   upstream dcnv.preprocess branches on "maximin" / "constant" / "prctile"
@@ -284,9 +309,15 @@ def ops_to_db_settings(ops: dict) -> tuple[dict, dict]:
     for section, keys in _SETTINGS_SECTIONS.items():
         bucket: dict[str, Any] = {}
         for key in keys:
-            if key not in lookup:
+            # per-section flat-key disambiguation. e.g. extraction reads
+            # its batch_size from ops["extract_batch_size"] (not
+            # ops["batch_size"]) so registration's batch_size doesn't get
+            # spread into both sections during the flat→structured
+            # derivation. Mirror of the write side in db_settings_to_ops.
+            flat_key = _SECTION_FLAT_RENAMES.get((section, key), key)
+            if flat_key not in lookup:
                 continue
-            value = lookup[key]
+            value = lookup[flat_key]
             if section == "run" and key == "do_registration":
                 value = _ensure_do_registration_int(value)
             if section == "registration" and key == "block_size" and isinstance(value, list):
@@ -316,11 +347,16 @@ def ops_to_db_settings(ops: dict) -> tuple[dict, dict]:
     for key in _DETECTION_TOP_KEYS:
         if key == "algorithm":
             continue
-        if key in lookup:
-            value = lookup[key]
-            if key == "block_size" and isinstance(value, list):
-                value = tuple(value)
-            detection[key] = value
+        # per-section flat-key disambiguation. detection.block_size reads
+        # from ops["det_block_size"] (not ops["block_size"], which holds
+        # the registration block size). Mirror of the write side.
+        flat_key = _SECTION_FLAT_RENAMES.get(("detection", key), key)
+        if flat_key not in lookup:
+            continue
+        value = lookup[flat_key]
+        if key == "block_size" and isinstance(value, list):
+            value = tuple(value)
+        detection[key] = value
 
     sparsery: dict[str, Any] = {}
     for key in _DETECTION_SPARSERY_KEYS:
@@ -410,7 +446,14 @@ def db_settings_to_ops(db: dict | None, settings: dict | None) -> dict:
             value = section_dict[key]
             if section == "dcnv_preprocess" and key == "baseline":
                 value = _BASELINE_UPSTREAM_TO_FORK.get(str(value), value)
-            target_name = _UPSTREAM_TO_FORK_RENAMES.get(key, key)
+            # per-section disambiguation first (e.g. extraction.batch_size
+            # → extract_batch_size to avoid colliding with
+            # registration.batch_size). Fall back to the global
+            # upstream→fork rename map.
+            target_name = _SECTION_FLAT_RENAMES.get(
+                (section, key),
+                _UPSTREAM_TO_FORK_RENAMES.get(key, key),
+            )
             ops[target_name] = value
 
     # mirror align_by_chan2 back to align_by_chan for fork consumers
@@ -423,7 +466,13 @@ def db_settings_to_ops(db: dict | None, settings: dict | None) -> dict:
     for key in _DETECTION_TOP_KEYS:
         if key in detection:
             value = detection[key]
-            target_name = _UPSTREAM_TO_FORK_RENAMES.get(key, key)
+            # per-section disambiguation first (e.g. detection.block_size
+            # → det_block_size to avoid colliding with
+            # registration.block_size).
+            target_name = _SECTION_FLAT_RENAMES.get(
+                ("detection", key),
+                _UPSTREAM_TO_FORK_RENAMES.get(key, key),
+            )
             ops[target_name] = value
 
     # reverse the algorithm → sparse_mode derivation for fork consumers
