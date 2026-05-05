@@ -473,6 +473,7 @@ from lbm_suite2p_python.volume import (
     plot_orthoslices,
     plot_3d_roi_map,
     plot_3d_rastermap_clusters,
+    plot_volume_trace_figures,
     get_volume_stats,
 )
 from mbo_utilities.arrays import (
@@ -1311,6 +1312,19 @@ def run_volume(
                     print(f"Warning: Volumetric rastermap failed: {e}")
                     traceback.print_exc()
 
+            # volume-level trace figures (trace analysis, top-N raw/dF/F,
+            # sorted-activity rastermap.png). runs after plot_3d_rastermap_clusters
+            # so the cached rastermap_model.npy can be reused for the heatmap.
+            try:
+                plot_volume_trace_figures(
+                    ops_files,
+                    save_path,
+                    rastermap_kwargs=volumetric_rastermap_kwargs,
+                )
+            except Exception as e:
+                print(f"Warning: Volume trace figures failed: {e}")
+                traceback.print_exc()
+
         except Exception as e:
             print(f"Warning: Volume statistics failed: {e}")
             traceback.print_exc()
@@ -1644,8 +1658,13 @@ def run_plane_bin(ops) -> bool:
 
     reg_file_chan2 = ops_parent / "data_chan2_reg.bin" if use_chan2 else None
 
-    ops["anatomical_red"] = False
-    ops["chan2_thres"] = 0.1
+    # NOTE: previous versions hard-coded `ops["anatomical_red"] = False`
+    # and `ops["chan2_thres"] = 0.1` here. Both were silently clobbering
+    # the user's settings and the suite2p schema defaults
+    # (detection.chan2_threshold = 0.25). They've been removed — the
+    # user's chan2 threshold now flows through unchanged. If a downstream
+    # consumer needs anatomical_red / chan2_thres, set them explicitly
+    # in the caller's ops dict.
 
     if ops.get("roidetect", True) and ops.get("anatomical_only", 0) > 0:
         # Estimate memory usage for Cellpose detection

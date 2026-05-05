@@ -1099,7 +1099,7 @@ def plot_volume_accepted_rejected_overlay(
         *,
         ncols: int = None,
         figsize: tuple = None,
-        dpi: int = 200,
+        dpi: int = 300,
 ):
     """
     Volumetric version of :func:`plot_accepted_rejected_overlay`.
@@ -1122,7 +1122,7 @@ def plot_volume_accepted_rejected_overlay(
     figsize : tuple, optional
         Figure size. Defaults based on the grid shape.
     dpi : int, optional
-        Output DPI. Default 200.
+        Output DPI. Default 300.
     """
     ops_files = [Path(p) for p in ops_files]
     n_planes = len(ops_files)
@@ -1133,7 +1133,8 @@ def plot_volume_accepted_rejected_overlay(
         ncols = int(np.ceil(np.sqrt(n_planes)))
     nrows = int(np.ceil(n_planes / ncols))
     if figsize is None:
-        figsize = (4 * ncols, 4.4 * nrows)
+        # extra vertical room for two-line per-subplot title
+        figsize = (4 * ncols, 4.8 * nrows)
 
     proj_lookup = {
         0: ("Vcorr", "Correlation Image"),
@@ -1237,38 +1238,40 @@ def plot_volume_accepted_rejected_overlay(
             spine.set_visible(False)
 
         ax.text(
-            0.02, 1.10, f"plane {e['plane']:02d}",
+            0.5, 1.085, f"plane {e['plane']:02d}",
             transform=ax.transAxes,
-            fontsize=10, fontweight="bold", fontname="Courier New",
-            color="white", ha="left", va="bottom",
+            fontsize=11, fontweight="bold", fontname="Courier New",
+            color="white", ha="center", va="bottom",
         )
         ax.text(
-            0.48, 1.10, f"Accepted: {n_acc:03d}",
+            0.49, 1.015, f"Accepted: {n_acc:03d}",
             transform=ax.transAxes,
             fontsize=10, fontweight="bold", fontname="Courier New",
             color="lime", ha="right", va="bottom",
         )
         ax.text(
-            0.52, 1.10, f"Rejected: {n_rej:03d}",
+            0.51, 1.015, f"Rejected: {n_rej:03d}",
             transform=ax.transAxes,
             fontsize=10, fontweight="bold", fontname="Courier New",
             color="red", ha="left", va="bottom",
         )
 
     fig.text(
-        0.49, 0.985,
+        0.49, 0.992,
         f"Total Accepted: {total_accepted:04d}",
         color="lime", fontsize=16, fontweight="bold", fontname="Courier New",
         ha="right", va="top",
     )
     fig.text(
-        0.51, 0.985,
+        0.51, 0.992,
         f"Total Rejected: {total_rejected:04d}",
         color="red", fontsize=16, fontweight="bold", fontname="Courier New",
         ha="left", va="top",
     )
 
-    plt.tight_layout(rect=(0, 0, 1, 0.96))
+    # leave room for fig-level totals at top, and use hspace for two-line per-plot titles
+    plt.tight_layout(rect=(0, 0, 1, 0.965))
+    plt.subplots_adjust(hspace=0.28, wspace=0.05)
 
     if savepath:
         if Path(savepath).is_dir():
@@ -3433,9 +3436,26 @@ def plot_zplane_figures(
                 rastermap, plot_rastermap = None, None
 
             if has_rastermap:
+                import json
                 model_file = expected_files["model"]
                 plot_file = expected_files["rastermap"]
+                params_file = model_file.with_suffix(".params.json")
                 need_recompute = True
+
+                # resolved params include the cell-count-aware defaults plus
+                # any user override; cache reuse requires both n_accepted AND
+                # this dict to match the cached fit. lets the user re-run
+                # with new n_clusters / n_PCs / locality without manually
+                # deleting model.npy.
+                resolved_params = {
+                    "n_clusters": 100 if n_accepted >= 200 else None,
+                    "n_PCs": min(128, max(2, n_accepted - 1)),
+                    "locality": 0.0 if n_accepted >= 200 else 0.1,
+                    "time_lag_window": 15,
+                    "grid_upsample": 10 if n_accepted >= 200 else 0,
+                }
+                if rastermap_kwargs:
+                    resolved_params.update(rastermap_kwargs)
 
                 if model_file.is_file():
                     try:
@@ -3447,31 +3467,53 @@ def plot_zplane_figures(
                         else:
                             cached_isort = None
 
-                        if cached_isort is not None and len(cached_isort) == n_accepted:
-                            model = cached_model
-                            need_recompute = False
-                            print(f"  Using cached rastermap model ({n_accepted} cells)")
-                        else:
+                        cached_params = None
+                        if params_file.is_file():
+                            try:
+                                with open(params_file) as f:
+                                    cached_params = json.load(f)
+                            except (OSError, json.JSONDecodeError):
+                                cached_params = None
+
+                        if cached_isort is None or len(cached_isort) != n_accepted:
                             cached_len = len(cached_isort) if cached_isort is not None else "?"
                             print(f"  Rastermap model stale (cached {cached_len} vs current {n_accepted} cells), recomputing...")
                             model_file.unlink()
+                            params_file.unlink(missing_ok=True)
+                        elif cached_params != resolved_params:
+                            # params drift → recompute and remake the figure
+                            # so the plot reflects the new fit.
+                            print(f"  Rastermap params changed (cached={cached_params}, current={resolved_params}); recomputing.")
+                            model_file.unlink()
+                            params_file.unlink(missing_ok=True)
+                        else:
+                            model = cached_model
+                            need_recompute = False
+                            print(f"  Using cached rastermap model ({n_accepted} cells, params match)")
                     except Exception as e:
                         print(f"  Failed to load cached rastermap model: {e}, recomputing...")
                         model_file.unlink(missing_ok=True)
+                        params_file.unlink(missing_ok=True)
 
                 if need_recompute:
-                    print(f"  Computing rastermap model for {n_accepted} cells...")
-                    params = {
-                        "n_clusters": 100 if n_accepted >= 200 else None,
-                        "n_PCs": min(128, max(2, n_accepted - 1)),
-                        "locality": 0.0 if n_accepted >= 200 else 0.1,
-                        "time_lag_window": 15,
-                        "grid_upsample": 10 if n_accepted >= 200 else 0,
-                    }
-                    if rastermap_kwargs:
-                        params.update(rastermap_kwargs)
-                    model = rastermap.Rastermap(**params).fit(spks_cells)
+                    print(f"  Computing rastermap model for {n_accepted} cells with params {resolved_params}...")
+                    model = rastermap.Rastermap(**resolved_params).fit(spks_cells)
                     np.save(model_file, model)
+                    try:
+                        with open(params_file, "w") as f:
+                            json.dump(resolved_params, f, indent=2)
+                    except OSError as e:
+                        print(f"  Warning: could not write rastermap params sidecar: {e}")
+                    # force remake of the rastermap PNG so the figure
+                    # reflects the new fit (the unconditional unlink at the
+                    # top of plot_zplane_figures already covers fresh runs;
+                    # this guards a stale png from a prior aborted run that
+                    # left model.npy out of sync).
+                    if plot_file.is_file():
+                        try:
+                            plot_file.unlink()
+                        except OSError:
+                            pass
 
                 if model is not None and not plot_file.is_file():
                     plot_rastermap(

@@ -1884,3 +1884,207 @@ def plot_3d_rastermap_clusters(
         plt.show()
 
     return fig
+
+
+def plot_volume_trace_figures(
+    ops_files,
+    save_path: str | Path,
+    *,
+    cell_counts=(20, 50, 100),
+    rastermap_kwargs: dict = None,
+    dff_percentile: int = 8,
+    dff_window_size: int = None,
+    dff_smooth_window: int = None,
+):
+    """
+    Volume-level trace figures: trace-quality extremes, top-N raw + dF/F
+    stacks, and the sorted-activity rastermap heatmap.
+
+    Stacks F/Fneu/spks/stat across all planes (with iplane stamped on each
+    stat dict from the source plane index), filters to accepted ROIs, and
+    produces:
+
+    - ``volume_trace_analysis.png`` — :func:`plot_trace_analysis` 6-panel
+      extremes by SNR / shot noise / skewness, drawn from the volume.
+    - ``volume_traces_raw_{N}.png`` and ``volume_traces_dff_{N}.png`` for
+      each ``N`` in ``cell_counts`` — top-N accepted cells by quality
+      score, raw and rolling-percentile dF/F.
+    - ``rastermap.png`` — sorted-activity heatmap, if either a saved
+      ``rastermap_model.npy`` exists in ``save_path`` (written by
+      :func:`plot_3d_rastermap_clusters`) or ``rastermap_kwargs`` is
+      provided so a model can be fit here.
+
+    Parameters
+    ----------
+    ops_files : list of str or Path
+        Per-plane ops.npy paths.
+    save_path : str or Path
+        Directory in which figures are written.
+    cell_counts : tuple of int
+        Top-N cell counts to plot. Each value yields one raw + one dF/F PNG.
+    rastermap_kwargs : dict, optional
+        If no cached model is found, a Rastermap model is fit with these
+        kwargs (merged over count-aware defaults). If None and no cached
+        model exists, the rastermap heatmap is skipped.
+    dff_percentile, dff_window_size, dff_smooth_window
+        Forwarded to :func:`dff_rolling_percentile`.
+    """
+    from types import SimpleNamespace
+    from lbm_suite2p_python.postprocessing import (
+        load_planar_results,
+        compute_trace_quality_score,
+        dff_rolling_percentile,
+    )
+    from lbm_suite2p_python.zplane import (
+        plot_traces,
+        plot_trace_analysis,
+        plot_rastermap,
+    )
+
+    save_path = Path(save_path)
+    save_path.mkdir(parents=True, exist_ok=True)
+
+    F_list, Fneu_list, spks_list = [], [], []
+    stat_list, iscell_list = [], []
+    for plane_idx, ops_file in enumerate(ops_files):
+        try:
+            res = load_planar_results(ops_file, z_plane=plane_idx)
+        except Exception as e:
+            print(f"  Warning: skipping {ops_file}: {e}")
+            continue
+        # stamp iplane on every stat dict so plot_trace_analysis can label
+        # each extreme by source plane
+        for s in res["stat"]:
+            if "iplane" not in s:
+                s["iplane"] = plane_idx
+        F_list.append(res["F"])
+        Fneu_list.append(res["Fneu"])
+        spks_list.append(res["spks"])
+        stat_list.append(res["stat"])
+        iscell_list.append(res["iscell"])
+
+    if not F_list:
+        print("  Warning: no plane results loaded; skipping volume trace figures")
+        return
+
+    # truncate to common frame count (frame counts can differ across planes
+    # if registration cropped them differently)
+    n_frames = min(F.shape[1] for F in F_list)
+    F = np.concatenate([f[:, :n_frames] for f in F_list], axis=0)
+    Fneu = np.concatenate([fn[:, :n_frames] for fn in Fneu_list], axis=0)
+    spks = np.concatenate([sp[:, :n_frames] for sp in spks_list], axis=0)
+    stat = np.array([s for arr in stat_list for s in arr], dtype=object)
+    iscell = np.vstack(iscell_list)
+
+    first_ops = load_ops(ops_files[0])
+    fs = float(first_ops.get("fs", 17.0) or 17.0)
+    tau = float(first_ops.get("tau", 1.0) or 1.0)
+
+    iscell_mask = iscell[:, 0].astype(bool)
+    n_accepted = int(iscell_mask.sum())
+    if n_accepted == 0:
+        print("  Warning: no accepted ROIs in volume; skipping trace figures")
+        return
+
+    # 1) trace analysis
+    try:
+        plot_trace_analysis(
+            F=F,
+            Fneu=Fneu,
+            stat=stat,
+            iscell=iscell,
+            ops=first_ops,
+            save_path=save_path / "volume_trace_analysis.png",
+        )
+    except Exception as e:
+        print(f"  Warning: plot_trace_analysis failed: {e}")
+
+    # 2) top-N raw + dF/F by quality
+    F_acc = F[iscell_mask]
+    Fneu_acc = Fneu[iscell_mask]
+    stat_acc = [s for s, m in zip(stat, iscell_mask) if m]
+
+    try:
+        dffp = dff_rolling_percentile(
+            F_acc - 0.7 * Fneu_acc,
+            percentile=dff_percentile,
+            window_size=dff_window_size,
+            smooth_window=dff_smooth_window,
+            fs=fs,
+            tau=tau,
+        ) * 100
+
+        quality = compute_trace_quality_score(F_acc, Fneu=Fneu_acc, stat=stat_acc, fs=fs)
+        sort_idx = quality["sort_idx"]
+        F_sorted = F_acc[sort_idx]
+        dffp_sorted = dffp[sort_idx]
+
+        for n_cells in cell_counts:
+            n = min(int(n_cells), n_accepted)
+            plot_traces(
+                dffp_sorted,
+                save_path=save_path / f"volume_traces_dff_{n_cells}.png",
+                num_neurons=n,
+                fps=fs,
+                scale_bar_unit=r"% $\Delta$F/F$_0$",
+                title=rf"Volume Top {n} $\Delta$F/F Traces by Quality (n={n_accepted} total)",
+            )
+            plot_traces(
+                F_sorted,
+                save_path=save_path / f"volume_traces_raw_{n_cells}.png",
+                num_neurons=n,
+                fps=fs,
+                scale_bar_unit="a.u.",
+                title=f"Volume Top {n} Raw Traces by Quality (n={n_accepted} total)",
+            )
+    except Exception as e:
+        print(f"  Warning: volume top-N traces failed: {e}")
+
+    # 3) sorted-activity rastermap heatmap
+    try:
+        spks_acc = spks[iscell_mask]
+        model = None
+
+        cached_path = save_path / "rastermap_model.npy"
+        if cached_path.exists():
+            try:
+                cached = np.load(cached_path, allow_pickle=True).item()
+                isort = getattr(cached, "isort", None) if not isinstance(cached, dict) else cached.get("isort")
+                if isort is not None and len(isort) == n_accepted:
+                    model = cached if not isinstance(cached, dict) else SimpleNamespace(**cached)
+                    print(f"  Using cached rastermap model ({n_accepted} cells)")
+                else:
+                    print("  Cached rastermap model size mismatch, refitting")
+            except Exception as e:
+                print(f"  Failed to load cached rastermap model: {e}")
+
+        if model is None and rastermap_kwargs is not None:
+            try:
+                from rastermap import Rastermap
+                params = {
+                    "n_clusters": 100 if n_accepted >= 200 else None,
+                    "n_PCs": min(200, max(2, n_accepted - 1)),
+                    "locality": 0.0 if n_accepted >= 200 else 0.1,
+                    "time_lag_window": 15,
+                    "grid_upsample": 10 if n_accepted >= 200 else 0,
+                }
+                if rastermap_kwargs:
+                    params.update(rastermap_kwargs)
+                print(f"  Fitting rastermap on volume ({n_accepted} cells)...")
+                model = Rastermap(**params).fit(spks_acc.astype("float32"))
+                np.save(cached_path, model)
+            except ImportError:
+                print("  rastermap not installed; skipping rastermap.png")
+
+        if model is not None:
+            plot_rastermap(
+                spks_acc,
+                model,
+                neuron_bin_size=0,
+                fps=fs,
+                save_path=save_path / "rastermap.png",
+                title="Volume Rastermap Sorted Activity",
+                title_kwargs={"fontsize": 10, "y": 0.95},
+            )
+    except Exception as e:
+        print(f"  Warning: volume rastermap heatmap failed: {e}")
