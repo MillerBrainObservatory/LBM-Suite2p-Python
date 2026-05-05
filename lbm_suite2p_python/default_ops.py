@@ -1,219 +1,73 @@
-"""MBO Default ops"""
+"""Default ops for the LBM pipeline.
+
+Historically this module hard-coded a flat ops dict whose values
+diverged from suite2p's own defaults in a handful of fields
+(`batch_size=500`, `chan2_thres=0.65`, `tau=1.3`, `diameter=4`, etc.).
+That divergence made the round-trip through `settings.npy` confusing —
+on-disk values that matched the lsp default were flagged as "modified"
+against suite2p's schema, and vice versa.
+
+This module now exposes exactly suite2p's defaults (the values from
+`suite2p.default_settings()` + `suite2p.default_db()`), flattened to the
+fork's flat-ops shape via the same `db_settings_to_ops` translation
+that the rest of lsp uses. There is now ONE source of truth for "what
+default means": suite2p's parameter schema. Any LBM-specific tweaks
+(diameter, tau, etc.) belong in user code, not in the default.
+"""
 
 from mbo_utilities.metadata import get_param, get_voxel_size
 
 
-def s2p_ops():
-    """ default options to run pipeline """
-    return {
-        # file input/output settings
-        "look_one_level_down":
-            False,  # whether to look in all subfolders when searching for tiffs
-        "fast_disk": [],  # used to store temporary binary file, defaults to save_path0
-        "delete_bin": False,  # whether to delete binary file after processing
-        "mesoscan": False,  # for reading in scanimage mesoscope files
-        "bruker": False,  # whether or not single page BRUKER tiffs!
-        "bruker_bidirectional":
-            False,  # bidirectional multiplane in bruker: 0, 1, 2, 2, 1, 0 (True) vs 0, 1, 2, 0, 1, 2 (False)
-        "h5py": [],  # take h5py as input (deactivates data_path)
-        "h5py_key": "data",  # key in h5py where data array is stored
-        "nwb_file": "",  # take nwb file as input (deactivates data_path)
-        "nwb_driver": "",  # driver for nwb file (nothing if file is local)
-        "nwb_series":
-            "",  # TwoPhotonSeries name, defaults to first TwoPhotonSeries in nwb file
-        "save_path0": '',  # pathname where you'd like to store results, defaults to first item in data_path
-        "save_folder": [],  # directory you"d like suite2p results to be saved to
-        "subfolders": [
-        ],  # subfolders you"d like to search through when look_one_level_down is set to True
-        "move_bin":
-            False,  # if 1, and fast_disk is different than save_disk, binary file is moved to save_disk
+def s2p_ops() -> dict:
+    """Suite2p's default ops in flat (fork-style) form.
 
-        # main settings
-        "nplanes": 1,  # each tiff has these many planes in sequence
-        "nchannels": 1,  # each tiff has these many channels per plane
-        "functional_chan":
-            1,  # this channel is used to extract functional ROIs (1-based)
-        "tau": 1.3,  # this is the main parameter for deconvolution
-        "fs":
-            10.,  # sampling rate (PER PLANE e.g. for 12 plane recordings it will be around 2.5)
-        "force_sktiff": False,  # whether or not to use scikit-image for tiff reading
-        "frames_include": -1,
-        "multiplane_parallel": False,  # whether or not to run on server
-        "ignore_flyback": [],
-
-        # output settings
-        "preclassify":
-            0.0,  # apply classifier before signal extraction with probability 0.3
-        "save_mat": False,  # whether to save output as matlab files
-        "save_NWB": False,  # whether to save output as NWB file
-        "combined":
-            True,  # combine multiple planes into a single result /single canvas for GUI
-        "aspect":
-            1.0,  # um/pixels in X / um/pixels in Y (for correct aspect ratio in GUI)
-
-        # bidirectional phase offset
-        "do_bidiphase":
-            False,  # whether or not to compute bidirectional phase offset (applies to 2P recordings only)
-        "bidiphase":
-            0,  # Bidirectional Phase offset from line scanning (set by user). Applied to all frames in recording.
-        "bidi_corrected":
-            False,  # Whether to do bidirectional correction during registration
-
-        # registration settings
-        "do_registration": True,  # whether to register data (2 forces re-registration)
-        "two_step_registration":
-            False,
-        # whether or not to run registration twice (useful for low SNR data). Set keep_movie_raw to True if setting this parameter to True.
-        "keep_movie_raw":
-            False,  # whether to keep binary file of non-registered frames.
-        "nimg_init": 300,  # subsampled frames for finding reference image
-        "batch_size": 500,  # number of frames per batch
-        "maxregshift":
-            0.1,  # max allowed registration shift, as a fraction of frame max(width and height)
-        "align_by_chan":
-            1,  # when multi-channel, you can align by non-functional channel (1-based)
-        "reg_tif": False,  # whether to save registered tiffs
-        "reg_tif_chan2": False,  # whether to save channel 2 registered tiffs
-        "subpixel": 10,  # precision of subpixel registration (1/subpixel steps)
-        "smooth_sigma_time": 0,  # gaussian smoothing in time
-        "smooth_sigma":
-            1.15,  # ~1 good for 2P recordings, recommend 3-5 for 1P recordings
-        "th_badframes":
-            1.0,
-        # this parameter determines which frames to exclude when determining cropping - set it smaller to exclude more frames
-        "norm_frames": True,  # normalize frames when detecting shifts
-        "force_refImg": False,  # if True, use refImg stored in ops if available
-        "pad_fft": False,  # if True, pads image during FFT part of registration
-
-        # non rigid registration settings
-        "nonrigid": True,  # whether to use nonrigid registration
-        "block_size": [128,
-                       128],  # block size to register (** keep this a multiple of 2 **)
-        "snr_thresh":
-            1.2,
-        # if any nonrigid block is below this threshold, it gets smoothed until above this threshold. 1.0 results in no smoothing
-        "maxregshiftNR":
-            5,  # maximum pixel shift allowed for nonrigid, relative to rigid
-
-        # 1P settings
-        "1Preg": False,  # whether to perform high-pass filtering and tapering
-        "spatial_hp_reg":
-            42,  # window for spatial high-pass filtering before registration
-        "pre_smooth":
-            0,  # whether to smooth before high-pass filtering before registration
-        "spatial_taper":
-            40,
-        # how much to ignore on edges (important for vignetted windows, for FFT padding do not set BELOW 3*ops["smooth_sigma"])
-
-        # cell detection settings with suite2p
-        "roidetect": True,  # whether or not to run ROI extraction
-        "spikedetect": True,  # whether or not to run spike deconvolution
-        "sparse_mode": True,  # whether or not to run sparse_mode
-        "spatial_scale":
-            1,  # 0: multi-scale; 1: 6 pixels, 2: 12 pixels, 3: 24 pixels, 4: 48 pixels
-        "connected":
-            True,  # whether or not to keep ROIs fully connected (set to 0 for dendrites)
-        "nbinned": 5000,  # max number of binned frames for cell detection
-        "max_iterations": 20,  # maximum number of iterations to do cell detection
-        "threshold_scaling":
-            1.0,  # adjust the automatically determined threshold by this scalar multiplier
-        "max_overlap":
-            0.75,  # cells with more overlap than this get removed during triage, before refinement
-        # disable upstream's npix_norm filter (suite2p>=1.0.0.x) — its
-        # detect.py call site applies 0.0/100.0 if these aren't set, which
-        # culls 100x-median-sized ROIs. suite2p_mbo had no such filter and
-        # LBM cells at diameter=4 trip the upper bound when many small
-        # cells skew the median low. -1 / inf mirrors roi_stats's own
-        # function-level defaults (effectively off).
-        "npix_norm_min": -1.0,
-        "npix_norm_max": float("inf"),
-        "high_pass":
-            100,  # running mean subtraction across bins with a window of size "high_pass" (use low values for 1P)
-        "spatial_hp_detect":
-            25,  # window for spatial high-pass filtering for neuropil subtraction before detection
-        "denoise": False,  # denoise binned movie for cell detection in sparse_mode
-
-        # cell detection settings with cellpose (used if anatomical_only > 0)
-        "anatomical_only":
-            3,
-        # run cellpose to get masks on 1: max_proj / mean_img; 2: mean_img; 3: mean_img enhanced, 4: max_proj
-        "diameter": 4,  # LBM default cell diameter in pixels (cellpose estimates if 0)
-        "cellprob_threshold": -6,  # permissive LBM default for cellpose (upstream is 0.0)
-        "flow_threshold": 0,  # flow_threshold for cellpose (0 = flow-check disabled)
-        "spatial_hp_cp": 0.5,  # high-pass image spatially by a multiple of the diameter
-        # cellpose model: 'cpsam' (default) or path to custom model trained with lsp.train_cellpose()
-        # note: only cpsam-based models are currently supported
-        "pretrained_model": "cpsam",
-
-        # classification parameters
-        "soma_crop":
-            True,  # crop dendrites for cell classification stats like compactness
-        # ROI extraction parameters
-        "neuropil_extract":
-            True,  # whether or not to extract neuropil; if False, Fneu is set to zero
-        "inner_neuropil_radius":
-            2,  # number of pixels to keep between ROI and neuropil donut
-        "min_neuropil_pixels": 350,  # minimum number of pixels in the neuropil
-        "lam_percentile":
-            50.,  # percentile of lambda within area to ignore when excluding cell pixels for neuropil extraction
-        "allow_overlap":
-            False,  # pixels that are overlapping are thrown out (False) or added to both ROIs (True)
-        "use_builtin_classifier":
-            False,  # whether or not to use built-in classifier for cell detection (overrides
-        # classifier specified in classifier_path if set to True)
-        "classifier_path": "",  # path to classifier
-
-        # channel 2 detection settings (stat[n]["chan2"], stat[n]["not_chan2"])
-        "chan2_thres": 0.65,  # minimum for detection of brightness on channel 2
-
-        # deconvolution settings
-        "baseline": "maximin",  # baselining mode (can also choose "prctile")
-        "win_baseline": 60.,  # window for maximin
-        "sig_baseline": 10.,  # smoothing constant for gaussian filter
-        "prctile_baseline": 8.,  # optional (whether to use a percentile baseline)
-        "neucoeff": 0.7,  # neuropil coefficient
-    }
-
-
-def default_ops(metadata=None, ops=None):
+    Composed from `suite2p.default_settings()` + `suite2p.default_db()`
+    via `db_settings_to_ops`, so the rename map and per-section
+    flat-key disambiguation (e.g. extraction.batch_size →
+    extract_batch_size) are applied consistently.
     """
-    Returns default ops for Suite2P processing on Light Beads Microscopy datasets.
+    from suite2p import default_settings, default_db
+    from lbm_suite2p_python.db_settings import db_settings_to_ops
 
-    Main changes to defaults:
+    return db_settings_to_ops(default_db(), default_settings())
 
-        anatomical_only=3
-        diameter=4
-        spatial_hp_cp=0.5
-        cellprob_threshold=-6
-        flow_threshold=0
-        spatial_scale=1
-        tau=1.3
+
+def default_ops(metadata: dict | None = None, ops: dict | None = None) -> dict:
+    """Return default ops for the LBM Suite2p pipeline.
 
     Parameters
     ----------
     metadata : dict, optional
-        Metadata dictionary containing information about the dataset.
-    ops : dict, str or Path, optional
-        Path to or dict of suite2p ops.
+        Source-data metadata. When provided, `fs` and the (`dx`, `dy`)
+        voxel-size pair are pulled in from the metadata and overlaid
+        onto the suite2p defaults.
+    ops : dict, optional
+        A user-supplied ops dict to start from. When None, starts from
+        `s2p_ops()` (suite2p's defaults).
 
     Returns
     -------
     dict
-        Default ops for Suite2P processing.
+        Flat ops dict ready to be passed to `pipeline()` / `run_plane()`.
+
+    Notes
+    -----
+    `nplanes=1` and `nchannels=1` are forced at the end. The lsp
+    pipeline always processes one plane at a time, so these stay fixed
+    regardless of caller input.
 
     Examples
     --------
     >>> import lbm_suite2p_python as lsp
-    >>> metadata = mbo.get_metadata("D://demo//raw_data//raw_file_00001.tif")  # noqa
+    >>> ops = lsp.default_ops()
     >>> lsp.run_plane(
-    >>>    ops=ops,
-    >>>    input_tiff="D://demo//raw_data//raw_file_00001.tif",
-    >>>    save_path="D://demo//results",
-    >>>    save_folder="v1"
-    >>> )
+    ...     ops=ops,
+    ...     input_tiff="D:/demo/raw_data/raw_file_00001.tif",
+    ...     save_path="D:/demo/results",
+    ...     save_folder="v1",
+    ... )
     """
     if ops is None:
-        print("Importing suite2p packages...")
         ops = s2p_ops()
 
     if metadata is not None:

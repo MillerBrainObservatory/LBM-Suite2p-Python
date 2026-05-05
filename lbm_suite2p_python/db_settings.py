@@ -199,7 +199,7 @@ _UPSTREAM_TO_FORK_RENAMES = {v: k for k, v in _FORK_TO_UPSTREAM_RENAMES.items()}
 # Discovered collisions (audit via _SETTINGS_SECTIONS + detection groups):
 #   "batch_size" — registration vs extraction.
 #                  registration keeps the legacy flat name "batch_size"
-#                  (matches lsp's default_ops + historical fork ops);
+#                  (matches the historical fork ops shape);
 #                  extraction gets "extract_batch_size".
 #   "block_size" — registration vs detection (suite2p uses the same
 #                  upstream key for the rigid-block geometry AND the
