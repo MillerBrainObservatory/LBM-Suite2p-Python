@@ -838,10 +838,7 @@ def plot_volume_diagnostics(
     gs = fig.add_gridspec(3, 2, hspace=0.35, wspace=0.25,
                           left=0.08, right=0.95, top=0.93, bottom=0.08)
 
-    # Color palette for planes
     n_planes = len(planes)
-    cmap = plt.cm.viridis
-    plane_colors = {p: cmap(i / max(1, n_planes - 1)) for i, p in enumerate(planes)}
 
     # Panel 1: ROI counts per plane
     ax1 = fig.add_subplot(gs[0, 0])
@@ -1207,9 +1204,9 @@ def plot_orthoslices(
     # panel 2: XZ projection
     ax2 = fig.add_subplot(gs[0, 1])
     ax2.set_facecolor("black")
-    im2 = ax2.imshow(xz_proj, cmap="magma", aspect="auto", extent=xz_extent,
-                     vmin=np.percentile(xz_proj, 1), vmax=np.percentile(xz_proj, 99.5),
-                     interpolation=imshow_interp)
+    ax2.imshow(xz_proj, cmap="magma", aspect="auto", extent=xz_extent,
+               vmin=np.percentile(xz_proj, 1), vmax=np.percentile(xz_proj, 99.5),
+               interpolation=imshow_interp)
     ax2.set_xlabel("X (μm)", fontsize=10, fontweight="bold", color="white")
     ax2.set_ylabel("Z (μm)", fontsize=10, fontweight="bold", color="white")
     ax2.set_title("XZ Projection", fontsize=11, fontweight="bold", color="white")
@@ -1220,9 +1217,9 @@ def plot_orthoslices(
     # panel 3: YZ projection
     ax3 = fig.add_subplot(gs[0, 2])
     ax3.set_facecolor("black")
-    im3 = ax3.imshow(yz_proj.T, cmap="magma", aspect="auto", extent=yz_extent,
-                     vmin=np.percentile(yz_proj, 1), vmax=np.percentile(yz_proj, 99.5),
-                     interpolation=imshow_interp)
+    ax3.imshow(yz_proj.T, cmap="magma", aspect="auto", extent=yz_extent,
+               vmin=np.percentile(yz_proj, 1), vmax=np.percentile(yz_proj, 99.5),
+               interpolation=imshow_interp)
     ax3.set_xlabel("Z (μm)", fontsize=10, fontweight="bold", color="white")
     ax3.set_ylabel("Y (μm)", fontsize=10, fontweight="bold", color="white")
     ax3.set_title("YZ Projection", fontsize=11, fontweight="bold", color="white")
@@ -1330,7 +1327,6 @@ def plot_3d_roi_map(
 
     for plane_idx, ops_file in enumerate(ops_files):
         ops_file = Path(ops_file)
-        ops = load_ops(ops_file)
         plane_dir = ops_file.parent
 
         # Use enumeration index for z-depth (planes are ordered)
@@ -1802,7 +1798,9 @@ def plot_3d_rastermap_clusters(
                 "embedding": model.embedding,
                 "isort": model.isort,
                 "embedding_clust": model.embedding_clust,
-                "n_clusters": model.n_clusters,
+                "n_clusters": getattr(model, "n_clusters", None),
+                "n_PCs": getattr(model, "n_PCs", None),
+                "locality": getattr(model, "locality", None),
             }
             save_model_path = suite2p_path / "rastermap_model.npy"
             np.save(save_model_path, model_save)
@@ -1895,6 +1893,7 @@ def plot_volume_trace_figures(
     dff_percentile: int = 8,
     dff_window_size: int = None,
     dff_smooth_window: int = None,
+    correct_neuropil: bool = True,
 ):
     """
     Volume-level trace figures: trace-quality extremes, top-N raw + dF/F
@@ -2005,8 +2004,9 @@ def plot_volume_trace_figures(
     stat_acc = [s for s, m in zip(stat, iscell_mask) if m]
 
     try:
+        F_for_dff = (F_acc - 0.7 * Fneu_acc) if correct_neuropil else F_acc
         dffp = dff_rolling_percentile(
-            F_acc - 0.7 * Fneu_acc,
+            F_for_dff,
             percentile=dff_percentile,
             window_size=dff_window_size,
             smooth_window=dff_smooth_window,
@@ -2014,7 +2014,12 @@ def plot_volume_trace_figures(
             tau=tau,
         ) * 100
 
-        quality = compute_trace_quality_score(F_acc, Fneu=Fneu_acc, stat=stat_acc, fs=fs)
+        quality = compute_trace_quality_score(
+            F_acc,
+            Fneu=(Fneu_acc if correct_neuropil else None),
+            stat=stat_acc,
+            fs=fs,
+        )
         sort_idx = quality["sort_idx"]
         F_sorted = F_acc[sort_idx]
         dffp_sorted = dffp[sort_idx]

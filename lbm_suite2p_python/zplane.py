@@ -3,7 +3,6 @@ from typing import Tuple
 
 import numpy as np
 import pandas as pd
-import tifffile
 import math
 
 import matplotlib.offsetbox
@@ -139,7 +138,6 @@ class AnchoredHScaleBar(matplotlib.offsetbox.AnchoredOffsetbox):
             linekw = {}
         if ax is None:
             ax = plt.gca()
-        # trans = ax.get_xaxis_transform()
         trans = ax.transAxes
 
         size_bar = matplotlib.offsetbox.AuxTransformBox(trans)
@@ -307,6 +305,7 @@ def plot_traces(
         cmap="tab10",
         scale_bar_unit: str = None,
         mask_overlap: bool = True,
+        fig_text: str = None,
 ) -> None:
     """
     Plot stacked fluorescence traces with automatic offset and scale bars.
@@ -412,10 +411,7 @@ def plot_traces(
     perm = get_color_permutation(displayed_neurons)
     colors = colors[perm]
 
-    # fig, ax = plt.subplots(figsize=(10, 6), facecolor="black")
-    # ax.set_facecolor("black")
-
-    # Build shifted traces array (no masking - let z-order handle overlap)
+    # build shifted traces array (no masking — let z-order handle overlap)
     shifted_traces = np.zeros((displayed_neurons, current_frame + 1))
     for i in range(displayed_neurons):
         trace = f[indices[i], : current_frame + 1]
@@ -544,6 +540,14 @@ def plot_traces(
         labelpad=5,
     )
 
+    if fig_text:
+        fig.text(
+            0.02, 0.02, fig_text,
+            ha="left", va="bottom",
+            color="#bbbbbb", fontsize=8, fontname="Courier New",
+            transform=fig.transFigure,
+        )
+
     if save_path:
         plt.savefig(save_path, dpi=200, facecolor=fig.get_facecolor())
         plt.close(fig)
@@ -619,7 +623,6 @@ def animate_traces(
     n_total, n_timepoints = f.shape
     data_time = np.arange(n_timepoints) / fps
     total_duration = data_time[-1]
-    window_frames = int(window * fps)
 
     # select neurons
     if cell_indices is None:
@@ -729,13 +732,13 @@ def animate_traces(
     time_bar_x = ax_pos.x1 - 0.02
     time_bar_y = 0.07
     line_width_fig = 0.08
-    time_line = fig.add_artist(plt.Line2D(
+    fig.add_artist(plt.Line2D(
         [time_bar_x - line_width_fig, time_bar_x],
         [time_bar_y, time_bar_y],
         transform=fig.transFigure,
         color="white", linewidth=3, clip_on=False,
     ))
-    time_text = fig.text(
+    fig.text(
         time_bar_x - line_width_fig / 2, time_bar_y - 0.02,
         time_label, ha="center", va="top",
         color="white", fontsize=10, transform=fig.transFigure,
@@ -872,8 +875,9 @@ def plot_masks(
         Title string to place on the figure.
     ops : dict, optional
         Suite2p ops dictionary. When provided together with ``proj_key``,
-        the image is cropped to the valid (non-zero-padded) region and
-        stat coordinates are translated into the cropped-image space.
+        stat coordinates are translated into the image's space (using
+        ``yrange`` / ``xrange`` for pre-cropped projections like
+        ``max_proj`` / ``Vcorr``).
     proj_key : str, optional
         Projection key that ``img`` was taken from (e.g. ``"meanImg"``,
         ``"max_proj"``). Required alongside ``ops`` to select the correct
@@ -1349,11 +1353,9 @@ def plot_projection(
         output_directory = Path(output_directory)
 
     data = ops[proj]
-    # crop to the valid (non-padded) region. max_proj/Vcorr are already
-    # sliced by suite2p to yrange/xrange — further cropping them with
-    # yrange again would cut into real data. _crop_projection_to_valid
-    # handles both spaces and also returns the full-frame offset used to
-    # align mask overlays.
+    # max_proj/Vcorr are pre-cropped by suite2p to yrange/xrange; the
+    # helper computes the offsets needed to align mask overlays with
+    # full-frame stat coordinates and returns the image unchanged.
     _full_Ly, _full_Lx = data.shape[:2]
     data, _stat_yoff, _stat_xoff = _crop_projection_to_valid(ops, data, proj)
     shape = data.shape
@@ -1698,7 +1700,17 @@ def plot_rastermap(
     )
 
     if fig_text is None:
-        fig_text = f"Neurons: {spks.shape[0]}, Superneurons: {sn.shape[0]}, n_clusters: {model.n_PCs}, n_PCs: {model.n_clusters}, locality: {model.locality}"
+        n_clusters = getattr(model, "n_clusters", None)
+        n_PCs = getattr(model, "n_PCs", None)
+        locality = getattr(model, "locality", None)
+        parts = [f"Neurons: {spks.shape[0]}", f"Superneurons: {sn.shape[0]}"]
+        if n_clusters is not None:
+            parts.append(f"n_clusters: {n_clusters}")
+        if n_PCs is not None:
+            parts.append(f"n_PCs: {n_PCs}")
+        if locality is not None:
+            parts.append(f"locality: {locality}")
+        fig_text = ", ".join(parts)
 
     fig.text(
         x=(heatmap_pos.x0 + heatmap_pos.x1) / 2,
@@ -1722,126 +1734,6 @@ def plot_rastermap(
         plt.show()
 
     return fig, ax
-
-
-def save_pc_panels_and_metrics(ops, savepath, pcs=(0, 1, 2, 3)):
-    """
-    Save PC metrics in two forms:
-    1. Alternating TIFF (PC Low/High side-by-side per frame, press play in ImageJ to flip).
-    2. Panel TIFF (static figures for PC1/2 and PC3/4).
-    Also saves summary metrics as CSV.
-
-    Parameters
-    ----------
-    ops : dict or str or Path
-        Suite2p ops dict or path to ops.npy. Must contain "regPC" and "regDX".
-    savepath : str or Path
-        Output file stem (without extension).
-    pcs : tuple of int
-        PCs to include (default first four).
-    """
-    if not isinstance(ops, dict):
-        ops = np.load(ops, allow_pickle=True).item()
-
-    if "nframes" in ops and ops["nframes"] < 1500:
-        print(
-            f"1500 frames needed for registration metrics, found {ops['nframes']}. Skipping PC metrics."
-        )
-        return {}
-    elif "regPC" not in ops or "regDX" not in ops:
-        print("regPC or regDX not found in ops, skipping PC metrics.")
-        return {}
-    elif len(pcs) != 4 or any(p < 0 for p in pcs):
-        raise ValueError(
-            "pcs must be a tuple of four non-negative integers."
-            " E.g., (0, 1, 2, 3) for the first four PCs."
-            f" Got: {pcs}"
-        )
-
-    regPC = ops["regPC"]  # shape (2, nPC, Ly, Lx) in full-frame space
-    regDX = ops["regDX"]  # shape (nPC, 3 or 4)
-    savepath = Path(savepath)
-
-    # crop PC panels to the valid (non-padded) region so the saved TIFF
-    # doesn't include zero-padded borders from axial alignment.
-    _full_Ly = regPC.shape[2]
-    _full_Lx = regPC.shape[3]
-    _yr = ops.get("yrange") or [0, _full_Ly]
-    _xr = ops.get("xrange") or [0, _full_Lx]
-    _y0 = max(0, min(int(_yr[0]), _full_Ly))
-    _y1 = max(_y0, min(int(_yr[1]), _full_Ly))
-    _x0 = max(0, min(int(_xr[0]), _full_Lx))
-    _x1 = max(_x0, min(int(_xr[1]), _full_Lx))
-
-    alt_frames = []
-    alt_labels = []
-    for view, view_name in zip([0, 1], ["Low", "High"]):
-        # side-by-side: PC1 | PC2
-        left = regPC[view, pcs[0]][_y0:_y1, _x0:_x1]
-        right = regPC[view, pcs[1]][_y0:_y1, _x0:_x1]
-        combined = np.hstack([left, right])
-        alt_frames.append(combined.astype(np.float32))
-        alt_labels.append(f"PC{pcs[0] + 1}/{pcs[1] + 1} {view_name}")
-
-        # side-by-side: PC3 | PC4
-        left = regPC[view, pcs[2]][_y0:_y1, _x0:_x1]
-        right = regPC[view, pcs[3]][_y0:_y1, _x0:_x1]
-        combined = np.hstack([left, right])
-        alt_frames.append(combined.astype(np.float32))
-        alt_labels.append(f"PC{pcs[2] + 1}/{pcs[3] + 1} {view_name}")
-
-    panel_frames = []
-    panel_labels = []
-    for left, right in [(pcs[0], pcs[1]), (pcs[2], pcs[3])]:
-        for view, view_name in zip([0, 1], ["Low", "High"]):
-            fig, axes = plt.subplots(1, 2, figsize=(10, 5))
-            axes[0].imshow(regPC[view, left][_y0:_y1, _x0:_x1], cmap="gray")
-            axes[0].set_title(f"PC{left + 1} {view_name}")
-            axes[0].axis("off")
-            axes[1].imshow(regPC[view, right][_y0:_y1, _x0:_x1], cmap="gray")
-            axes[1].set_title(f"PC{right + 1} {view_name}")
-            axes[1].axis("off")
-            fig.tight_layout()
-            fig.canvas.draw()
-            img = np.frombuffer(fig.canvas.buffer_rgba(), dtype=np.uint8)  # noqa
-            w, h = fig.canvas.get_width_height()
-            img = img.reshape((h, w, 4))[..., :3]
-            panel_frames.append(img)
-            panel_labels.append(f"PC{left + 1}/{right + 1} {view_name}")
-            plt.close(fig)
-
-    panel_tiff = savepath.with_name(savepath.stem + "_panels.tif")
-    tifffile.imwrite(
-        panel_tiff,
-        np.stack(panel_frames, axis=0),
-        imagej=True,
-        metadata={"Labels": panel_labels},
-    )
-
-    # upstream widened regDX from 3 cols (Rigid, Avg_NR, Max_NR) to 4 cols
-    # (adding Avg_Combined = mean rigid+nonrigid). accept either shape.
-    regDX = np.asarray(regDX)
-    cols = ["Rigid", "Avg_NR", "Max_NR", "Avg_Combined"][: regDX.shape[1]]
-    df = pd.DataFrame(regDX, columns=cols)
-    metrics = {
-        "Avg_Rigid": df["Rigid"].mean(),
-        "Avg_Average_NR": df["Avg_NR"].mean(),
-        "Avg_Max_NR": df["Max_NR"].mean(),
-        "Max_Rigid": df["Rigid"].max(),
-        "Max_Average_NR": df["Avg_NR"].max(),
-        "Max_Max_NR": df["Max_NR"].max(),
-    }
-    if "Avg_Combined" in df.columns:
-        metrics["Avg_Combined"] = df["Avg_Combined"].mean()
-        metrics["Max_Combined"] = df["Avg_Combined"].max()
-    csv_path = savepath.with_suffix(".csv")
-    pd.DataFrame([metrics]).to_csv(csv_path, index=False)
-
-    return {
-        "panel_tiff": panel_tiff,
-        "metrics_csv": csv_path,
-    }
-
 
 
 def plot_multiplane_masks(
@@ -2031,7 +1923,6 @@ def plot_multiplane_masks(
         axes[idx].set_visible(False)
 
     # add legend
-    from matplotlib.lines import Line2D
     from matplotlib.patches import Patch
     legend_elements = [
         Patch(facecolor=(0.2, 0.8, 0.2, 0.5), edgecolor=(0.4, 1.0, 0.4, 1.0),
@@ -2113,7 +2004,6 @@ def plot_plane_quality_metrics(
         "size": "#3498db",         # Blue
         "radius": "#2ecc71",       # Green
     }
-    mean_line_color = "#e74c3c"  # Red for mean markers
 
     # Compute mean and std per plane for accepted cells
     def compute_stats_per_plane(values, plane_nums, accepted, unique_planes):
@@ -2562,7 +2452,6 @@ def plot_volume_filter_summary(
         The generated figure.
     """
     import matplotlib.pyplot as plt
-    from matplotlib.patches import Patch
 
     suite2p_path = Path(suite2p_path)
 
@@ -2641,12 +2530,12 @@ def plot_volume_filter_summary(
     filter_rejected = [p["n_filter_rejected"] for p in plane_stats]
     s2p_rejected = [p["n_s2p_rejected"] for p in plane_stats]
 
-    bars1 = ax.bar(x, final_accepted, width, label="accepted", color="#33a02c")
-    bars2 = ax.bar(x, filter_rejected, width, bottom=final_accepted,
-                   label="filter rejected", color="#ff7f00")
-    bars3 = ax.bar(x, s2p_rejected, width,
-                   bottom=[f + r for f, r in zip(final_accepted, filter_rejected)],
-                   label="suite2p rejected", color="#e31a1c")
+    ax.bar(x, final_accepted, width, label="accepted", color="#33a02c")
+    ax.bar(x, filter_rejected, width, bottom=final_accepted,
+           label="filter rejected", color="#ff7f00")
+    ax.bar(x, s2p_rejected, width,
+           bottom=[f + r for f, r in zip(final_accepted, filter_rejected)],
+           label="suite2p rejected", color="#e31a1c")
 
     ax.set_xlabel("plane", fontsize=11)
     ax.set_ylabel("ROI count", fontsize=11)
@@ -2764,7 +2653,6 @@ def plot_plane_diagnostics(
 
     # iscell from load_planar_results is (n_rois, 2): [:, 0] is 0/1, [:, 1] is probability
     accepted = iscell[:, 0].astype(bool)
-    cell_prob = iscell[:, 1]  # classifier probability for each ROI
     n_accepted = int(accepted.sum())
     n_rejected = int((~accepted).sum())
 
@@ -2787,11 +2675,7 @@ def plot_plane_diagnostics(
 
     # Compute stats with safe defaults
     snr_acc = snr[accepted] if n_accepted > 0 else np.array([np.nan])
-    npix_acc = npix[accepted] if n_accepted > 0 else np.array([0])
-    mean_snr = np.nanmean(snr_acc) if n_accepted > 0 else 0.0
     median_snr = np.nanmedian(snr_acc) if n_accepted > 0 else 0.0
-    high_snr_pct = 100 * np.sum(snr_acc > 2) / max(1, len(snr_acc)) if n_accepted > 0 else 0.0
-    mean_size = np.mean(npix_acc) if n_accepted > 0 else 0.0
 
     # Get mean image for ROI zoom panels
     mean_img = ops.get("meanImgE", ops.get("meanImg"))
@@ -2910,7 +2794,7 @@ def plot_plane_diagnostics(
 
         if valid_compact.sum() > 0:
             # Panel 3: Compactness vs SNR (SNR on y-axis)
-            sc1 = ax_compact.scatter(compactness[valid_compact], snr[valid_compact],
+            ax_compact.scatter(compactness[valid_compact], snr[valid_compact],
                            c=skewness[valid_compact], cmap="plasma", alpha=0.7, s=20,
                            vmin=vmin, vmax=vmax)
             has_scatter_data = True
@@ -3167,8 +3051,8 @@ def mask_dead_zones_in_ops(ops, threshold=0.01):
 
 
 def plot_zplane_figures(
-    plane_dir, dff_percentile=8, dff_window_size=None, dff_smooth_window=None,
-    run_rastermap=False, rastermap_kwargs=None, **kwargs
+    plane_dir, dff_percentile=20, dff_window_size=None, dff_smooth_window=None,
+    correct_neuropil=True, run_rastermap=False, rastermap_kwargs=None, **kwargs
 ):
     """
     Re-generate Suite2p figures for a merged plane.
@@ -3238,10 +3122,6 @@ def plot_zplane_figures(
 
     output_ops = load_ops(expected_files["ops"])
 
-    # Dead zones are now handled via yrange/xrange cropping in run_lsp.py
-    # so we don't need to mask them here anymore
-    # output_ops = mask_dead_zones_in_ops(output_ops)
-
     # force remake of all figures (including segmentation overlays)
     for key in [
         "correlation_image",
@@ -3279,21 +3159,32 @@ def plot_zplane_figures(
         res = load_planar_results(plane_dir)
         # iscell is (n_rois, 2): [:, 0] is 0/1, [:, 1] is classifier probability
         iscell_mask = res["iscell"][:, 0].astype(bool)
-        cell_prob = res["iscell"][:, 1]
 
         spks = res["spks"]
         F = res["F"]
+        Fneu = res.get("Fneu") if isinstance(res, dict) else None
 
-        # Split by accepted/rejected
+        # F (raw) feeds the "raw" trace plots and compute_trace_quality_score
+        # (which optionally subtracts Fneu internally). F_for_dff is the input
+        # to dff_rolling_percentile — neuropil-corrected only when the toggle
+        # is on, matching dff.npy.
+        if correct_neuropil and Fneu is not None:
+            F_for_dff = F - 0.7 * Fneu
+        else:
+            F_for_dff = F
+
+        # Split by accepted/rejected — F is raw, F_for_dff feeds dff
         F_accepted = F[iscell_mask] if iscell_mask.sum() > 0 else np.zeros((0, F.shape[1]))
         F_rejected = F[~iscell_mask] if (~iscell_mask).sum() > 0 else np.zeros((0, F.shape[1]))
+        F_dff_accepted = F_for_dff[iscell_mask] if iscell_mask.sum() > 0 else np.zeros((0, F.shape[1]))
+        F_dff_rejected = F_for_dff[~iscell_mask] if (~iscell_mask).sum() > 0 else np.zeros((0, F.shape[1]))
         spks_cells = spks[iscell_mask] if iscell_mask.sum() > 0 else np.zeros((0, spks.shape[1]))
 
         n_accepted = F_accepted.shape[0]
         n_rejected = F_rejected.shape[0]
         print(f"Plotting results for {n_accepted} accepted / {n_rejected} rejected ROIs")
 
-        # ---- Segmentation overlays (generated first so failures below don't block them) ----
+        # segmentation overlays — generated first so failures below don't block them
         # suite2p stores images in two coordinate systems:
         # - FULL space: refImg, meanImg, meanImgE (same size as original Ly x Lx)
         # - CROPPED space: max_proj, Vcorr (size determined by yrange/xrange after registration)
@@ -3393,16 +3284,13 @@ def plot_zplane_figures(
         except Exception as e:
             print(f"  Warning: rejected segmentation failed: {e}")
 
-        # correlation image (Vcorr) - cropped space. Render the no-mask
-        # version through the cropping helper so it matches the mask
-        # variant's extent.
+        # correlation image (Vcorr) — already cropped by suite2p to yrange/xrange.
         try:
             vcorr = output_ops.get("Vcorr")
             if _is_valid_image(vcorr):
-                vcorr_crop, _, _ = _crop_projection_to_valid(output_ops, vcorr, "Vcorr")
                 fig, ax = plt.subplots(figsize=(6, 6), facecolor="black")
                 ax.set_facecolor("black")
-                ax.imshow(vcorr_crop, cmap="gray")
+                ax.imshow(vcorr, cmap="gray")
                 ax.set_title("Correlation Image", color="white", fontweight="bold")
                 ax.axis("off")
                 plt.tight_layout()
@@ -3422,7 +3310,7 @@ def plot_zplane_figures(
         except Exception as e:
             print(f"  Warning: correlation image failed: {e}")
 
-        # ---- Rastermap (optional) ----
+        # rastermap (optional)
         model = None
         if run_rastermap and n_accepted >= 2:
             try:
@@ -3538,15 +3426,34 @@ def plot_zplane_figures(
                         output_ops["isort"] = isort_global
                         F_accepted = F_accepted[isort]
 
-        # ---- Trace plots and noise distributions ----
+        # trace plots and noise distributions
         try:
             fs = output_ops.get("fs", 1.0)
             tau = output_ops.get("tau", 1.0)
 
+            # resolve auto-calculated dF/F window sizes the same way
+            # dff_rolling_percentile does, so the param footer reflects
+            # the values actually used
+            _resolved_window = (
+                int(dff_window_size) if dff_window_size is not None
+                else (int(10 * tau * fs) if (fs and tau) else 300)
+            )
+            _resolved_smooth = (
+                int(dff_smooth_window) if dff_smooth_window is not None
+                else (max(1, int(0.5 * tau * fs)) if (fs and tau) else 1)
+            )
+            dff_param_text = (
+                f"dff_percentile={dff_percentile}  "
+                f"window={_resolved_window}f ({_resolved_window / fs:.1f}s)  "
+                f"smooth={_resolved_smooth}f ({_resolved_smooth / fs:.2f}s)  "
+                f"fs={fs:.2f}Hz  tau={tau:.2f}s  "
+                f"neuropil={'on' if correct_neuropil else 'off'}"
+            )
+
             # unsmoothed dF/F for shot noise
             if n_accepted > 0:
                 dffp_acc_unsmoothed = dff_rolling_percentile(
-                    F_accepted,
+                    F_dff_accepted,
                     percentile=dff_percentile,
                     window_size=dff_window_size,
                     smooth_window=1,
@@ -3554,7 +3461,7 @@ def plot_zplane_figures(
                     tau=tau,
                 ) * 100
                 dffp_acc = dff_rolling_percentile(
-                    F_accepted,
+                    F_dff_accepted,
                     percentile=dff_percentile,
                     window_size=dff_window_size,
                     smooth_window=dff_smooth_window,
@@ -3567,7 +3474,7 @@ def plot_zplane_figures(
 
             if n_rejected > 0:
                 dffp_rej_unsmoothed = dff_rolling_percentile(
-                    F_rejected,
+                    F_dff_rejected,
                     percentile=dff_percentile,
                     window_size=dff_window_size,
                     smooth_window=1,
@@ -3575,7 +3482,7 @@ def plot_zplane_figures(
                     tau=tau,
                 ) * 100
                 dffp_rej = dff_rolling_percentile(
-                    F_rejected,
+                    F_dff_rejected,
                     percentile=dff_percentile,
                     window_size=dff_window_size,
                     smooth_window=dff_smooth_window,
@@ -3588,9 +3495,11 @@ def plot_zplane_figures(
 
             if n_accepted > 0:
                 stat_accepted = [s for s, m in zip(res["stat"], iscell_mask) if m]
+                # quality score subtracts Fneu internally; only pass it when
+                # neuropil correction is enabled.
                 quality = compute_trace_quality_score(
                     F_accepted,
-                    Fneu=res["Fneu"][iscell_mask] if "Fneu" in res else None,
+                    Fneu=(res["Fneu"][iscell_mask] if (correct_neuropil and "Fneu" in res) else None),
                     stat=stat_accepted,
                     fs=fs,
                 )
@@ -3607,6 +3516,7 @@ def plot_zplane_figures(
                             num_neurons=n_cells,
                             scale_bar_unit=r"% $\Delta$F/F$_0$",
                             title=rf"Top {n_cells} $\Delta$F/F Traces by Quality (n={n_accepted} total)",
+                            fig_text=dff_param_text,
                         )
                         plot_traces(
                             F_accepted_sorted,
@@ -3622,6 +3532,7 @@ def plot_zplane_figures(
                             num_neurons=min(20, n_accepted),
                             scale_bar_unit=r"% $\Delta$F/F$_0$",
                             title=rf"Top {min(20, n_accepted)} $\Delta$F/F Traces by Quality (n={n_accepted} total)",
+                            fig_text=dff_param_text,
                         )
                         plot_traces(
                             F_accepted_sorted,
@@ -3640,6 +3551,7 @@ def plot_zplane_figures(
                     num_neurons=min(20, n_rejected),
                     scale_bar_unit=r"% $\Delta$F/F$_0$",
                     title=rf"$\Delta$F/F Traces - Rejected ROIs (n={n_rejected})",
+                    fig_text=dff_param_text,
                 )
             else:
                 print("  No rejected ROIs - skipping rejected trace plots")
@@ -3921,88 +3833,43 @@ def get_background_image(ops, img_key="max_proj"):
     return img, yoff, xoff
 
 
-def get_valid_region(ops, img_h, img_w, yoff=0, xoff=0):
-    """
-    Return the valid (non-zero-padded) bounding box in displayed-image coords.
-
-    When axial shifts are applied, each zplane is written into a padded
-    canvas; the per-plane data occupies only a sub-rectangle and everything
-    outside is zero. ops stores this as ``_pad_yrange`` / ``_pad_xrange``
-    in padded-image coordinates. This helper converts those bounds into
-    the coordinate space of the image actually being displayed (which may
-    be further cropped by suite2p's own ``yrange`` / ``xrange``).
-
-    Parameters
-    ----------
-    ops : dict
-        Suite2p ops dictionary.
-    img_h, img_w : int
-        Height and width of the displayed image.
-    yoff, xoff : int, optional
-        Offsets returned by :func:`get_background_image` (the
-        crop-to-padded-space translation).
-
-    Returns
-    -------
-    tuple of int
-        ``(vy1, vy2, vx1, vx2)`` — valid-region bounds in displayed-image
-        coordinates. If no padding metadata is present, returns the full
-        image extent ``(0, img_h, 0, img_w)``.
-    """
-    pad_yr = ops.get("_pad_yrange")
-    pad_xr = ops.get("_pad_xrange")
-    if pad_yr is None or pad_xr is None:
-        return 0, img_h, 0, img_w
-
-    vy1 = max(0, int(pad_yr[0]) - int(yoff))
-    vy2 = min(img_h, int(pad_yr[1]) - int(yoff))
-    vx1 = max(0, int(pad_xr[0]) - int(xoff))
-    vx2 = min(img_w, int(pad_xr[1]) - int(xoff))
-
-    # guard against degenerate bounds
-    if vy2 <= vy1 or vx2 <= vx1:
-        return 0, img_h, 0, img_w
-    return vy1, vy2, vx1, vx2
-
-
 def _crop_projection_to_valid(ops, img, proj_key):
     """
-    Crop a projection image to its valid (non-zero-padded) region.
+    Resolve stat-coordinate offsets for a projection image.
 
     Suite2p stores projections in two coordinate systems: ``max_proj`` and
     ``Vcorr`` are already sliced by suite2p to ``yrange`` / ``xrange``;
-    ``meanImg`` / ``meanImgE`` / ``refImg`` are in the full padded frame.
-    In both cases we further crop to the axial-shift valid region so
-    summary figures across planes share the same content extent.
+    ``meanImg`` / ``meanImgE`` / ``refImg`` are in the full frame. The
+    image itself is returned unchanged; only the offsets needed to
+    translate full-frame stat coordinates into the image's space are
+    computed.
 
     Parameters
     ----------
     ops : dict
         Suite2p ops dictionary.
     img : np.ndarray
-        The projection image to crop.
+        The projection image.
     proj_key : str
         The key in ``ops`` the image came from.
 
     Returns
     -------
-    cropped : np.ndarray
-        Image cropped to the valid region.
+    img : np.ndarray
+        The input image, unchanged.
     stat_yoff, stat_xoff : int
         Offsets to subtract from full-frame ``ypix`` / ``xpix`` stat
-        coordinates to land them in the cropped image's coordinate space.
+        coordinates to land them in the image's coordinate space.
     """
     full_Ly, full_Lx = img.shape[:2]
     cropped_keys = {"max_proj", "Vcorr"}
     if proj_key in cropped_keys:
-        img_yoff = int(ops.get("yrange", [0, full_Ly])[0])
-        img_xoff = int(ops.get("xrange", [0, full_Lx])[0])
+        stat_yoff = int(ops.get("yrange", [0, full_Ly])[0])
+        stat_xoff = int(ops.get("xrange", [0, full_Lx])[0])
     else:
-        img_yoff = 0
-        img_xoff = 0
-    y0, y1, x0, x1 = get_valid_region(ops, full_Ly, full_Lx, img_yoff, img_xoff)
-    cropped = img[y0:y1, x0:x1]
-    return cropped, img_yoff + y0, img_xoff + x0
+        stat_yoff = 0
+        stat_xoff = 0
+    return img, stat_yoff, stat_xoff
 
 
 def stat_to_mask(stat, Ly, Lx, yoff=0, xoff=0):
@@ -4274,9 +4141,7 @@ def plot_regional_zoom(
     # Create overlay
     overlay = mask_overlay(img, mask, alpha=alpha)
 
-    # bound region boxes to the valid (non-zero-padded) area so corners don't
-    # land in axial-shift padding
-    vy1, vy2, vx1, vx2 = get_valid_region(ops, img_h, img_w, yoff, xoff)
+    vy1, vy2, vx1, vx2 = 0, img_h, 0, img_w
     valid_h = vy2 - vy1
     valid_w = vx2 - vx1
 
@@ -4540,105 +4405,186 @@ def plot_filter_exclusions(
     plane_dir = Path(plane_dir)
     save_dir = Path(save_dir) if save_dir else plane_dir
 
+    # purge stale filter PNGs (both legacy `14_filter_*.png` and any prior
+    # letter-suffixed run with a different filter set), so the directory
+    # only contains figures for the current apply_filters call.
+    for old in save_dir.glob("14*_filter_*.png"):
+        try:
+            old.unlink()
+        except OSError:
+            pass
+
     # load data if needed
     if stat is None:
         stat = np.load(plane_dir / "stat.npy", allow_pickle=True)
     if ops is None:
         ops = load_ops(plane_dir)
 
-    # get background image with coordinate offsets
-    img, yoff, xoff = get_background_image(ops, img_key)
-    img_h, img_w = img.shape[:2]
+    # pick the same projection used by 04b_rejected_segmentation.png so
+    # filter overlays match the rest of the segmentation figures.
+    # anatomical_only mapping: 0->Vcorr, 1->max_proj, 2->meanImg, 3->meanImgE, 4->max_proj
+    anatomical_only = int(ops.get("anatomical_only", 0) or 0)
+    proj_lookup = {
+        0: ("Vcorr", "Correlation Image"),
+        1: ("max_proj", "Max Projection"),
+        2: ("meanImg", "Mean Image"),
+        3: ("meanImgE", "Enhanced Mean Image"),
+        4: ("max_proj", "Max Projection"),
+    }
+    fallback_titles = {
+        "meanImg": "Mean Image",
+        "max_proj": "Max Projection",
+        "meanImgE": "Enhanced Mean Image",
+        "Vcorr": "Correlation Image",
+    }
+
+    def _is_valid_image(im):
+        if im is None:
+            return False
+        if isinstance(im, (int, float)) and im == 0:
+            return False
+        if isinstance(im, np.ndarray) and im.size == 0:
+            return False
+        return True
+
+    proj_key, proj_title = proj_lookup.get(anatomical_only, ("meanImg", "Mean Image"))
+    proj_img = ops.get(proj_key)
+    if not _is_valid_image(proj_img):
+        for fk in ("meanImg", "max_proj", "meanImgE", "Vcorr"):
+            if _is_valid_image(ops.get(fk)):
+                proj_key = fk
+                proj_title = fallback_titles[fk]
+                proj_img = ops.get(fk)
+                break
+
+    # last-ditch fallback to the explicit img_key (preserves prior contract)
+    if not _is_valid_image(proj_img):
+        bg, _yoff, _xoff = get_background_image(ops, img_key)
+        proj_img = bg
+        proj_key = None
+        proj_title = img_key
 
     # normalize iscell
     if iscell_filtered.ndim == 2:
         iscell_filtered = iscell_filtered[:, 0]
     accepted_mask = iscell_filtered.astype(bool)
-
-    # normalize image
-    img_norm = normalize99(img)
-    img_rgb = np.stack([img_norm] * 3, axis=-1).astype(np.float32)
-
-    # create accepted cells mask (used in all figures)
-    mask_accepted = stat_to_mask(stat[accepted_mask], img_h, img_w, yoff, xoff)
+    n_accepted_total = int(accepted_mask.sum())
 
     filter_metadata = {}
 
-    for result in filter_results:
+    for idx, result in enumerate(filter_results):
         name = result["name"]
         removed_mask = result["removed_mask"]
         info = result["info"]
         config = result.get("config", {})
-        n_rejected = removed_mask.sum()
+        n_rejected = int(removed_mask.sum())
 
         if n_rejected == 0:
             continue
 
         # build params from user config first (more meaningful), then computed info
         params = {}
-        # user-specified params
         for key in ["min_diameter_um", "max_diameter_um", "min_diameter_px", "max_diameter_px",
-                    "min_area_px", "max_area_px", "min_mult", "max_mult", "max_ratio"]:
+                    "min_area_px", "max_area_px", "min_mult", "max_mult", "max_ratio",
+                    "correct_neuropil", "percentile", "window_size",
+                    "reject_negative_F0", "min_F0_abs", "min_F0_rel"]:
             if key in config and config[key] is not None:
                 val = config[key]
-                params[key] = round(val, 1) if isinstance(val, float) else val
-        # computed params (fallback if no user config)
+                params[key] = round(val, 3) if isinstance(val, float) else val
         if not params:
             for key in ["min_px", "max_px", "min_ratio", "max_ratio", "lower_px", "upper_px"]:
                 if key in info and info[key] is not None:
                     params[key] = round(info[key], 1)
 
-        # create mask for rejected cells
-        mask_rejected = stat_to_mask(stat[removed_mask], img_h, img_w, yoff, xoff)
+        # baseline filters: short reason tag so the title states the
+        # specific criterion being applied (cleaner than reading params).
+        reason_str = None
+        if name == "negative_baseline":
+            reason_str = "rolling F0 < 0"
+        elif name == "min_baseline_abs" and info.get("min_F0_abs") is not None:
+            reason_str = f"median F0 < {info['min_F0_abs']:g}"
+        elif name == "min_baseline_rel" and info.get("min_F0_rel") is not None:
+            reason_str = f"min F0 < {info['min_F0_rel']:g} × median(F_raw)"
 
-        # create figure
+        # subset stat to accepted + this-filter-excluded so the canvas
+        # only renders cells relevant to *this* filter step. Cells rejected
+        # by suite2p or by other filters are intentionally invisible.
+        keep_idx = accepted_mask | removed_mask
+        if not keep_idx.any():
+            continue
+        stat_subset = stat[keep_idx]
+        subset_iscell = accepted_mask[keep_idx]  # True=kept, False=removed-by-this-filter
+
+        # lam-weighted overlay matching plot_accepted_rejected_overlay
+        canvas, _, _ = _build_accepted_rejected_canvas(
+            proj_img,
+            stat_subset,
+            subset_iscell,
+            ops=ops if proj_key else None,
+            proj_key=proj_key,
+        )
+
         fig, ax = plt.subplots(figsize=figsize, facecolor="black")
         ax.set_facecolor("black")
+        ax.imshow(canvas, interpolation="nearest")
 
-        overlay = img_rgb.copy()
-
-        # draw accepted cells (green)
-        if mask_accepted.max() > 0:
-            mask_px = mask_accepted > 0
-            overlay[mask_px] = (1 - alpha) * overlay[mask_px] + alpha * np.array([0.2, 0.8, 0.2])
-
-        # draw rejected cells (red)
-        if mask_rejected.max() > 0:
-            mask_px = mask_rejected > 0
-            overlay[mask_px] = (1 - alpha) * overlay[mask_px] + alpha * np.array([0.9, 0.2, 0.2])
-
-        ax.imshow(overlay)
-        ax.axis("off")
-
-        # title with filter info
+        # header: filter name + projection title; below: Accepted / Excluded counts
+        header_y = 1.20
+        ax.text(
+            0.5, header_y,
+            f"{name} — {proj_title}",
+            transform=ax.transAxes,
+            fontsize=12, fontweight="bold", fontname="Courier New",
+            color="white", ha="center", va="bottom",
+        )
+        ax.text(
+            0.37, 1.10,
+            f"Accepted: {n_accepted_total:03d}",
+            transform=ax.transAxes,
+            fontsize=14, fontweight="bold", fontname="Courier New",
+            color="lime", ha="right", va="bottom",
+        )
+        ax.text(
+            0.63, 1.10,
+            f"Excluded: {n_rejected:03d}",
+            transform=ax.transAxes,
+            fontsize=14, fontweight="bold", fontname="Courier New",
+            color="red", ha="left", va="bottom",
+        )
+        # subtitle: per-criterion reasons + params
         params_str = ", ".join(f"{k}={v}" for k, v in params.items())
-        title = f"{name}: {n_rejected} excluded"
+        sub_lines = []
+        if reason_str:
+            sub_lines.append(reason_str)
         if params_str:
-            title += f" ({params_str})"
-        ax.set_title(title, fontsize=12, fontweight="bold", color="white")
+            sub_lines.append(params_str)
+        if sub_lines:
+            ax.text(
+                0.5, 1.02, "\n".join(sub_lines),
+                transform=ax.transAxes,
+                fontsize=8, fontname="Courier New",
+                color="white", ha="center", va="bottom",
+            )
 
-        # legend
-        from matplotlib.patches import Patch
-        legend_elements = [
-            Patch(facecolor=(0.2, 0.8, 0.2), alpha=0.7, label=f"Accepted ({accepted_mask.sum()})"),
-            Patch(facecolor=(0.9, 0.2, 0.2), alpha=0.7, label=f"Excluded ({n_rejected})"),
-        ]
-        ax.legend(handles=legend_elements, loc="upper right", fontsize=10,
-                  facecolor="black", edgecolor="gray", labelcolor="white")
-
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.axis("off")
         plt.tight_layout()
 
-        # save
-        save_path = save_dir / f"14_filter_{name}.png"
-        plt.savefig(save_path, dpi=150, bbox_inches="tight", facecolor="black")
+        # 14a_filter_<name>.png, 14b_..., one per filter in apply order.
+        # 'a'..'z' covers 26 filters; falls back to numeric for the unlikely
+        # 27th onward.
+        suffix = chr(ord("a") + idx) if idx < 26 else f"_{idx + 1}"
+        save_path = save_dir / f"14{suffix}_filter_{name}.png"
+        plt.savefig(save_path, dpi=300, facecolor="black", bbox_inches="tight")
         plt.close(fig)
         print(f"  Saved {save_path.name}")
 
-        # store metadata
         filter_metadata[name] = {
             "params": params,
-            "n_rejected": int(n_rejected),
-            "n_remaining": int(accepted_mask.sum()),
+            "n_rejected": n_rejected,
+            "n_remaining": n_accepted_total,
+            "figure": save_path.name,
         }
 
     return filter_metadata
@@ -4737,7 +4683,6 @@ def plot_cell_filter_summary(
 
     # determine what suite2p rejected vs what filters rejected
     n_suite2p_rejected = suite2p_rejected.sum()
-    n_filter_rejected = (suite2p_accepted & ~final_accepted).sum()
     n_final_accepted = final_accepted.sum()
 
     # build panels: suite2p classification + filters + final
@@ -4802,7 +4747,6 @@ def plot_cell_filter_summary(
     # color scheme
     color_accepted = np.array([0.2, 0.8, 0.2])  # green
     color_rejected = np.array([0.9, 0.2, 0.2])  # red
-    color_filtered = np.array([1.0, 0.6, 0.0])  # orange for filter-rejected
 
     for i, panel in enumerate(panels):
         ax = axes[i]
