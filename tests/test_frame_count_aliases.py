@@ -171,9 +171,7 @@ class TestRunPlaneBinAliasConsistency:
         assert after.get("dz") == 15.0
 
 
-# ============================================================
-# Strided fs/dz scaling for run_volume + run_plane
-# ============================================================
+# strided fs/dz scaling for run_volume + run_plane
 
 class TestStridedSelections:
     """`pipeline`/`run_volume`/`run_plane` accept `frame_indices` for
