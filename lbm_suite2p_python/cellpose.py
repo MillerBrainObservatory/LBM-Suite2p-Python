@@ -194,10 +194,8 @@ def _masks_to_stat(masks, img=None, compute_overlap=True):
 
     # Build pixel count map for overlap detection
     if compute_overlap and masks.ndim == 2:
-        # Count how many ROIs claim each pixel (for overlap computation)
-        # Since cellpose masks are non-overlapping by design, we check boundaries
-        from scipy import ndimage
-        # Dilate each mask slightly to find potential overlaps at boundaries
+        # cellpose masks are non-overlapping by construction; track per-pixel
+        # claim count so callers can detect dilated-boundary overlaps
         overlap_map = np.zeros(masks.shape, dtype=np.int32)
         for roi_id in range(1, n_rois + 1):
             roi_mask = masks == roi_id
@@ -1611,7 +1609,6 @@ def prepare_training_data(
     train_cellpose : Train model on prepared data
     save_gui_results : Save results in GUI-compatible format
     """
-    import shutil
     import tifffile
 
     output_dir = Path(output_dir)

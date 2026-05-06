@@ -9,7 +9,6 @@ Usage:
 """
 
 import argparse
-import sys
 import tempfile
 from pathlib import Path
 

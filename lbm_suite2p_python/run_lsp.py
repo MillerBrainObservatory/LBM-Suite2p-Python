@@ -72,27 +72,19 @@ def _call_upstream_pipeline(ops, f_reg, f_raw, f_reg_chan2, f_raw_chan2,
     except ImportError:
         device = None
 
-    # extraction leak: upstream's create_neuropil_masks treats pixels
-    # outside ops["yrange"]/ops["xrange"] as valid neuropil candidates
-    # because cell_pix is zero there. for axially-padded LBM data that
-    # pulls zero-valued padding into Fneu and corrupts dF/F at boundary
-    # ROIs. the shim monkeypatches create_cell_pix for this call only so
-    # the donut grower never walks into padding.
-    from lbm_suite2p_python._padding_shim import padding_aware_extraction
-    with padding_aware_extraction(ops):
-        (reg_outputs, detect_outputs, stat, F, Fneu, F_chan2, Fneu_chan2,
-         spks, iscell, redcell, zcorr, plane_times) = _upstream_pipeline(
-            save_path=save_path,
-            f_reg=f_reg,
-            f_raw=f_raw,
-            f_reg_chan2=f_reg_chan2,
-            f_raw_chan2=f_raw_chan2,
-            run_registration=run_registration,
-            settings=settings,
-            badframes=ops.get("badframes"),
-            stat=stat,
-            device=device if device is not None else None,
-        )
+    (reg_outputs, detect_outputs, stat, F, Fneu, F_chan2, Fneu_chan2,
+     spks, iscell, redcell, zcorr, plane_times) = _upstream_pipeline(
+        save_path=save_path,
+        f_reg=f_reg,
+        f_raw=f_raw,
+        f_reg_chan2=f_reg_chan2,
+        f_raw_chan2=f_raw_chan2,
+        run_registration=run_registration,
+        settings=settings,
+        badframes=ops.get("badframes"),
+        stat=stat,
+        device=device if device is not None else None,
+    )
 
     # fold outputs back into flat ops for fork consumers
     if isinstance(reg_outputs, dict):
@@ -253,69 +245,36 @@ def _copy_if_needed(src: Path, dst: Path, *, overwrite_empty: bool = True) -> bo
 def _stage_source_into_plane_dir(
     src_dir: Path,
     plane_dir: Path,
-    source_mode: str,
     ops: dict,
 ) -> None:
-    """Stage files from a source plane dir into ``plane_dir`` per ``source_mode``.
+    """Stage files from a source plane dir into ``plane_dir``.
 
-    Modes:
+    copies ops.npy and detection outputs into ``plane_dir`` so figures
+    and post-processing read locally. binaries (data.bin, data_raw.bin,
+    data_chan2.bin) are NOT copied — ops['raw_file'] / ops['reg_file'] /
+    ops['chan2_file'] are repointed at the source paths so the new
+    output dir stays small and can be copied around without dragging
+    the binary along. source binaries are read-only from this plane's
+    perspective.
 
-    - ``"copy"``: copy everything — raw + registered binaries + detection
-      outputs + ops.npy. Self-contained output dir; matches the pre-fix
-      behavior for datasets that still have ``data_raw.bin``.
-    - ``"copy_reg"``: skip ``data_raw.bin``; copy ``data.bin``,
-      ``data_chan2.bin``, detection outputs, ops.npy. Right default when
-      you want to re-run detection settings and the raw binary was
-      already discarded.
-    - ``"link"``: don't copy any binary. Copy detection outputs and
-      ops.npy. Point ``ops['raw_file']`` / ``ops['reg_file']`` /
-      ``ops['chan2_file']`` at the source paths. Source binaries are
-      read-only from this plane's perspective — registration must be off
-      (the caller should enforce).
-    - ``"auto"``: ``copy`` if source has ``data_raw.bin``, otherwise
-      ``copy_reg``. Never picks ``link`` implicitly — that's an opt-in.
-
-    ``ops`` is mutated in place for the link paths.
+    ``ops`` is mutated in place to point at the source binaries.
     """
     src_dir = Path(src_dir)
     plane_dir = Path(plane_dir)
     plane_dir.mkdir(parents=True, exist_ok=True)
 
-    # auto resolution
-    if source_mode == "auto":
-        source_mode = "copy" if (src_dir / "data_raw.bin").exists() else "copy_reg"
-
-    valid_modes = {"copy", "copy_reg", "link"}
-    if source_mode not in valid_modes:
-        raise ValueError(
-            f"Invalid source_mode={source_mode!r}. "
-            f"Expected one of {sorted(valid_modes)}."
-        )
-
-    # ops.npy + detection outputs are always staged into plane_dir so
-    # figures/post-processing can read them locally.
     _copy_if_needed(src_dir / "ops.npy", plane_dir / "ops.npy")
     for fname in _DETECTION_OUTPUT_FILES:
         _copy_if_needed(src_dir / fname, plane_dir / fname)
 
-    if source_mode == "copy":
-        for fname in ("data_raw.bin", "data.bin", "data_chan2.bin"):
-            _copy_if_needed(src_dir / fname, plane_dir / fname)
-    elif source_mode == "copy_reg":
-        for fname in ("data.bin", "data_chan2.bin"):
-            _copy_if_needed(src_dir / fname, plane_dir / fname)
-        # don't carry a stale raw_file pointer — there's no raw on disk
-        # in plane_dir and we don't want it to point back at source.
-        ops.pop("raw_file", None)
-    else:  # link
-        for ops_key, fname in (
-            ("raw_file", "data_raw.bin"),
-            ("reg_file", "data.bin"),
-            ("chan2_file", "data_chan2.bin"),
-        ):
-            src_bin = src_dir / fname
-            if src_bin.exists():
-                ops[ops_key] = str(src_bin.resolve())
+    for ops_key, fname in (
+        ("raw_file", "data_raw.bin"),
+        ("reg_file", "data.bin"),
+        ("chan2_file", "data_chan2.bin"),
+    ):
+        src_bin = src_dir / fname
+        if src_bin.exists():
+            ops[ops_key] = str(src_bin.resolve())
 
 
 def _apply_reactive_metadata(
@@ -412,7 +371,6 @@ def _apply_reactive_metadata(
 
 
 from lbm_suite2p_python.zplane import (
-    save_pc_panels_and_metrics,
     plot_zplane_figures,
     plot_filtered_cells,
     plot_filter_exclusions,
@@ -422,10 +380,7 @@ from lbm_suite2p_python.zplane import (
 
 DEFAULT_CELL_FILTERS = []
 from mbo_utilities.log import get as get_logger
-from mbo_utilities.metadata import (
-    get_param,
-    get_voxel_size,
-)
+from mbo_utilities.metadata import get_voxel_size
 
 
 logger = get_logger("run_lsp")
@@ -467,20 +422,14 @@ def _attach_external_loggers(level: int = logging.INFO) -> None:
     _external_logging_attached = True
 
 
-from lbm_suite2p_python._benchmarking import get_cpu_percent, get_ram_used
 from lbm_suite2p_python.volume import (
     plot_volume_diagnostics,
     plot_orthoslices,
     plot_3d_roi_map,
+    plot_3d_rastermap_clusters,
+    plot_volume_trace_figures,
     get_volume_stats,
 )
-from mbo_utilities.arrays import (
-    iter_rois,
-    supports_roi,
-    _normalize_planes,
-    _build_output_path,
-)
-from mbo_utilities._writers import _write_plane
 
 PIPELINE_TAGS = ("plane", "roi", "z", "plane_", "roi_", "z_")
 
@@ -554,6 +503,26 @@ def _add_processing_step(
 add_processing_step = _add_processing_step
 
 
+def _extract_rastermap_section(rastermap_kwargs, section):
+    """Pull the sub-dict for "planar" or "volumetric" from a unified rastermap_kwargs.
+
+    Returns None when the section was not requested. Returns an empty dict
+    (meaning "use defaults") when the key is present with a None / empty value.
+    """
+    if not rastermap_kwargs or section not in rastermap_kwargs:
+        return None
+    sub = rastermap_kwargs[section]
+    return {} if sub is None else dict(sub)
+
+
+def _extract_planar_rastermap_kwargs(rastermap_kwargs):
+    return _extract_rastermap_section(rastermap_kwargs, "planar")
+
+
+def _extract_volumetric_rastermap_kwargs(rastermap_kwargs):
+    return _extract_rastermap_section(rastermap_kwargs, "volumetric")
+
+
 def pipeline(
     input_data,
     save_path: str | Path = None,
@@ -571,10 +540,11 @@ def pipeline(
     dff_window_size: int = None,
     dff_percentile: int = 20,
     dff_smooth_window: int = None,
+    correct_neuropil: bool = True,
     cell_filters: list = None,
     accept_all_cells: bool = False,
+    rastermap_kwargs: dict = None,
     save_json: bool = False,
-    source_mode: str = "auto",
     reader_kwargs: dict = None,
     writer_kwargs: dict = None,
     # deprecated parameters
@@ -632,12 +602,28 @@ def pipeline(
     dff_smooth_window : int, optional
         Temporal smoothing window for dF/F traces (frames).
         If None, auto-calculated. Set to 1 to disable.
+    correct_neuropil : bool, default True
+        If True, dF/F is computed on F - 0.7 * Fneu. If False, on raw F.
+        Affects dff.npy, the dF/F trace plots, and trace-quality scoring.
     cell_filters : list, optional
-        Filters to apply to detected ROIs. Default is no filters.
+        Filters to apply to detected ROIs. Default is no filters (off).
+        Currently supports diameter bounds in microns or pixels.
         Example: [{"name": "max_diameter", "min_diameter_um": 4, "max_diameter_um": 35}]
     accept_all_cells : bool, default False
         If True, mark all detected ROIs as accepted, overriding
         Suite2p's built-in classifier results.
+    rastermap_kwargs : dict, optional
+        Rastermap configuration. Default None (rastermap disabled).
+        Pass a dict with optional ``"planar"`` and ``"volumetric"`` keys
+        to enable each independently — presence of the key turns it on.
+        Each sub-dict holds ``rastermap.Rastermap()`` overrides; an empty
+        dict (or None) means use built-in defaults.
+        Example::
+
+            rastermap_kwargs={
+                "planar": {"n_clusters": 50, "n_PCs": 64},
+                "volumetric": {"n_clusters": 40},
+            }
     save_json : bool, default False
         Save ops as JSON in addition to .npy format.
     reader_kwargs : dict, optional
@@ -754,15 +740,18 @@ def pipeline(
             dff_window_size=dff_window_size,
             dff_percentile=dff_percentile,
             dff_smooth_window=dff_smooth_window,
+            correct_neuropil=correct_neuropil,
             accept_all_cells=accept_all_cells,
             cell_filters=cell_filters,
+            rastermap_kwargs=rastermap_kwargs,
             save_json=save_json,
-            source_mode=source_mode,
             reader_kwargs=reader_kwargs,
             writer_kwargs=writer_kwargs,
             **kwargs,
         )
     else:
+        # run_plane is planar-only — extract just the planar sub-dict
+        planar_kwargs = _extract_planar_rastermap_kwargs(rastermap_kwargs)
         # run_plane returns a single Path, we wrap in list
         ops_path = run_plane(
             input_data=arr,  # Pass the array we loaded (with ROI applied)
@@ -781,10 +770,11 @@ def pipeline(
             dff_window_size=dff_window_size,
             dff_percentile=dff_percentile,
             dff_smooth_window=dff_smooth_window,
+            correct_neuropil=correct_neuropil,
             accept_all_cells=accept_all_cells,
             cell_filters=cell_filters,
+            rastermap_kwargs=planar_kwargs,
             save_json=save_json,
-            source_mode=source_mode,
             reader_kwargs=reader_kwargs,
             writer_kwargs=writer_kwargs,
             **kwargs,
@@ -950,10 +940,11 @@ def run_volume(
     dff_window_size: int = None,
     dff_percentile: int = 20,
     dff_smooth_window: int = None,
+    correct_neuropil: bool = True,
     accept_all_cells: bool = False,
     cell_filters: list = None,
+    rastermap_kwargs: dict = None,
     save_json: bool = False,
-    source_mode: str = "auto",
     reader_kwargs: dict = None,
     writer_kwargs: dict = None,
     **kwargs,
@@ -992,6 +983,11 @@ def run_volume(
         Mark all ROIs as accepted.
     cell_filters : list, optional
         Filters to apply (see run_plane).
+    rastermap_kwargs : dict, optional
+        Unified rastermap config. Default None (off). Keys ``"planar"`` /
+        ``"volumetric"`` independently enable each mode; their values hold
+        rastermap.Rastermap() overrides (empty dict / None = defaults).
+        See pipeline() for the full schema.
     save_json : bool, default False
         Save ops as JSON.
     **kwargs
@@ -1083,6 +1079,12 @@ def run_volume(
 
     progress_callback = kwargs.pop("progress_callback", None)
 
+    # decompose unified rastermap_kwargs into planar (per-plane) and
+    # volumetric (post-loop). Each is None when the user did not enable
+    # that mode, an empty dict when they enabled it without overrides.
+    planar_rastermap_kwargs = _extract_planar_rastermap_kwargs(rastermap_kwargs)
+    volumetric_rastermap_kwargs = _extract_volumetric_rastermap_kwargs(rastermap_kwargs)
+
     ops_files = []
 
     # Iterate
@@ -1169,10 +1171,11 @@ def run_volume(
                 dff_window_size=dff_window_size,
                 dff_percentile=dff_percentile,
                 dff_smooth_window=dff_smooth_window,
+                correct_neuropil=correct_neuropil,
                 accept_all_cells=accept_all_cells,
                 cell_filters=cell_filters,
+                rastermap_kwargs=planar_rastermap_kwargs,
                 save_json=save_json,
-                source_mode=source_mode,
                 reader_kwargs=reader_kwargs,
                 writer_kwargs=writer_kwargs,
                 **kwargs,
@@ -1228,8 +1231,8 @@ def run_volume(
     if ops_files:
         print("\nGenering volumetric statistics...")
         try:
-            # run_plane already does individual calls, but we need aggregate stats
-            stats_path = get_volume_stats(ops_files, overwrite=True)
+            # aggregate per-plane ops into volume_stats.npy
+            get_volume_stats(ops_files, overwrite=True)
 
             # Volumetric plots
             try:
@@ -1246,6 +1249,31 @@ def run_volume(
                 )
             except Exception as e:
                 print(f"Warning: Volume plots failed: {e}")
+                traceback.print_exc()
+
+            if volumetric_rastermap_kwargs is not None:
+                try:
+                    plot_3d_rastermap_clusters(
+                        save_path,
+                        save_path=save_path / "rastermap_3d.png",
+                        rastermap_kwargs=volumetric_rastermap_kwargs,
+                    )
+                except Exception as e:
+                    print(f"Warning: Volumetric rastermap failed: {e}")
+                    traceback.print_exc()
+
+            # volume-level trace figures (trace analysis, top-N raw/dF/F,
+            # sorted-activity rastermap.png). runs after plot_3d_rastermap_clusters
+            # so the cached rastermap_model.npy can be reused for the heatmap.
+            try:
+                plot_volume_trace_figures(
+                    ops_files,
+                    save_path,
+                    rastermap_kwargs=volumetric_rastermap_kwargs,
+                    correct_neuropil=correct_neuropil,
+                )
+            except Exception as e:
+                print(f"Warning: Volume trace figures failed: {e}")
                 traceback.print_exc()
 
         except Exception as e:
@@ -1409,7 +1437,6 @@ def run_plane_bin(ops) -> bool:
     """
     from contextlib import nullcontext
     from suite2p.io.binary import BinaryFile
-    from suite2p.run_s2p import pipeline
 
     ops = load_ops(ops)
 
@@ -1428,9 +1455,9 @@ def run_plane_bin(ops) -> bool:
         )
 
     # resolve path keys. rewrite stale absolutes (ops was moved) but
-    # preserve an already-valid absolute path (source_mode="link" points
-    # raw_file/reg_file/chan2_file at the source dir — clobbering those
-    # would either break the link or force a redundant copy).
+    # preserve an already-valid absolute path (staging points raw_file/
+    # reg_file/chan2_file at the source dir — clobbering those would
+    # break the link).
     ops["save_path"] = str(ops_parent)
     ops["ops_path"] = str(ops_parent / "ops.npy")
 
@@ -1581,8 +1608,13 @@ def run_plane_bin(ops) -> bool:
 
     reg_file_chan2 = ops_parent / "data_chan2_reg.bin" if use_chan2 else None
 
-    ops["anatomical_red"] = False
-    ops["chan2_thres"] = 0.1
+    # NOTE: previous versions hard-coded `ops["anatomical_red"] = False`
+    # and `ops["chan2_thres"] = 0.1` here. Both were silently clobbering
+    # the user's settings and the suite2p schema defaults
+    # (detection.chan2_threshold = 0.25). They've been removed — the
+    # user's chan2 threshold now flows through unchanged. If a downstream
+    # consumer needs anatomical_red / chan2_thres, set them explicitly
+    # in the caller's ops dict.
 
     if ops.get("roidetect", True) and ops.get("anatomical_only", 0) > 0:
         # Estimate memory usage for Cellpose detection
@@ -1622,18 +1654,11 @@ def run_plane_bin(ops) -> bool:
             raise FileNotFoundError(
                 f"Registration was skipped but no usable registered binary is "
                 f"available. reg_file={reg_file_path}, raw_file={raw_file}. "
-                "Either turn registration back on, point source_mode at a "
-                "directory containing data.bin, or use source_mode='link' "
-                "to reference an existing source binary."
+                "Either turn registration back on, or point reg_file at an "
+                "existing data.bin."
             )
 
-        # yrange/xrange: prefer exact padding bounds when the writer set
-        # them; otherwise infer from whichever binary is available.
-        if "_pad_yrange" in ops and "_pad_xrange" in ops:
-            ops["yrange"] = list(ops["_pad_yrange"])
-            ops["xrange"] = list(ops["_pad_xrange"])
-            print(f"  Valid region from padding: yrange={ops['yrange']}, xrange={ops['xrange']}")
-        elif "yrange" not in ops or "xrange" not in ops:
+        if "yrange" not in ops or "xrange" not in ops:
             use_anatomical = ops.get("anatomical_only", 0) > 0
             if use_anatomical:
                 print(
@@ -1704,21 +1729,9 @@ def run_plane_bin(ops) -> bool:
                 print("  Computed meanImg from binary")
 
         if "meanImgE" not in ops and "meanImg" in ops:
-            # compute on valid region only to avoid edge artifacts
-            # from zero-padding border
-            if "_pad_yrange" in ops and "_pad_xrange" in ops:
-                yr, xr = ops["yrange"], ops["xrange"]
-                full_mean = ops["meanImg"]
-                ops["meanImg"] = full_mean[yr[0]:yr[1], xr[0]:xr[1]]
-                enhanced_crop = _compute_enhanced_mean_image(None, ops)
-                ops["meanImg"] = full_mean
-                meanImgE = np.zeros_like(full_mean, dtype=np.float32)
-                meanImgE[yr[0]:yr[1], xr[0]:xr[1]] = enhanced_crop
-                ops["meanImgE"] = meanImgE
-            else:
-                ops["meanImgE"] = _compute_enhanced_mean_image(
-                    ops["meanImg"].astype(np.float32), ops
-                )
+            ops["meanImgE"] = _compute_enhanced_mean_image(
+                ops["meanImg"].astype(np.float32), ops
+            )
             print("  Computed meanImgE from meanImg")
 
     # for very short recordings, suite2p's bin_movie crashes when
@@ -1735,8 +1748,6 @@ def run_plane_bin(ops) -> bool:
             ops["max_proj"] = all_frames.max(axis=0).astype(np.float32)
         # set tau so bin_size = max(1, n//nbinned, round(tau*fs)) <= nframes
         ops["tau"] = 0
-
-    has_pad_range = "_pad_yrange" in ops and "_pad_xrange" in ops
 
     # upstream's BinaryFile defaults to write=False (read-only) and errors on
     # missing files. reg_file / reg_file_chan2 are registration DESTINATIONS
@@ -1769,135 +1780,20 @@ def run_plane_bin(ops) -> bool:
             else nullcontext()
         ) as f_raw_chan2,
     ):
-        if has_pad_range and run_registration:
-            # when data was padded for axial alignment, suite2p's
-            # compute_crop only accounts for registration motion and
-            # ignores the zero-padded border.  split pipeline into
-            # registration-only then detection-only so we can clamp
-            # xrange/yrange to the valid (non-padded) region in between.
-            ops["roidetect"] = False
-            print("NOTE: running registration-only pass (detection deferred)")
-            ops = _call_upstream_pipeline(
-                ops,
-                f_reg, f_raw,
-                f_reg_chan2 if use_chan2 else None,
-                f_raw_chan2 if use_chan2 else None,
-                run_registration=True,
-                stat=None,
-            )
-
-            # clamp yrange/xrange so the valid window excludes ALL sources
-            # of zero contamination:
-            #   1. axial padding at the canvas borders (`_pad_yrange` /
-            #      `_pad_xrange` = intersection of plane-shift bounds),
-            #   2. per-frame registration motion trimming.
-            #
-            # upstream's `reg_yr` is computed assuming the full canvas is
-            # valid pre-registration — it tells us how many rows at top
-            # (`reg_yr[0]`) and bottom (`Ly - reg_yr[1]`) are unusable due
-            # to motion alone. on a padded canvas those same motion trims
-            # apply INSIDE the pad window, so we ADD them to pad_yr rather
-            # than taking the intersection. naive `max(pad_yr[0], reg_yr[0])`
-            # leaves a thin zero-contaminated strip that leaks into
-            # max_proj / correlation images and into cellpose's input near
-            # the edges. same logic for x.
-            pad_yr = ops["_pad_yrange"]
-            pad_xr = ops["_pad_xrange"]
-            reg_yr = ops.get("yrange", [0, Ly])
-            reg_xr = ops.get("xrange", [0, Lx])
-            top_trim = int(max(0, reg_yr[0]))
-            bot_trim = int(max(0, Ly - reg_yr[1]))
-            left_trim = int(max(0, reg_xr[0]))
-            right_trim = int(max(0, Lx - reg_xr[1]))
-            ops["yrange"] = [
-                int(pad_yr[0]) + top_trim,
-                int(pad_yr[1]) - bot_trim,
-            ]
-            ops["xrange"] = [
-                int(pad_xr[0]) + left_trim,
-                int(pad_xr[1]) - right_trim,
-            ]
-            # defensive: ensure at least a 1-pixel window (extreme motion
-            # on thin pads could collapse the window to zero size).
-            ops["yrange"][1] = max(ops["yrange"][0] + 1, ops["yrange"][1])
-            ops["xrange"][1] = max(ops["xrange"][0] + 1, ops["xrange"][1])
-            print(
-                f"  Clamped valid region: yrange={ops['yrange']} "
-                f"xrange={ops['xrange']} "
-                f"(pad={list(pad_yr)},{list(pad_xr)}; "
-                f"motion_trim=T{top_trim}/B{bot_trim}/L{left_trim}/R{right_trim})"
-            )
-
-            # recompute meanImgE on the valid region only so the
-            # high-pass filter doesn't create edge artifacts at the
-            # zero-padding boundary.  compute_enhanced_mean_image reads
-            # ops["meanImg"] internally, so swap it temporarily.
-            yr, xr = ops["yrange"], ops["xrange"]
-            full_mean = ops["meanImg"]
-            ops["meanImg"] = full_mean[yr[0]:yr[1], xr[0]:xr[1]]
-            enhanced_crop = _compute_enhanced_mean_image(None, ops)
-            ops["meanImg"] = full_mean  # restore
-            meanImgE = np.zeros_like(full_mean, dtype=np.float32)
-            meanImgE[yr[0]:yr[1], xr[0]:xr[1]] = enhanced_crop
-            ops["meanImgE"] = meanImgE
-
-            # upstream's pipeline(run_registration=False) reloads reg_outputs.npy
-            # from disk and uses ITS yrange/xrange for detection — not whatever
-            # we just clamped into the in-memory ops dict. if we don't update
-            # the on-disk file, detection sees the full (pre-clamp) valid
-            # region and cellpose happily picks up ROIs in the zero-padded
-            # corners. patch reg_outputs.npy in place with the clamped values
-            # and the clamped meanImgE before the detection-only second call.
-            _reg_save_dir = Path(ops["save_path"])
-            _reg_outputs_path = _reg_save_dir / "reg_outputs.npy"
-            if _reg_outputs_path.exists():
-                _reg_disk = np.load(_reg_outputs_path, allow_pickle=True).item()
-                _reg_disk["yrange"] = ops["yrange"]
-                _reg_disk["xrange"] = ops["xrange"]
-                _reg_disk["meanImgE"] = meanImgE
-                np.save(_reg_outputs_path, _reg_disk, allow_pickle=True)
-                print(f"  Updated {_reg_outputs_path.name} with clamped valid region")
-
-            if ops.get("ops_path"):
-                save_ops_db_settings(ops["ops_path"], ops)
-
-            # now run detection + extraction + classification
-            ops["roidetect"] = True
-            ops["do_registration"] = 0
-            ops = _call_upstream_pipeline(
-                ops,
-                f_reg, f_raw,
-                f_reg_chan2 if use_chan2 else None,
-                f_raw_chan2 if use_chan2 else None,
-                run_registration=False,
-                stat=None,
-            )
-        else:
-            ops = _call_upstream_pipeline(
-                ops,
-                f_reg, f_raw,
-                f_reg_chan2 if use_chan2 else None,
-                f_raw_chan2 if use_chan2 else None,
-                run_registration=run_registration,
-                stat=None,
-            )
+        ops = _call_upstream_pipeline(
+            ops,
+            f_reg, f_raw,
+            f_reg_chan2 if use_chan2 else None,
+            f_raw_chan2 if use_chan2 else None,
+            run_registration=run_registration,
+            stat=None,
+        )
 
     # ensure meanImgE is always present in final ops (safety net)
     if "meanImgE" not in ops and "meanImg" in ops:
-
-        if "_pad_yrange" in ops and "_pad_xrange" in ops:
-            yr, xr = ops["yrange"], ops["xrange"]
-            full_mean = ops["meanImg"]
-            ops["meanImg"] = full_mean[yr[0]:yr[1], xr[0]:xr[1]]
-            enhanced_crop = _compute_enhanced_mean_image(None, ops)
-            ops["meanImg"] = full_mean
-            meanImgE = np.zeros_like(full_mean, dtype=np.float32)
-            meanImgE[yr[0]:yr[1], xr[0]:xr[1]] = enhanced_crop
-            ops["meanImgE"] = meanImgE
-        else:
-            ops["meanImgE"] = _compute_enhanced_mean_image(
-                ops["meanImg"].astype(np.float32), ops
-            )
+        ops["meanImgE"] = _compute_enhanced_mean_image(
+            ops["meanImg"].astype(np.float32), ops
+        )
 
     if use_chan2:
         ops["reg_file_chan2"] = str(reg_file_chan2)
@@ -1934,11 +1830,12 @@ def run_plane(
     dff_window_size: int = None,
     dff_percentile: int = 20,
     dff_smooth_window: int = None,
+    correct_neuropil: bool = True,
     accept_all_cells: bool = False,
     cell_filters: list = None,
+    rastermap_kwargs: dict = None,
     save_json: bool = False,
     plane_name: str | None = None,
-    source_mode: str = "auto",
     reader_kwargs: dict = None,
     writer_kwargs: dict = None,
     **kwargs,
@@ -1980,6 +1877,11 @@ def run_plane(
         Filters to apply to detected ROIs (e.g. diameter, area).
         Default is no filters.
         Example: [{"name": "max_diameter", "min_diameter_um": 4, "max_diameter_um": 35}]
+    rastermap_kwargs : dict, optional
+        Per-plane rastermap config. Default None (off). Pass a dict
+        (possibly empty) to enable; contents override the cell-count-aware
+        defaults passed to rastermap.Rastermap().
+        Example: {"n_clusters": 50, "n_PCs": 64}.
     save_json : bool, default False
         Save ops as JSON.
     frame_indices : list[int], optional
@@ -2005,7 +1907,6 @@ def run_plane(
     """
     from mbo_utilities import imread, imwrite
     from mbo_utilities.metadata import get_metadata
-    from mbo_utilities.arrays import ScanImageArray
 
     progress_callback = kwargs.pop("progress_callback", None)
 
@@ -2110,8 +2011,10 @@ def run_plane(
             "data_path": str(input_path.resolve()),
         }
     elif binary_with_ops:
-        # binary input with ops but different save_path: stage files into
-        # the new plane_dir per source_mode, instead of re-encoding.
+        # binary input with ops but different save_path: stage detection
+        # outputs + ops.npy into the new plane_dir, repoint raw_file /
+        # reg_file / chan2_file at the source binaries. binaries stay
+        # at the source so the new dir is small and copy-pasteable.
         skip_imwrite = True
         file = None
 
@@ -2156,8 +2059,8 @@ def run_plane(
         ops_file = plane_dir / "ops.npy"
 
         # merge existing ops with user overrides BEFORE staging, so the
-        # stage call can mutate link-mode path pointers on the final ops
-        # dict without them being wiped by a later merge.
+        # stage call can mutate the path pointers on the final ops dict
+        # without them being wiped by a later merge.
         ops = {
             **ops_default,
             **existing_ops,
@@ -2165,45 +2068,20 @@ def run_plane(
             "data_path": str(input_path.resolve()),
         }
 
-        # auto-resolve source_mode based on user intent + disk state:
-        #
-        # - explicit `do_registration=0` from the user means "I'm reusing
-        #   the registered binary, just sweeping detection/extraction".
-        #   the safe + cheap mode here is `link` — zero copies, source
-        #   binary is read-only, and N sweeps over the same plane don't
-        #   produce N redundant copies of data.bin.
-        # - otherwise fall back to the original disk-based heuristic:
-        #   `copy` if raw exists (registration can proceed locally), else
-        #   `copy_reg` (no raw on disk, raw_file gets popped, downstream
-        #   gracefully downgrades to detection-only).
-        _effective_mode = source_mode
-        if _effective_mode == "auto":
-            if ops_user.get("do_registration", 1) == 0:
-                _effective_mode = "link"
-            else:
-                _effective_mode = (
-                    "copy" if (src_dir / "data_raw.bin").exists() else "copy_reg"
-                )
-
-        # link mode can't safely co-exist with do_registration=1 because
-        # registration would need to write the source data.bin. flip to
-        # copy_reg and warn instead of corrupting the source binary.
-        if _effective_mode == "link" and ops_user.get("do_registration", 1):
+        # registration would need to write to data.bin, but data.bin
+        # lives at the source dir — running it would clobber the user's
+        # source binary. force detection-only; user can re-register from
+        # the original tiff/zarr if they want fresh registration.
+        if ops_user.get("do_registration", 1):
             logger.warning(
-                "source_mode='link' requires do_registration=0 (link mode "
-                "is read-only from the source binary). Falling back to "
-                "'copy_reg' so registration can proceed safely."
+                "do_registration=1 ignored when staging from an existing "
+                "registered binary into a different save_path — running "
+                "registration would clobber the source data.bin. Forcing "
+                "do_registration=0 (detection-only)."
             )
-            _effective_mode = "copy_reg"
+            ops["do_registration"] = 0
 
-        # stage ops.npy + detection outputs + binaries per mode. ops is
-        # mutated in place for link mode to point raw_file/reg_file at
-        # the source paths; for copy_reg mode a stale raw_file pointer
-        # is popped so the later plane_dir path-pinning doesn't resurrect
-        # it from a non-existent plane_dir/data_raw.bin.
-        _stage_source_into_plane_dir(
-            src_dir, plane_dir, _effective_mode, ops,
-        )
+        _stage_source_into_plane_dir(src_dir, plane_dir, ops)
     else:
         skip_imwrite = False
 
@@ -2380,7 +2258,6 @@ def run_plane(
         # extract single plane if data is volumetric
         write_planes = [plane] if _get_num_planes(file) > 1 else None
 
-        # apply per-plane axial shift if plane_shifts is present in metadata
         write_kw = dict(writer_kwargs)
         # If the caller gave us explicit frame indices, pass them as
         # `frames=` (1-based) to imwrite. This wins over any stale
@@ -2389,31 +2266,12 @@ def run_plane(
         if frame_indices is not None:
             write_kw["frames"] = [int(i) + 1 for i in frame_indices]
             write_kw.pop("num_frames", None)
-        if md_combined.get("apply_shift") and md_combined.get("plane_shifts") is not None:
-            from mbo_utilities._writers import load_registration_shifts, compute_pad_from_shifts
-
-            _apply, _plane_shifts, _ = load_registration_shifts(md_combined)
-            if _apply and _plane_shifts is not None:
-                plane_0idx = plane - 1
-                if plane_0idx < len(_plane_shifts):
-                    sv = _plane_shifts[plane_0idx]
-                    write_kw["shift_vector"] = sv
-                    write_kw["all_plane_shifts"] = _plane_shifts
-                    # use global padding so all planes share the same output dims
-                    pt, pb, pl, pr = compute_pad_from_shifts(_plane_shifts)
-                    if hasattr(file, "shape"):
-                        Ly_orig = file.shape[-2]
-                        Lx_orig = file.shape[-1]
-                        md_combined["Ly"] = Ly_orig + pt + pb
-                        md_combined["Lx"] = Lx_orig + pl + pr
-                    print(f"  Applying axial shift for plane {plane}: {sv}")
 
         imwrite(
             file,
             plane_dir,
             ext=".bin",
             metadata=md_combined,
-            register_z=False,
             output_name="data_raw.bin",
             overwrite=True,
             planes=write_planes,
@@ -2495,7 +2353,6 @@ def run_plane(
                 plane_dir,
                 ext=".bin",
                 metadata=chan2_md,
-                register_z=False,
                 structural=True,
                 show_progress=False,
             )
@@ -2524,10 +2381,20 @@ def run_plane(
     reg_bin = plane_dir / "data.bin"
     if reg_bin.exists():
         ops["reg_file"] = str(reg_bin)
-    save_ops_db_settings(ops_file, ops)
 
     # Run Suite2p (skip entirely when nothing needs to be done)
     skip_suite2p = not needs_reg and not needs_detect
+
+    # Only persist settings/db/ops here when suite2p is about to run that
+    # actually needs the path updates above. Skipping this save in the
+    # cache-hit path keeps settings.npy as a faithful record of how the
+    # on-disk artifacts were produced — the user's in-memory edits don't
+    # get persisted to settings.npy unless they actually drove a re-run.
+    # Post-processing keeps its own save call below (with the dff_* knobs
+    # tucked into ops as top-level keys) so dF/F-only re-runs still
+    # record the params that drew the new figures.
+    if not skip_suite2p:
+        save_ops_db_settings(ops_file, ops)
     if skip_suite2p:
         if user_skip_reg and user_skip_detect:
             print("  Suite2p disabled by user toggles; regenerating figures only.")
@@ -2577,7 +2444,7 @@ def run_plane(
             _cleanup_bin_files(plane_dir, keep_raw, keep_reg)
             return ops_file
 
-    # --- Post-Processing ---
+    # post-processing
     if progress_callback:
         progress_callback(step="postprocessing", message="Post-processing...")
 
@@ -2596,92 +2463,80 @@ def run_plane(
             np.save(iscell_file, iscell)
             print("  Marked all ROIs as accepted.")
 
-    # 2. Cell Filtering
+    # 2. Cell Filtering (off by default — empty list)
     if cell_filters:
-        logger.warning("Cell filtering is not ready yet. Filters will be ignored.")
-        # The following block is kept for reference as requested, but we skip executing the actual filters
-        if False:
-            print(f"  Applying cell filters: {[f['name'] for f in cell_filters]}")
-            filter_start = time.time()
+        print(f"  Applying cell filters: {[f['name'] for f in cell_filters]}")
+        filter_start = time.time()
+        try:
+            iscell_filtered, removed_mask, filter_results = apply_filters(
+                plane_dir=plane_dir,
+                filters=cell_filters,
+                save=True,
+            )
+            updated_ops = load_ops(ops_file)
+            _add_processing_step(
+                updated_ops,
+                "cell_filtering",
+                duration_seconds=time.time() - filter_start,
+                extra={"n_removed": int(removed_mask.sum())},
+            )
+            # flatten filter_results into per-filter metadata for ops.npy
+            filter_metadata = {}
+            for r in filter_results:
+                name = r["name"]
+                config = r.get("config", {})
+                info = r.get("info", {})
+                removed = r.get("removed_mask", np.zeros(0, dtype=bool))
+                params = {}
+                for key in [
+                    "min_diameter_um",
+                    "max_diameter_um",
+                    "min_diameter_px",
+                    "max_diameter_px",
+                    "correct_neuropil",
+                    "percentile",
+                    "window_size",
+                    "reject_negative_F0",
+                    "min_F0_abs",
+                    "min_F0_rel",
+                ]:
+                    if key in config and config[key] is not None:
+                        val = config[key]
+                        params[key] = (
+                            round(val, 3) if isinstance(val, float) else val
+                        )
+                if not params:
+                    for key in ["min_px", "max_px"]:
+                        if key in info and info[key] is not None:
+                            params[key] = round(info[key], 1)
+                filter_metadata[name] = {
+                    "params": params,
+                    "n_rejected": int(removed.sum()),
+                }
+            updated_ops["filter_metadata"] = filter_metadata
+            save_ops_db_settings(ops_file, updated_ops)
+
             try:
-                # Bug fixed: iscell_original is already loaded above, before accept_all_cells mutation
-                iscell_filtered, removed_mask, filter_results = apply_filters(
-                    plane_dir=plane_dir,
-                    filters=cell_filters,
-                    save=True,
+                fig = plot_filtered_cells(
+                    plane_dir,
+                    iscell_original,
+                    iscell_filtered,
+                    save_path=plane_dir / "13_filtered_cells.png",
                 )
-                updated_ops = load_ops(ops_file)
-                _add_processing_step(
-                    updated_ops,
-                    "cell_filtering",
-                    duration_seconds=time.time() - filter_start,
-                    extra={"n_removed": int(removed_mask.sum())},
+                import matplotlib.pyplot as plt
+
+                plt.close(fig)
+                plot_filter_exclusions(
+                    plane_dir, iscell_filtered, filter_results, save_dir=plane_dir
                 )
-                # convert filter_results list to dict keyed by filter name
-                filter_metadata = {}
-                for r in filter_results:
-                    name = r["name"]
-                    config = r.get("config", {})
-                    info = r.get("info", {})
-                    removed = r.get("removed_mask", np.zeros(0, dtype=bool))
-                    # build params from config (user-specified) or info (computed)
-                    params = {}
-                    for key in [
-                        "min_diameter_um",
-                        "max_diameter_um",
-                        "min_diameter_px",
-                        "max_diameter_px",
-                        "min_area_px",
-                        "max_area_px",
-                        "min_mult",
-                        "max_mult",
-                        "max_ratio",
-                    ]:
-                        if key in config and config[key] is not None:
-                            val = config[key]
-                            params[key] = (
-                                round(val, 1) if isinstance(val, float) else val
-                            )
-                    if not params:
-                        for key in [
-                            "min_px",
-                            "max_px",
-                            "min_ratio",
-                            "max_ratio",
-                            "lower_px",
-                            "upper_px",
-                        ]:
-                            if key in info and info[key] is not None:
-                                params[key] = round(info[key], 1)
-                    filter_metadata[name] = {
-                        "params": params,
-                        "n_rejected": int(removed.sum()),
-                    }
-                updated_ops["filter_metadata"] = filter_metadata
-                save_ops_db_settings(ops_file, updated_ops)
-
-                # Plots
-                try:
-                    fig = plot_filtered_cells(
-                        plane_dir,
-                        iscell_original,
-                        iscell_filtered,
-                        save_path=plane_dir / "13_filtered_cells.png",
-                    )
-                    import matplotlib.pyplot as plt
-
-                    plt.close(fig)
-                    plot_filter_exclusions(
-                        plane_dir, iscell_filtered, filter_results, save_dir=plane_dir
-                    )
-                    plot_cell_filter_summary(
-                        plane_dir, save_path=plane_dir / "15_filter_summary.png"
-                    )
-                except Exception as e:
-                    print(f"  Warning: Filter plots failed: {e}")
-
+                plot_cell_filter_summary(
+                    plane_dir, save_path=plane_dir / "15_filter_summary.png"
+                )
             except Exception as e:
-                print(f"  Warning: Cell filtering failed: {e}")
+                print(f"  Warning: Filter plots failed: {e}")
+
+        except Exception as e:
+            print(f"  Warning: Cell filtering failed: {e}")
 
     # 3. dF/F Calculation
     F_file = plane_dir / "F.npy"
@@ -2691,7 +2546,10 @@ def run_plane(
         dff_start = time.time()
         F = np.load(F_file)
         Fneu = np.load(Fneu_file)
-        F_corr = F - 0.7 * Fneu  # Fixed neucoeff for now, could be parameter
+        if correct_neuropil:
+            F_corr = F - 0.7 * Fneu
+        else:
+            F_corr = F
 
         current_ops = load_ops(ops_file)
         dff = dff_rolling_percentile(
@@ -2703,6 +2561,17 @@ def run_plane(
             tau=current_ops.get("tau", 1.0),
         )
         np.save(plane_dir / "dff.npy", dff)
+
+        # Record the dF/F params that actually drew the dff.npy +
+        # figures. These live as top-level ops keys (NOT in the suite2p
+        # settings schema), so save_ops_db_settings writes them to
+        # ops.npy but leaves settings.npy / db.npy untouched. That keeps
+        # settings.npy as a record of suite2p stages and lets ops.npy
+        # carry the post-processing knobs separately.
+        current_ops["dff_window_size"] = dff_window_size
+        current_ops["dff_percentile"] = dff_percentile
+        current_ops["dff_smooth_window"] = dff_smooth_window
+        current_ops["correct_neuropil"] = bool(correct_neuropil)
 
         _add_processing_step(
             current_ops,
@@ -2728,6 +2597,9 @@ def run_plane(
             dff_percentile=dff_percentile,
             dff_window_size=dff_window_size,
             dff_smooth_window=dff_smooth_window,
+            correct_neuropil=correct_neuropil,
+            run_rastermap=rastermap_kwargs is not None,
+            rastermap_kwargs=rastermap_kwargs,
         )
     except Exception as e:
         print(f"  Warning: Plot generation failed: {e}")
@@ -2736,9 +2608,6 @@ def run_plane(
         ops_to_json(ops_file)
 
     _cleanup_bin_files(plane_dir, keep_raw, keep_reg)
-
-    # PC metrics
-    save_pc_panels_and_metrics(ops_file, plane_dir / "pc_metrics")
 
     if progress_callback:
         progress_callback(step="done", message="Plane complete")

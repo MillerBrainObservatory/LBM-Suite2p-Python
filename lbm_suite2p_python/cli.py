@@ -23,12 +23,9 @@ Examples:
 """
 
 import argparse
-import json
 import sys
 from pathlib import Path
 from typing import Any
-
-import numpy as np
 
 
 def _snake_to_kebab(name: str) -> str:
@@ -95,7 +92,6 @@ def _get_ops_help() -> dict[str, str]:
 def build_parser() -> argparse.ArgumentParser:
     """build the argument parser with all pipeline and ops parameters."""
     from lbm_suite2p_python.default_ops import s2p_ops
-    from lbm_suite2p_python import __version__
 
     parser = argparse.ArgumentParser(
         prog="lsp",
@@ -192,6 +188,11 @@ Examples:
     dff.add_argument(
         "--dff-smooth", type=int, dest="dff_smooth_window",
         help="smoothing window for dF/F"
+    )
+    dff.add_argument(
+        "--correct-neuropil", dest="correct_neuropil",
+        action=argparse.BooleanOptionalAction, default=True,
+        help="subtract 0.7*Fneu before dF/F (default: on; use --no-correct-neuropil to disable)"
     )
 
     # cell filter options
@@ -491,7 +492,7 @@ def main():
 
     # run pipeline
     try:
-        results = lsp.pipeline(
+        lsp.pipeline(
             input_data=input_path,
             save_path=output_path,
             ops=ops,
@@ -505,6 +506,7 @@ def main():
             dff_window_size=args.dff_window_size,
             dff_percentile=args.dff_percentile,
             dff_smooth_window=args.dff_smooth_window,
+            correct_neuropil=args.correct_neuropil,
             cell_filters=cell_filters,
             accept_all_cells=args.accept_all_cells,
             save_json=args.save_json,

@@ -746,8 +746,6 @@ def compare_detections(path_a, path_b, iou_threshold=0.5):
     dict
         Comparison results with matched pairs and unique ROIs.
     """
-    from scipy.ndimage import label
-
     path_a, path_b = Path(path_a), Path(path_b)
 
     # load masks from both

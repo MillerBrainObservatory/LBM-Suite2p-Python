@@ -1,6 +1,5 @@
 import json
 from pathlib import Path
-from typing import Callable
 
 import numpy as np
 from scipy.ndimage import percentile_filter
@@ -514,6 +513,222 @@ def filter_by_eccentricity(
     }
 
 
+def _load_F_Fneu(plane_dir, F, Fneu):
+    """Load F.npy / Fneu.npy from plane_dir if not already provided."""
+    if F is None and plane_dir is not None:
+        f_path = plane_dir / "F.npy"
+        if f_path.exists():
+            F = np.load(f_path, allow_pickle=True)
+    if Fneu is None and plane_dir is not None:
+        fn_path = plane_dir / "Fneu.npy"
+        if fn_path.exists():
+            Fneu = np.load(fn_path, allow_pickle=True)
+    return F, Fneu
+
+
+def _resolve_dff_window(window_size, ops):
+    """Same auto-window rule that dff_rolling_percentile uses."""
+    if window_size is not None:
+        return max(3, int(window_size))
+    fs = float((ops or {}).get("fs", 0) or 0)
+    tau = float((ops or {}).get("tau", 0) or 0)
+    w = int(10 * tau * fs) if (fs > 0 and tau > 0) else 300
+    return max(3, w)
+
+
+def _compute_dff_baseline(F, Fneu, correct_neuropil, neuropil_coef, percentile, window_size):
+    """
+    Compute the rolling-percentile baseline that dff_rolling_percentile
+    will see, given the neuropil-correction toggle. Returns the per-cell
+    f0 array (same shape as F).
+    """
+    if correct_neuropil:
+        if Fneu is None:
+            raise ValueError("correct_neuropil=True requires Fneu")
+        f_in = F - neuropil_coef * Fneu
+    else:
+        f_in = F
+    return np.array(
+        [percentile_filter(f, percentile, size=window_size, mode="nearest") for f in f_in]
+    )
+
+
+def filter_by_negative_baseline(
+    plane_dir=None,
+    iscell=None,
+    stat=None,
+    ops=None,
+    F=None,
+    Fneu=None,
+    correct_neuropil: bool = True,
+    neuropil_coef: float = 0.7,
+    percentile: int = 20,
+    window_size: int = None,
+    save: bool = False,
+):
+    """
+    Reject ROIs whose rolling-percentile baseline ever goes negative.
+
+    Real fluorescence is nonnegative. A negative rolling baseline means the
+    trace dropped below zero somewhere — usually neuropil over-subtraction
+    or registration drop-out. These cells produce divide-by-near-zero
+    blowups in dF/F.
+
+    Parameters mirror :func:`dff_rolling_percentile` so the baseline matches
+    what the dF/F plotting will see. Returns the standard
+    ``(iscell_filtered, removed_mask, info)`` triple.
+    """
+    iscell, stat, ops, plane_dir = _load_plane_data(plane_dir, iscell, stat, ops)
+    iscell_orig = _normalize_iscell(iscell)
+    F, Fneu = _load_F_Fneu(plane_dir, F, Fneu)
+    if F is None:
+        raise ValueError("filter_by_negative_baseline requires F (pass F or plane_dir with F.npy)")
+
+    window_size = _resolve_dff_window(window_size, ops)
+    f0 = _compute_dff_baseline(F, Fneu, correct_neuropil, neuropil_coef, percentile, window_size)
+    f0_min = f0.min(axis=1)
+
+    valid = f0_min >= 0
+    removed_mask = ~valid & iscell_orig
+    iscell_filtered = iscell_orig & valid
+    n_removed = int(removed_mask.sum())
+
+    if n_removed > 0:
+        print(f"filter_by_negative_baseline: removed {n_removed} ROIs (rolling p{percentile} F0 < 0)")
+
+    if save and plane_dir is not None:
+        _save_filtered_iscell(plane_dir, iscell_filtered, iscell_orig)
+
+    return iscell_filtered, removed_mask, {
+        "f0_min": f0_min,
+        "window_size": int(window_size),
+        "percentile": int(percentile),
+        "correct_neuropil": bool(correct_neuropil),
+        "neuropil_coef": float(neuropil_coef) if correct_neuropil else 0.0,
+        "n_removed": n_removed,
+    }
+
+
+def filter_by_min_baseline_abs(
+    plane_dir=None,
+    iscell=None,
+    stat=None,
+    ops=None,
+    F=None,
+    Fneu=None,
+    correct_neuropil: bool = True,
+    neuropil_coef: float = 0.7,
+    percentile: int = 20,
+    window_size: int = None,
+    min_F0_abs: float = 1.0,
+    save: bool = False,
+):
+    """
+    Reject ROIs whose median rolling baseline is below an absolute floor.
+
+    Catches very dim cells where any small fluctuation dominates dF/F.
+    The threshold is in raw photon-count units (same units as F.npy).
+
+    Parameters
+    ----------
+    min_F0_abs : float, default 1.0
+        Reject cells whose median(rolling p-th percentile baseline) is
+        below this value.
+    """
+    iscell, stat, ops, plane_dir = _load_plane_data(plane_dir, iscell, stat, ops)
+    iscell_orig = _normalize_iscell(iscell)
+    F, Fneu = _load_F_Fneu(plane_dir, F, Fneu)
+    if F is None:
+        raise ValueError("filter_by_min_baseline_abs requires F (pass F or plane_dir with F.npy)")
+
+    window_size = _resolve_dff_window(window_size, ops)
+    f0 = _compute_dff_baseline(F, Fneu, correct_neuropil, neuropil_coef, percentile, window_size)
+    f0_median = np.median(f0, axis=1)
+
+    valid = f0_median >= min_F0_abs
+    removed_mask = ~valid & iscell_orig
+    iscell_filtered = iscell_orig & valid
+    n_removed = int(removed_mask.sum())
+
+    if n_removed > 0:
+        print(f"filter_by_min_baseline_abs: removed {n_removed} ROIs (median F0 < {min_F0_abs:g})")
+
+    if save and plane_dir is not None:
+        _save_filtered_iscell(plane_dir, iscell_filtered, iscell_orig)
+
+    return iscell_filtered, removed_mask, {
+        "f0_median": f0_median,
+        "min_F0_abs": float(min_F0_abs),
+        "window_size": int(window_size),
+        "percentile": int(percentile),
+        "correct_neuropil": bool(correct_neuropil),
+        "neuropil_coef": float(neuropil_coef) if correct_neuropil else 0.0,
+        "n_removed": n_removed,
+    }
+
+
+def filter_by_min_baseline_rel(
+    plane_dir=None,
+    iscell=None,
+    stat=None,
+    ops=None,
+    F=None,
+    Fneu=None,
+    correct_neuropil: bool = True,
+    neuropil_coef: float = 0.7,
+    percentile: int = 20,
+    window_size: int = None,
+    min_F0_rel: float = 0.05,
+    save: bool = False,
+):
+    """
+    Reject ROIs whose minimum rolling baseline collapses far below the
+    cell's own typical raw brightness.
+
+    Catches transient baseline drop-outs (e.g. registration / motion
+    artifacts) that don't manifest as a low median baseline but still
+    cause dF/F spikes when the divisor briefly approaches zero.
+
+    Parameters
+    ----------
+    min_F0_rel : float, default 0.05
+        Reject cells whose ``min(rolling baseline) < min_F0_rel * median(F_raw)``.
+    """
+    iscell, stat, ops, plane_dir = _load_plane_data(plane_dir, iscell, stat, ops)
+    iscell_orig = _normalize_iscell(iscell)
+    F, Fneu = _load_F_Fneu(plane_dir, F, Fneu)
+    if F is None:
+        raise ValueError("filter_by_min_baseline_rel requires F (pass F or plane_dir with F.npy)")
+
+    window_size = _resolve_dff_window(window_size, ops)
+    f0 = _compute_dff_baseline(F, Fneu, correct_neuropil, neuropil_coef, percentile, window_size)
+    f0_min = f0.min(axis=1)
+    f_raw_median = np.median(F, axis=1)
+    threshold = min_F0_rel * f_raw_median
+
+    valid = f0_min >= threshold
+    removed_mask = ~valid & iscell_orig
+    iscell_filtered = iscell_orig & valid
+    n_removed = int(removed_mask.sum())
+
+    if n_removed > 0:
+        print(f"filter_by_min_baseline_rel: removed {n_removed} ROIs (min F0 < {min_F0_rel:g} * median(F_raw))")
+
+    if save and plane_dir is not None:
+        _save_filtered_iscell(plane_dir, iscell_filtered, iscell_orig)
+
+    return iscell_filtered, removed_mask, {
+        "f0_min": f0_min,
+        "f_raw_median": f_raw_median,
+        "min_F0_rel": float(min_F0_rel),
+        "window_size": int(window_size),
+        "percentile": int(percentile),
+        "correct_neuropil": bool(correct_neuropil),
+        "neuropil_coef": float(neuropil_coef) if correct_neuropil else 0.0,
+        "n_removed": n_removed,
+    }
+
+
 def apply_filters(
     plane_dir=None,
     iscell=None,
@@ -540,7 +755,7 @@ def apply_filters(
         Suite2p ops dictionary.
     filters : list of dict
         List of filter configurations. Each dict must have:
-        - 'name': str - filter function name (e.g., 'max_diameter', 'area', 'eccentricity')
+        - 'name': str - filter function name (e.g., 'max_diameter', 'area', 'eccentricity', 'baseline')
         - Additional keys are passed as kwargs to the filter function.
 
         Available filters:
@@ -548,6 +763,9 @@ def apply_filters(
         - 'max_diameter': filter_by_max_diameter (max_diameter_um, max_diameter_px, min_diameter_um, min_diameter_px)
         - 'area': filter_by_area (min_area_px, max_area_px, min_mult, max_mult)
         - 'eccentricity': filter_by_eccentricity (max_ratio, min_ratio)
+        - 'negative_baseline': filter_by_negative_baseline (correct_neuropil, percentile, window_size, neuropil_coef)
+        - 'min_baseline_abs': filter_by_min_baseline_abs (min_F0_abs, correct_neuropil, percentile, window_size, neuropil_coef)
+        - 'min_baseline_rel': filter_by_min_baseline_rel (min_F0_rel, correct_neuropil, percentile, window_size, neuropil_coef)
 
     save : bool, default False
         If True, save final filtered iscell.npy to plane_dir.
@@ -586,6 +804,9 @@ def apply_filters(
         "max_diameter": filter_by_max_diameter,
         "area": filter_by_area,
         "eccentricity": filter_by_eccentricity,
+        "negative_baseline": filter_by_negative_baseline,
+        "min_baseline_abs": filter_by_min_baseline_abs,
+        "min_baseline_rel": filter_by_min_baseline_rel,
     }
 
     iscell, stat, ops, plane_dir = _load_plane_data(plane_dir, iscell, stat, ops)
@@ -613,8 +834,10 @@ def apply_filters(
         # Don't save intermediate results, only final
         config["save"] = False
 
-        # Apply filter
+        # Apply filter — pass plane_dir so filters that need extra files
+        # (e.g. F.npy / Fneu.npy for baseline) can find them.
         iscell_current, removed, info = filter_fn(
+            plane_dir=plane_dir,
             iscell=iscell_current,
             stat=stat,
             ops=ops,
@@ -1048,8 +1271,6 @@ def compute_trace_quality_score(
 
     if weights is None:
         weights = {'snr': 1.0, 'skewness': 0.8, 'shot_noise': 0.5}
-
-    n_neurons = F.shape[0]
 
     # neuropil correction and rectification
     if Fneu is not None:
