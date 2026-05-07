@@ -1781,7 +1781,7 @@ wheels = [
 
 [[package]]
 name = "lbm-suite2p-python"
-version = "3.0.2"
+version = "3.0.3"
 source = { editable = "." }
 dependencies = [
     { name = "mbo-utilities" },
@@ -1832,7 +1832,7 @@ docs = [
 requires-dist = [
     { name = "cellpose", marker = "extra == 'cellpose'", specifier = ">=4.0.6" },
     { name = "lbm-suite2p-python", extras = ["rastermap", "cellpose"], marker = "extra == 'all'" },
-    { name = "mbo-utilities", specifier = ">=3.0.1" },
+    { name = "mbo-utilities", specifier = ">=3.0.2" },
     { name = "rastermap", marker = "extra == 'rastermap'" },
     { name = "setuptools", specifier = "<81" },
     { name = "suite2p", specifier = ">=1.0.0.1" },
@@ -2027,7 +2027,7 @@ wheels = [
 
 [[package]]
 name = "mbo-utilities"
-version = "3.0.1"
+version = "3.0.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "dask" },
@@ -2066,9 +2066,9 @@ dependencies = [
     { name = "wgpu" },
     { name = "zarr" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/2f/e8/436ebf1cc9243e398fd894273e4029611cf941e6a50b20b6c791b5ca2801/mbo_utilities-3.0.1.tar.gz", hash = "sha256:701109c7516bb5c99292d19e6401df849451c3d28ec8896981cfb60cb414face", size = 3358263, upload-time = "2026-05-01T14:26:21.364Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/6b/f5/bd4850ad191a6c987878586bf9d96d3acafdcd42e1f338f8326ccf5a84af/mbo_utilities-3.0.2.tar.gz", hash = "sha256:b35bd13e9051962be438c72c78553cbfadf67910b1ceebe89d8f65ed8bfd23c6", size = 3358130, upload-time = "2026-05-07T17:02:34.079Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/76/f5/13af2bb4310e16da0e3bd0a65def26fce171e89fc4910c4abf8369a85001/mbo_utilities-3.0.1-py3-none-any.whl", hash = "sha256:7d5ecbf232355ce4fe3195c2d97a2378418c92fe33cca657147f7b04f1f3b510", size = 3381424, upload-time = "2026-05-01T14:26:19.788Z" },
+    { url = "https://files.pythonhosted.org/packages/ed/1b/557a9d9139958948cc5d7b282483a473b863e218b83646f4493ef4569d53/mbo_utilities-3.0.2-py3-none-any.whl", hash = "sha256:b42966ec7465545a7e38c424429d823d9a673f4367bb9e5eb2d8a501eda6fdf1", size = 3381470, upload-time = "2026-05-07T17:02:32.106Z" },
 ]
 
 [[package]]

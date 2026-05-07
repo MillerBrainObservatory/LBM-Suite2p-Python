@@ -2052,7 +2052,12 @@ def run_plane(
             nframes_hint = existing_ops.get("nframes_chan1") or existing_ops.get(
                 "nframes"
             )
-            subdir_name = generate_plane_dirname(plane=naming_plane, nframes=nframes_hint)
+            subdir_name = generate_plane_dirname(
+                plane=naming_plane,
+                nframes=nframes_hint,
+                frame_start=(int(min(frame_indices)) + 1) if frame_indices else 1,
+                frame_stop=(int(max(frame_indices)) + 1) if frame_indices else None,
+            )
 
         plane_dir = save_path / subdir_name
         plane_dir.mkdir(exist_ok=True)
@@ -2122,6 +2127,8 @@ def run_plane(
             subdir_name = generate_plane_dirname(
                 plane=naming_plane,
                 nframes=nframes_hint,
+                frame_start=(int(min(frame_indices)) + 1) if frame_indices else 1,
+                frame_stop=(int(max(frame_indices)) + 1) if frame_indices else None,
             )
 
         plane_dir = save_path / subdir_name

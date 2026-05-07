@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lbm_suite2p_python"
-version = "3.0.2"
+version = "3.0.3"
 description = "Calcium Imaging Pipeline built with Suite2p, Cellpose and Rastermap"
 readme = "README.md"
 license = "BSD-3-Clause"
@@ -18,7 +18,7 @@ classifiers=[
 ]
 
 dependencies = [
-	"mbo_utilities>=3.0.1",
+	"mbo_utilities>=3.0.2",
 	"suite2p>=1.0.0.1",
 	"setuptools<81",
 ]
