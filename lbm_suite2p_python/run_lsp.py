@@ -101,7 +101,7 @@ def _call_upstream_pipeline(ops, f_reg, f_raw, f_reg_chan2, f_raw_chan2,
     return ops
 
 
-def _compute_enhanced_mean_image(img, ops):
+def compute_enhanced_mean_image(img, ops):
     """Compat shim for upstream's removal of `compute_enhanced_mean_image`.
 
     Upstream suite2p replaced `compute_enhanced_mean_image(img, ops)` with
@@ -1729,7 +1729,7 @@ def run_plane_bin(ops) -> bool:
                 print("  Computed meanImg from binary")
 
         if "meanImgE" not in ops and "meanImg" in ops:
-            ops["meanImgE"] = _compute_enhanced_mean_image(
+            ops["meanImgE"] = compute_enhanced_mean_image(
                 ops["meanImg"].astype(np.float32), ops
             )
             print("  Computed meanImgE from meanImg")
@@ -1791,7 +1791,7 @@ def run_plane_bin(ops) -> bool:
 
     # ensure meanImgE is always present in final ops (safety net)
     if "meanImgE" not in ops and "meanImg" in ops:
-        ops["meanImgE"] = _compute_enhanced_mean_image(
+        ops["meanImgE"] = compute_enhanced_mean_image(
             ops["meanImg"].astype(np.float32), ops
         )
 
@@ -2569,17 +2569,6 @@ def run_plane(
         )
         np.save(plane_dir / "dff.npy", dff)
 
-        # Record the dF/F params that actually drew the dff.npy +
-        # figures. These live as top-level ops keys (NOT in the suite2p
-        # settings schema), so save_ops_db_settings writes them to
-        # ops.npy but leaves settings.npy / db.npy untouched. That keeps
-        # settings.npy as a record of suite2p stages and lets ops.npy
-        # carry the post-processing knobs separately.
-        current_ops["dff_window_size"] = dff_window_size
-        current_ops["dff_percentile"] = dff_percentile
-        current_ops["dff_smooth_window"] = dff_smooth_window
-        current_ops["correct_neuropil"] = bool(correct_neuropil)
-
         _add_processing_step(
             current_ops,
             "dff_calculation",
@@ -2587,6 +2576,34 @@ def run_plane(
             extra={"percentile": dff_percentile},
         )
         save_ops_db_settings(ops_file, current_ops)
+
+    # 3b. Persist post-processing kwargs to ops.npy unconditionally.
+    # These live as top-level ops keys (NOT in the suite2p settings
+    # schema), so settings.npy / db.npy stay a record of the suite2p
+    # stages only — ops.npy carries the lsp / GUI-tunable knobs. Done
+    # outside the F.npy/Fneu.npy gate above so detection-skipped runs
+    # still leave a record of which knobs the caller passed in. Callers
+    # like mbo_utilities / mbo studio diff these against their dataclass
+    # defaults to flag "modified" parameters in the GUI.
+    if ops_file.exists():
+        try:
+            _post_ops = load_ops(ops_file)
+            _post_ops["dff_window_size"] = dff_window_size
+            _post_ops["dff_percentile"] = dff_percentile
+            _post_ops["dff_smooth_window"] = dff_smooth_window
+            _post_ops["correct_neuropil"] = bool(correct_neuropil)
+            _post_ops["accept_all_cells"] = bool(accept_all_cells)
+            _post_ops["save_json"] = bool(save_json)
+            # cell_filters: list[dict] (or None). Stored as-is so a reload
+            # can reconstruct each criterion's enabled/value pair.
+            _post_ops["cell_filters"] = cell_filters
+            # rastermap_kwargs: nested dict {"planar": {...}, "volumetric":
+            # {...}} or None. Presence of a key is the per-mode enable
+            # signal; sub-dict contents override Rastermap() defaults.
+            _post_ops["rastermap_kwargs"] = rastermap_kwargs
+            save_ops_db_settings(ops_file, _post_ops)
+        except Exception as _e:
+            print(f"  Warning: persisting post-processing kwargs failed: {_e}")
 
     # 3b. ROI statistics
     try:

@@ -7,6 +7,7 @@ from lbm_suite2p_python.run_lsp import (
     run_plane,
     add_processing_step,
     generate_plane_dirname,
+    compute_enhanced_mean_image
 )
 
 from lbm_suite2p_python.cellpose import (
@@ -95,6 +96,7 @@ __all__ = [
     "default_ops",
     "add_processing_step",
     "generate_plane_dirname",
+    "compute_enhanced_mean_image"
 
     # Cellpose / HITL Workflow
     "train_cellpose",
