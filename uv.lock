@@ -1832,7 +1832,7 @@ docs = [
 requires-dist = [
     { name = "cellpose", marker = "extra == 'cellpose'", specifier = ">=4.0.6" },
     { name = "lbm-suite2p-python", extras = ["rastermap", "cellpose"], marker = "extra == 'all'" },
-    { name = "mbo-utilities", specifier = ">=3.0.2" },
+    { name = "mbo-utilities", specifier = ">=3.0.3" },
     { name = "rastermap", marker = "extra == 'rastermap'" },
     { name = "setuptools", specifier = "<81" },
     { name = "suite2p", specifier = ">=1.0.0.1" },
@@ -2027,7 +2027,7 @@ wheels = [
 
 [[package]]
 name = "mbo-utilities"
-version = "3.0.2"
+version = "3.0.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "dask" },
@@ -2041,6 +2041,7 @@ dependencies = [
     { name = "ipywidgets" },
     { name = "jupyter-rfb" },
     { name = "jupyterlab" },
+    { name = "lbm-suite2p-python" },
     { name = "llvmlite" },
     { name = "matplotlib" },
     { name = "mbo-fastplotlib" },
@@ -2048,6 +2049,7 @@ dependencies = [
     { name = "napari" },
     { name = "napari-animation" },
     { name = "napari-ome-zarr" },
+    { name = "numba" },
     { name = "numpy" },
     { name = "opencv-python-headless" },
     { name = "pandas" },
@@ -2061,14 +2063,15 @@ dependencies = [
     { name = "scipy" },
     { name = "seaborn" },
     { name = "setuptools" },
+    { name = "suite2p" },
     { name = "tifffile" },
     { name = "tqdm" },
     { name = "wgpu" },
     { name = "zarr" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/6b/f5/bd4850ad191a6c987878586bf9d96d3acafdcd42e1f338f8326ccf5a84af/mbo_utilities-3.0.2.tar.gz", hash = "sha256:b35bd13e9051962be438c72c78553cbfadf67910b1ceebe89d8f65ed8bfd23c6", size = 3358130, upload-time = "2026-05-07T17:02:34.079Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f8/5f/fcf7945cd53df275cc94843347894e82cae7ed83de1ab805d9df564f0d2f/mbo_utilities-3.0.3.tar.gz", hash = "sha256:4dd7a52b311c7099db5cb0cc8e1603a6fc49e57de6400353ce569e6b18f352a6", size = 3399275, upload-time = "2026-05-07T18:21:54.142Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ed/1b/557a9d9139958948cc5d7b282483a473b863e218b83646f4493ef4569d53/mbo_utilities-3.0.2-py3-none-any.whl", hash = "sha256:b42966ec7465545a7e38c424429d823d9a673f4367bb9e5eb2d8a501eda6fdf1", size = 3381470, upload-time = "2026-05-07T17:02:32.106Z" },
+    { url = "https://files.pythonhosted.org/packages/63/03/1b1144229a7f94e091bbfe18d2909895994fb37426748663cf2643ad3384/mbo_utilities-3.0.3-py3-none-any.whl", hash = "sha256:fd8fae81d9a36186f37e94d17ff8e03b4b4f9188112a12e64e1ddf2cad29d085", size = 3424159, upload-time = "2026-05-07T18:21:52.118Z" },
 ]
 
 [[package]]
