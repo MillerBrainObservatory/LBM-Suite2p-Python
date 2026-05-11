@@ -237,7 +237,6 @@ def _copy_if_needed(src: Path, dst: Path, *, overwrite_empty: bool = True) -> bo
     if dst.exists():
         if not (overwrite_empty and dst.stat().st_size == 0):
             return False
-    print(f"  Copying {src.name} from {src.parent} -> {dst.parent}")
     shutil.copy2(src, dst)
     return True
 
@@ -263,6 +262,7 @@ def _stage_source_into_plane_dir(
     plane_dir = Path(plane_dir)
     plane_dir.mkdir(parents=True, exist_ok=True)
 
+    print(f"  Staging plane outputs: {src_dir.name} -> {plane_dir.name}")
     _copy_if_needed(src_dir / "ops.npy", plane_dir / "ops.npy")
     for fname in _DETECTION_OUTPUT_FILES:
         _copy_if_needed(src_dir / fname, plane_dir / fname)
@@ -2026,6 +2026,10 @@ def run_plane(
         )
 
         existing_ops = np.load(src_dir / "ops.npy", allow_pickle=True).item()
+        # remember the original acquisition source before the merge below
+        # overwrites data_path with the staged binary path. needed by
+        # force_reg path when the source has no data_raw.bin.
+        original_data_path = existing_ops.get("data_path")
         metadata = {
             k: v
             for k, v in existing_ops.items()
@@ -2073,20 +2077,71 @@ def run_plane(
             "data_path": str(input_path.resolve()),
         }
 
-        # registration would need to write to data.bin, but data.bin
-        # lives at the source dir — running it would clobber the user's
-        # source binary. force detection-only; user can re-register from
-        # the original tiff/zarr if they want fresh registration.
-        if ops_user.get("do_registration", 1):
-            logger.warning(
-                "do_registration=1 ignored when staging from an existing "
-                "registered binary into a different save_path — running "
-                "registration would clobber the source data.bin. Forcing "
-                "do_registration=0 (detection-only)."
-            )
-            ops["do_registration"] = 0
+        if not force_reg:
+            # registration would need to write to data.bin, but data.bin
+            # lives at the source dir — running it would clobber the user's
+            # source binary. force detection-only; user can re-register
+            # from the original tiff/zarr by passing force_reg=True (Force
+            # in the GUI), which routes writes into the new plane_dir.
+            if ops_user.get("do_registration", 1):
+                logger.warning(
+                    "do_registration ignored when staging into a different "
+                    "save_path — running registration would clobber the "
+                    "source data.bin. Forcing do_registration=0 "
+                    "(detection-only). Pass force_reg=True (Force in the "
+                    "GUI) to re-register into the new save_path."
+                )
+                ops["do_registration"] = 0
 
         _stage_source_into_plane_dir(src_dir, plane_dir, ops)
+
+        if force_reg:
+            # writes go to plane_dir/data.bin — discard the source pointer
+            # that _stage_source_into_plane_dir set.
+            ops.pop("reg_file", None)
+            # existing_ops carries a `raw_file` path from the original
+            # run; if keep_raw=False removed the file, the string is
+            # still present but stale. existence-check, don't trust the
+            # string alone.
+            _raw = ops.get("raw_file")
+            if not _raw or not Path(_raw).exists():
+                import shutil
+                target_raw = plane_dir / "data_raw.bin"
+                # prefer the original acquisition (tiff/zarr) when it's
+                # still on disk — avoids re-registering already-
+                # registered data. Skip when it points at the same .bin
+                # the user just loaded (no improvement, and imread of a
+                # stale data_path could be wrong).
+                use_original = (
+                    bool(original_data_path)
+                    and Path(original_data_path).exists()
+                    and Path(original_data_path).resolve() != input_path.resolve()
+                )
+                if use_original:
+                    print(
+                        f"  Force registration: rewriting data_raw.bin from "
+                        f"{Path(original_data_path).name}"
+                    )
+                    file = imread(Path(original_data_path), **reader_kwargs)
+                    if hasattr(file, "metadata"):
+                        metadata = dict(file.metadata)
+                    else:
+                        metadata = get_metadata(Path(original_data_path))
+                    skip_imwrite = False
+                else:
+                    # original acquisition is gone (or IS the input).
+                    # seed data_raw.bin from the staged data.bin so
+                    # registration has frames to work with. Re-registers
+                    # already-registered data (near-zero shifts) — fine
+                    # for detection / bad-frame re-runs.
+                    print(
+                        f"  Force registration: original acquisition "
+                        f"unavailable; seeding data_raw.bin from "
+                        f"{input_path.name} (re-registering already-"
+                        f"registered data)"
+                    )
+                    shutil.copy2(input_path, target_raw)
+                    ops["raw_file"] = str(target_raw)
     else:
         skip_imwrite = False
 
