@@ -174,6 +174,24 @@ Examples:
         "--accept-all-cells", action="store_true",
         help="mark all detected ROIs as accepted cells"
     )
+    pipeline.add_argument(
+        "--workers", type=int, default=4,
+        help="number of zplane worker processes (default: 4). "
+             "Use 1 for sequential, or 0 / negative for auto = "
+             "min(num_planes, cpu_count//2, 8). "
+             "Cellpose on GPU may OOM with multiple workers."
+    )
+    pipeline.add_argument(
+        "--skip-volumetric", action="store_true", dest="skip_volumetric",
+        help="skip merge_mrois, volume_stats, and volumetric plots after per-plane processing"
+    )
+    pipeline.add_argument(
+        "--threads-per-worker", type=int, dest="threads_per_worker", default=2,
+        help="cap BLAS / OMP / numba / torch threads per worker process "
+             "(default: 2). Total CPU load ~ workers * threads_per_worker. "
+             "Set to 0 or a negative value to use library defaults "
+             "(typically 1 thread per core, which oversubscribes when workers > 1)."
+    )
 
     # dff options
     dff = parser.add_argument_group("dff options")
@@ -324,6 +342,30 @@ def list_ops():
             print(f"  --{_snake_to_kebab(key):<22} {default_str:<20} {help_text}")
 
 
+class _Tee:
+    """Duplicate writes to multiple text streams (e.g., stdout + file)."""
+
+    def __init__(self, *streams):
+        self.streams = streams
+
+    def write(self, data):
+        for s in self.streams:
+            try:
+                s.write(data)
+            except Exception:
+                pass
+
+    def flush(self):
+        for s in self.streams:
+            try:
+                s.flush()
+            except Exception:
+                pass
+
+    def isatty(self):
+        return False
+
+
 def build_cell_filters(args) -> list | None:
     """build cell filters list from CLI args."""
     filters = []
@@ -457,8 +499,28 @@ def main():
 
     output_path.mkdir(parents=True, exist_ok=True)
 
+    log_path = output_path / "log.txt"
+    log_file = open(log_path, "w", encoding="utf-8", buffering=1)
+    _orig_stdout, _orig_stderr = sys.stdout, sys.stderr
+    sys.stdout = _Tee(_orig_stdout, log_file)
+    sys.stderr = _Tee(_orig_stderr, log_file)
+    print(f"Logging to: {log_path}")
+
+    from importlib.metadata import PackageNotFoundError, version as _pkg_version
+    try:
+        _mbo_version = _pkg_version("mbo_utilities")
+    except PackageNotFoundError:
+        _mbo_version = "unknown"
+    try:
+        _s2p_version = _pkg_version("suite2p")
+    except PackageNotFoundError:
+        _s2p_version = "not installed"
+
     print(f"\n{'='*60}")
     print(f"LBM Suite2p Pipeline v{__version__}")
+    print(f"  mbo_utilities       v{_mbo_version}")
+    print(f"  lbm_suite2p_python  v{__version__}")
+    print(f"  suite2p             v{_s2p_version}")
     print(f"{'='*60}")
     print(f"Input:  {input_path}")
     print(f"Output: {output_path}")
@@ -491,6 +553,8 @@ def main():
     print(f"\n{'='*60}\n")
 
     # run pipeline
+    import time
+    _pipeline_start = time.time()
     try:
         lsp.pipeline(
             input_data=input_path,
@@ -501,8 +565,8 @@ def main():
             num_timepoints=args.num_timepoints,
             keep_reg=args.keep_reg,
             keep_raw=args.keep_raw,
-            force_reg=args.force_reg,
-            force_detect=args.force_detect,
+            force_reg=args.force_reg or args.overwrite,
+            force_detect=args.force_detect or args.overwrite,
             dff_window_size=args.dff_window_size,
             dff_percentile=args.dff_percentile,
             dff_smooth_window=args.dff_smooth_window,
@@ -511,11 +575,18 @@ def main():
             accept_all_cells=args.accept_all_cells,
             save_json=args.save_json,
             reader_kwargs=reader_kwargs if reader_kwargs else None,
+            workers=args.workers,
+            skip_volumetric=args.skip_volumetric,
+            threads_per_worker=args.threads_per_worker,
         )
 
+        _elapsed = time.time() - _pipeline_start
+        _h, _rem = divmod(int(_elapsed), 3600)
+        _m, _s = divmod(_rem, 60)
         print(f"\n{'='*60}")
         print(f"Processing complete!")
         print(f"Results saved to: {output_path}")
+        print(f"Total elapsed: {_h:02d}:{_m:02d}:{_s:02d} ({_elapsed:.1f}s)")
         print(f"{'='*60}\n")
 
         return 0
@@ -525,6 +596,12 @@ def main():
         import traceback
         traceback.print_exc()
         return 1
+    finally:
+        sys.stdout, sys.stderr = _orig_stdout, _orig_stderr
+        try:
+            log_file.close()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":

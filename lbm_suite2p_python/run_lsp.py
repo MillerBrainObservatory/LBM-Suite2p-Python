@@ -1,5 +1,11 @@
 import logging
+import logging.handlers
+import multiprocessing as mp
+import os
+import pickle
+import sys
 import time
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 import traceback
@@ -439,11 +445,35 @@ from lbm_suite2p_python.utils import _is_lazy_array, _get_num_planes
 def _get_suite2p_version():
     """Get suite2p version string."""
     try:
-        import suite2p
-
-        return getattr(suite2p, "__version__", "unknown")
-    except ImportError:
+        return version("suite2p")
+    except PackageNotFoundError:
         return "not installed"
+
+
+def _apply_thread_limits(threads_per_worker: int | None) -> None:
+    """Cap BLAS / OMP / numba / torch thread counts per process.
+
+    Sets env vars so any child process spawned later inherits the cap,
+    and calls torch.set_num_threads for the current process (where the
+    BLAS env vars may have been read at import time and cannot be
+    changed without threadpoolctl). No-op when value is None or <= 0.
+    """
+    if not threads_per_worker or threads_per_worker <= 0:
+        return
+    n = str(int(threads_per_worker))
+    for var in (
+        "OMP_NUM_THREADS",
+        "MKL_NUM_THREADS",
+        "OPENBLAS_NUM_THREADS",
+        "NUMEXPR_NUM_THREADS",
+        "NUMBA_NUM_THREADS",
+    ):
+        os.environ[var] = n
+    try:
+        import torch
+        torch.set_num_threads(int(threads_per_worker))
+    except Exception:
+        pass
 
 
 def _add_processing_step(
@@ -523,6 +553,160 @@ def _extract_volumetric_rastermap_kwargs(rastermap_kwargs):
     return _extract_rastermap_section(rastermap_kwargs, "volumetric")
 
 
+def _resolve_input_source(input_arr, input_data):
+    """Return a picklable source spec for parallel workers to imread().
+
+    Workers re-open the data themselves rather than receiving a pickled
+    lazy array (which may not survive spawn). Preference order:
+      1. Original input_data if it's a str/Path/list of paths.
+      2. input_arr.filenames for mbo lazy arrays backed by files.
+    Raises ValueError when neither is available.
+    """
+    if isinstance(input_data, (str, Path)):
+        return str(input_data)
+    if isinstance(input_data, (list, tuple)) and all(
+        isinstance(p, (str, Path)) for p in input_data
+    ):
+        return [str(p) for p in input_data]
+    if input_arr is not None and hasattr(input_arr, "filenames"):
+        fns = list(input_arr.filenames) if input_arr.filenames else []
+        if fns:
+            return [str(p) for p in fns]
+    raise ValueError(
+        "parallel mode (workers != 1) requires a path-based input. "
+        "Pass a file path, list of paths, or a lazy array loaded from disk, "
+        "or set workers=1 to process in-memory arrays sequentially."
+    )
+
+
+def _resolve_worker_count(workers, num_planes):
+    """Resolve `workers` kwarg into a concrete worker count.
+
+    workers=1: sequential (caller short-circuits before calling this).
+    workers in (None, <=0): auto = min(num_planes, cpu_count//2, 8).
+    workers>1: clamp to num_planes.
+    """
+    if workers is None or (isinstance(workers, int) and workers <= 0):
+        cpu = os.cpu_count() or 1
+        return max(1, min(num_planes, cpu // 2 or 1, 8))
+    return max(1, min(int(workers), num_planes))
+
+
+class _QueueStreamRedirect:
+    """File-like that forwards writes to a logger so print()/tqdm output
+    from a worker process flows through the multiprocessing log queue."""
+
+    def __init__(self, logger_, level=logging.INFO):
+        self._logger = logger_
+        self._level = level
+        self._buf = ""
+
+    def write(self, msg):
+        if not msg:
+            return
+        self._buf += msg
+        while "\n" in self._buf:
+            line, _, self._buf = self._buf.partition("\n")
+            if line:
+                self._logger.log(self._level, line)
+
+    def flush(self):
+        if self._buf:
+            self._logger.log(self._level, self._buf)
+            self._buf = ""
+
+    def isatty(self):
+        return False
+
+
+def _plane_worker(input_source, current_ops, save_path, run_plane_kwargs,
+                  reader_kwargs, log_queue):
+    """Process one zplane in a child process. Returns (plane_num, ops_path).
+
+    Module-level so it pickles for ProcessPoolExecutor. The fully-prepared
+    `current_ops` is built in the main process; this worker only re-opens
+    the input via imread() and calls run_plane().
+    """
+    plane_num = current_ops.get("plane")
+
+    root = logging.getLogger()
+    root.handlers.clear()
+    root.addHandler(logging.handlers.QueueHandler(log_queue))
+    root.setLevel(logging.INFO)
+    # suite2p / cellpose loggers set propagate=False, so route them directly.
+    for name in ("suite2p", "cellpose"):
+        lg = logging.getLogger(name)
+        lg.handlers.clear()
+        lg.addHandler(logging.handlers.QueueHandler(log_queue))
+        lg.setLevel(logging.INFO)
+        lg.propagate = False
+    global _external_logging_attached
+    _external_logging_attached = True
+
+    plane_logger = logging.getLogger(f"plane{plane_num:02d}")
+    plane_logger.setLevel(logging.INFO)
+    _orig_stdout, _orig_stderr = sys.stdout, sys.stderr
+    sys.stdout = _QueueStreamRedirect(plane_logger, logging.INFO)
+    sys.stderr = _QueueStreamRedirect(plane_logger, logging.INFO)
+
+    try:
+        from mbo_utilities import imread
+        arr = imread(input_source, **(reader_kwargs or {}))
+        ops_path = run_plane(
+            input_data=arr,
+            save_path=save_path,
+            ops=current_ops,
+            **run_plane_kwargs,
+        )
+        return plane_num, ops_path
+    finally:
+        try:
+            sys.stdout.flush()
+            sys.stderr.flush()
+        except Exception:
+            pass
+        sys.stdout, sys.stderr = _orig_stdout, _orig_stderr
+
+
+def _prepare_plane_ops(*, base_ops, plane_idx, num_planes, input_arr,
+                       volume_voxel, volume_source_meta, volume_source_shape,
+                       z_selection, frame_indices):
+    """Build a per-plane ops dict from base ops.
+
+    Centralizes the per-plane prep so both sequential and parallel paths
+    apply identical voxel-size propagation and reactive metadata. Mirrors
+    the inline prep that previously lived in run_volume's loop.
+    """
+    plane_num = plane_idx + 1
+    current_ops = copy.deepcopy(load_ops(base_ops)) if base_ops else default_ops()
+    current_ops["plane"] = plane_num
+    current_ops["num_zplanes"] = num_planes
+
+    if input_arr is not None and hasattr(input_arr, "metadata"):
+        _source_idx = (input_arr.metadata or {}).get("selected_planes_0based")
+        if _source_idx is not None and plane_idx < len(_source_idx):
+            current_ops["source_plane_num"] = int(_source_idx[plane_idx]) + 1
+
+    if volume_voxel is not None:
+        if volume_voxel.dz is not None:
+            current_ops.setdefault("dz", volume_voxel.dz)
+            current_ops.setdefault("z_step", volume_voxel.dz)
+        if volume_voxel.dx != 1.0:
+            current_ops.setdefault("dx", volume_voxel.dx)
+        if volume_voxel.dy != 1.0:
+            current_ops.setdefault("dy", volume_voxel.dy)
+
+    _apply_reactive_metadata(
+        ops=current_ops,
+        source_metadata=volume_source_meta,
+        source_shape=volume_source_shape,
+        frame_indices=frame_indices,
+        plane_indices=z_selection,
+        logger=logger,
+    )
+    return current_ops
+
+
 def pipeline(
     input_data,
     save_path: str | Path = None,
@@ -547,6 +731,9 @@ def pipeline(
     save_json: bool = False,
     reader_kwargs: dict = None,
     writer_kwargs: dict = None,
+    workers: int | None = 1,
+    skip_volumetric: bool = False,
+    threads_per_worker: int | None = None,
     # deprecated parameters
     roi: int = None,
     num_frames: int = None,
@@ -630,6 +817,19 @@ def pipeline(
         Arguments passed to mbo_utilities.imread().
     writer_kwargs : dict, optional
         Arguments passed to binary writer (e.g., output_format).
+    workers : int or None, default 1
+        Number of zplane worker processes for volumetric input. ``1``
+        keeps the sequential code path. ``None`` (or any value <= 0)
+        auto-picks ``min(num_planes, cpu_count // 2, 8)``. Parallel mode
+        requires a path-based input; per-plane outputs go to disjoint
+        subdirectories. Cellpose on GPU may OOM with multiple workers —
+        reduce ``workers`` or switch cellpose to CPU when this happens.
+        Ignored for planar (single-plane) inputs.
+    skip_volumetric : bool, default False
+        When True, return per-plane ops_files immediately after the
+        per-plane loop, skipping merge_mrois, volume_stats, and
+        volumetric plots. Useful when farming planes across machines
+        and aggregating later.
     plane_name : str, optional
         Name for output directory when input is an array without
         filenames. Passed via kwargs.
@@ -666,6 +866,8 @@ def pipeline(
     from mbo_utilities.arrays import supports_roi
 
     _attach_external_loggers()
+
+    _apply_thread_limits(threads_per_worker)
 
     # 1. Handle Deprecations
     if roi is not None:
@@ -747,9 +949,17 @@ def pipeline(
             save_json=save_json,
             reader_kwargs=reader_kwargs,
             writer_kwargs=writer_kwargs,
+            workers=workers,
+            skip_volumetric=skip_volumetric,
+            threads_per_worker=threads_per_worker,
             **kwargs,
         )
     else:
+        if workers != 1:
+            logger.warning(
+                "workers=%r ignored: input is planar (single zplane), no parallelism applicable",
+                workers,
+            )
         # run_plane is planar-only — extract just the planar sub-dict
         planar_kwargs = _extract_planar_rastermap_kwargs(rastermap_kwargs)
         # run_plane returns a single Path, we wrap in list
@@ -947,6 +1157,9 @@ def run_volume(
     save_json: bool = False,
     reader_kwargs: dict = None,
     writer_kwargs: dict = None,
+    workers: int | None = 1,
+    skip_volumetric: bool = False,
+    threads_per_worker: int | None = None,
     **kwargs,
 ):
     """
@@ -990,6 +1203,19 @@ def run_volume(
         See pipeline() for the full schema.
     save_json : bool, default False
         Save ops as JSON.
+    workers : int or None, default 1
+        Number of zplane worker processes. ``1`` (default) keeps the
+        sequential path. ``None`` or any value <= 0 auto-picks
+        ``min(num_planes, cpu_count // 2, 8)``. Values > 1 run that many
+        workers (clamped to num_planes). Parallel mode requires a
+        path-based input. Workers reload input via ``imread`` and write
+        to disjoint per-plane subdirectories.
+        Caveat: cellpose on GPU may OOM with multiple workers; reduce
+        ``workers`` or switch cellpose to CPU when this happens.
+    skip_volumetric : bool, default False
+        When True, return per-plane ops_files immediately after the
+        per-plane loop, skipping merge_mrois, volume_stats, and all
+        volumetric plots. Useful when farming planes across machines.
     **kwargs
         Additional args passed to run_plane.
 
@@ -1001,6 +1227,8 @@ def run_volume(
     from mbo_utilities.arrays import _normalize_planes
     from mbo_utilities import imread
     from lbm_suite2p_python.merging import merge_mrois
+
+    _apply_thread_limits(threads_per_worker)
 
     # Handle input data
     input_arr = None
@@ -1072,6 +1300,7 @@ def run_volume(
         else None
     )
 
+    _volume_start = time.time()
     print(
         f"Processing {len(planes_indices)} planes in volume (Total planes: {num_planes})"
     )
@@ -1087,116 +1316,205 @@ def run_volume(
 
     ops_files = []
 
-    # Iterate
-    for i, plane_idx in enumerate(planes_indices):
-        plane_num = plane_idx + 1
+    # shared run_plane kwargs (identical for sequential and parallel paths)
+    _run_plane_kwargs = dict(
+        keep_reg=keep_reg,
+        keep_raw=keep_raw,
+        force_reg=force_reg,
+        force_detect=force_detect,
+        frame_indices=frame_indices,
+        dff_window_size=dff_window_size,
+        dff_percentile=dff_percentile,
+        dff_smooth_window=dff_smooth_window,
+        correct_neuropil=correct_neuropil,
+        accept_all_cells=accept_all_cells,
+        cell_filters=cell_filters,
+        rastermap_kwargs=planar_rastermap_kwargs,
+        save_json=save_json,
+        reader_kwargs=reader_kwargs,
+        writer_kwargs=writer_kwargs,
+        **kwargs,
+    )
 
-        if progress_callback:
-            progress_callback(
-                plane=i,
-                total_planes=len(planes_indices),
-                step="plane_start",
-                message=f"Plane {plane_num}",
-            )
+    run_parallel = workers != 1
+    if run_parallel:
+        n_workers = _resolve_worker_count(workers, len(planes_indices))
 
-        # Prepare input for run_plane
-        if input_arr is not None:
-            # Pass the whole array, run_plane handles extraction via ops['plane']
-            current_input = input_arr
-        else:
-            # List of files - map plane_num to file index (assuming 1-to-1 if no explicit mapping)
-            # If input_paths corresponds to ALL planes, then plane_idx indexes into it
-            if plane_idx < len(input_paths):
-                current_input = input_paths[plane_idx]
-            else:
-                # Fallback or error? Assuming input_files length matches num_planes
-                current_input = input_paths[0]  # Should not happen if logic is correct
-
-        # Prepare ops with plane number — deepcopy so suite2p's in-place
-        # mutations (badframes, meanImg, Ly/Lx, etc.) don't leak across planes
-        current_ops = copy.deepcopy(load_ops(ops)) if ops else default_ops()
-        current_ops["plane"] = plane_num
-        current_ops["num_zplanes"] = num_planes  # useful info
-
-        # if the source was saved as a plane-subset (e.g. every-other-plane),
-        # mbo stamps `selected_planes_0based` into the file metadata. use
-        # that to translate the local plane index back to source-plane
-        # identity so output dirs read `zplane07_...` rather than
-        # `zplane02_...`. `ops["plane"]` stays as the local index because
-        # downstream slicing (`planes=[ops["plane"]]` in run_plane) must
-        # index into the *loaded* array, which only has the saved subset.
-        if input_arr is not None and hasattr(input_arr, "metadata"):
-            _source_idx = (input_arr.metadata or {}).get("selected_planes_0based")
-            if _source_idx is not None and plane_idx < len(_source_idx):
-                current_ops["source_plane_num"] = int(_source_idx[plane_idx]) + 1
-
-        # Propagate voxel size from volume metadata into per-plane ops
-        if _volume_voxel is not None:
-            if _volume_voxel.dz is not None:
-                current_ops.setdefault("dz", _volume_voxel.dz)
-                current_ops.setdefault("z_step", _volume_voxel.dz)
-            if _volume_voxel.dx != 1.0:
-                current_ops.setdefault("dx", _volume_voxel.dx)
-            if _volume_voxel.dy != 1.0:
-                current_ops.setdefault("dy", _volume_voxel.dy)
-
-        # Reactively scale dz (and fs if frame_indices are provided)
-        # using the FULL plane selection. This MUST happen before
-        # run_plane fires, because run_plane sees only its own plane
-        # number and can't compute the implicit z-stride on its own.
-        # The helper overwrites dz/dx/dy/fs in current_ops so the
-        # `setdefault` calls above are effectively replaced when the
-        # reactive value differs.
-        _apply_reactive_metadata(
-            ops=current_ops,
-            source_metadata=_volume_source_meta,
-            source_shape=_volume_source_shape,
-            frame_indices=frame_indices,
-            plane_indices=_volume_z_selection,
-            logger=logger,
-        )
-
-        # Call run_plane
-        try:
-            print(f"\n--- Volume Step: Plane {plane_num} ---")
-            ops_file = run_plane(
-                input_data=current_input,
-                save_path=save_path,
-                ops=current_ops,
-                keep_reg=keep_reg,
-                keep_raw=keep_raw,
-                force_reg=force_reg,
-                force_detect=force_detect,
-                frame_indices=frame_indices,
-                dff_window_size=dff_window_size,
-                dff_percentile=dff_percentile,
-                dff_smooth_window=dff_smooth_window,
-                correct_neuropil=correct_neuropil,
-                accept_all_cells=accept_all_cells,
-                cell_filters=cell_filters,
-                rastermap_kwargs=planar_rastermap_kwargs,
-                save_json=save_json,
-                reader_kwargs=reader_kwargs,
-                writer_kwargs=writer_kwargs,
-                **kwargs,
-            )
-            ops_files.append(ops_file)
+    if not run_parallel:
+        # Iterate sequentially (original behavior)
+        for i, plane_idx in enumerate(planes_indices):
+            plane_num = plane_idx + 1
 
             if progress_callback:
                 progress_callback(
                     plane=i,
                     total_planes=len(planes_indices),
-                    step="plane_done",
-                    message=f"Plane {plane_num} complete",
+                    step="plane_start",
+                    message=f"Plane {plane_num}",
                 )
-        except Exception as e:
-            print(f"ERROR processing plane {plane_num}: {e}")
-            traceback.print_exc()
+
+            # Prepare input for run_plane
+            if input_arr is not None:
+                # Pass the whole array, run_plane handles extraction via ops['plane']
+                current_input = input_arr
+            else:
+                # List of files - map plane_num to file index (assuming 1-to-1 if no explicit mapping)
+                # If input_paths corresponds to ALL planes, then plane_idx indexes into it
+                if plane_idx < len(input_paths):
+                    current_input = input_paths[plane_idx]
+                else:
+                    # Fallback or error? Assuming input_files length matches num_planes
+                    current_input = input_paths[0]  # Should not happen if logic is correct
+
+            current_ops = _prepare_plane_ops(
+                base_ops=ops,
+                plane_idx=plane_idx,
+                num_planes=num_planes,
+                input_arr=input_arr,
+                volume_voxel=_volume_voxel,
+                volume_source_meta=_volume_source_meta,
+                volume_source_shape=_volume_source_shape,
+                z_selection=_volume_z_selection,
+                frame_indices=frame_indices,
+            )
+
+            # Call run_plane
+            try:
+                print(f"\n--- Volume Step: Plane {plane_num} ---")
+                _plane_start = time.time()
+                ops_file = run_plane(
+                    input_data=current_input,
+                    save_path=save_path,
+                    ops=current_ops,
+                    **_run_plane_kwargs,
+                )
+                ops_files.append(ops_file)
+                print(
+                    f"--- Plane {plane_num} elapsed: {time.time() - _plane_start:.1f}s ---"
+                )
+
+                if progress_callback:
+                    progress_callback(
+                        plane=i,
+                        total_planes=len(planes_indices),
+                        step="plane_done",
+                        message=f"Plane {plane_num} complete",
+                    )
+            except Exception as e:
+                print(f"ERROR processing plane {plane_num}: {e}")
+                traceback.print_exc()
+    else:
+        # Parallel: resolve a picklable input source, pre-build all per-plane
+        # ops in the main process, then run planes in a ProcessPoolExecutor.
+        try:
+            input_source = _resolve_input_source(input_arr, input_data)
+        except ValueError:
+            raise
+
+        prepared = []  # list of (plane_num, current_ops)
+        for plane_idx in planes_indices:
+            current_ops = _prepare_plane_ops(
+                base_ops=ops,
+                plane_idx=plane_idx,
+                num_planes=num_planes,
+                input_arr=input_arr,
+                volume_voxel=_volume_voxel,
+                volume_source_meta=_volume_source_meta,
+                volume_source_shape=_volume_source_shape,
+                z_selection=_volume_z_selection,
+                frame_indices=frame_indices,
+            )
+            prepared.append((plane_idx + 1, current_ops))
+
+        # Eager picklability check on the first plane's ops so users see
+        # a clear error at submission rather than a swallowed future.
+        try:
+            pickle.dumps(prepared[0][1])
+            pickle.dumps(_run_plane_kwargs)
+        except Exception as exc:
+            raise RuntimeError(
+                f"parallel mode cannot pickle the prepared per-plane ops or "
+                f"run_plane kwargs ({exc!r}). Use workers=1 or remove the "
+                f"unpicklable item."
+            ) from exc
+
+        print(
+            f"Running {len(planes_indices)} planes across {n_workers} worker process(es)..."
+        )
+
+        manager = mp.Manager()
+        log_queue = manager.Queue()
+        stdout_handler = logging.StreamHandler()
+        stdout_handler.setFormatter(logging.Formatter("%(name)s: %(message)s"))
+        listener = logging.handlers.QueueListener(
+            log_queue, stdout_handler, respect_handler_level=False
+        )
+        listener.start()
+
+        if progress_callback:
+            for i, (plane_num, _) in enumerate(prepared):
+                progress_callback(
+                    plane=i,
+                    total_planes=len(planes_indices),
+                    step="plane_start",
+                    message=f"Plane {plane_num}",
+                )
+
+        try:
+            with ProcessPoolExecutor(max_workers=n_workers) as pool:
+                future_to_plane = {}
+                plane_start_times = {}
+                for plane_num, current_ops in prepared:
+                    fut = pool.submit(
+                        _plane_worker,
+                        input_source,
+                        current_ops,
+                        save_path,
+                        _run_plane_kwargs,
+                        reader_kwargs,
+                        log_queue,
+                    )
+                    future_to_plane[fut] = plane_num
+                    plane_start_times[plane_num] = time.time()
+
+                done_count = 0
+                for fut in as_completed(future_to_plane):
+                    plane_num = future_to_plane[fut]
+                    try:
+                        result_plane_num, ops_file = fut.result()
+                        ops_files.append((result_plane_num, ops_file))
+                        done_count += 1
+                        print(
+                            f"--- Plane {result_plane_num} elapsed: "
+                            f"{time.time() - plane_start_times[plane_num]:.1f}s ---"
+                        )
+                        if progress_callback:
+                            progress_callback(
+                                plane=done_count - 1,
+                                total_planes=len(planes_indices),
+                                step="plane_done",
+                                message=f"Plane {result_plane_num} complete",
+                            )
+                    except Exception as e:
+                        print(f"ERROR processing plane {plane_num}: {e}")
+                        traceback.print_exc()
+        finally:
+            listener.stop()
+
+        # Sort results back into z-order — volumetric stats/plots rely on
+        # list order matching plane order.
+        ops_files = [p for _, p in sorted(ops_files, key=lambda t: t[0])]
 
     if not ops_files:
         raise RuntimeError(
             "run_volume failed: All planes resulted in exceptions during processing."
         )
+
+    if skip_volumetric:
+        logger.info(
+            "skip_volumetric=True; returning per-plane ops_files without aggregation"
+        )
+        return ops_files
 
     # Post-Loop: Merging and Volume Stats
 
@@ -1280,6 +1598,13 @@ def run_volume(
             print(f"Warning: Volume statistics failed: {e}")
             traceback.print_exc()
 
+    _volume_elapsed = time.time() - _volume_start
+    _h, _rem = divmod(int(_volume_elapsed), 3600)
+    _m, _s = divmod(_rem, 60)
+    print(
+        f"\nVolume total elapsed: {_h:02d}:{_m:02d}:{_s:02d} "
+        f"({_volume_elapsed:.1f}s) across {len(ops_files)} plane(s)"
+    )
     return ops_files
 
 
