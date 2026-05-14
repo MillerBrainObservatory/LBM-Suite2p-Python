@@ -234,7 +234,7 @@ def _resolve_source_plane_dir(input_arr, input_path, target_plane, source_plane_
 def _copy_if_needed(src: Path, dst: Path, *, overwrite_empty: bool = True) -> bool:
     """Copy src -> dst when dst is missing (or empty, if overwrite_empty).
 
-    Returns True when a copy actually happened. Never clobbers a
+    Returns True when a copy actually happened. Never overwrites a
     non-empty destination.
     """
     import shutil
@@ -1713,13 +1713,25 @@ def _should_register(ops_path: str | Path) -> bool:
     """
     Determine whether Suite2p registration still needs to be performed.
 
-    Registration is considered complete if any of the following hold:
-      - A reference image (refImg) exists and is a valid ndarray
-      - meanImg exists (Suite2p always produces it post-registration)
-      - Valid registration offsets (xoff/yoff) are present
-
     Returns True if registration *should* be run, False otherwise.
+
+    Decision rule:
+      1. If the plane's data.bin (suite2p's registered output) is missing,
+         registration has not run yet on this plane — return True
+         unconditionally. ops.npy field state is not trusted here because
+         write_ops merges the source array's metadata into a freshly-written
+         ops.npy, and source metadata can carry suite2p-output-shaped keys
+         (e.g. when imread of a directory pulls in a sibling ops.npy) that
+         falsely advertise "registration done" on what is actually raw data.
+      2. With data.bin present, fall back to ops.npy field inspection
+         (refImg / meanImg / xoff / yoff / regDX / regPC) to decide whether
+         the previous registration is complete enough to reuse.
     """
+    ops_path = Path(ops_path)
+    reg_bin = ops_path.parent / "data.bin"
+    if not reg_bin.exists():
+        return True
+
     ops = load_ops(ops_path)
 
     has_ref = isinstance(ops.get("refImg"), np.ndarray)
@@ -1736,7 +1748,10 @@ def _should_register(ops_path: str | Path) -> bool:
             return False
 
     has_offsets = _has_valid_offsets("xoff") or _has_valid_offsets("yoff")
-    has_metrics = any(k in ops for k in ("regDX", "regPC", "regPC1", "regDX1"))
+    has_metrics = any(
+        isinstance(ops.get(k), np.ndarray) and ops[k].size > 0
+        for k in ("regDX", "regPC", "regPC1", "regDX1")
+    )
 
     # registration done if any of these are true
     registration_done = has_ref or has_mean or has_offsets or has_metrics
@@ -1781,7 +1796,7 @@ def run_plane_bin(ops) -> bool:
 
     # resolve path keys. rewrite stale absolutes (ops was moved) but
     # preserve an already-valid absolute path (staging points raw_file/
-    # reg_file/chan2_file at the source dir — clobbering those would
+    # reg_file/chan2_file at the source dir — overwriting those would
     # break the link).
     ops["save_path"] = str(ops_parent)
     ops["ops_path"] = str(ops_parent / "ops.npy")
@@ -1934,7 +1949,7 @@ def run_plane_bin(ops) -> bool:
     reg_file_chan2 = ops_parent / "data_chan2_reg.bin" if use_chan2 else None
 
     # NOTE: previous versions hard-coded `ops["anatomical_red"] = False`
-    # and `ops["chan2_thres"] = 0.1` here. Both were silently clobbering
+    # and `ops["chan2_thres"] = 0.1` here. Both were silently overwriting
     # the user's settings and the suite2p schema defaults
     # (detection.chan2_threshold = 0.25). They've been removed — the
     # user's chan2 threshold now flows through unchanged. If a downstream
@@ -2403,18 +2418,19 @@ def run_plane(
         }
 
         if not force_reg:
-            # registration would need to write to data.bin, but data.bin
-            # lives at the source dir — running it would clobber the user's
-            # source binary. force detection-only; user can re-register
-            # from the original tiff/zarr by passing force_reg=True (Force
-            # in the GUI), which routes writes into the new plane_dir.
+            # registration writes to data.bin, but data.bin lives in the
+            # source dir — running it would overwrite the user's source
+            # binary. force detection-only; user can re-register from the
+            # original tiff/zarr by passing force_reg=True (Force in the
+            # GUI), which routes writes into the new plane_dir.
             if ops_user.get("do_registration", 1):
                 logger.warning(
-                    "do_registration ignored when staging into a different "
-                    "save_path — running registration would clobber the "
-                    "source data.bin. Forcing do_registration=0 "
-                    "(detection-only). Pass force_reg=True (Force in the "
-                    "GUI) to re-register into the new save_path."
+                    "do_registration ignored: the source directory already "
+                    "contains a data.bin and running registration here would "
+                    "overwrite it. Forcing do_registration=0 (detection-only). "
+                    "Select Force in the Registration column (force_reg=True) "
+                    "to re-register from the original input into the new "
+                    "save_path."
                 )
                 ops["do_registration"] = 0
 
@@ -2603,7 +2619,7 @@ def run_plane(
     if src_fs is None and file is not None and hasattr(file, "metadata"):
         src_fs = (file.metadata or {}).get("fs")
     if src_fs is not None:
-        # only override the lbm default — don't clobber a value the
+        # only override the lbm default — don't overwrite a value the
         # user explicitly set in their ops_user dict.
         if ops.get("fs") in (None, 10.0) or "fs" not in ops_user:
             ops["fs"] = float(src_fs)
@@ -2687,6 +2703,11 @@ def run_plane(
     user_skip_detect = (not ops.get("roidetect", 1)) and not force_detect
 
     stat_file = plane_dir / "stat.npy"
+    # If we just wrote a fresh data_raw.bin in this run, any stat.npy /
+    # ops.npy left in plane_dir from a prior run is stale and must not
+    # short-circuit suite2p. fresh raw data needs registration and (unless
+    # user-disabled) detection regardless of leftover artifacts.
+    fresh_binary_written = (not skip_imwrite) and (file is not None) and should_write
 
     if user_skip_reg and user_skip_detect:
         needs_reg = False
@@ -2698,6 +2719,8 @@ def run_plane(
         needs_detect = False
         if force_detect:
             needs_detect = True
+        elif fresh_binary_written:
+            needs_detect = not user_skip_detect
         elif not stat_file.exists():
             needs_detect = not user_skip_detect
         elif ops.get("roidetect", 1):
@@ -2711,6 +2734,8 @@ def run_plane(
             needs_reg = True
         elif user_skip_reg:
             needs_reg = False
+        elif fresh_binary_written:
+            needs_reg = True
         elif not ops_file.exists():
             needs_reg = True
         else:
