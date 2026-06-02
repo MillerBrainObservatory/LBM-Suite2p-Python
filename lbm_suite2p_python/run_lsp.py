@@ -2797,16 +2797,20 @@ def run_plane(
     # Run Suite2p (skip entirely when nothing needs to be done)
     skip_suite2p = not needs_reg and not needs_detect
 
-    # Only persist settings/db/ops here when suite2p is about to run that
-    # actually needs the path updates above. Skipping this save in the
-    # cache-hit path keeps settings.npy as a faithful record of how the
-    # on-disk artifacts were produced — the user's in-memory edits don't
-    # get persisted to settings.npy unless they actually drove a re-run.
-    # Post-processing keeps its own save call below (with the dff_* knobs
-    # tucked into ops as top-level keys) so dF/F-only re-runs still
-    # record the params that drew the new figures.
+    # Persistence policy:
+    # - When suite2p will run, save ops/db/settings together as a normal
+    #   record of the run.
+    # - When skipping (cache-hit / user-skip), still persist ops.npy so
+    #   the path repoint above (save_path / ops_path / raw_file /
+    #   reg_file) reaches disk — otherwise post-processing reloads the
+    #   stale paths copied in by _stage_source_into_plane_dir and reads
+    #   F.npy/etc. from the wrong location. settings.npy / db.npy are
+    #   left untouched so they keep being a faithful record of how the
+    #   on-disk artifacts were produced.
     if not skip_suite2p:
         save_ops_db_settings(ops_file, ops)
+    else:
+        np.save(ops_file, ops, allow_pickle=True)
     if skip_suite2p:
         if user_skip_reg and user_skip_detect:
             print("  Suite2p disabled by user toggles; regenerating figures only.")
