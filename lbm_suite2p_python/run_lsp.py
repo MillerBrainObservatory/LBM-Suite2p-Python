@@ -428,6 +428,52 @@ def _attach_external_loggers(level: int = logging.INFO) -> None:
     _external_logging_attached = True
 
 
+def _is_valid_torch_checkpoint(path) -> bool:
+    """Cheap integrity check for a cellpose/torch checkpoint (a zip archive).
+
+    A download interrupted mid-write leaves a truncated file with no zip
+    end-of-central-directory record; is_zipfile catches that case.
+    """
+    import zipfile
+
+    try:
+        return zipfile.is_zipfile(path)
+    except OSError:
+        return False
+
+
+def _prewarm_cellpose_model(ops) -> None:
+    """Download the cellpose model once, in the parent, before workers fan out.
+
+    cellpose's cache_CPSAM_model_path downloads to a temp file then renames
+    with no cross-process lock. Multiple workers hitting an empty cache at once
+    race: one wins the rename, the rest fail (Windows WinError 32/183) or read a
+    half-written file (PytorchStreamReader miniz error). Warming here serializes
+    the download so workers only ever read a complete file. A corrupt leftover
+    from a prior failed run is removed and re-downloaded.
+    """
+    if not (ops.get("roidetect", True) and ops.get("anatomical_only", 0) > 0):
+        return
+    try:
+        from cellpose import models as cp_models
+    except Exception:
+        return  # cellpose absent; detection falls back to functional mode
+    cached = Path(cp_models.MODEL_DIR) / "cpsam"
+    if cached.exists() and not _is_valid_torch_checkpoint(cached):
+        print(f"Cellpose model cache corrupt, re-downloading: {cached}")
+        try:
+            cached.unlink()
+        except OSError:
+            pass
+    try:
+        cp_models.cache_CPSAM_model_path()
+    except Exception as exc:
+        print(
+            f"Warning: could not pre-download cellpose model ({exc}); "
+            "workers may race on first download"
+        )
+
+
 from lbm_suite2p_python.volume import (
     plot_volume_diagnostics,
     plot_orthoslices,
@@ -1441,6 +1487,10 @@ def run_volume(
         print(
             f"Running {len(planes_indices)} planes across {n_workers} worker process(es)..."
         )
+
+        # Download the cellpose model once before fanning out; concurrent
+        # first-time downloads race on the shared cache file.
+        _prewarm_cellpose_model(ops)
 
         manager = mp.Manager()
         log_queue = manager.Queue()
