@@ -190,7 +190,7 @@ _ANATOMICAL_ONLY_TO_IMG: dict[int, str] = {
 _UPSTREAM_TO_FORK_RENAMES = {v: k for k, v in _FORK_TO_UPSTREAM_RENAMES.items()}
 
 # per-section flat-key disambiguation. Several upstream sections share
-# an upstream key. When flattened to ops, the second iteration clobbers
+# an upstream key. When flattened to ops, the second iteration overwrites
 # the first; on the reverse derivation, the surviving value gets fanned
 # back into BOTH sections — silently corrupting one of them.
 # This map gives the colliding (section, upstream_key) pair its own
