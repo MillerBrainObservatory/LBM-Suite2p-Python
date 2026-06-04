@@ -208,6 +208,11 @@ Examples:
         help="smoothing window for dF/F"
     )
     dff.add_argument(
+        "--norm-method", choices=["dff", "zscore"], default="dff",
+        dest="norm_method",
+        help="normalization for norm_traces.npy (default: dff)"
+    )
+    dff.add_argument(
         "--correct-neuropil", dest="correct_neuropil",
         action=argparse.BooleanOptionalAction, default=True,
         help="subtract 0.7*Fneu before dF/F (default: on; use --no-correct-neuropil to disable)"
@@ -570,6 +575,7 @@ def main():
             dff_window_size=args.dff_window_size,
             dff_percentile=args.dff_percentile,
             dff_smooth_window=args.dff_smooth_window,
+            norm_method=args.norm_method,
             correct_neuropil=args.correct_neuropil,
             cell_filters=cell_filters,
             accept_all_cells=args.accept_all_cells,

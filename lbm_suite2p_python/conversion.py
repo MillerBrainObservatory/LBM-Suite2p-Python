@@ -871,7 +871,7 @@ def get_results(path, include_traces=True):
         "F": None,
         "Fneu": None,
         "spks": None,
-        "dff": None,
+        "norm_traces": None,
         "ops": None,
         "seg_file": None,
     }
@@ -902,7 +902,7 @@ def get_results(path, include_traces=True):
 
         # Load traces if requested
         if include_traces and fmt == "suite2p":
-            for name in ["F", "Fneu", "spks", "dff"]:
+            for name in ["F", "Fneu", "spks", "norm_traces"]:
                 trace_file = path / f"{name}.npy"
                 if trace_file.exists():
                     result[name] = np.load(trace_file)

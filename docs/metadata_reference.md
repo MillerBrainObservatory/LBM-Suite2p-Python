@@ -462,7 +462,7 @@ Input Files (TIFF/Zarr/HDF5)
                    │   Output Files │
                    │ ops.npy, stat  │
                    │ F, Fneu, spks  │
-                   │ iscell, dff    │
+                   │ iscell, norm   │
                    └────────────────┘
 ```
 
@@ -474,7 +474,7 @@ The `ops` dictionary serves as the central metadata hub in Suite2p, with additio
 
 - `stat.npy` - per-ROI spatial and intensity metadata
 - `iscell.npy` - classification results (n_rois, 2)
-- `F.npy`, `Fneu.npy`, `spks.npy`, `dff.npy` - trace data (n_rois, nframes)
+- `F.npy`, `Fneu.npy`, `spks.npy`, `norm_traces.npy` - trace data (n_rois, nframes)
 - `processing_history` - append-only log within ops
 
 All metadata flows through the pipeline with consistent access patterns via mbo_utilities for input extraction and numpy serialization for output storage.

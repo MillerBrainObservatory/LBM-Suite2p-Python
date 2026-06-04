@@ -70,6 +70,8 @@ from lbm_suite2p_python.postprocessing import (
     load_ops,
     load_planar_results,
     dff_rolling_percentile,
+    zscore_trace,
+    baseline_percentile_dff,
     dff_shot_noise,
     compute_roi_stats,
 )
@@ -131,6 +133,8 @@ __all__ = [
     "load_ops",
     "load_planar_results",
     "dff_rolling_percentile",
+    "zscore_trace",
+    "baseline_percentile_dff",
     "dff_shot_noise",
     "compute_roi_stats",
 

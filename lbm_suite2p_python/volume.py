@@ -7,7 +7,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from lbm_suite2p_python.utils import get_common_path
-from lbm_suite2p_python.postprocessing import load_ops
+from lbm_suite2p_python.postprocessing import load_ops, baseline_percentile_dff
 
 
 def update_ops_paths(ops_files: str | list):
@@ -777,10 +777,9 @@ def plot_volume_diagnostics(
         n_rejected = int(np.sum(~iscell))
 
         # Compute SNR for accepted cells
+        # static-baseline ΔF/F for quality metrics only (see baseline_percentile_dff)
         F_corr = F - 0.7 * Fneu
-        baseline = np.percentile(F_corr, 20, axis=1, keepdims=True)
-        baseline = np.maximum(baseline, 1e-6)
-        dff = (F_corr - baseline) / baseline
+        dff = baseline_percentile_dff(F_corr)
 
         signal = np.std(dff, axis=1)
         noise = np.median(np.abs(np.diff(dff, axis=1)), axis=1) / 0.6745
@@ -1356,10 +1355,9 @@ def plot_3d_roi_map(
             if F_file.exists():
                 F = np.load(F_file, allow_pickle=True)
                 Fneu = np.load(Fneu_file, allow_pickle=True) if Fneu_file.exists() else np.zeros_like(F)
+                # static-baseline ΔF/F for quality metrics only (see baseline_percentile_dff)
                 F_corr = F - 0.7 * Fneu
-                baseline = np.percentile(F_corr, 20, axis=1, keepdims=True)
-                baseline = np.maximum(baseline, 1e-6)
-                dff = (F_corr - baseline) / baseline
+                dff = baseline_percentile_dff(F_corr)
                 signal = np.std(dff, axis=1)
                 noise = np.median(np.abs(np.diff(dff, axis=1)), axis=1) / 0.6745
                 color_vals = signal / (noise + 1e-6)
@@ -1893,6 +1891,7 @@ def plot_volume_trace_figures(
     dff_percentile: int = 8,
     dff_window_size: int = None,
     dff_smooth_window: int = None,
+    norm_method: str = "dff",
     correct_neuropil: bool = True,
 ):
     """
@@ -1905,9 +1904,9 @@ def plot_volume_trace_figures(
 
     - ``volume_trace_analysis.png`` — :func:`plot_trace_analysis` 6-panel
       extremes by SNR / shot noise / skewness, drawn from the volume.
-    - ``volume_traces_raw_{N}.png`` and ``volume_traces_dff_{N}.png`` for
+    - ``volume_traces_raw_{N}.png`` and ``volume_traces_norm_{N}.png`` for
       each ``N`` in ``cell_counts`` — top-N accepted cells by quality
-      score, raw and rolling-percentile dF/F.
+      score, raw and normalized (norm_method) traces.
     - ``rastermap.png`` — sorted-activity heatmap, if either a saved
       ``rastermap_model.npy`` exists in ``save_path`` (written by
       :func:`plot_3d_rastermap_clusters`) or ``rastermap_kwargs`` is
@@ -1926,13 +1925,16 @@ def plot_volume_trace_figures(
         kwargs (merged over count-aware defaults). If None and no cached
         model exists, the rastermap heatmap is skipped.
     dff_percentile, dff_window_size, dff_smooth_window
-        Forwarded to :func:`dff_rolling_percentile`.
+        Forwarded to :func:`dff_rolling_percentile` (when norm_method="dff").
+    norm_method : str, default "dff"
+        Normalization for the norm-trace plots: "dff" or "zscore".
     """
     from types import SimpleNamespace
     from lbm_suite2p_python.postprocessing import (
         load_planar_results,
         compute_trace_quality_score,
         dff_rolling_percentile,
+        zscore_trace,
     )
     from lbm_suite2p_python.zplane import (
         plot_traces,
@@ -2004,15 +2006,24 @@ def plot_volume_trace_figures(
     stat_acc = [s for s, m in zip(stat, iscell_mask) if m]
 
     try:
-        F_for_dff = (F_acc - 0.7 * Fneu_acc) if correct_neuropil else F_acc
-        dffp = dff_rolling_percentile(
-            F_for_dff,
-            percentile=dff_percentile,
-            window_size=dff_window_size,
-            smooth_window=dff_smooth_window,
-            fs=fs,
-            tau=tau,
-        ) * 100
+        F_for_norm = (F_acc - 0.7 * Fneu_acc) if correct_neuropil else F_acc
+        if norm_method == "zscore":
+            norm = zscore_trace(
+                F_for_norm, smooth_window=dff_smooth_window, fs=fs, tau=tau
+            )
+            norm_unit = "z-score"
+            norm_label = "Z-Score"
+        else:
+            norm = dff_rolling_percentile(
+                F_for_norm,
+                percentile=dff_percentile,
+                window_size=dff_window_size,
+                smooth_window=dff_smooth_window,
+                fs=fs,
+                tau=tau,
+            ) * 100
+            norm_unit = r"% $\Delta$F/F$_0$"
+            norm_label = r"$\Delta$F/F"
 
         quality = compute_trace_quality_score(
             F_acc,
@@ -2022,17 +2033,17 @@ def plot_volume_trace_figures(
         )
         sort_idx = quality["sort_idx"]
         F_sorted = F_acc[sort_idx]
-        dffp_sorted = dffp[sort_idx]
+        norm_sorted = norm[sort_idx]
 
         for n_cells in cell_counts:
             n = min(int(n_cells), n_accepted)
             plot_traces(
-                dffp_sorted,
-                save_path=save_path / f"volume_traces_dff_{n_cells}.png",
+                norm_sorted,
+                save_path=save_path / f"volume_traces_norm_{n_cells}.png",
                 num_neurons=n,
                 fps=fs,
-                scale_bar_unit=r"% $\Delta$F/F$_0$",
-                title=rf"Volume Top {n} $\Delta$F/F Traces by Quality (n={n_accepted} total)",
+                scale_bar_unit=norm_unit,
+                title=rf"Volume Top {n} {norm_label} Traces by Quality (n={n_accepted} total)",
             )
             plot_traces(
                 F_sorted,
