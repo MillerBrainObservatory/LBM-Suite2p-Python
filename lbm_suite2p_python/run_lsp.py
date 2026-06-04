@@ -497,6 +497,31 @@ def _get_suite2p_version():
         return "not installed"
 
 
+def _resolve_gpu_env() -> None:
+    """Honor MBO_GPU -> CUDA_VISIBLE_DEVICES before torch/cupy/cellpose init.
+
+    Lets ``MBO_GPU=0 lsp ...`` (or programmatic use) force CPU across suite2p
+    and cellpose without per-call device args; ``MBO_GPU=N`` pins a device.
+    No-op when MBO_GPU is unset. Entry points call this first so the env is
+    set before torch initializes CUDA, and before workers are spawned (they
+    inherit it).
+    """
+    raw = os.environ.get("MBO_GPU")
+    if raw is None:
+        return
+    try:
+        from mbo_utilities.gpu import apply_gpu_policy
+        apply_gpu_policy(raw)
+        return
+    except Exception:
+        pass
+    token = raw.strip().lower()
+    if token in ("0", "off", "false", "no", "cpu", "none"):
+        os.environ["CUDA_VISIBLE_DEVICES"] = ""
+    elif token and token.replace(",", "").isdigit():
+        os.environ["CUDA_VISIBLE_DEVICES"] = token
+
+
 def _apply_thread_limits(threads_per_worker: int | None) -> None:
     """Cap BLAS / OMP / numba / torch thread counts per process.
 
@@ -921,6 +946,7 @@ def pipeline(
 
     _attach_external_loggers()
 
+    _resolve_gpu_env()
     _apply_thread_limits(threads_per_worker)
 
     # 1. Handle Deprecations
@@ -1287,6 +1313,7 @@ def run_volume(
     from mbo_utilities import imread
     from lbm_suite2p_python.merging import merge_mrois
 
+    _resolve_gpu_env()
     _apply_thread_limits(threads_per_worker)
 
     # Handle input data
@@ -2317,6 +2344,8 @@ def run_plane(
     """
     from mbo_utilities import imread, imwrite
     from mbo_utilities.metadata import get_metadata
+
+    _resolve_gpu_env()
 
     progress_callback = kwargs.pop("progress_callback", None)
 
