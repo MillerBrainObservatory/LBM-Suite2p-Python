@@ -98,6 +98,29 @@ dff = dff_rolling_percentile(
 Comparison of different ΔF/F calculation methods. Rolling percentile (20th) provides robust baseline estimation that handles slow drifts while preserving transient peaks.
 ```
 
+### Z-Score
+
+As an alternative to ΔF/F, traces can be z-scored per ROI (`(F - mean) / std` over time):
+
+```python
+from lbm_suite2p_python import zscore_trace
+
+z = zscore_trace(F, smooth_window=15)
+```
+
+### Normalized traces output
+
+The pipeline writes the normalized trace to `norm_traces.npy`. Choose the method with `norm_method`:
+
+```python
+import lbm_suite2p_python as lsp
+
+lsp.pipeline(input_data, norm_method="dff")     # rolling-percentile ΔF/F (default)
+lsp.pipeline(input_data, norm_method="zscore")  # per-ROI z-score
+```
+
+The `dff_window_size` / `dff_percentile` / `dff_smooth_window` parameters apply when `norm_method="dff"`. Quality metrics (SNR, skew, shot-noise) always use a static-baseline ΔF/F ({func}`baseline_percentile_dff`) regardless of `norm_method`.
+
 ### Window Size Effect
 
 The window size critically affects baseline estimation:

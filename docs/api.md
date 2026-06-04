@@ -88,6 +88,8 @@ Functions for human-in-the-loop cell detection using Cellpose.
 
 .. autofunction:: dff_rolling_percentile
 .. autofunction:: dff_median_filter
+.. autofunction:: zscore_trace
+.. autofunction:: baseline_percentile_dff
 .. autofunction:: dff_shot_noise
 
 ```

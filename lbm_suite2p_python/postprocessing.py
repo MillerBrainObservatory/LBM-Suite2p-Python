@@ -1162,6 +1162,80 @@ def dff_median_filter(f_trace):
     return (f_trace - f0) / (f0 + 1e-6)  # 1e-6 to avoid division by zero
 
 
+def zscore_trace(f_trace, smooth_window: int = None, fs: float = None, tau: float = None):
+    """
+    Z-score fluorescence traces per ROI: ``(f - mean) / std`` over time.
+
+    One of the ``norm_method`` options for ``norm_traces.npy``. Unlike ΔF/F,
+    output is unitless, centered on 0, and can be negative.
+
+    Parameters
+    ----------
+    f_trace : np.ndarray
+        (N_neurons, N_frames) fluorescence traces.
+    smooth_window : int, optional
+        Temporal smoothing window (frames) applied after z-scoring. If None
+        and both ``tau`` and ``fs`` are given, set to ~0.5 * tau * fs;
+        otherwise no smoothing. Set to 0 or 1 to disable.
+    fs : float, optional
+        Frame rate in Hz. Used with ``tau`` to auto-size ``smooth_window``.
+    tau : float, optional
+        Calcium indicator decay time constant in seconds. Used with ``fs``
+        to auto-size ``smooth_window``.
+
+    Returns
+    -------
+    z : np.ndarray
+        (N_neurons, N_frames) z-scored traces.
+    """
+    from scipy.ndimage import uniform_filter1d
+
+    if not isinstance(f_trace, np.ndarray):
+        raise TypeError("f_trace must be a numpy array")
+    if f_trace.ndim != 2:
+        raise ValueError("f_trace must be a 2D array with shape (N_neurons, N_frames)")
+    if f_trace.shape[0] == 0 or f_trace.shape[1] == 0:
+        raise ValueError("f_trace must not be empty")
+
+    mean = np.mean(f_trace, axis=1, keepdims=True)
+    std = np.std(f_trace, axis=1, keepdims=True)
+    z = (f_trace - mean) / (std + 1e-6)  # 1e-6 to avoid division by zero
+
+    if smooth_window is None and tau is not None and fs is not None:
+        smooth_window = max(1, int(0.5 * tau * fs))
+    if smooth_window is not None and smooth_window > 1:
+        z = uniform_filter1d(z, size=smooth_window, axis=1, mode="nearest")
+
+    return z
+
+
+def baseline_percentile_dff(f_corr, percentile: int = 20):
+    """
+    ΔF/F using a static percentile baseline.
+
+    Used by the SNR, skew, and shot-noise metrics, which always require ΔF/F
+    units regardless of the ``norm_method`` chosen for ``norm_traces.npy``.
+    Kept separate from :func:`dff_rolling_percentile` and :func:`zscore_trace`
+    so the quality metrics never follow the user-selected normalization.
+
+    Parameters
+    ----------
+    f_corr : np.ndarray
+        (N_neurons, N_frames) fluorescence, already neuropil-corrected and
+        rectified as needed by the caller.
+    percentile : int, default 20
+        Percentile for the static baseline F0.
+
+    Returns
+    -------
+    dff : np.ndarray
+        (N_neurons, N_frames) ΔF/F traces.
+    """
+    baseline = np.percentile(f_corr, percentile, axis=1, keepdims=True)
+    baseline = np.maximum(baseline, 1e-6)
+    return (f_corr - baseline) / baseline
+
+
 def dff_shot_noise(dff, fr):
     """
     Estimate the shot noise level of calcium imaging traces.
@@ -1279,10 +1353,8 @@ def compute_trace_quality_score(
         F_corr = F
     F_corr = np.maximum(F_corr, 0)
 
-    # compute baseline and dF/F
-    baseline = np.percentile(F_corr, 20, axis=1, keepdims=True)
-    baseline = np.maximum(baseline, 1e-6)
-    dff = (F_corr - baseline) / baseline
+    # static-baseline ΔF/F for quality metrics only (see baseline_percentile_dff)
+    dff = baseline_percentile_dff(F_corr)
 
     # SNR
     signal = np.std(dff, axis=1)
@@ -1448,9 +1520,8 @@ def compute_roi_stats(plane_dir, fs=None):
     # neuropil correction, rectify negatives, and dF/F
     F_corr = F - 0.7 * Fneu
     F_corr = np.maximum(F_corr, 0)
-    baseline = np.percentile(F_corr, 20, axis=1, keepdims=True)
-    baseline = np.maximum(baseline, 1e-6)
-    dff = (F_corr - baseline) / baseline
+    # static-baseline ΔF/F for quality metrics only (see baseline_percentile_dff)
+    dff = baseline_percentile_dff(F_corr)
 
     # compute metrics
     signal = np.std(dff, axis=1)

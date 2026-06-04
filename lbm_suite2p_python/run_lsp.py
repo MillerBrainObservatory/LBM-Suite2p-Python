@@ -19,6 +19,7 @@ from lbm_suite2p_python.postprocessing import (
     ops_to_json,
     load_ops,
     dff_rolling_percentile,
+    zscore_trace,
     apply_filters,
 )
 
@@ -163,7 +164,7 @@ def _set_frame_count_aliases(ops: dict, n: int) -> None:
 # user reruns against a different save_path.
 _DETECTION_OUTPUT_FILES = (
     "stat.npy", "iscell.npy", "F.npy", "Fneu.npy",
-    "spks.npy", "dff.npy", "redcell.npy", "zcorr.npy",
+    "spks.npy", "norm_traces.npy", "redcell.npy", "zcorr.npy",
     "reg_outputs.npy", "detect_outputs.npy",
     "F_chan2.npy", "Fneu_chan2.npy",
     "roi_stats.npy",
@@ -770,6 +771,7 @@ def pipeline(
     dff_window_size: int = None,
     dff_percentile: int = 20,
     dff_smooth_window: int = None,
+    norm_method: str = "dff",
     correct_neuropil: bool = True,
     cell_filters: list = None,
     accept_all_cells: bool = False,
@@ -835,9 +837,15 @@ def pipeline(
     dff_smooth_window : int, optional
         Temporal smoothing window for dF/F traces (frames).
         If None, auto-calculated. Set to 1 to disable.
+    norm_method : str, default "dff"
+        Normalization for the saved norm_traces.npy. "dff" uses the rolling
+        percentile ΔF/F (dff_window_size / dff_percentile / dff_smooth_window
+        apply); "zscore" uses per-ROI (F - mean) / std. Quality metrics
+        (SNR / skew / shot-noise) always use ΔF/F regardless of this setting.
     correct_neuropil : bool, default True
-        If True, dF/F is computed on F - 0.7 * Fneu. If False, on raw F.
-        Affects dff.npy, the dF/F trace plots, and trace-quality scoring.
+        If True, the norm trace is computed on F - 0.7 * Fneu. If False, on
+        raw F. Affects norm_traces.npy, the trace plots, and trace-quality
+        scoring.
     cell_filters : list, optional
         Filters to apply to detected ROIs. Default is no filters (off).
         Currently supports diameter bounds in microns or pixels.
@@ -988,6 +996,7 @@ def pipeline(
             dff_window_size=dff_window_size,
             dff_percentile=dff_percentile,
             dff_smooth_window=dff_smooth_window,
+            norm_method=norm_method,
             correct_neuropil=correct_neuropil,
             accept_all_cells=accept_all_cells,
             cell_filters=cell_filters,
@@ -1026,6 +1035,7 @@ def pipeline(
             dff_window_size=dff_window_size,
             dff_percentile=dff_percentile,
             dff_smooth_window=dff_smooth_window,
+            norm_method=norm_method,
             correct_neuropil=correct_neuropil,
             accept_all_cells=accept_all_cells,
             cell_filters=cell_filters,
@@ -1196,6 +1206,7 @@ def run_volume(
     dff_window_size: int = None,
     dff_percentile: int = 20,
     dff_smooth_window: int = None,
+    norm_method: str = "dff",
     correct_neuropil: bool = True,
     accept_all_cells: bool = False,
     cell_filters: list = None,
@@ -1237,7 +1248,9 @@ def run_volume(
     frame_indices : list, default None
         List of frame indices to process.
     dff_window_size, dff_percentile, dff_smooth_window : optional
-        dF/F calculation parameters.
+        dF/F calculation parameters (used when norm_method="dff").
+    norm_method : str, default "dff"
+        Normalization for norm_traces.npy: "dff" or "zscore". See pipeline().
     accept_all_cells : bool, default False
         Mark all ROIs as accepted.
     cell_filters : list, optional
@@ -1372,6 +1385,7 @@ def run_volume(
         dff_window_size=dff_window_size,
         dff_percentile=dff_percentile,
         dff_smooth_window=dff_smooth_window,
+        norm_method=norm_method,
         correct_neuropil=correct_neuropil,
         accept_all_cells=accept_all_cells,
         cell_filters=cell_filters,
@@ -1639,6 +1653,7 @@ def run_volume(
                     save_path,
                     rastermap_kwargs=volumetric_rastermap_kwargs,
                     correct_neuropil=correct_neuropil,
+                    norm_method=norm_method,
                 )
             except Exception as e:
                 print(f"Warning: Volume trace figures failed: {e}")
@@ -2220,6 +2235,7 @@ def run_plane(
     dff_window_size: int = None,
     dff_percentile: int = 20,
     dff_smooth_window: int = None,
+    norm_method: str = "dff",
     correct_neuropil: bool = True,
     accept_all_cells: bool = False,
     cell_filters: list = None,
@@ -2261,6 +2277,10 @@ def run_plane(
         Percentile for baseline F0.
     dff_smooth_window : int, optional
         Smoothing window for dF/F. Default: auto-calculated.
+    norm_method : str, default "dff"
+        Normalization for norm_traces.npy: "dff" (rolling percentile ΔF/F)
+        or "zscore" (per-ROI (F - mean) / std). Quality metrics always use
+        ΔF/F regardless of this setting.
     accept_all_cells : bool, default False
         If True, mark all detected ROIs as accepted cells.
     cell_filters : list[dict], optional
@@ -3004,12 +3024,12 @@ def run_plane(
         except Exception as e:
             print(f"  Warning: Cell filtering failed: {e}")
 
-    # 3. dF/F Calculation
+    # 3. Normalized-trace calculation (norm_traces.npy)
     F_file = plane_dir / "F.npy"
     Fneu_file = plane_dir / "Fneu.npy"
     if F_file.exists() and Fneu_file.exists():
-        print("  Computing dF/F...")
-        dff_start = time.time()
+        print(f"  Computing norm_traces ({norm_method})...")
+        norm_start = time.time()
         F = np.load(F_file)
         Fneu = np.load(Fneu_file)
         if correct_neuropil:
@@ -3018,21 +3038,29 @@ def run_plane(
             F_corr = F
 
         current_ops = load_ops(ops_file)
-        dff = dff_rolling_percentile(
-            F_corr,
-            window_size=dff_window_size,
-            percentile=dff_percentile,
-            smooth_window=dff_smooth_window,
-            fs=current_ops.get("fs", 30.0),
-            tau=current_ops.get("tau", 1.0),
-        )
-        np.save(plane_dir / "dff.npy", dff)
+        if norm_method == "zscore":
+            norm = zscore_trace(
+                F_corr,
+                smooth_window=dff_smooth_window,
+                fs=current_ops.get("fs", 30.0),
+                tau=current_ops.get("tau", 1.0),
+            )
+        else:
+            norm = dff_rolling_percentile(
+                F_corr,
+                window_size=dff_window_size,
+                percentile=dff_percentile,
+                smooth_window=dff_smooth_window,
+                fs=current_ops.get("fs", 30.0),
+                tau=current_ops.get("tau", 1.0),
+            )
+        np.save(plane_dir / "norm_traces.npy", norm)
 
         _add_processing_step(
             current_ops,
-            "dff_calculation",
-            duration_seconds=time.time() - dff_start,
-            extra={"percentile": dff_percentile},
+            "norm_calculation",
+            duration_seconds=time.time() - norm_start,
+            extra={"method": norm_method, "percentile": dff_percentile},
         )
         save_ops_db_settings(ops_file, current_ops)
 
@@ -3050,6 +3078,7 @@ def run_plane(
             _post_ops["dff_window_size"] = dff_window_size
             _post_ops["dff_percentile"] = dff_percentile
             _post_ops["dff_smooth_window"] = dff_smooth_window
+            _post_ops["norm_method"] = norm_method
             _post_ops["correct_neuropil"] = bool(correct_neuropil)
             _post_ops["accept_all_cells"] = bool(accept_all_cells)
             _post_ops["save_json"] = bool(save_json)
@@ -3080,6 +3109,7 @@ def run_plane(
             dff_percentile=dff_percentile,
             dff_window_size=dff_window_size,
             dff_smooth_window=dff_smooth_window,
+            norm_method=norm_method,
             correct_neuropil=correct_neuropil,
             run_rastermap=rastermap_kwargs is not None,
             rastermap_kwargs=rastermap_kwargs,

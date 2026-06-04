@@ -21,6 +21,8 @@ from lbm_suite2p_python.postprocessing import (
     load_ops,
     load_planar_results,
     dff_rolling_percentile,
+    zscore_trace,
+    baseline_percentile_dff,
     dff_shot_noise,
     compute_trace_quality_score,
 )
@@ -35,9 +37,10 @@ def infer_units(f: np.ndarray) -> str:
     Infer calcium imaging signal type from array values:
     - 'raw': values in hundreds or thousands
     - 'dff': unitless ΔF/F₀, typically ~0–1
-    - 'dff-percentile': ΔF/F₀ in percent, typically ~10–100
+    - 'dffp': ΔF/F₀ in percent, typically ~10–100
+    - 'zscore': centered on 0 with negatives, unit-scale std
 
-    Returns one of: 'raw', 'dff', 'dff-percentile'
+    Returns one of: 'raw', 'dff', 'dffp', 'zscore', 'unknown'
     """
     f = np.asarray(f)
     if np.issubdtype(f.dtype, np.integer):
@@ -51,6 +54,8 @@ def infer_units(f: np.ndarray) -> str:
         return "dffp"
     elif 0.1 < p1 < 0.2 < p50 < 0.5 < p99 < 1.0:
         return "dff"
+    elif p1 < 0 and abs(p50) < 1 and p99 > 0:
+        return "zscore"
     else:
         return "unknown"
 
@@ -314,7 +319,7 @@ def plot_traces(
     ----------
     f : ndarray or str or Path
         2d array of fluorescence traces (n_neurons x n_timepoints),
-        or path to Suite2p plane directory containing dff.npy/F.npy.
+        or path to Suite2p plane directory containing norm_traces.npy/F.npy.
     save_path : str, optional
         Path to save the output plot.
     fps : float
@@ -345,22 +350,25 @@ def plot_traces(
     if isinstance(f, (str, Path)):
         plane_dir = Path(f)
         if plane_dir.is_dir():
-            # Try to load dff.npy first, fall back to F.npy
-            dff_path = plane_dir / "dff.npy"
+            # Try to load norm_traces.npy first, fall back to F.npy
+            norm_path = plane_dir / "norm_traces.npy"
             f_path = plane_dir / "F.npy"
             iscell_path = plane_dir / "iscell.npy"
             ops_path = plane_dir / "ops.npy"
 
-            if dff_path.exists():
-                f = np.load(dff_path)
+            if norm_path.exists():
+                f = np.load(norm_path)
                 if scale_bar_unit is None:
-                    scale_bar_unit = r"% $\Delta$F/F$_0$"
+                    scale_bar_unit = (
+                        "z-score" if infer_units(f) == "zscore"
+                        else r"% $\Delta$F/F$_0$"
+                    )
             elif f_path.exists():
                 f = np.load(f_path)
                 if scale_bar_unit is None:
                     scale_bar_unit = "a.u."
             else:
-                raise FileNotFoundError(f"No dff.npy or F.npy found in {plane_dir}")
+                raise FileNotFoundError(f"No norm_traces.npy or F.npy found in {plane_dir}")
 
             # Filter to accepted cells if iscell exists and no cell_indices provided
             if cell_indices is None and iscell_path.exists():
@@ -2161,11 +2169,9 @@ def plot_trace_analysis(
     plane_nums = np.array([s.get("iplane", 0) for s in stat_acc])
     fs = ops.get("fs", 30.0)
 
-    # Compute ΔF/F
+    # static-baseline ΔF/F for quality metrics only (see baseline_percentile_dff)
     F_corrected = F_acc - 0.7 * Fneu_acc
-    baseline = np.percentile(F_corrected, 20, axis=1, keepdims=True)
-    baseline = np.maximum(baseline, 1e-6)
-    dff = (F_corrected - baseline) / baseline
+    dff = baseline_percentile_dff(F_corrected)
 
     # Compute metrics
     # SNR: signal / noise
@@ -2356,10 +2362,9 @@ def create_volume_summary_table(
     if F is not None and Fneu is not None:
         F_acc = F[accepted]
         Fneu_acc = Fneu[accepted]
+        # static-baseline ΔF/F for quality metrics only (see baseline_percentile_dff)
         F_corrected = F_acc - 0.7 * Fneu_acc
-        baseline = np.percentile(F_corrected, 20, axis=1, keepdims=True)
-        baseline = np.maximum(baseline, 1e-6)
-        dff = (F_corrected - baseline) / baseline
+        dff = baseline_percentile_dff(F_corrected)
         signal = np.std(dff, axis=1)
         noise = np.median(np.abs(np.diff(dff, axis=1)), axis=1) / 0.6745
         snr = signal / (noise + 1e-6)
@@ -2657,10 +2662,9 @@ def plot_plane_diagnostics(
     n_rejected = int((~accepted).sum())
 
     # Compute metrics for ALL ROIs (not just accepted)
+    # static-baseline ΔF/F for quality metrics only (see baseline_percentile_dff)
     F_corr = F - 0.7 * Fneu
-    baseline = np.percentile(F_corr, 20, axis=1, keepdims=True)
-    baseline = np.maximum(baseline, 1e-6)
-    dff = (F_corr - baseline) / baseline
+    dff = baseline_percentile_dff(F_corr)
 
     # SNR calculation for all ROIs
     signal = np.std(dff, axis=1)
@@ -3052,7 +3056,8 @@ def mask_dead_zones_in_ops(ops, threshold=0.01):
 
 def plot_zplane_figures(
     plane_dir, dff_percentile=20, dff_window_size=None, dff_smooth_window=None,
-    correct_neuropil=True, run_rastermap=False, rastermap_kwargs=None, **kwargs
+    norm_method="dff", correct_neuropil=True, run_rastermap=False,
+    rastermap_kwargs=None, **kwargs
 ):
     """
     Re-generate Suite2p figures for a merged plane.
@@ -3062,7 +3067,7 @@ def plot_zplane_figures(
     plane_dir : Path
         Path to the planeXX output directory (with ops.npy, stat.npy, etc.).
     dff_percentile : int, optional
-        Percentile used for ΔF/F baseline.
+        Percentile used for ΔF/F baseline (when norm_method="dff").
     dff_window_size : int, optional
         Window size for ΔF/F rolling baseline. If None, auto-calculated
         as ~10 × tau × fs based on ops values.
@@ -3070,6 +3075,8 @@ def plot_zplane_figures(
         Temporal smoothing window for dF/F traces (in frames).
         If None, auto-calculated as ~0.5 × tau × fs to emphasize
         transients while reducing noise. Set to 1 to disable.
+    norm_method : str, default "dff"
+        Normalization used for the norm-trace plots: "dff" or "zscore".
     run_rastermap : bool, optional
         If True, compute and plot rastermap sorting of cells.
     rastermap_kwargs : dict, optional
@@ -3106,9 +3113,9 @@ def plot_zplane_figures(
         "traces_raw_20": plane_dir / "07a_traces_raw_20.png",
         "traces_raw_50": plane_dir / "07b_traces_raw_50.png",
         "traces_raw_100": plane_dir / "07c_traces_raw_100.png",
-        "traces_dff_20": plane_dir / "08a_traces_dff_20.png",
-        "traces_dff_50": plane_dir / "08b_traces_dff_50.png",
-        "traces_dff_100": plane_dir / "08c_traces_dff_100.png",
+        "traces_norm_20": plane_dir / "08a_traces_norm_20.png",
+        "traces_norm_50": plane_dir / "08b_traces_norm_50.png",
+        "traces_norm_100": plane_dir / "08c_traces_norm_100.png",
         "traces_rejected": plane_dir / "09_traces_rejected.png",
         # Noise distributions
         "noise_acc": plane_dir / "10_shot_noise_accepted.png",
@@ -3138,9 +3145,9 @@ def plot_zplane_figures(
         "traces_raw_20",
         "traces_raw_50",
         "traces_raw_100",
-        "traces_dff_20",
-        "traces_dff_50",
-        "traces_dff_100",
+        "traces_norm_20",
+        "traces_norm_50",
+        "traces_norm_100",
         "traces_rejected",
         "noise_acc",
         "noise_rej",
@@ -3166,8 +3173,8 @@ def plot_zplane_figures(
 
         # F (raw) feeds the "raw" trace plots and compute_trace_quality_score
         # (which optionally subtracts Fneu internally). F_for_dff is the input
-        # to dff_rolling_percentile — neuropil-corrected only when the toggle
-        # is on, matching dff.npy.
+        # to the norm-trace recompute — neuropil-corrected only when the
+        # toggle is on, matching norm_traces.npy.
         if correct_neuropil and Fneu is not None:
             F_for_dff = F - 0.7 * Fneu
         else:
@@ -3431,9 +3438,8 @@ def plot_zplane_figures(
             fs = output_ops.get("fs", 1.0)
             tau = output_ops.get("tau", 1.0)
 
-            # resolve auto-calculated dF/F window sizes the same way
-            # dff_rolling_percentile does, so the param footer reflects
-            # the values actually used
+            # resolve auto-calculated window sizes the same way the trace
+            # functions do, so the param footer reflects the values used
             _resolved_window = (
                 int(dff_window_size) if dff_window_size is not None
                 else (int(10 * tau * fs) if (fs and tau) else 300)
@@ -3442,56 +3448,62 @@ def plot_zplane_figures(
                 int(dff_smooth_window) if dff_smooth_window is not None
                 else (max(1, int(0.5 * tau * fs)) if (fs and tau) else 1)
             )
-            dff_param_text = (
-                f"dff_percentile={dff_percentile}  "
-                f"window={_resolved_window}f ({_resolved_window / fs:.1f}s)  "
-                f"smooth={_resolved_smooth}f ({_resolved_smooth / fs:.2f}s)  "
-                f"fs={fs:.2f}Hz  tau={tau:.2f}s  "
-                f"neuropil={'on' if correct_neuropil else 'off'}"
-            )
+            # method-aware labels for the norm-trace plots
+            if norm_method == "zscore":
+                norm_unit = "z-score"
+                norm_label = "Z-Score"
+                norm_param_text = (
+                    f"norm=zscore  "
+                    f"smooth={_resolved_smooth}f ({_resolved_smooth / fs:.2f}s)  "
+                    f"fs={fs:.2f}Hz  tau={tau:.2f}s  "
+                    f"neuropil={'on' if correct_neuropil else 'off'}"
+                )
+            else:
+                norm_unit = r"% $\Delta$F/F$_0$"
+                norm_label = r"$\Delta$F/F"
+                norm_param_text = (
+                    f"dff_percentile={dff_percentile}  "
+                    f"window={_resolved_window}f ({_resolved_window / fs:.1f}s)  "
+                    f"smooth={_resolved_smooth}f ({_resolved_smooth / fs:.2f}s)  "
+                    f"fs={fs:.2f}Hz  tau={tau:.2f}s  "
+                    f"neuropil={'on' if correct_neuropil else 'off'}"
+                )
 
-            # unsmoothed dF/F for shot noise
-            if n_accepted > 0:
-                dffp_acc_unsmoothed = dff_rolling_percentile(
-                    F_dff_accepted,
-                    percentile=dff_percentile,
-                    window_size=dff_window_size,
-                    smooth_window=1,
-                    fs=fs,
-                    tau=tau,
-                ) * 100
-                dffp_acc = dff_rolling_percentile(
-                    F_dff_accepted,
+            def _norm_for_display(F_in):
+                # display trace, follows norm_method
+                if F_in.shape[0] == 0:
+                    return np.zeros((0, F.shape[1]))
+                if norm_method == "zscore":
+                    return zscore_trace(
+                        F_in, smooth_window=dff_smooth_window, fs=fs, tau=tau
+                    )
+                return dff_rolling_percentile(
+                    F_in,
                     percentile=dff_percentile,
                     window_size=dff_window_size,
                     smooth_window=dff_smooth_window,
                     fs=fs,
                     tau=tau,
                 ) * 100
-            else:
-                dffp_acc_unsmoothed = np.zeros((0, F.shape[1]))
-                dffp_acc = np.zeros((0, F.shape[1]))
 
-            if n_rejected > 0:
-                dffp_rej_unsmoothed = dff_rolling_percentile(
-                    F_dff_rejected,
+            def _dff_unsmoothed(F_in):
+                # always ΔF/F (%): shot noise is defined on ΔF/F regardless
+                # of the selected norm_method
+                if F_in.shape[0] == 0:
+                    return np.zeros((0, F.shape[1]))
+                return dff_rolling_percentile(
+                    F_in,
                     percentile=dff_percentile,
                     window_size=dff_window_size,
                     smooth_window=1,
                     fs=fs,
                     tau=tau,
                 ) * 100
-                dffp_rej = dff_rolling_percentile(
-                    F_dff_rejected,
-                    percentile=dff_percentile,
-                    window_size=dff_window_size,
-                    smooth_window=dff_smooth_window,
-                    fs=fs,
-                    tau=tau,
-                ) * 100
-            else:
-                dffp_rej_unsmoothed = np.zeros((0, F.shape[1]))
-                dffp_rej = np.zeros((0, F.shape[1]))
+
+            norm_acc = _norm_for_display(F_dff_accepted)
+            norm_rej = _norm_for_display(F_dff_rejected)
+            dff_acc_unsmoothed = _dff_unsmoothed(F_dff_accepted)
+            dff_rej_unsmoothed = _dff_unsmoothed(F_dff_rejected)
 
             if n_accepted > 0:
                 stat_accepted = [s for s, m in zip(res["stat"], iscell_mask) if m]
@@ -3504,19 +3516,19 @@ def plot_zplane_figures(
                     fs=fs,
                 )
                 quality_sort_idx = quality["sort_idx"]
-                dffp_acc_sorted = dffp_acc[quality_sort_idx]
+                norm_acc_sorted = norm_acc[quality_sort_idx]
                 F_accepted_sorted = F_accepted[quality_sort_idx]
 
                 cell_counts = [20, 50, 100]
                 for n_cells in cell_counts:
                     if n_accepted >= n_cells:
                         plot_traces(
-                            dffp_acc_sorted,
-                            save_path=expected_files[f"traces_dff_{n_cells}"],
+                            norm_acc_sorted,
+                            save_path=expected_files[f"traces_norm_{n_cells}"],
                             num_neurons=n_cells,
-                            scale_bar_unit=r"% $\Delta$F/F$_0$",
-                            title=rf"Top {n_cells} $\Delta$F/F Traces by Quality (n={n_accepted} total)",
-                            fig_text=dff_param_text,
+                            scale_bar_unit=norm_unit,
+                            title=rf"Top {n_cells} {norm_label} Traces by Quality (n={n_accepted} total)",
+                            fig_text=norm_param_text,
                         )
                         plot_traces(
                             F_accepted_sorted,
@@ -3527,12 +3539,12 @@ def plot_zplane_figures(
                         )
                     elif n_cells == 20:
                         plot_traces(
-                            dffp_acc_sorted,
-                            save_path=expected_files["traces_dff_20"],
+                            norm_acc_sorted,
+                            save_path=expected_files["traces_norm_20"],
                             num_neurons=min(20, n_accepted),
-                            scale_bar_unit=r"% $\Delta$F/F$_0$",
-                            title=rf"Top {min(20, n_accepted)} $\Delta$F/F Traces by Quality (n={n_accepted} total)",
-                            fig_text=dff_param_text,
+                            scale_bar_unit=norm_unit,
+                            title=rf"Top {min(20, n_accepted)} {norm_label} Traces by Quality (n={n_accepted} total)",
+                            fig_text=norm_param_text,
                         )
                         plot_traces(
                             F_accepted_sorted,
@@ -3546,19 +3558,19 @@ def plot_zplane_figures(
 
             if n_rejected > 0:
                 plot_traces(
-                    dffp_rej,
+                    norm_rej,
                     save_path=expected_files["traces_rejected"],
                     num_neurons=min(20, n_rejected),
-                    scale_bar_unit=r"% $\Delta$F/F$_0$",
-                    title=rf"$\Delta$F/F Traces - Rejected ROIs (n={n_rejected})",
-                    fig_text=dff_param_text,
+                    scale_bar_unit=norm_unit,
+                    title=rf"{norm_label} Traces - Rejected ROIs (n={n_rejected})",
+                    fig_text=norm_param_text,
                 )
             else:
                 print("  No rejected ROIs - skipping rejected trace plots")
 
             # noise distributions
             if n_accepted > 0:
-                dff_noise_acc = dff_shot_noise(dffp_acc_unsmoothed, fs)
+                dff_noise_acc = dff_shot_noise(dff_acc_unsmoothed, fs)
                 plot_noise_distribution(
                     dff_noise_acc,
                     output_filename=expected_files["noise_acc"],
@@ -3566,7 +3578,7 @@ def plot_zplane_figures(
                 )
 
             if n_rejected > 0:
-                dff_noise_rej = dff_shot_noise(dffp_rej_unsmoothed, fs)
+                dff_noise_rej = dff_shot_noise(dff_rej_unsmoothed, fs)
                 plot_noise_distribution(
                     dff_noise_rej,
                     output_filename=expected_files["noise_rej"],

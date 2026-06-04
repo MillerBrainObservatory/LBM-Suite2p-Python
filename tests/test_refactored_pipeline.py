@@ -65,15 +65,17 @@ def test_pipeline_delegates_to_run_volume_with_planes_arg(mock_imread, mock_run_
 @patch("lbm_suite2p_python.run_lsp.run_volume")
 def test_pipeline_passes_parameters(mock_run_volume, mock_4d_array):
     pipeline(
-        mock_4d_array, 
+        mock_4d_array,
         save_path="test_output",
         dff_percentile=30,
+        norm_method="zscore",
         accept_all_cells=True,
         cell_filters=[{"name": "test"}]
     )
-    
+
     kwargs = mock_run_volume.call_args.kwargs
     assert kwargs['dff_percentile'] == 30
+    assert kwargs['norm_method'] == "zscore"
     assert kwargs['accept_all_cells'] is True
     assert kwargs['cell_filters'] == [{"name": "test"}]
 

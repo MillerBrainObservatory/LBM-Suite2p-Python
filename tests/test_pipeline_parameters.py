@@ -522,6 +522,35 @@ class TestDFFCalculation:
                          time.time() - start, {"error": str(e)})
             raise
 
+    def test_zscore_trace(self):
+        """Test zscore_trace function."""
+        from lbm_suite2p_python.postprocessing import zscore_trace
+
+        start = time.time()
+
+        try:
+            F = self._get_test_traces()
+
+            z = zscore_trace(F)
+
+            assert z.shape == F.shape, "z-score shape mismatch"
+            assert not np.any(np.isnan(z)), "z-score contains NaN values"
+            assert not np.any(np.isinf(z)), "z-score contains Inf values"
+
+            # per-ROI mean ~ 0 and std ~ 1
+            assert np.allclose(np.mean(z, axis=1), 0, atol=1e-4), "z-score not zero-mean"
+            assert np.allclose(np.std(z, axis=1), 1, atol=1e-2), "z-score not unit-std"
+
+            duration = time.time() - start
+            record_result(self.summary, "test_zscore_trace", "passed", duration, {
+                "shape": list(z.shape),
+            })
+
+        except Exception as e:
+            record_result(self.summary, "test_zscore_trace", "failed",
+                         time.time() - start, {"error": str(e)})
+            raise
+
     def test_dff_window_size_effect(self):
         """Test that different window sizes produce different results."""
         from lbm_suite2p_python.postprocessing import dff_rolling_percentile
