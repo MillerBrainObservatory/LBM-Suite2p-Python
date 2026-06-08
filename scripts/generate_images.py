@@ -3,21 +3,22 @@
 generate documentation images by running lsp.pipeline() on sample data.
 
 usage:
-    # run full pipeline with demo data defaults
-    uv run python scripts/generate_images.py
+    # generate projection comparison from existing results (fast)
+    uv run python scripts/generate_images.py --projections-only --ops PATH/ops.npy
 
-    # run full pipeline with custom paths
-    uv run python scripts/generate_images.py --input D:/data/raw --output D:/data/results
+    # run full pipeline with the recommended cellpose syntax
+    uv run python scripts/generate_images.py -i DATA/raw -o DATA/results --algorithm cellpose --img "max_proj / meanImg"
 
-    # generate projection comparison from existing results
-    uv run python scripts/generate_images.py --ops D:/demo/results/plane01_stitched/ops.npy --projections-only
+    # legacy: select the cellpose image with anatomical_only
+    uv run python scripts/generate_images.py -i DATA/raw -o DATA/results --anatomical-only 4
 
     # skip pipeline, just organize existing images
     uv run python scripts/generate_images.py --skip-pipeline
 
 demo defaults:
-    input:  D:/demo/raw
-    output: D:/demo/results
+    input:  E:/demo/mk355/raw
+    output: E:/demo/mk355/results
+    ops:    E:/demo/mk355/roundtrip/s2p_from_zarr/zplane02_tp00001-00787/ops.npy
 """
 import argparse
 import shutil
@@ -35,13 +36,12 @@ def normalize99(img):
 
 
 def apply_hp_filter(img, diameter, spatial_hp_cp):
-    """apply high-pass filter (suite2p preprocessing)."""
-    img_norm = normalize99(img)
+    """spatial high-pass, exactly as suite2p anatomical.select_rois."""
+    img_hp = np.clip(normalize99(img), 0, 1)
     if spatial_hp_cp > 0:
         sigma = diameter * spatial_hp_cp
-        img_hp = img_norm - gaussian_filter(img_norm, sigma)
-    else:
-        img_hp = img_norm
+        img_hp = img_hp - gaussian_filter(img_hp, sigma)
+        img_hp = img_hp - gaussian_filter(img_hp, sigma)
     return img_hp
 
 
@@ -89,8 +89,8 @@ def generate_projection_images(ops_path: Path, output_dir: Path, diameter: int =
     generate projection images from an ops.npy file.
 
     creates:
-        01_anatomical_modes.png - all 4 cellpose input modes with zoom
-        02_spatial_hp_filter.png - spatial_hp_cp values 0, 0.5, 1, 3, 7, 15
+        01_anatomical_modes.png - the 3 cellpose input images (img options) with zoom
+        02_spatial_hp_filter.png - spatial_hp_cp values 0, 0.5, 1, 3
     """
     import lbm_suite2p_python as lsp
 
@@ -101,61 +101,57 @@ def generate_projection_images(ops_path: Path, output_dir: Path, diameter: int =
 
     # extract images
     mean_img = ops.get("meanImg")
-    mean_img_e = ops.get("meanImgE")
     max_proj = ops.get("max_proj")
 
     print(f"  meanImg: {mean_img.shape if mean_img is not None else None}")
     print(f"  max_proj: {max_proj.shape if max_proj is not None else None}")
 
-    # handle cropped images (max_proj uses yrange/xrange, others don't)
+    # crop full-size meanImg to match max_proj (max_proj uses yrange/xrange)
     yrange = ops.get("yrange", [0, mean_img.shape[0] if mean_img is not None else 0])
     xrange = ops.get("xrange", [0, mean_img.shape[1] if mean_img is not None else 0])
-
-    # crop full-size images to match max_proj
     if mean_img is not None and max_proj is not None and mean_img.shape != max_proj.shape:
         mean_img = mean_img[yrange[0]:yrange[1], xrange[0]:xrange[1]]
-    if mean_img_e is not None and max_proj is not None and mean_img_e.shape != max_proj.shape:
-        mean_img_e = mean_img_e[yrange[0]:yrange[1], xrange[0]:xrange[1]]
 
-    # 1. anatomical modes (cellpose inputs for anatomical_only=1,2,3,4)
+    # 1. the three cellpose input images (cellpose_settings.img options)
     images = []
     titles = []
 
-    # mode 1: log(max_proj / mean_img) - activity relative to baseline
+    # img="meanImg"
+    if mean_img is not None:
+        images.append(mean_img)
+        titles.append('img="meanImg"')
+
+    # img="max_proj"
+    if max_proj is not None:
+        images.append(max_proj)
+        titles.append('img="max_proj"')
+
+    # img="max_proj / meanImg" (default) - log ratio emphasizes active regions
     if mean_img is not None and max_proj is not None:
         log_ratio = np.log(np.maximum(1e-3, max_proj / np.maximum(1e-3, mean_img)))
         images.append(log_ratio)
-        titles.append("mode=1: log ratio")
-
-    # mode 2: mean_img
-    if mean_img is not None:
-        images.append(mean_img)
-        titles.append("mode=2: mean")
-
-    # mode 3: meanImgE (enhanced mean)
-    if mean_img_e is not None:
-        images.append(mean_img_e)
-        titles.append("mode=3: enhanced mean")
-
-    # mode 4: max_proj
-    if max_proj is not None:
-        images.append(max_proj)
-        titles.append("mode=4: max projection")
+        titles.append('img="max_proj / meanImg" (default)')
 
     if images:
         plot_grid_with_zoom(images, titles, output_dir / "01_anatomical_modes.png")
 
-    # 2. spatial_hp_cp comparison
+    # 2. spatial_hp_cp comparison (sigma uses the ops diameter when available)
+    eff_diameter = diameter
+    od = ops.get("diameter")
+    if od is not None:
+        od = float(np.ravel(od)[0])
+        if od > 0:
+            eff_diameter = od
     base = max_proj if max_proj is not None else mean_img
     if base is not None:
-        hp_values = [0, 0.5, 1, 3, 7, 15]
+        hp_values = [0, 0.5, 1, 3]
         hp_images = []
         hp_titles = []
         for hp in hp_values:
             if hp == 0:
                 hp_images.append(base)
             else:
-                hp_images.append(apply_hp_filter(base, diameter, hp))
+                hp_images.append(apply_hp_filter(base, eff_diameter, hp))
             hp_titles.append(f"spatial_hp_cp={hp}")
 
         plot_grid_with_zoom(hp_images, hp_titles, output_dir / "02_spatial_hp_filter.png")
@@ -167,7 +163,8 @@ def get_default_ops():
     """default ops for generating documentation images."""
     return {
         "diameter": 4,
-        "anatomical_only": 4,
+        "algorithm": "cellpose",        # detection algorithm
+        "img": "max_proj / meanImg",    # cellpose detection image (suite2p default)
         "accept_all_cells": True,
         "spatial_hp_cp": 3,
         "denoise": 1,
@@ -296,8 +293,9 @@ def run_pipeline(input_path: str, output_path: str, ops: dict = None):
     return ops_files
 
 
-DEMO_INPUT = "D:/demo/raw"
-DEMO_OUTPUT = "D:/demo/results"
+DEMO_INPUT = "E:/demo/mk355/raw"
+DEMO_OUTPUT = "E:/demo/mk355/results"
+DEMO_OPS = "E:/demo/mk355/roundtrip/s2p_from_zarr/zplane02_tp00001-00787/ops.npy"
 
 
 def main():
@@ -306,14 +304,14 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 examples:
-  # run with demo defaults (D:/demo/raw -> D:/demo/results)
-  uv run python scripts/generate_images.py
+  # generate projection images only (fast; from an existing ops.npy)
+  uv run python scripts/generate_images.py --projections-only --ops PATH/ops.npy
 
-  # run full pipeline with custom paths
-  uv run python scripts/generate_images.py -i D:/data/raw -o D:/data/results
+  # run full pipeline with the recommended cellpose syntax
+  uv run python scripts/generate_images.py -i DATA/raw -o DATA/results --algorithm cellpose --img "max_proj / meanImg"
 
-  # generate projection images only (from existing ops)
-  uv run python scripts/generate_images.py --ops D:/demo/results/plane01_stitched/ops.npy --projections-only
+  # legacy: select the cellpose image with anatomical_only
+  uv run python scripts/generate_images.py -i DATA/raw -o DATA/results --anatomical-only 4
 
   # organize existing images (skip pipeline)
   uv run python scripts/generate_images.py --skip-pipeline
@@ -326,7 +324,13 @@ examples:
     parser.add_argument("--skip-pipeline", action="store_true", help="skip pipeline, organize only")
     parser.add_argument("--projections-only", action="store_true", help="generate projection images only")
     parser.add_argument("--diameter", "-d", type=int, default=4, help="cell diameter (default: 4)")
-    parser.add_argument("--anatomical-only", type=int, default=4, choices=[0, 1, 2, 3, 4])
+    parser.add_argument("--algorithm", default="cellpose", choices=["sparsery", "sourcery", "cellpose"],
+                        help="detection algorithm (default: cellpose)")
+    parser.add_argument("--img", default="max_proj / meanImg",
+                        choices=["max_proj / meanImg", "meanImg", "max_proj"],
+                        help="cellpose detection image (default: 'max_proj / meanImg')")
+    parser.add_argument("--anatomical-only", type=int, default=None, choices=[0, 1, 2, 3, 4],
+                        help="(legacy) selects the cellpose image; prefer --algorithm/--img")
 
     args = parser.parse_args()
 
@@ -342,11 +346,10 @@ examples:
     if args.projections_only:
         if not args.ops:
             # try default location
-            default_ops = Path(DEMO_OUTPUT) / "plane01_stitched" / "ops.npy"
-            if default_ops.exists():
-                args.ops = str(default_ops)
+            if Path(DEMO_OPS).exists():
+                args.ops = DEMO_OPS
             else:
-                parser.error("--projections-only requires --ops path (or default at D:/demo/results/plane01_stitched/ops.npy)")
+                parser.error(f"--projections-only requires --ops path (default not found: {DEMO_OPS})")
         ops_path = Path(args.ops)
         projections_dir = docs_images_path / "projections"
         generate_projection_images(ops_path, projections_dir, args.diameter)
@@ -362,7 +365,17 @@ examples:
 
         ops = get_default_ops()
         ops["diameter"] = args.diameter
-        ops["anatomical_only"] = args.anatomical_only
+        if args.anatomical_only is not None:
+            print("note: --anatomical-only is legacy; prefer --algorithm/--img")
+            ops.pop("algorithm", None)
+            ops.pop("img", None)
+            ops["anatomical_only"] = args.anatomical_only
+        else:
+            ops["algorithm"] = args.algorithm
+            if args.algorithm == "cellpose":
+                ops["img"] = args.img
+            else:
+                ops.pop("img", None)
 
         ops_files = run_pipeline(str(input_path), str(output_path), ops)
         print(f"\npipeline complete: {len(ops_files)} ops files")

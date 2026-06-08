@@ -38,8 +38,6 @@ Functions for human-in-the-loop cell detection using Cellpose.
 
 .. currentmodule:: lbm_suite2p_python
 
-.. autofunction:: redetect
-.. autofunction:: enhance_summary_image
 .. autofunction:: train_cellpose
 .. autofunction:: annotate
 .. autofunction:: open_in_gui

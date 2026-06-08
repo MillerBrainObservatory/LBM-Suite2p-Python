@@ -28,6 +28,8 @@ projections
 postprocessing
 processing_flow
 classifiers
+metadata_reference
+pipeline_comparison
 API <api>
 glossary
 image_gallery
