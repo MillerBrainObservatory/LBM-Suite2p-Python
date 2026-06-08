@@ -175,19 +175,120 @@ _FORK_TO_UPSTREAM_RENAMES: dict[str, str] = {
     "pretrained_model": "cellpose_model",
 }
 
-# fork's anatomical_only int (1-4) selects which image cellpose runs on.
-# upstream replaced this with a string in cellpose_settings.img. mapping:
-#   1 -> 'max_proj / meanImg'  (log ratio)
-#   2 -> 'meanImg'
-#   3 -> enhanced_mean_img  (REMOVED upstream — no equivalent string;
-#                            falls through to max_proj branch)
-#   4 -> 'max_proj'  (anything not matching the two strings hits else: img=max_proj)
+# fork's anatomical_only int selects which image cellpose runs on;
+# upstream encodes this via cellpose_settings.img. 3 (enhanced mean) was
+# removed from suite2p detection — reconcile_detection_keys maps it to 1.
 _ANATOMICAL_ONLY_TO_IMG: dict[int, str] = {
     1: "max_proj / meanImg",
     2: "meanImg",
     4: "max_proj",
 }
+
+# Values suite2p actually accepts. Mirrors suite2p.parameters:
+# detection.algorithm description -> ['sparsery', 'sourcery', 'cellpose'];
+# cellpose_settings.img description -> ['max_proj / meanImg', 'meanImg',
+# 'max_proj']. Hardcoded (the schema lists these only in a description
+# string) and kept in sync with upstream.
+VALID_DETECTION_ALGORITHMS = ("sparsery", "sourcery", "cellpose")
+VALID_CELLPOSE_IMG = ("max_proj / meanImg", "meanImg", "max_proj")
+
+# legacy / renamed cellpose image spellings -> current suite2p string. the
+# old enhanced-mean image (meanImgE) was removed from suite2p detection, so
+# it maps to suite2p's default; use spatial_hp_cp (highpass_spatial) > 0 to
+# recover the sharpening.
+_LEGACY_IMG_ALIASES = {
+    "meanimge": "max_proj / meanImg",
+    "enhanced_meanimg": "max_proj / meanImg",
+    "enhanced_mean_img": "max_proj / meanImg",
+    "mean_img": "meanImg",
+    "maximg": "max_proj",
+    "max_img": "max_proj",
+    "maxproj": "max_proj",
+}
 _UPSTREAM_TO_FORK_RENAMES = {v: k for k, v in _FORK_TO_UPSTREAM_RENAMES.items()}
+
+
+def reconcile_detection_keys(ops: dict | None) -> dict | None:
+    """Make the flat detection keys consistent and valid for suite2p.
+
+    The fork spells detection as `anatomical_only` (int) / `sparse_mode`
+    (bool); suite2p uses `algorithm` (str). Users mix both. This keeps them
+    mutually consistent and validates them against what suite2p accepts, so
+    either spelling engages identical code paths. Mutates and returns `ops`
+    (no-op for non-dicts); idempotent.
+
+    - `algorithm="cellpose"` with no `anatomical_only` -> `anatomical_only=1`
+      (suite2p's default cellpose image), so the fork's anatomical paths run.
+    - `anatomical_only>0` with no `algorithm` -> `algorithm="cellpose"`.
+    - `algorithm` in {sparsery, sourcery} -> `anatomical_only=0`, `sparse_mode`.
+    - legacy `anatomical_only=3` (enhanced mean, removed upstream) -> 1 + warn.
+    - unknown `algorithm` / `img` -> warn and fall back to a valid value.
+    """
+    import warnings
+
+    if not isinstance(ops, dict):
+        return ops
+
+    algo = ops.get("algorithm")
+    if isinstance(algo, str):
+        algo = algo.strip()
+        if algo in VALID_DETECTION_ALGORITHMS:
+            ops["algorithm"] = algo
+        else:
+            warnings.warn(
+                f"Unknown detection algorithm {ops['algorithm']!r}; suite2p "
+                f"accepts {VALID_DETECTION_ALGORITHMS}. Ignoring it (falling "
+                "back to anatomical_only / suite2p default).",
+                stacklevel=2,
+            )
+            ops.pop("algorithm", None)
+            algo = None
+    else:
+        algo = None
+
+    anat = ops.get("anatomical_only")
+    try:
+        anat_int = int(anat) if anat is not None else None
+    except (TypeError, ValueError):
+        anat_int = None
+
+    if anat_int == 3:
+        warnings.warn(
+            "anatomical_only=3 (enhanced mean image) was removed from suite2p "
+            "detection; using anatomical_only=1 (suite2p default image). Set "
+            "spatial_hp_cp>0 to sharpen the detection image.",
+            stacklevel=2,
+        )
+        anat_int = 1
+        ops["anatomical_only"] = 1
+
+    if algo == "cellpose":
+        if not anat_int or anat_int <= 0:
+            ops["anatomical_only"] = 1  # suite2p's default cellpose image
+    elif algo in ("sparsery", "sourcery"):
+        ops["anatomical_only"] = 0
+        ops.setdefault("sparse_mode", algo == "sparsery")
+    elif algo is None and anat_int and anat_int > 0:
+        ops["algorithm"] = "cellpose"
+
+    img = ops.get("img")
+    if isinstance(img, str) and img not in VALID_CELLPOSE_IMG:
+        mapped = _LEGACY_IMG_ALIASES.get(img.strip().lower())
+        if mapped:
+            warnings.warn(
+                f"cellpose image {img!r} is legacy/renamed; using {mapped!r}.",
+                stacklevel=2,
+            )
+            ops["img"] = mapped
+        else:
+            warnings.warn(
+                f"Unknown cellpose image {img!r}; suite2p accepts "
+                f"{VALID_CELLPOSE_IMG}. Ignoring it (using suite2p default).",
+                stacklevel=2,
+            )
+            ops.pop("img", None)
+
+    return ops
 
 # per-section flat-key disambiguation. Several upstream sections share
 # an upstream key. When flattened to ops, the second iteration overwrites
@@ -286,8 +387,9 @@ def ops_to_db_settings(ops: dict) -> tuple[dict, dict]:
     settings: dict[str, Any] = {}
 
     # resolve fork→upstream renames into a temporary lookup that
-    # doesn't mutate the caller's ops
-    lookup = dict(ops)
+    # doesn't mutate the caller's ops. reconcile first so algorithm /
+    # anatomical_only / img are consistent and valid before translation.
+    lookup = reconcile_detection_keys(dict(ops))
     for fork_name, upstream_name in _FORK_TO_UPSTREAM_RENAMES.items():
         if fork_name in lookup and upstream_name not in lookup:
             lookup[upstream_name] = lookup[fork_name]
@@ -377,11 +479,9 @@ def ops_to_db_settings(ops: dict) -> tuple[dict, dict]:
         if key in lookup:
             cellpose[key] = lookup[key]
 
-    # fork's anatomical_only int picks which image cellpose runs on.
-    # upstream encodes this via cellpose_settings.img; without this
-    # mapping anatomical_only=4 silently degrades to anatomical_only=1
-    # (the upstream default 'max_proj / meanImg' = log ratio image)
-    # because the translator only sets algorithm='cellpose' otherwise.
+    # fork's anatomical_only int picks which image cellpose runs on;
+    # upstream encodes this via cellpose_settings.img. anatomical_only was
+    # already validated/normalized (incl. legacy 3) by reconcile above.
     anat = lookup.get("anatomical_only")
     if anat and "img" not in cellpose:
         try:
@@ -390,18 +490,6 @@ def ops_to_db_settings(ops: dict) -> tuple[dict, dict]:
             anat_int = None
         if anat_int in _ANATOMICAL_ONLY_TO_IMG:
             cellpose["img"] = _ANATOMICAL_ONLY_TO_IMG[anat_int]
-        elif anat_int == 3:
-            # upstream removed enhanced_mean_img — closest fallback is
-            # 'meanImg' (same source family, no median-ratio enhancement).
-            # warn the caller so they know something changed.
-            import warnings
-            warnings.warn(
-                "anatomical_only=3 (enhanced_mean_img) is no longer supported "
-                "upstream; falling back to cellpose_settings.img='meanImg'. "
-                "Use anatomical_only in {1, 2, 4} to avoid this fallback.",
-                stacklevel=2,
-            )
-            cellpose["img"] = "max_proj"
 
     if cellpose:
         detection["cellpose_settings"] = cellpose

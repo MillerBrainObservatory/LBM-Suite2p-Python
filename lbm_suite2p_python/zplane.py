@@ -3056,7 +3056,7 @@ def mask_dead_zones_in_ops(ops, threshold=0.01):
 
 def plot_zplane_figures(
     plane_dir, dff_percentile=20, dff_window_size=None, dff_smooth_window=None,
-    norm_method="dff", correct_neuropil=True, run_rastermap=False,
+    norm_method="zscore", correct_neuropil=True, run_rastermap=False,
     rastermap_kwargs=None, **kwargs
 ):
     """
@@ -3075,7 +3075,7 @@ def plot_zplane_figures(
         Temporal smoothing window for dF/F traces (in frames).
         If None, auto-calculated as ~0.5 × tau × fs to emphasize
         transients while reducing noise. Set to 1 to disable.
-    norm_method : str, default "dff"
+    norm_method : str, default "zscore"
         Normalization used for the norm-trace plots: "dff" or "zscore".
     run_rastermap : bool, optional
         If True, compute and plot rastermap sorting of cells.

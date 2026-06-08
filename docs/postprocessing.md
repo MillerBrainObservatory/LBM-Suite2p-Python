@@ -115,8 +115,8 @@ The pipeline writes the normalized trace to `norm_traces.npy`. Choose the method
 ```python
 import lbm_suite2p_python as lsp
 
-lsp.pipeline(input_data, norm_method="dff")     # rolling-percentile ΔF/F (default)
-lsp.pipeline(input_data, norm_method="zscore")  # per-ROI z-score
+lsp.pipeline(input_data, norm_method="zscore")  # per-ROI z-score (default)
+lsp.pipeline(input_data, norm_method="dff")     # rolling-percentile ΔF/F
 ```
 
 The `dff_window_size` / `dff_percentile` / `dff_smooth_window` parameters apply when `norm_method="dff"`. Quality metrics (SNR, skew, shot-noise) always use a static-baseline ΔF/F ({func}`baseline_percentile_dff`) regardless of `norm_method`.

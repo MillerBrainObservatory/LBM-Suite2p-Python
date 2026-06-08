@@ -3,7 +3,14 @@ import numpy as np
 from pathlib import Path
 
 
-# Supported lazy array types from mbo_utilities
+# mbo_utilities >= 4.0 exposes a single LazyArray base; isinstance covers
+# every built-in and any third-party plugin. The class-name tuple is the
+# fallback for mbo_utilities < 4.0, which has no shared base.
+try:
+    from mbo_utilities import LazyArray as _LazyArray
+except ImportError:  # mbo_utilities < 4.0
+    _LazyArray = None
+
 _LAZY_ARRAY_TYPES = (
     "ScanImageArray",
     "LBMArray",
@@ -22,6 +29,8 @@ _LAZY_ARRAY_TYPES = (
 
 def _is_lazy_array(obj):
     """Check if obj is an mbo_utilities lazy array type."""
+    if _LazyArray is not None and isinstance(obj, _LazyArray):
+        return True
     return type(obj).__name__ in _LAZY_ARRAY_TYPES
 
 
