@@ -39,7 +39,7 @@ import lbm_suite2p_python as lsp
 
 ops = {
     "diameter": 3,
-    "anatomical_only": 3,
+    "anatomical_only": 1,
     "classifier_path": r"D:\classifiers\my_trained_classifier.npy",
 }
 

@@ -37,11 +37,12 @@ ROI_MODE = None  # None = stitch mROIs together (default for LBM data)
 print("Running initial pipeline on z-plane 7")
 
 # Configure ops for initial detection
-# Using cellpose with cyto3 model for first pass
+# Using Cellpose for first pass
 ops = lsp.default_ops()
 ops.update({
     "two_step_registration": 1,
-    "anatomical_only": 3,  # Use meanImgE for detection
+    "algorithm": "cellpose",        # Cellpose anatomical detection
+    "img": "max_proj / meanImg",    # detection image (default)
     "roidetect": 1,
 })
 

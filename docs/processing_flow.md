@@ -33,22 +33,51 @@ These steps are applied to the registered movie before ROI detection:
 
 ## Detection: Anatomical Mode (Cellpose)
 
-When `ops["anatomical_only"] > 0`, cellpose segments one of these images:
+Cellpose segments one static image, chosen by `cellpose_settings.img`. Suite2p 1.1.0
+accepts three values:
 
-| Mode | Input Image | Description |
-|------|-------------|-------------|
-| 1 | `log(max_proj / meanImg)` | Log ratio emphasizes active regions |
-| 2 | `meanImg` | Raw mean intensity |
-| 3 | `meanImgE` | Enhanced mean (spatial HP) |
-| 4 | `max_proj` | Maximum projection (binned + temporal HP) |
+| `img` | Image | Notes |
+|-------|-------|-------|
+| `"max_proj / meanImg"` | `log(max_proj / meanImg)` | **default**; log ratio emphasizes active regions |
+| `"meanImg"` | mean image | raw mean intensity |
+| `"max_proj"` | max projection | binned + temporally high-pass filtered |
+
+The enhanced mean image (`meanImgE`) is no longer a cellpose input — the old
+`anatomical_only=3` was removed upstream.
+
+### Selecting the image
+
+Recommended — enable cellpose with `algorithm="cellpose"` and pick `img`:
+
+```python
+ops = {"algorithm": "cellpose", "img": "max_proj / meanImg"}  # default
+ops = {"algorithm": "cellpose", "img": "meanImg"}
+ops = {"algorithm": "cellpose", "img": "max_proj"}
+```
+
+Legacy — the integer `anatomical_only` still works and maps to `img`:
+
+```python
+ops = {"anatomical_only": 1}   # img = "max_proj / meanImg" (default)
+ops = {"anatomical_only": 2}   # img = "meanImg"
+ops = {"anatomical_only": 4}   # img = "max_proj"
+```
+
+`anatomical_only=0` (or `algorithm="sparsery"`/`"sourcery"`) uses functional detection.
+`anatomical_only=3` warns and falls back to 1.
 
 | Step | Description | Disable |
 |------|-------------|---------|
 | PCA Denoise | Spatial denoising via block-wise PCA | `ops["denoise"] = 0` |
-| Spatial High-Pass (cellpose) | Remove illumination gradients from input image | `ops["spatial_hp_cp"] = 0` |
-| Cellpose Segmentation | Run Cellpose model on processed image | N/A |
+| Spatial High-Pass | Sharpen the chosen image before cellpose | `ops["spatial_hp_cp"] = 0` |
+| Cellpose Segmentation | Run Cellpose model on the image | N/A |
 
-**Note:** `spatial_hp_cp` is applied to the image before cellpose but does NOT modify the stored `ops["max_proj"]` or `ops["meanImg"]`.
+### Spatial high-pass: `spatial_hp_cp` (upstream `cellpose_settings.highpass_spatial`)
+
+Integer, default 0 (off). When > 0, the chosen `img` is normalized to [0, 1] and a
+Gaussian-blurred copy (sigma = `diameter × spatial_hp_cp`) is subtracted twice, removing
+illumination gradients and sharpening cell boundaries. It applies to whichever `img` you
+select and does **not** modify the stored `ops["meanImg"]` or `ops["max_proj"]`.
 
 ## Detection: Functional Mode
 

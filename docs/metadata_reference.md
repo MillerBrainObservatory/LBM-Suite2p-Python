@@ -98,7 +98,7 @@ Complete reference for all metadata handling in LBM-Suite2p-Python.
 | Field | Type | Purpose |
 |-------|------|---------|
 | `roidetect` | bool | whether to run ROI detection |
-| `anatomical_only` | int | detection mode: 0=functional, 1-4=anatomical variants |
+| `anatomical_only` | int | 0=functional; 1/2/4 enable cellpose and select `cellpose_settings.img` (1=`max_proj / meanImg`, 2=`meanImg`, 4=`max_proj`); 3 (enhanced mean) removed |
 | `diameter` | int/list | expected cell diameter in pixels |
 | `diameter_user` | int/list | original user-specified diameter (preserved) |
 | `spatial_scale` | int | ROI scale: 0=multi, 1=6px, 2=12px, 3=24px, 4=48px |

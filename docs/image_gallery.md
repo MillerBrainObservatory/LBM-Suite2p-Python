@@ -95,7 +95,7 @@ Components of trace quality scoring.
 :name: gallery-anatomical-modes
 :width: 100%
 
-Anatomical detection modes: `meanImg`, `meanImgE`, `max_proj`.
+Cellpose input images (`cellpose_settings.img`): `meanImg`, `max_proj`, `max_proj / meanImg` (default).
 ```
 
 ```{figure} ./_images/projections/02_spatial_hp_filter.png

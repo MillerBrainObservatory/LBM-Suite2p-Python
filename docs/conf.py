@@ -74,6 +74,7 @@ myst_admonition_enable = True
 myst_amsmath_enable = True
 myst_html_img_enable = True
 myst_url_schemes = ("http", "https", "mailto")
+myst_heading_anchors = 3  # generate GitHub-style anchors so in-page [text](#slug) links resolve
 
 images_config = {"cache_path": "./_images/"}
 
