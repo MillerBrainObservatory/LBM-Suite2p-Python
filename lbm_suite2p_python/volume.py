@@ -1891,7 +1891,7 @@ def plot_volume_trace_figures(
     dff_percentile: int = 8,
     dff_window_size: int = None,
     dff_smooth_window: int = None,
-    norm_method: str = "dff",
+    norm_method: str = "zscore",
     correct_neuropil: bool = True,
 ):
     """
@@ -1926,7 +1926,7 @@ def plot_volume_trace_figures(
         model exists, the rastermap heatmap is skipped.
     dff_percentile, dff_window_size, dff_smooth_window
         Forwarded to :func:`dff_rolling_percentile` (when norm_method="dff").
-    norm_method : str, default "dff"
+    norm_method : str, default "zscore"
         Normalization for the norm-trace plots: "dff" or "zscore".
     """
     from types import SimpleNamespace

@@ -14,7 +14,7 @@ import copy
 import numpy as np
 
 from lbm_suite2p_python.default_ops import default_ops
-from lbm_suite2p_python.db_settings import save_ops_db_settings
+from lbm_suite2p_python.db_settings import save_ops_db_settings, reconcile_detection_keys
 from lbm_suite2p_python.postprocessing import (
     ops_to_json,
     load_ops,
@@ -751,6 +751,7 @@ def _prepare_plane_ops(*, base_ops, plane_idx, num_planes, input_arr,
     """
     plane_num = plane_idx + 1
     current_ops = copy.deepcopy(load_ops(base_ops)) if base_ops else default_ops()
+    reconcile_detection_keys(current_ops)
     current_ops["plane"] = plane_num
     current_ops["num_zplanes"] = num_planes
 
@@ -796,7 +797,7 @@ def pipeline(
     dff_window_size: int = None,
     dff_percentile: int = 20,
     dff_smooth_window: int = None,
-    norm_method: str = "dff",
+    norm_method: str = "zscore",
     correct_neuropil: bool = True,
     cell_filters: list = None,
     accept_all_cells: bool = False,
@@ -827,8 +828,17 @@ def pipeline(
         Output directory for results. If None, saves next to input file.
         Required when input_data is an array without filenames.
     ops : dict, optional
-        Suite2p parameters to override defaults. If None, uses optimized
-        defaults with metadata auto-populated from input.
+        Flat Suite2p parameter overrides (the fork's ops shape). If None,
+        uses suite2p defaults with metadata auto-populated from input.
+        Detection is selectable either way and kept consistent: suite2p's
+        ``"algorithm"`` ("cellpose" / "sparsery" / "sourcery") or the fork's
+        ``"anatomical_only"`` (0=functional, 1=max_proj/mean, 2=mean,
+        4=max_proj). Setting one fills in the other; invalid or legacy
+        values (e.g. ``anatomical_only=3``) are warned and mapped to what
+        suite2p accepts.
+    db, settings : dict, optional
+        suite2p's nested ``db`` / ``settings`` dicts (the new upstream
+        shape). Flattened and merged into ``ops``; explicit ``ops`` keys win.
     planes : int or list, optional
         Which z-planes to process (1-indexed). None processes all planes.
     roi_mode : int, optional
@@ -862,7 +872,7 @@ def pipeline(
     dff_smooth_window : int, optional
         Temporal smoothing window for dF/F traces (frames).
         If None, auto-calculated. Set to 1 to disable.
-    norm_method : str, default "dff"
+    norm_method : str, default "zscore"
         Normalization for the saved norm_traces.npy. "dff" uses the rolling
         percentile ΔF/F (dff_window_size / dff_percentile / dff_smooth_window
         apply); "zscore" uses per-ROI (F - mean) / std. Quality metrics
@@ -1232,7 +1242,7 @@ def run_volume(
     dff_window_size: int = None,
     dff_percentile: int = 20,
     dff_smooth_window: int = None,
-    norm_method: str = "dff",
+    norm_method: str = "zscore",
     correct_neuropil: bool = True,
     accept_all_cells: bool = False,
     cell_filters: list = None,
@@ -1275,7 +1285,7 @@ def run_volume(
         List of frame indices to process.
     dff_window_size, dff_percentile, dff_smooth_window : optional
         dF/F calculation parameters (used when norm_method="dff").
-    norm_method : str, default "dff"
+    norm_method : str, default "zscore"
         Normalization for norm_traces.npy: "dff" or "zscore". See pipeline().
     accept_all_cells : bool, default False
         Mark all ROIs as accepted.
@@ -1381,8 +1391,8 @@ def run_volume(
         else None
     )
     _volume_source_shape = (
-        tuple(input_arr.shape5d)
-        if input_arr is not None and hasattr(input_arr, "shape5d")
+        tuple(input_arr._shape5d())
+        if input_arr is not None and hasattr(input_arr, "_shape5d")
         else None
     )
 
@@ -1530,8 +1540,10 @@ def run_volume(
         )
 
         # Download the cellpose model once before fanning out; concurrent
-        # first-time downloads race on the shared cache file.
-        _prewarm_cellpose_model(ops)
+        # first-time downloads race on the shared cache file. Use a prepared
+        # per-plane ops (already reconciled) so algorithm="cellpose" without
+        # anatomical_only still triggers the warm-up.
+        _prewarm_cellpose_model(prepared[0][1] if prepared else ops)
 
         manager = mp.Manager()
         log_queue = manager.Queue()
@@ -2262,7 +2274,7 @@ def run_plane(
     dff_window_size: int = None,
     dff_percentile: int = 20,
     dff_smooth_window: int = None,
-    norm_method: str = "dff",
+    norm_method: str = "zscore",
     correct_neuropil: bool = True,
     accept_all_cells: bool = False,
     cell_filters: list = None,
@@ -2287,7 +2299,11 @@ def run_plane(
         Root directory to save the results. A subdirectory will be created based on
         the input filename or `plane_name` parameter.
     ops : dict, str or Path, optional
-        Path to or dict of user‐supplied ops.npy.
+        Path to or dict of user‐supplied ops (flat fork shape). Detection
+        accepts suite2p's ``"algorithm"`` or the fork's ``"anatomical_only"``
+        interchangeably (kept consistent; invalid/legacy values warned and
+        mapped to suite2p-valid ones). Pass ``db`` / ``settings`` for the
+        nested upstream shape.
     chan2_file : str, optional
         Path to structural / anatomical data used for registration.
     keep_raw : bool, default False
@@ -2304,7 +2320,7 @@ def run_plane(
         Percentile for baseline F0.
     dff_smooth_window : int, optional
         Smoothing window for dF/F. Default: auto-calculated.
-    norm_method : str, default "dff"
+    norm_method : str, default "zscore"
         Normalization for norm_traces.npy: "dff" (rolling percentile ΔF/F)
         or "zscore" (per-ROI (F - mean) / std). Quality metrics always use
         ΔF/F regardless of this setting.
@@ -2413,6 +2429,9 @@ def run_plane(
     ops_user = load_ops(ops) if ops else {}
     if db is not None or settings is not None:
         ops_user = merge_db_settings_into_ops(ops_user, db, settings)
+    # keep the flat (anatomical_only/sparse_mode) and suite2p (algorithm)
+    # detection spellings consistent + valid before they merge into ops.
+    reconcile_detection_keys(ops_user)
     ops = {**ops_default, **ops_user, "data_path": str(input_path.resolve())}
 
     # normalize kwargs
@@ -2735,7 +2754,7 @@ def run_plane(
             dict(file.metadata) if hasattr(file, "metadata") else None
         )
         _src_shape = (
-            tuple(file.shape5d) if hasattr(file, "shape5d") else None
+            tuple(file._shape5d()) if hasattr(file, "_shape5d") else None
         )
         _apply_reactive_metadata(
             ops=ops,
@@ -2868,13 +2887,11 @@ def run_plane(
                 show_progress=False,
             )
             ops["chan2_file"] = str((plane_dir / "data_chan2.bin").resolve())
-            # Use shape5d (the always-5D contract) so natural-rank arrays
-            # (e.g. a 4D TZYX TiffArray with C=1 squeezed) report the
-            # real T dimension. shape[0] picks Y on a natural 4D array
-            # and crashes/mis-counts on a 2D one — same class of bug
-            # mbo_utilities just fixed in `_imwrite_base`.
-            if hasattr(chan2_data, "shape5d"):
-                ops["nframes_chan2"] = int(chan2_data.shape5d[0])
+            # Use _shape5d() (the always-5D contract) so natural-rank
+            # arrays (BinArray, a 4D TZYX _ChannelView) still report the
+            # real T dimension at index 0.
+            if hasattr(chan2_data, "_shape5d"):
+                ops["nframes_chan2"] = int(chan2_data._shape5d()[0])
             elif hasattr(chan2_data, "shape"):
                 ops["nframes_chan2"] = int(chan2_data.shape[0])
             else:

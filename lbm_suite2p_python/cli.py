@@ -208,9 +208,9 @@ Examples:
         help="smoothing window for dF/F"
     )
     dff.add_argument(
-        "--norm-method", choices=["dff", "zscore"], default="dff",
+        "--norm-method", choices=["dff", "zscore"], default="zscore",
         dest="norm_method",
-        help="normalization for norm_traces.npy (default: dff)"
+        help="normalization for norm_traces.npy (default: zscore)"
     )
     dff.add_argument(
         "--correct-neuropil", dest="correct_neuropil",
