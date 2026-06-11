@@ -2967,6 +2967,10 @@ def run_plane(
                 save_ops_db_settings(ops_file, updated_ops)
 
         except Exception as e:
+            if "no ROIs were found" in str(e):
+                print(f"Warning: no ROIs found for {plane_dir.name}, skipping plane.")
+                _cleanup_bin_files(plane_dir, keep_raw, keep_reg)
+                return ops_file
             print(f"Error in run_plane_bin: {e}")
             traceback.print_exc()
             _cleanup_bin_files(plane_dir, keep_raw, keep_reg)
