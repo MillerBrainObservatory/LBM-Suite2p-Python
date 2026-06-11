@@ -552,7 +552,7 @@ def plot_traces(
         fig.text(
             0.02, 0.02, fig_text,
             ha="left", va="bottom",
-            color="#bbbbbb", fontsize=8, fontname="Courier New",
+            color="#bbbbbb", fontsize=8, fontname="monospace",
             transform=fig.transFigure,
         )
 
@@ -1073,7 +1073,7 @@ def plot_accepted_rejected_overlay(
         ax.text(
             0.5, 1.02, title,
             transform=ax.transAxes,
-            fontsize=12, fontweight="bold", fontname="Courier New",
+            fontsize=12, fontweight="bold", fontname="monospace",
             color="white", ha="center", va="bottom",
         )
         label_y = 1.10
@@ -1081,14 +1081,14 @@ def plot_accepted_rejected_overlay(
         0.37, label_y,
         f"Accepted: {n_accepted:03d}",
         transform=ax.transAxes,
-        fontsize=14, fontweight="bold", fontname="Courier New",
+        fontsize=14, fontweight="bold", fontname="monospace",
         color="lime", ha="right", va="bottom",
     )
     ax.text(
         0.63, label_y,
         f"Rejected: {n_rejected:03d}",
         transform=ax.transAxes,
-        fontsize=14, fontweight="bold", fontname="Courier New",
+        fontsize=14, fontweight="bold", fontname="monospace",
         color="red", ha="left", va="bottom",
     )
     ax.set_xticks([])
@@ -1252,32 +1252,32 @@ def plot_volume_accepted_rejected_overlay(
         ax.text(
             0.5, 1.085, f"plane {e['plane']:02d}",
             transform=ax.transAxes,
-            fontsize=11, fontweight="bold", fontname="Courier New",
+            fontsize=11, fontweight="bold", fontname="monospace",
             color="white", ha="center", va="bottom",
         )
         ax.text(
             0.49, 1.015, f"Accepted: {n_acc:03d}",
             transform=ax.transAxes,
-            fontsize=10, fontweight="bold", fontname="Courier New",
+            fontsize=10, fontweight="bold", fontname="monospace",
             color="lime", ha="right", va="bottom",
         )
         ax.text(
             0.51, 1.015, f"Rejected: {n_rej:03d}",
             transform=ax.transAxes,
-            fontsize=10, fontweight="bold", fontname="Courier New",
+            fontsize=10, fontweight="bold", fontname="monospace",
             color="red", ha="left", va="bottom",
         )
 
     fig.text(
         0.49, 0.992,
         f"Total Accepted: {total_accepted:04d}",
-        color="lime", fontsize=16, fontweight="bold", fontname="Courier New",
+        color="lime", fontsize=16, fontweight="bold", fontname="monospace",
         ha="right", va="top",
     )
     fig.text(
         0.51, 0.992,
         f"Total Rejected: {total_rejected:04d}",
-        color="red", fontsize=16, fontweight="bold", fontname="Courier New",
+        color="red", fontsize=16, fontweight="bold", fontname="monospace",
         ha="left", va="top",
     )
 
@@ -1384,7 +1384,7 @@ def plot_projection(
         transform=ax.transAxes,
         fontsize=14,
         fontweight="bold",
-        fontname="Courier New",
+        fontname="monospace",
         color="white",
         ha="center",
         va="bottom",
@@ -1444,7 +1444,7 @@ def plot_projection(
             transform=ax.transAxes,
             fontsize=14,
             fontweight="bold",
-            fontname="Courier New",
+            fontname="monospace",
             color="lime",
             ha="right",
             va="bottom",
@@ -1456,7 +1456,7 @@ def plot_projection(
             transform=ax.transAxes,
             fontsize=14,
             fontweight="bold",
-            fontname="Courier New",
+            fontname="monospace",
             color="magenta",
             ha="left",
             va="bottom",
@@ -4546,21 +4546,21 @@ def plot_filter_exclusions(
             0.5, header_y,
             f"{name} — {proj_title}",
             transform=ax.transAxes,
-            fontsize=12, fontweight="bold", fontname="Courier New",
+            fontsize=12, fontweight="bold", fontname="monospace",
             color="white", ha="center", va="bottom",
         )
         ax.text(
             0.37, 1.10,
             f"Accepted: {n_accepted_total:03d}",
             transform=ax.transAxes,
-            fontsize=14, fontweight="bold", fontname="Courier New",
+            fontsize=14, fontweight="bold", fontname="monospace",
             color="lime", ha="right", va="bottom",
         )
         ax.text(
             0.63, 1.10,
             f"Excluded: {n_rejected:03d}",
             transform=ax.transAxes,
-            fontsize=14, fontweight="bold", fontname="Courier New",
+            fontsize=14, fontweight="bold", fontname="monospace",
             color="red", ha="left", va="bottom",
         )
         # subtitle: per-criterion reasons + params
@@ -4574,7 +4574,7 @@ def plot_filter_exclusions(
             ax.text(
                 0.5, 1.02, "\n".join(sub_lines),
                 transform=ax.transAxes,
-                fontsize=8, fontname="Courier New",
+                fontsize=8, fontname="monospace",
                 color="white", ha="center", va="bottom",
             )
 
