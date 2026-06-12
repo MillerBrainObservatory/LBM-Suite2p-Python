@@ -390,7 +390,7 @@ def cellpose(
     # cellpose eval parameters
     diameter: float = None,
     flow_threshold: float = 0.0,
-    cellprob_threshold: float = -6.0,
+    cellprob_threshold: float = -4.0,
     min_size: int = 2,
     max_size: int = None,
     max_size_fraction: float = None,
@@ -445,9 +445,9 @@ def cellpose(
         Use GPU if available.
     diameter : float, optional
         Expected cell diameter in pixels. If None, Cellpose auto-estimates.
-    flow_threshold : float, default 0.4
-        Maximum allowed error of flows for each mask.
-    cellprob_threshold : float, default 0.0
+    flow_threshold : float, default 0.0
+        Maximum allowed error of flows for each mask (0 = flow check off).
+    cellprob_threshold : float, default -4.0
         Probability threshold for cell detection. Lower = more cells.
     min_size : int, default 2
         Minimum number of pixels per mask.
@@ -932,8 +932,8 @@ def save_gui_results(
     flows: tuple = None,
     styles: np.ndarray = None,
     diameter: float = None,
-    cellprob_threshold: float = 0.0,
-    flow_threshold: float = 0.4,
+    cellprob_threshold: float = -4.0,
+    flow_threshold: float = 0.0,
     name: str = None,
 ) -> Path:
     """
