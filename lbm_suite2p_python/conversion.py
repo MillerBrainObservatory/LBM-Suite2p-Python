@@ -622,8 +622,8 @@ def export_for_gui(suite2p_dir, output_path=None, name=None):
         "filename": str(proj_path),
         "flows": None,
         "est_diam": ops.get("diameter"),
-        "cellprob_threshold": ops.get("cellprob_threshold", 0.0),
-        "flow_threshold": ops.get("flow_threshold", 0.4),
+        "cellprob_threshold": ops.get("cellprob_threshold", -4.0),
+        "flow_threshold": ops.get("flow_threshold", 0.0),
     }
 
     seg_file = output_dir / f"{name}_seg.npy"
