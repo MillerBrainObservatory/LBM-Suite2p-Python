@@ -7,15 +7,26 @@ That divergence made the round-trip through `settings.npy` confusing —
 on-disk values that matched the lsp default were flagged as "modified"
 against suite2p's schema, and vice versa.
 
-This module now exposes exactly suite2p's defaults (the values from
+`s2p_ops()` exposes exactly suite2p's defaults (the values from
 `suite2p.default_settings()` + `suite2p.default_db()`), flattened to the
 fork's flat-ops shape via the same `db_settings_to_ops` translation
-that the rest of lsp uses. There is now ONE source of truth for "what
-default means": suite2p's parameter schema. Any LBM-specific tweaks
-(diameter, tau, etc.) belong in user code, not in the default.
+that the rest of lsp uses. `default_ops()` then applies a small set of
+LBM detection defaults (`_LBM_DETECTION_DEFAULTS`) on top, so a notebook,
+a bare `pipeline()` / `run_plane()` call, and the GUI all start from the
+same place. An explicit caller-supplied `ops=` is respected, not overlaid.
 """
 
 from mbo_utilities.metadata import get_param, get_voxel_size
+
+
+# LBM detection defaults that intentionally differ from suite2p's schema.
+# default_ops() applies these on top of the suite2p mirror so notebook,
+# function-call, and GUI runs share one set of defaults.
+_LBM_DETECTION_DEFAULTS = {
+    "do_regmetrics": False,      # PC reg-quality metrics: ~40s/plane on >=1500 frames
+    "cellprob_threshold": -4.0,  # more permissive than suite2p's 0.0 for LBM data
+    "flow_threshold": 0.0,       # flow check disabled
+}
 
 
 def s2p_ops() -> dict:
@@ -69,6 +80,7 @@ def default_ops(metadata: dict | None = None, ops: dict | None = None) -> dict:
     """
     if ops is None:
         ops = s2p_ops()
+        ops.update(_LBM_DETECTION_DEFAULTS)
 
     if metadata is not None:
         fs = get_param(metadata, "fs")

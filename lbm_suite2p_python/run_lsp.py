@@ -792,6 +792,7 @@ def pipeline(
     keep_raw: bool = False,
     force_reg: bool = False,
     force_detect: bool = False,
+    replot: bool = True,
     num_timepoints: int = None,
     frame_indices: list | None = None,
     dff_window_size: int = None,
@@ -854,6 +855,10 @@ def pipeline(
         Force re-registration even if already complete.
     force_detect : bool, default False
         Force ROI detection even if stat.npy exists.
+    replot : bool, default True
+        Regenerate per-plane figures. Set False to skip per-plane figure
+        regeneration (e.g. the volumetric aggregate over already-plotted
+        planes); suite2p and the volumetric plots are unaffected.
     num_timepoints : int, optional
         Limit processing to first N frames (truncation only). For an
         explicit set of frames or a strided selection, use
@@ -1028,6 +1033,7 @@ def pipeline(
             keep_raw=keep_raw,
             force_reg=force_reg,
             force_detect=force_detect,
+            replot=replot,
             frame_indices=frame_indices,
             dff_window_size=dff_window_size,
             dff_percentile=dff_percentile,
@@ -1067,6 +1073,7 @@ def pipeline(
             keep_raw=keep_raw,
             force_reg=force_reg,
             force_detect=force_detect,
+            replot=replot,
             frame_indices=frame_indices,
             dff_window_size=dff_window_size,
             dff_percentile=dff_percentile,
@@ -1238,6 +1245,7 @@ def run_volume(
     keep_raw: bool = False,
     force_reg: bool = False,
     force_detect: bool = False,
+    replot: bool = True,
     frame_indices: list | None = None,
     dff_window_size: int = None,
     dff_percentile: int = 20,
@@ -1281,6 +1289,9 @@ def run_volume(
         Force re-registration.
     force_detect : bool, default False
         Force detection.
+    replot : bool, default True
+        Regenerate per-plane figures (passed to run_plane). Set False to skip
+        per-plane figure regeneration during a volumetric aggregate.
     frame_indices : list, default None
         List of frame indices to process.
     dff_window_size, dff_percentile, dff_smooth_window : optional
@@ -1418,6 +1429,7 @@ def run_volume(
         keep_raw=keep_raw,
         force_reg=force_reg,
         force_detect=force_detect,
+        replot=replot,
         frame_indices=frame_indices,
         dff_window_size=dff_window_size,
         dff_percentile=dff_percentile,
@@ -2270,6 +2282,7 @@ def run_plane(
     keep_reg: bool = True,
     force_reg: bool = False,
     force_detect: bool = False,
+    replot: bool = True,
     frame_indices: list | None = None,
     dff_window_size: int = None,
     dff_percentile: int = 20,
@@ -2314,6 +2327,9 @@ def run_plane(
         If True, force a new registration.
     force_detect : bool, default False
         If True, force ROI detection.
+    replot : bool, default True
+        Generate per-plane figures. Set False to skip figure generation
+        (keeps ROI stats; only the figures are skipped).
     dff_window_size : int, optional
         Frames for rolling percentile baseline. Default: auto-calculated (~10*tau*fs).
     dff_percentile : int, default 20
@@ -3143,7 +3159,7 @@ def run_plane(
         except Exception as _e:
             print(f"  Warning: persisting post-processing kwargs failed: {_e}")
 
-    # 3b. ROI statistics
+    # 3b. ROI statistics (cheap; feeds the volumetric aggregate, so always run).
     try:
         from lbm_suite2p_python.postprocessing import compute_roi_stats
 
@@ -3152,20 +3168,35 @@ def run_plane(
     except Exception as e:
         print(f"  Warning: ROI stats computation failed: {e}")
 
-    # 4. Plots and Cleanup
-    try:
-        plot_zplane_figures(
-            plane_dir,
-            dff_percentile=dff_percentile,
-            dff_window_size=dff_window_size,
-            dff_smooth_window=dff_smooth_window,
-            norm_method=norm_method,
-            correct_neuropil=correct_neuropil,
-            run_rastermap=rastermap_kwargs is not None,
-            rastermap_kwargs=rastermap_kwargs,
-        )
-    except Exception as e:
-        print(f"  Warning: Plot generation failed: {e}")
+    # 4. Per-plane figures. Timed as the "plots" step (recorded in
+    # processing_history). Skipped when replot=False — e.g. the volumetric
+    # aggregate re-running already-plotted planes, where regenerating the
+    # per-plane figures is the dominant redundant cost.
+    if replot:
+        plot_start = time.time()
+        try:
+            plot_zplane_figures(
+                plane_dir,
+                dff_percentile=dff_percentile,
+                dff_window_size=dff_window_size,
+                dff_smooth_window=dff_smooth_window,
+                norm_method=norm_method,
+                correct_neuropil=correct_neuropil,
+                run_rastermap=rastermap_kwargs is not None,
+                rastermap_kwargs=rastermap_kwargs,
+            )
+        except Exception as e:
+            print(f"  Warning: Plot generation failed: {e}")
+
+        if ops_file.exists():
+            try:
+                _t_ops = load_ops(ops_file)
+                _add_processing_step(_t_ops, "plots", duration_seconds=time.time() - plot_start)
+                save_ops_db_settings(ops_file, _t_ops)
+            except Exception as _e:
+                print(f"  Warning: recording plot timing failed: {_e}")
+    else:
+        print("  replot=False: keeping existing per-plane figures")
 
     if save_json:
         ops_to_json(ops_file)
