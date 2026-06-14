@@ -111,6 +111,91 @@ def get_common_path(ops_files: list | tuple):
         return Path(os.path.commonpath(ops_files))
 
 
+def estimate_peak_memory(ops, Ly, Lx, n_frames, device="cuda", workers=1):
+    """
+    Estimate peak memory for one Suite2p plane from its parameters.
+
+    Registration and detection run sequentially in suite2p's pipeline, so
+    the peak for a plane is ``max(registration, detection)``, not the sum.
+    The two stages load different pools:
+
+    - Registration compute runs on ``device``. When ``device`` is cuda the
+      per-batch float32/FFT buffers live in VRAM, scaled by
+      ``batch_size * Ly * Lx``. The reference-image correlation
+      (``pick_initial_reference``) and the binary read stay on host.
+    - Detection's binned movie is a host numpy array, and the default
+      ``sparsery`` / ``sourcery`` detectors run on CPU. ``device`` is only
+      used by the cellpose path, which sees the 2D meanImg / max_proj, not
+      the movie. So the binned movie never enters VRAM.
+
+    Host RAM therefore peaks during detection (binned movie plus the
+    high-pass / sparsery copies, ~2.5x); VRAM peaks during registration
+    (or cellpose inference, when enabled). Neither VRAM term scales with
+    ``n_frames``; host detection plateaus once ``n_frames // bin_size``
+    exceeds ``nbins``.
+
+    Parameters
+    ----------
+    ops : dict
+        Flat Suite2p ops. Reads ``nimg_init``, ``batch_size`` (registration
+        batch), ``nbins``, ``bin_size``, ``tau``, ``fs``, ``nchannels``, and
+        ``anatomical_only``. Missing keys fall back to suite2p defaults.
+    Ly, Lx : int
+        Frame height and width in pixels. The detection crop (yrange/xrange)
+        is unknown before registration, so full ``Ly``/``Lx`` are used as an
+        upper bound.
+    n_frames : int
+        Number of frames in the plane.
+    device : str, optional (default "cuda")
+        Torch device. VRAM terms are reported only when this starts with
+        "cuda".
+    workers : int, optional (default 1)
+        Concurrent plane workers. Per-plane peaks are multiplied by this for
+        the ``*_total`` fields.
+
+    Returns
+    -------
+    dict
+        Bytes for ``host_per_plane``, ``vram_per_plane``, ``host_total``,
+        ``vram_total``. VRAM fields are 0 when ``device`` is not cuda.
+
+    Notes
+    -----
+    The 2.5x detection multiplier and the cpsam VRAM constant are rough; the
+    real values depend on data and hardware. Calibrate with
+    ``torch.cuda.max_memory_allocated()`` and an RSS sample around the
+    registration / detection calls for tight bounds.
+    """
+    cuda = str(device).startswith("cuda")
+
+    nimg_init = min(int(ops.get("nimg_init", 400)), n_frames)
+    reg_host = nimg_init * Ly * Lx * 10  # int16 frames + float64 ref corr (CPU)
+
+    nbins = int(ops.get("nbins", 5000))
+    bin_size = ops.get("bin_size") or max(
+        1, n_frames // nbins, round(ops.get("tau", 1.0) * ops.get("fs", 10.0))
+    )
+    nbinned = min(nbins, n_frames // bin_size)
+    detect_host = int(2.5 * nbinned * Ly * Lx * 4)  # binned movie + hp/sparsery copies (CPU)
+
+    host_peak = max(reg_host, detect_host)
+
+    vram_peak = 0
+    if cuda:
+        reg_batch = int(ops.get("batch_size", 100))
+        nchan = int(ops.get("nchannels", 1))
+        reg_vram = nchan * 8 * reg_batch * Ly * Lx * 4  # ~8 float32/FFT buffers per batch
+        cpsam_vram = 1_500_000_000 if ops.get("anatomical_only", 0) else 0  # cpsam weights + activations
+        vram_peak = max(reg_vram, cpsam_vram)
+
+    return {
+        "host_per_plane": host_peak,
+        "vram_per_plane": vram_peak,
+        "host_total": host_peak * max(1, workers),
+        "vram_total": vram_peak * max(1, workers),
+    }
+
+
 def bin1d(X, bin_size, axis=0):
     """
     Mean bin over `axis` of `X` with bin `bin_size`.
