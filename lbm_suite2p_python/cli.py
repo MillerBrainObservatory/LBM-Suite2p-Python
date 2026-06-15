@@ -135,12 +135,20 @@ Examples:
         help="z-planes to process (1-indexed, e.g., --planes 1 2 3)"
     )
     pipeline.add_argument(
+        "--timepoints", nargs="*", type=int, dest="timepoints",
+        help="timepoints to process (1-indexed, e.g., --timepoints 1 50 100)"
+    )
+    pipeline.add_argument(
         "--roi-mode", "--roi", type=int, dest="roi_mode",
         help="ROI mode: None=stitch, 0=split all, N=specific ROI"
     )
     pipeline.add_argument(
         "--num-timepoints", "--frames", type=int, dest="num_timepoints",
-        help="number of frames/timepoints to process (for quick testing)"
+        help="number of timepoints to process (first N, for quick testing)"
+    )
+    pipeline.add_argument(
+        "--num-zplanes", type=int, dest="num_zplanes",
+        help="number of z-planes to process (first N)"
     )
     pipeline.add_argument(
         "--overwrite", action="store_true",
@@ -566,8 +574,10 @@ def main():
             save_path=output_path,
             ops=ops,
             planes=args.planes,
+            timepoints=args.timepoints,
             roi_mode=args.roi_mode,
             num_timepoints=args.num_timepoints,
+            num_zplanes=args.num_zplanes,
             keep_reg=args.keep_reg,
             keep_raw=args.keep_raw,
             force_reg=args.force_reg or args.overwrite,
