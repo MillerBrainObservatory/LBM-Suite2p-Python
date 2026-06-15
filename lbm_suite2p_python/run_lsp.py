@@ -446,14 +446,15 @@ def _is_valid_torch_checkpoint(path) -> bool:
 def _prewarm_cellpose_model(ops) -> None:
     """Download the cellpose model once, in the parent, before workers fan out.
 
-    cellpose's cache_CPSAM_model_path downloads to a temp file then renames
-    with no cross-process lock. Multiple workers hitting an empty cache at once
+    cellpose's model cache downloads to a temp file then renames with no
+    cross-process lock. Multiple workers hitting an empty cache at once
     race: one wins the rename, the rest fail (Windows WinError 32/183) or read a
     half-written file (PytorchStreamReader miniz error). Warming here serializes
     the download so workers only ever read a complete file. A corrupt leftover
     from a prior failed run is removed and re-downloaded.
     """
-    if not (ops.get("roidetect", True) and ops.get("anatomical_only", 0) > 0):
+    if not (ops.get("roidetect", True)
+            and (ops.get("anatomical_only", 0) > 0 or ops.get("algorithm") == "cellpose")):
         return
     try:
         from cellpose import models as cp_models
@@ -467,7 +468,11 @@ def _prewarm_cellpose_model(ops) -> None:
         except OSError:
             pass
     try:
-        cp_models.cache_CPSAM_model_path()
+        # cellpose 4.x renamed cache_CPSAM_model_path() -> cache_model_path(backbone)
+        if hasattr(cp_models, "cache_model_path"):
+            cp_models.cache_model_path("cpsam")
+        else:
+            cp_models.cache_CPSAM_model_path()
     except Exception as exc:
         print(
             f"Warning: could not pre-download cellpose model ({exc}); "
