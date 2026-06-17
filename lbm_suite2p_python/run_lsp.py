@@ -446,14 +446,15 @@ def _is_valid_torch_checkpoint(path) -> bool:
 def _prewarm_cellpose_model(ops) -> None:
     """Download the cellpose model once, in the parent, before workers fan out.
 
-    cellpose's cache_CPSAM_model_path downloads to a temp file then renames
-    with no cross-process lock. Multiple workers hitting an empty cache at once
+    cellpose's model cache downloads to a temp file then renames with no
+    cross-process lock. Multiple workers hitting an empty cache at once
     race: one wins the rename, the rest fail (Windows WinError 32/183) or read a
     half-written file (PytorchStreamReader miniz error). Warming here serializes
     the download so workers only ever read a complete file. A corrupt leftover
     from a prior failed run is removed and re-downloaded.
     """
-    if not (ops.get("roidetect", True) and ops.get("anatomical_only", 0) > 0):
+    if not (ops.get("roidetect", True)
+            and (ops.get("anatomical_only", 0) > 0 or ops.get("algorithm") == "cellpose")):
         return
     try:
         from cellpose import models as cp_models
@@ -467,7 +468,11 @@ def _prewarm_cellpose_model(ops) -> None:
         except OSError:
             pass
     try:
-        cp_models.cache_CPSAM_model_path()
+        # cellpose 4.x renamed cache_CPSAM_model_path() -> cache_model_path(backbone)
+        if hasattr(cp_models, "cache_model_path"):
+            cp_models.cache_model_path("cpsam")
+        else:
+            cp_models.cache_CPSAM_model_path()
     except Exception as exc:
         print(
             f"Warning: could not pre-download cellpose model ({exc}); "
@@ -780,6 +785,38 @@ def _prepare_plane_ops(*, base_ops, plane_idx, num_planes, input_arr,
     return current_ops
 
 
+def _resolve_timepoints(timepoints=None, frames=None, frame_indices=None):
+    """Resolve the canonical 1-based ``timepoints`` selection.
+
+    ``frames`` (1-based) and ``frame_indices`` (0-based) are deprecated
+    aliases and emit a DeprecationWarning. Returns a 1-based list, or
+    None for all timepoints.
+    """
+    import warnings
+
+    if frames is not None:
+        warnings.warn(
+            "'frames' is deprecated, use 'timepoints' (1-based)",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        if timepoints is None:
+            timepoints = frames
+    if frame_indices is not None:
+        warnings.warn(
+            "'frame_indices' is deprecated, use 'timepoints' (1-based)",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        if timepoints is None:
+            timepoints = [int(i) + 1 for i in frame_indices]
+    if timepoints is None:
+        return None
+    if isinstance(timepoints, (int, np.integer)):
+        return [int(timepoints)]
+    return [int(t) for t in timepoints]
+
+
 def pipeline(
     input_data,
     save_path: str | Path = None,
@@ -793,7 +830,9 @@ def pipeline(
     force_reg: bool = False,
     force_detect: bool = False,
     replot: bool = True,
+    timepoints: list | int | None = None,
     num_timepoints: int = None,
+    num_zplanes: int = None,
     frame_indices: list | None = None,
     dff_window_size: int = None,
     dff_percentile: int = 20,
@@ -859,16 +898,21 @@ def pipeline(
         Regenerate per-plane figures. Set False to skip per-plane figure
         regeneration (e.g. the volumetric aggregate over already-plotted
         planes); suite2p and the volumetric plots are unaffected.
-    num_timepoints : int, optional
-        Limit processing to first N frames (truncation only). For an
-        explicit set of frames or a strided selection, use
-        ``frame_indices`` instead.
-    frame_indices : list[int], optional
-        Explicit 0-based frame indices to process. Supports stride
-        (e.g. ``list(range(0, 1574, 2))`` for every other frame).
+    timepoints : list[int] or int, optional
+        Explicit 1-based timepoints to process. Supports stride
+        (e.g. ``list(range(1, 1575, 2))`` for every other timepoint).
         When provided, the implicit stride is used by `OutputMetadata`
         to reactively scale `fs` (e.g. stride of 2 → `fs / 2` in the
         output ops.npy). Takes precedence over ``num_timepoints``.
+    num_timepoints : int, optional
+        Limit processing to first N timepoints (truncation only). For an
+        explicit set or a strided selection, use ``timepoints`` instead.
+    num_zplanes : int, optional
+        Limit processing to the first N z-planes. Shortcut for
+        ``planes=[1..N]``; ignored when ``planes`` is given.
+    frame_indices : list[int], optional
+        Deprecated alias for ``timepoints`` (0-based). Emits a
+        DeprecationWarning.
     dff_window_size : int, optional
         Window size for rolling percentile dF/F baseline (frames).
         If None, auto-calculated as ~10 * tau * fs.
@@ -981,7 +1025,15 @@ def pipeline(
             DeprecationWarning,
             stacklevel=2,
         )
-        num_timepoints = num_frames
+        if num_timepoints is None:
+            num_timepoints = num_frames
+
+    # canonical 1-based timepoint selection (frames/frame_indices deprecated).
+    timepoints = _resolve_timepoints(timepoints, kwargs.pop("frames", None), frame_indices)
+    frame_indices = None
+    # num_zplanes is a count shortcut for planes=[1..N].
+    if num_zplanes is not None and planes is None:
+        planes = list(range(1, int(num_zplanes) + 1))
 
     # flatten (db, settings) into ops so downstream run_volume / run_plane
     # don't each need to forward the pair. explicit ops keys still win.
@@ -991,14 +1043,10 @@ def pipeline(
 
     reader_kwargs = reader_kwargs or {}
     writer_kwargs = writer_kwargs or {}
+    # num_timepoints truncation reaches the writer; an explicit `timepoints`
+    # selection is forwarded as a param and rebuilt by run_plane.
     if num_timepoints is not None:
-        writer_kwargs["num_frames"] = num_timepoints
-
-    # 1-based frame numbers.
-    if frame_indices is not None:
-        writer_kwargs["frames"] = [int(i) + 1 for i in frame_indices]
-        # don't double-pass num_frames; len(frame_indices) is implicit
-        writer_kwargs.pop("num_frames", None)
+        writer_kwargs["num_timepoints"] = num_timepoints
 
     # Always load array to check dimensions and ensure downstream functions have the array shape
     # If input is already array, this is fast. If path or list of paths, it loads lazy array.
@@ -1034,7 +1082,7 @@ def pipeline(
             force_reg=force_reg,
             force_detect=force_detect,
             replot=replot,
-            frame_indices=frame_indices,
+            timepoints=timepoints,
             dff_window_size=dff_window_size,
             dff_percentile=dff_percentile,
             dff_smooth_window=dff_smooth_window,
@@ -1074,7 +1122,7 @@ def pipeline(
             force_reg=force_reg,
             force_detect=force_detect,
             replot=replot,
-            frame_indices=frame_indices,
+            timepoints=timepoints,
             dff_window_size=dff_window_size,
             dff_percentile=dff_percentile,
             dff_smooth_window=dff_smooth_window,
@@ -1246,6 +1294,9 @@ def run_volume(
     force_reg: bool = False,
     force_detect: bool = False,
     replot: bool = True,
+    timepoints: list | int | None = None,
+    num_timepoints: int = None,
+    num_zplanes: int = None,
     frame_indices: list | None = None,
     dff_window_size: int = None,
     dff_percentile: int = 20,
@@ -1336,6 +1387,17 @@ def run_volume(
 
     _resolve_gpu_env()
     _apply_thread_limits(threads_per_worker)
+
+    # canonical 1-based timepoints (frames/frame_indices deprecated); keep a
+    # 0-based frame_indices for this function's reactive-metadata plumbing,
+    # and forward `timepoints` to run_plane.
+    timepoints = _resolve_timepoints(timepoints, kwargs.pop("frames", None), frame_indices)
+    frame_indices = [int(t) - 1 for t in timepoints] if timepoints is not None else None
+    if num_zplanes is not None and planes is None:
+        planes = list(range(1, int(num_zplanes) + 1))
+    writer_kwargs = dict(writer_kwargs or {})
+    if num_timepoints is not None:
+        writer_kwargs.setdefault("num_timepoints", num_timepoints)
 
     # Handle input data
     input_arr = None
@@ -1430,7 +1492,7 @@ def run_volume(
         force_reg=force_reg,
         force_detect=force_detect,
         replot=replot,
-        frame_indices=frame_indices,
+        timepoints=timepoints,
         dff_window_size=dff_window_size,
         dff_percentile=dff_percentile,
         dff_smooth_window=dff_smooth_window,
@@ -2283,6 +2345,8 @@ def run_plane(
     force_reg: bool = False,
     force_detect: bool = False,
     replot: bool = True,
+    timepoints: list | int | None = None,
+    num_timepoints: int = None,
     frame_indices: list | None = None,
     dff_window_size: int = None,
     dff_percentile: int = 20,
@@ -2353,13 +2417,18 @@ def run_plane(
         Example: {"n_clusters": 50, "n_PCs": 64}.
     save_json : bool, default False
         Save ops as JSON.
-    frame_indices : list[int], optional
-        Explicit 0-based timepoint indices. Supports stride
-        (e.g. ``list(range(0, 1574, 2))`` for every other frame).
+    timepoints : list[int] or int, optional
+        Explicit 1-based timepoints. Supports stride
+        (e.g. ``list(range(1, 1575, 2))`` for every other timepoint).
         When provided, the binary on disk contains exactly these
-        frames, and `OutputMetadata` reactively scales `fs` in ops.npy
-        based on the implicit stride. Takes precedence over any
-        ``num_frames`` in ``writer_kwargs``.
+        timepoints, and `OutputMetadata` reactively scales `fs` in ops.npy
+        based on the implicit stride. Takes precedence over
+        ``num_timepoints``.
+    num_timepoints : int, optional
+        Limit processing to first N timepoints (truncation only).
+    frame_indices : list[int], optional
+        Deprecated alias for ``timepoints`` (0-based). Emits a
+        DeprecationWarning.
     plane_name : str, optional
         Custom name for the plane subdirectory.
     reader_kwargs : dict, optional
@@ -2378,6 +2447,14 @@ def run_plane(
     from mbo_utilities.metadata import get_metadata
 
     _resolve_gpu_env()
+
+    # canonical 1-based timepoints (frames/frame_indices deprecated); convert to
+    # the 0-based frame_indices this function consumes internally.
+    timepoints = _resolve_timepoints(timepoints, kwargs.pop("frames", None), frame_indices)
+    frame_indices = [int(t) - 1 for t in timepoints] if timepoints is not None else None
+    writer_kwargs = dict(writer_kwargs or {})
+    if num_timepoints is not None:
+        writer_kwargs.setdefault("num_timepoints", num_timepoints)
 
     progress_callback = kwargs.pop("progress_callback", None)
 
@@ -2637,7 +2714,8 @@ def run_plane(
         else:
             # prefer the user-specified frame limit over raw array shape
             nframes_hint = (
-                writer_kwargs.get("num_frames")
+                writer_kwargs.get("num_timepoints")
+                or writer_kwargs.get("num_frames")
                 or ops.get("nframes")
             )
             if not nframes_hint and input_arr is not None and hasattr(input_arr, "shape"):
@@ -2666,8 +2744,8 @@ def run_plane(
         ops_file = plane_dir / "ops.npy"
 
         # extract expected dims from input for cache validation
-        # honors writer_kwargs["num_frames"] limit if user requested fewer frames
-        exp_nframes = writer_kwargs.get("num_frames")
+        # honors num_timepoints truncation if user requested fewer frames
+        exp_nframes = writer_kwargs.get("num_timepoints") or writer_kwargs.get("num_frames")
         exp_ly = exp_lx = None
         if input_arr is not None and hasattr(input_arr, "shape"):
             if exp_nframes is None:
@@ -2796,12 +2874,13 @@ def run_plane(
         write_planes = [plane] if _get_num_planes(file) > 1 else None
 
         write_kw = dict(writer_kwargs)
-        # If the caller gave us explicit frame indices, pass them as
-        # `frames=` (1-based) to imwrite. This wins over any stale
-        # `num_frames` truncation in writer_kwargs — strided semantics
-        # require an explicit index list, not a count.
+        # If the caller gave us explicit timepoints, pass them as
+        # `timepoints=` (1-based) to imwrite. This wins over any stale
+        # truncation count in writer_kwargs — strided semantics require an
+        # explicit index list, not a count.
         if frame_indices is not None:
-            write_kw["frames"] = [int(i) + 1 for i in frame_indices]
+            write_kw["timepoints"] = [int(i) + 1 for i in frame_indices]
+            write_kw.pop("num_timepoints", None)
             write_kw.pop("num_frames", None)
 
         imwrite(
