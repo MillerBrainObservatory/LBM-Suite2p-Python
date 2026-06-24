@@ -23,6 +23,7 @@ Examples:
 """
 
 import argparse
+import json
 import sys
 from pathlib import Path
 from typing import Any
@@ -67,6 +68,7 @@ def _get_ops_help() -> dict[str, str]:
         "cellprob_threshold": "cellpose cell probability threshold (lower = more cells)",
         "flow_threshold": "cellpose flow error threshold",
         "anatomical_only": "cellpose detection mode: 0=off, 1=max_proj, 2=mean, 3=enhanced, 4=max",
+        "algorithm": "detection algorithm: sparsery, sourcery, or cellpose",
         "pretrained_model": "cellpose model name (e.g., cpsam, cyto2, nuclei)",
         "do_registration": "whether to run motion correction",
         "nonrigid": "use nonrigid (piecewise) registration",
@@ -103,6 +105,10 @@ Examples:
   lsp data/ output/ --planes 1 2 3            # specific planes (1-indexed)
   lsp data/ output/ --num-timepoints 500      # quick test with 500 frames
   lsp data/ output/ --diameter 8              # custom cell diameter
+  lsp data/ output/ --tau 1.3 --algorithm cellpose         # decay + detection algorithm
+  lsp data/ output/ --fix-phase --phasecorr-method median  # reader phase correction
+  lsp data/ output/ --reader-kwargs '{"roi": 2}'           # arbitrary imread kwargs
+  lsp data/ output/ --ops-file my_ops.json    # load saved ops (CLI flags override)
   lsp --list-ops                              # show all suite2p parameters
         """,
     )
@@ -245,15 +251,57 @@ Examples:
         help="maximum cell diameter in pixels"
     )
 
-    # reader options (for raw data)
+    # reader options (forwarded to mbo_utilities.imread)
     reader = parser.add_argument_group("reader options (raw scanimage data)")
     reader.add_argument(
-        "--fix-phase", action="store_true",
-        help="apply bidirectional phase correction"
+        "--fix-phase", action=argparse.BooleanOptionalAction, default=None,
+        help="bidirectional phase correction (reader default: on)"
     )
     reader.add_argument(
-        "--use-fft", action="store_true",
-        help="use FFT for subpixel phase correction"
+        "--use-fft", action=argparse.BooleanOptionalAction, default=None,
+        help="FFT-based subpixel phase correction"
+    )
+    reader.add_argument(
+        "--phasecorr-method", choices=["mean", "median", "max"], default=None,
+        help="phase-correction reduction method (default: mean)"
+    )
+    reader.add_argument(
+        "--channel", type=int, default=None,
+        help="zero-based color channel to read (multi-channel sources)"
+    )
+    reader.add_argument(
+        "--reader-kwargs", type=str, default=None, metavar="JSON",
+        help='extra imread kwargs as JSON, e.g. \'{"roi": 2}\''
+    )
+
+    # writer options (forwarded to the binary/zarr writer)
+    writer = parser.add_argument_group("writer options")
+    writer.add_argument(
+        "--writer-kwargs", type=str, default=None, metavar="JSON",
+        help='extra writer kwargs as JSON, e.g. \'{"target_chunk_mb": 200}\''
+    )
+
+    # rastermap options
+    rmap = parser.add_argument_group("rastermap options")
+    rmap.add_argument(
+        "--rastermap", action="store_true",
+        help="enable rastermap (planar + volumetric) with default settings"
+    )
+    rmap.add_argument(
+        "--rastermap-kwargs", type=str, default=None, metavar="JSON",
+        help='rastermap config JSON with "planar"/"volumetric" keys, '
+             'e.g. \'{"planar": {"n_clusters": 50}}\''
+    )
+
+    # advanced
+    advanced = parser.add_argument_group("advanced")
+    advanced.add_argument(
+        "--ops-file", type=str, default=None,
+        help="base ops from a .npy/.json file or suite2p dir; CLI flags override"
+    )
+    advanced.add_argument(
+        "--replot", action=argparse.BooleanOptionalAction, default=True,
+        help="regenerate per-plane figures (default: on)"
     )
 
     # dynamically add all ops parameters
@@ -324,8 +372,9 @@ def list_ops():
         "Main Settings": ["nplanes", "nchannels", "fs", "tau", "frames_include"],
         "Registration": ["do_registration", "nonrigid", "batch_size", "maxregshift",
                         "smooth_sigma", "nimg_init", "subpixel"],
-        "Cell Detection": ["roidetect", "sparse_mode", "spatial_scale", "threshold_scaling",
-                          "max_overlap", "connected", "nbinned", "max_iterations"],
+        "Cell Detection": ["roidetect", "algorithm", "sparse_mode", "spatial_scale",
+                          "threshold_scaling", "max_overlap", "connected", "nbinned",
+                          "max_iterations"],
         "Cellpose": ["anatomical_only", "diameter", "cellprob_threshold", "flow_threshold",
                     "pretrained_model", "spatial_hp_cp"],
         "Signal Extraction": ["neuropil_extract", "neucoeff", "spikedetect",
@@ -403,6 +452,65 @@ def build_cell_filters(args) -> list | None:
         filters.append(f)
 
     return filters if filters else None
+
+
+def _parse_json_arg(flag: str, value: str) -> dict:
+    """parse a JSON object from a CLI flag value; exit cleanly on error."""
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError as e:
+        raise SystemExit(f"Error: {flag} is not valid JSON: {e}")
+    if not isinstance(parsed, dict):
+        raise SystemExit(f"Error: {flag} must be a JSON object")
+    return parsed
+
+
+def _load_ops_file(path: str) -> dict:
+    """load a base ops dict from a .json/.npy file or a suite2p directory."""
+    from lbm_suite2p_python import load_ops
+
+    p = Path(path).expanduser()
+    if p.suffix.lower() == ".json":
+        if not p.exists():
+            raise SystemExit(f"Error: --ops-file not found: {p}")
+        with open(p, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        if not isinstance(data, dict):
+            raise SystemExit("Error: --ops-file JSON must be an object")
+        return data
+    return load_ops(p)
+
+
+def build_reader_kwargs(args) -> dict | None:
+    """build imread kwargs from CLI reader args (None if empty)."""
+    kw = {}
+    if args.fix_phase is not None:
+        kw["fix_phase"] = args.fix_phase
+    if args.use_fft is not None:
+        kw["use_fft"] = args.use_fft
+    if args.phasecorr_method is not None:
+        kw["phasecorr_method"] = args.phasecorr_method
+    if args.channel is not None:
+        kw["channel"] = args.channel
+    if args.reader_kwargs:
+        kw.update(_parse_json_arg("--reader-kwargs", args.reader_kwargs))
+    return kw or None
+
+
+def build_writer_kwargs(args) -> dict | None:
+    """build writer kwargs from CLI writer args (None if empty)."""
+    if args.writer_kwargs:
+        return _parse_json_arg("--writer-kwargs", args.writer_kwargs)
+    return None
+
+
+def build_rastermap_kwargs(args) -> dict | None:
+    """build rastermap_kwargs from CLI args (None if disabled)."""
+    if args.rastermap_kwargs:
+        return _parse_json_arg("--rastermap-kwargs", args.rastermap_kwargs)
+    if args.rastermap:
+        return {"planar": {}, "volumetric": {}}
+    return None
 
 
 def build_ops(args, base_ops: dict) -> dict:
@@ -512,6 +620,13 @@ def main():
 
     output_path.mkdir(parents=True, exist_ok=True)
 
+    # parse config/advanced args up front so invalid JSON or a missing ops
+    # file fails before any logging or processing work begins
+    base_extra_ops = _load_ops_file(args.ops_file) if args.ops_file else None
+    reader_kwargs = build_reader_kwargs(args)
+    writer_kwargs = build_writer_kwargs(args)
+    rastermap_kwargs = build_rastermap_kwargs(args)
+
     log_path = output_path / "log.txt"
     log_file = open(log_path, "w", encoding="utf-8", buffering=1)
     _orig_stdout, _orig_stderr = sys.stdout, sys.stderr
@@ -538,16 +653,9 @@ def main():
     print(f"Input:  {input_path}")
     print(f"Output: {output_path}")
 
-    # build ops
-    base_ops = lsp.default_ops()
+    # build ops (optionally starting from a user-supplied ops file)
+    base_ops = lsp.default_ops(ops=base_extra_ops) if base_extra_ops else lsp.default_ops()
     ops = build_ops(args, base_ops)
-
-    # build reader kwargs
-    reader_kwargs = {}
-    if args.fix_phase:
-        reader_kwargs["fix_phase"] = True
-    if args.use_fft:
-        reader_kwargs["use_fft"] = True
 
     # build cell filters
     cell_filters = build_cell_filters(args)
@@ -562,6 +670,10 @@ def main():
     print(f"  Cellpose model: {ops.get('pretrained_model', 'cpsam')}")
     if cell_filters:
         print(f"  Cell filters: {cell_filters}")
+    if reader_kwargs:
+        print(f"  Reader: {reader_kwargs}")
+    if rastermap_kwargs:
+        print(f"  Rastermap: {sorted(rastermap_kwargs)}")
 
     print(f"\n{'='*60}\n")
 
@@ -590,7 +702,10 @@ def main():
             cell_filters=cell_filters,
             accept_all_cells=args.accept_all_cells,
             save_json=args.save_json,
-            reader_kwargs=reader_kwargs if reader_kwargs else None,
+            reader_kwargs=reader_kwargs,
+            writer_kwargs=writer_kwargs,
+            rastermap_kwargs=rastermap_kwargs,
+            replot=args.replot,
             workers=args.workers,
             skip_volumetric=args.skip_volumetric,
             threads_per_worker=args.threads_per_worker,
