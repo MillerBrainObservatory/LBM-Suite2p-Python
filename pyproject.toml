@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lbm_suite2p_python"
-version = "3.2.1"
+version = "3.2.2"
 description = "Calcium Imaging Pipeline built with Suite2p, Cellpose and Rastermap"
 readme = "README.md"
 license = "BSD-3-Clause"
@@ -21,6 +21,8 @@ dependencies = [
 	"mbo_utilities>=3.2.7",
 	"suite2p>=1.0.0.1",
 	"setuptools<81",
+	"torch",
+	"torchvision",
 ]
 
 [project.scripts]
@@ -66,6 +68,15 @@ docs = [
 	"pandas",
 	"suite2p",
 ]
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cu126" }]
+torchvision = [{ index = "pytorch-cu126" }]
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
 
 # https://github.com/charliermarsh/ruff
 [tool.ruff]
