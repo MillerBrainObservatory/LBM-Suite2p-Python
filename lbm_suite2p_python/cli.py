@@ -184,6 +184,12 @@ Examples:
         help="force re-detection even if results exist"
     )
     pipeline.add_argument(
+        "--stream", action="store_true",
+        help="stream frames from the lazy array through suite2p instead of "
+             "writing data_raw.bin / data.bin (only reg_outputs.npy persists; "
+             "registered frames reconstituted on the fly). Functional channel only."
+    )
+    pipeline.add_argument(
         "--save-json", action="store_true",
         help="save ops as JSON (in addition to .npy)"
     )
@@ -679,9 +685,14 @@ def main():
     print(f"Input:  {input_path}")
     print(f"Output: {output_path}")
 
-    # build ops (optionally starting from a user-supplied ops file)
+    # build ops (optionally starting from a user-supplied ops file).
+    # import default_ops directly: build_parser(include_ops=True) already did
+    # `from ...default_ops import s2p_ops`, which binds the default_ops submodule
+    # onto the package, shadowing the lazily-exported function — so
+    # `lsp.default_ops` would resolve to the module here, not the callable.
     import lbm_suite2p_python as lsp
-    base_ops = lsp.default_ops(ops=base_extra_ops) if base_extra_ops else lsp.default_ops()
+    from lbm_suite2p_python.default_ops import default_ops
+    base_ops = default_ops(ops=base_extra_ops) if base_extra_ops else default_ops()
     ops = build_ops(args, base_ops)
 
     # build cell filters
@@ -721,6 +732,7 @@ def main():
             keep_raw=args.keep_raw,
             force_reg=args.force_reg or args.overwrite,
             force_detect=args.force_detect or args.overwrite,
+            stream=args.stream,
             dff_window_size=args.dff_window_size,
             dff_percentile=args.dff_percentile,
             dff_smooth_window=args.dff_smooth_window,

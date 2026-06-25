@@ -18,9 +18,12 @@ _LAZY_ATTRS = {
     "pipeline": "run_lsp",
     "run_volume": "run_lsp",
     "run_plane": "run_lsp",
+    "run_plane_stream": "run_lsp",
     "add_processing_step": "run_lsp",
     "generate_plane_dirname": "run_lsp",
     "compute_enhanced_mean_image": "run_lsp",
+    # streaming
+    "StreamingBinaryFile": "streaming",
     # cellpose
     "train_cellpose": "cellpose",
     "annotate": "cellpose",
@@ -105,6 +108,8 @@ __all__ = [
     "pipeline",
     "run_volume",
     "run_plane",
+    "run_plane_stream",
+    "StreamingBinaryFile",
     "default_ops",
     "add_processing_step",
     "generate_plane_dirname",
