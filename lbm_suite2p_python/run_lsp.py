@@ -830,6 +830,7 @@ def pipeline(
     force_reg: bool = False,
     force_detect: bool = False,
     replot: bool = True,
+    stream: bool = False,
     timepoints: list | int | None = None,
     num_timepoints: int = None,
     num_zplanes: int = None,
@@ -898,6 +899,11 @@ def pipeline(
         Regenerate per-plane figures. Set False to skip per-plane figure
         regeneration (e.g. the volumetric aggregate over already-plotted
         planes); suite2p and the volumetric plots are unaffected.
+    stream : bool, default False
+        Stream frames directly from the lazy array through suite2p instead of
+        writing data_raw.bin / data.bin. Only reg_outputs.npy (the registration
+        shifts) is persisted; registered frames are reconstituted on the fly.
+        Functional channel only. See run_plane for details.
     timepoints : list[int] or int, optional
         Explicit 1-based timepoints to process. Supports stride
         (e.g. ``list(range(1, 1575, 2))`` for every other timepoint).
@@ -1082,6 +1088,7 @@ def pipeline(
             force_reg=force_reg,
             force_detect=force_detect,
             replot=replot,
+            stream=stream,
             timepoints=timepoints,
             dff_window_size=dff_window_size,
             dff_percentile=dff_percentile,
@@ -1122,6 +1129,7 @@ def pipeline(
             force_reg=force_reg,
             force_detect=force_detect,
             replot=replot,
+            stream=stream,
             timepoints=timepoints,
             dff_window_size=dff_window_size,
             dff_percentile=dff_percentile,
@@ -1294,6 +1302,7 @@ def run_volume(
     force_reg: bool = False,
     force_detect: bool = False,
     replot: bool = True,
+    stream: bool = False,
     timepoints: list | int | None = None,
     num_timepoints: int = None,
     num_zplanes: int = None,
@@ -1343,6 +1352,10 @@ def run_volume(
     replot : bool, default True
         Regenerate per-plane figures (passed to run_plane). Set False to skip
         per-plane figure regeneration during a volumetric aggregate.
+    stream : bool, default False
+        Stream frames from the lazy array through suite2p per plane instead of
+        writing data_raw.bin / data.bin (see run_plane). Applies to both the
+        sequential and parallel-worker paths.
     frame_indices : list, default None
         List of frame indices to process.
     dff_window_size, dff_percentile, dff_smooth_window : optional
@@ -1492,6 +1505,7 @@ def run_volume(
         force_reg=force_reg,
         force_detect=force_detect,
         replot=replot,
+        stream=stream,
         timepoints=timepoints,
         dff_window_size=dff_window_size,
         dff_percentile=dff_percentile,
@@ -2319,6 +2333,169 @@ def run_plane_bin(ops) -> bool:
     return True
 
 
+def _resolve_stream_device(ops):
+    """Resolve a torch device for on-the-fly shift reconstitution.
+
+    Mirrors `_call_upstream_pipeline`'s probe so the reconstitution runs on the
+    same device registration used (cross-device float rounding in the nonrigid
+    grid_sample could otherwise flip a few int16 pixels). Returns None when
+    torch is unavailable.
+    """
+    try:
+        import torch
+    except ImportError:
+        return None
+    name = ops.get("torch_device") or "cuda"
+    try:
+        dev = torch.device(name)
+        if dev.type == "cuda":
+            torch.zeros(1, device=dev)  # probe that cuda is usable
+        return dev
+    except Exception:
+        return torch.device("cpu")
+
+
+def _default_block_size(ops):
+    """Nonrigid block size that registration will use (ops override or upstream default)."""
+    bs = ops.get("block_size")
+    if not bs:
+        try:
+            from suite2p import default_settings
+            bs = default_settings()["registration"]["block_size"]
+        except Exception:
+            bs = [128, 128]
+    return (int(bs[0]), int(bs[1]))
+
+
+def run_plane_stream(ops, arr, plane_index, channel_index=0, frame_indices=None):
+    """Run Suite2p on a streamed mbo lazy-array plane — no data_raw.bin/data.bin.
+
+    Computes registration shifts from the streamed raw frames (suite2p saves
+    them to reg_outputs.npy) and reconstitutes registered frames on the fly for
+    detection/extraction via `StreamingBinaryFile`. The only persisted binary
+    artifact is reg_outputs.npy; the registered movie never lands on disk or in
+    a full-size RAM buffer.
+
+    Parameters
+    ----------
+    ops : dict or str or Path
+        Suite2p ops. Must carry Ly, Lx, a frame count, and save_path/ops_path.
+    arr : mbo lazy array
+        5D TCZYX source the plane is streamed from.
+    plane_index : int
+        0-based Z index to process.
+    channel_index : int, default 0
+        0-based functional channel.
+    frame_indices : list[int], optional
+        0-based source timepoints to process (truncation / strided selection).
+
+    Returns
+    -------
+    bool
+        True on success.
+    """
+    from lbm_suite2p_python.streaming import StreamingBinaryFile
+
+    ops = load_ops(ops)
+    save_path = Path(ops["save_path"])
+    ops["ops_path"] = str(save_path / "ops.npy")
+
+    Ly, Lx = int(ops["Ly"]), int(ops["Lx"])
+    n_align = ops.get("nframes_chan1") or ops.get("nframes") or ops.get("n_frames")
+    if n_align is None:
+        raise KeyError("Missing nframes_chan1 / nframes / n_frames in ops")
+    n_align = int(n_align)
+    if n_align <= 0:
+        raise ValueError("Non-positive frame count for streaming run.")
+
+    run_registration = bool(ops.get("do_registration", True))
+    run_detection = bool(ops.get("roidetect", True))
+
+    # two-step registration re-reads f_reg mid-registration (to build a second
+    # reference) before the shifts are persisted — incompatible with
+    # reconstitute-on-read. Force it off so reconstitution stays correct.
+    if run_registration and ops.get("two_step_registration"):
+        logger.warning(
+            "two_step_registration is not supported in streaming mode; disabling it."
+        )
+        ops["two_step_registration"] = 0
+
+    # streaming is single (functional) channel only.
+    ops["functional_chan"] = 1
+    ops["align_by_chan"] = 1
+    ops["nchannels"] = 1
+    _set_frame_count_aliases(ops, n_align)
+    ops["nframes_chan1"] = n_align
+
+    if "diameter" in ops:
+        ops["diameter_user"] = ops["diameter"]
+
+    # clear stale detection/registration intermediates (mirrors run_plane_bin).
+    if run_registration:
+        for key in [
+            "spatscale_pix", "Vcorr", "Vmax", "Vmap", "Vsplit", "ihop",
+            "badframes", "xoff", "yoff", "corrXY",
+            "xoff1", "yoff1", "corrXY1",
+        ]:
+            ops.pop(key, None)
+    elif run_detection:
+        for key in ["spatscale_pix", "Vmax", "Vmap", "Vsplit", "ihop"]:
+            ops.pop(key, None)
+
+    # resolve one device for both the pipeline and the reconstitution so
+    # registered frames are bit-identical to a data.bin written on that device.
+    device = _resolve_stream_device(ops)
+    if device is not None:
+        ops["torch_device"] = device.type
+
+    raw_stream = StreamingBinaryFile(
+        arr, plane_index, channel_index=channel_index, n_frames=n_align,
+        frame_indices=frame_indices, registered=False, device=device,
+    )
+
+    if run_registration:
+        f_raw = raw_stream
+        f_reg = StreamingBinaryFile(
+            arr, plane_index, channel_index=channel_index, n_frames=n_align,
+            frame_indices=frame_indices, registered=True, save_path=save_path,
+            block_size=_default_block_size(ops), nonrigid=bool(ops.get("nonrigid", True)),
+            device=device,
+        )
+    else:
+        # already-registered upstream: detection/extraction read raw directly.
+        f_raw = None
+        f_reg = raw_stream
+        # registration normally produces these; synthesize so detection runs.
+        if "meanImg" not in ops:
+            ops["meanImg"] = raw_stream.sampled_mean().astype(np.float32)
+        if "meanImgE" not in ops and "meanImg" in ops:
+            ops["meanImgE"] = compute_enhanced_mean_image(
+                ops["meanImg"].astype(np.float32), ops
+            )
+
+    # very short recordings crash suite2p's bin_movie (bin_size > nframes);
+    # pre-seed summary images from raw and clamp tau so bin_size <= nframes.
+    tau_fs = np.round(ops.get("tau", 0.7) * ops.get("fs", 30))
+    if n_align < max(tau_fs, 2):
+        allf = np.asarray(raw_stream[:n_align]).astype(np.float32)
+        ops["meanImg"] = allf.mean(axis=0)
+        ops["max_proj"] = allf.max(axis=0)
+        ops["tau"] = 0
+
+    ops = _call_upstream_pipeline(
+        ops, f_reg, f_raw, None, None,
+        run_registration=run_registration, stat=None,
+    )
+
+    if "meanImgE" not in ops and "meanImg" in ops:
+        ops["meanImgE"] = compute_enhanced_mean_image(
+            ops["meanImg"].astype(np.float32), ops
+        )
+
+    save_ops_db_settings(ops["ops_path"], ops)
+    return True
+
+
 def _cleanup_bin_files(plane_dir, keep_raw, keep_reg):
     """delete bin files if user doesn't want them, swallowing OS errors."""
     if not keep_raw:
@@ -2345,6 +2522,7 @@ def run_plane(
     force_reg: bool = False,
     force_detect: bool = False,
     replot: bool = True,
+    stream: bool = False,
     timepoints: list | int | None = None,
     num_timepoints: int = None,
     frame_indices: list | None = None,
@@ -2394,6 +2572,13 @@ def run_plane(
     replot : bool, default True
         Generate per-plane figures. Set False to skip figure generation
         (keeps ROI stats; only the figures are skipped).
+    stream : bool, default False
+        If True, stream frames directly from the lazy array through suite2p
+        instead of writing data_raw.bin / data.bin. Registration shifts are
+        saved to reg_outputs.npy and registered frames are reconstituted on the
+        fly for detection/extraction; no full-size binary touches disk or RAM.
+        Functional channel only — a chan2/structural file falls back to the
+        binary path. two_step_registration is auto-disabled.
     dff_window_size : int, optional
         Frames for rolling percentile baseline. Default: auto-calculated (~10*tau*fs).
     dff_percentile : int, default 20
@@ -2512,6 +2697,22 @@ def run_plane(
     skip_imwrite = False
     is_binary_input = input_path.suffix == ".bin"
     binary_with_ops = is_binary_input and (input_path.parent / "ops.npy").exists()
+
+    # streaming requires a frame source to stream from (a lazy array / readable
+    # input), single functional channel, and does not apply to a .bin input
+    # (already a suite2p binary). Fall back to the binary path otherwise.
+    if stream and chan2_file is not None:
+        logger.warning(
+            "stream=True does not support a chan2/structural file yet; "
+            "using the binary path for this run."
+        )
+        stream = False
+    if stream and is_binary_input:
+        logger.warning(
+            "stream=True ignored: input is already a suite2p .bin; using the "
+            "binary path."
+        )
+        stream = False
 
     # load ops defaults and user settings first (needed for plane number).
     # accepts EITHER ops=... (legacy flat dict) OR db=... / settings=... (new
@@ -2761,7 +2962,13 @@ def run_plane(
             expected_ly=exp_ly,
             expected_lx=exp_lx,
         )
-        if should_write:
+        if stream:
+            # streaming: never write a binary, but keep the array + metadata so
+            # the fs/dz/dim propagation below still runs (dims stamped later).
+            file = input_arr if input_arr is not None else imread(input_path, **reader_kwargs)
+            metadata = dict(file.metadata) if hasattr(file, "metadata") else get_metadata(input_path)
+            should_write = False
+        elif should_write:
             if input_arr is not None:
                 file = input_arr
             else:
@@ -2863,10 +3070,38 @@ def run_plane(
     ops["source_dirname"] = plane_dir.name
     ops["source_input"] = str(input_path.name)
 
+    # streaming: imwrite is skipped, so stamp the dims it would otherwise have
+    # written into ops.npy (suite2p reads Ly/Lx/nframes from ops).
+    if stream and file is not None:
+        _s5 = file._shape5d() if hasattr(file, "_shape5d") else (
+            file.shape[0], 1, 1, file.shape[-2], file.shape[-1]
+        )
+        ops["Ly"], ops["Lx"] = int(_s5[3]), int(_s5[4])
+        if frame_indices is not None:
+            _n_stream = len(frame_indices)
+        else:
+            _n_stream = int(
+                writer_kwargs.get("num_timepoints")
+                or writer_kwargs.get("num_frames")
+                or _s5[0]
+            )
+            _n_stream = min(_n_stream, int(_s5[0]))
+        _set_frame_count_aliases(ops, _n_stream)
+        ops["nframes_chan1"] = _n_stream
+        # record the reader settings the raw was read with so a later viewer
+        # (mbo studio's RegisteredStreamArray) can reproduce the exact frames
+        # the shifts were computed on.
+        ops["reader_kwargs"] = dict(reader_kwargs)
+        # record the canonical raw source imread can reconstruct the FULL
+        # assembled volume from (the dir/series), not just data_path's first
+        # file — so the viewer reads the same frames the shifts were computed on.
+        _raw_src = getattr(file, "source_path", None)
+        ops["raw_source"] = str(_raw_src) if _raw_src else str(input_path)
+
     # Write binary
     if progress_callback:
         progress_callback(step="writing_binary", message="Writing binary...")
-    if not skip_imwrite and file is not None:
+    if not skip_imwrite and file is not None and not stream:
         md_combined = {**metadata, **ops}
         print(f"Writing binary to {plane_dir}...")
         bin_start = time.time()
@@ -3042,7 +3277,14 @@ def run_plane(
             progress_callback(step="suite2p", message="Running suite2p...")
         try:
             s2p_start = time.time()
-            processed = run_plane_bin(ops)
+            if stream:
+                plane_index0 = (plane - 1) if _get_num_planes(file) > 1 else 0
+                processed = run_plane_stream(
+                    ops, file, plane_index0,
+                    channel_index=0, frame_indices=frame_indices,
+                )
+            else:
+                processed = run_plane_bin(ops)
 
             if processed:
                 updated_ops = load_ops(ops_file)

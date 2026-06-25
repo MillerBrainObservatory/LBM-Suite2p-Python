@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lbm_suite2p_python"
-version = "3.2.2"
+version = "3.3.0"
 description = "Calcium Imaging Pipeline built with Suite2p, Cellpose and Rastermap"
 readme = "README.md"
 license = "BSD-3-Clause"
@@ -18,7 +18,7 @@ classifiers=[
 ]
 
 dependencies = [
-	"mbo_utilities>=3.2.7",
+	"mbo_utilities>=3.3.0",
 	"suite2p>=1.0.0.1",
 	"setuptools<81",
 	"torch",
@@ -28,6 +28,13 @@ dependencies = [
 [project.scripts]
 lsp = "lbm_suite2p_python.__main__:main"
 cellpose-gui = "lbm_suite2p_python.gui:main"
+
+# Open a binary-less suite2p plane dir (ops.npy + reg_outputs.npy, no .bin) as a
+# lazy registered array in mbo / mbo studio — raw frames + saved shifts applied
+# on the fly. mbo auto-discovers this via its lazy-array plugin group; a load
+# failure is skipped, so this can never break mbo_utilities.
+[project.entry-points."mbo_utilities.lazy_arrays"]
+lbm_registered_stream = "lbm_suite2p_python.streaming_array:RegisteredStreamArray"
 
 [project.optional-dependencies]
 rastermap = [

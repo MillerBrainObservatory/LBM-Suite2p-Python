@@ -91,10 +91,13 @@ def _get_ops_help() -> dict[str, str]:
     }
 
 
-def build_parser() -> argparse.ArgumentParser:
-    """build the argument parser with all pipeline and ops parameters."""
-    from lbm_suite2p_python.default_ops import s2p_ops
+def build_parser(include_ops: bool = True) -> argparse.ArgumentParser:
+    """build the argument parser with all pipeline and ops parameters.
 
+    When ``include_ops`` is False the per-parameter suite2p flags are not
+    enumerated (enumerating them imports suite2p). Used for the fast
+    ``--help`` / no-arg paths; ``--list-ops`` shows the full list instead.
+    """
     parser = argparse.ArgumentParser(
         prog="lsp",
         description="LBM Suite2p Pipeline - process calcium imaging data",
@@ -181,6 +184,12 @@ Examples:
         help="force re-detection even if results exist"
     )
     pipeline.add_argument(
+        "--stream", action="store_true",
+        help="stream frames from the lazy array through suite2p instead of "
+             "writing data_raw.bin / data.bin (only reg_outputs.npy persists; "
+             "registered frames reconstituted on the fly). Functional channel only."
+    )
+    pipeline.add_argument(
         "--save-json", action="store_true",
         help="save ops as JSON (in addition to .npy)"
     )
@@ -252,18 +261,24 @@ Examples:
     )
 
     # reader options (forwarded to mbo_utilities.imread)
-    reader = parser.add_argument_group("reader options (raw scanimage data)")
+    reader = parser.add_argument_group(
+        "reader options",
+        description="Forwarded to mbo_utilities.imread(). --reader-kwargs passes "
+                    "any imread argument as JSON and works for every lazy array "
+                    "type (tiff, zarr, hdf5, bin, ...); the named flags below are "
+                    "conveniences for raw ScanImage TIFFs."
+    )
     reader.add_argument(
         "--fix-phase", action=argparse.BooleanOptionalAction, default=None,
-        help="bidirectional phase correction (reader default: on)"
+        help="bidirectional phase correction (ScanImage TIFF; reader default: on)"
     )
     reader.add_argument(
         "--use-fft", action=argparse.BooleanOptionalAction, default=None,
-        help="FFT-based subpixel phase correction"
+        help="FFT-based subpixel phase correction (ScanImage TIFF)"
     )
     reader.add_argument(
         "--phasecorr-method", choices=["mean", "median", "max"], default=None,
-        help="phase-correction reduction method (default: mean)"
+        help="phase-correction reduction method (ScanImage TIFF; default: mean)"
     )
     reader.add_argument(
         "--channel", type=int, default=None,
@@ -271,14 +286,19 @@ Examples:
     )
     reader.add_argument(
         "--reader-kwargs", type=str, default=None, metavar="JSON",
-        help='extra imread kwargs as JSON, e.g. \'{"roi": 2}\''
+        help='any mbo_utilities.imread() kwargs as JSON, e.g. \'{"roi": 2}\''
     )
 
-    # writer options (forwarded to the binary/zarr writer)
-    writer = parser.add_argument_group("writer options")
+    # writer options (forwarded to mbo_utilities.imwrite)
+    writer = parser.add_argument_group(
+        "writer options",
+        description="Forwarded to mbo_utilities.imwrite() (a different argument "
+                    "set than the reader). --writer-kwargs passes any imwrite "
+                    "argument as JSON."
+    )
     writer.add_argument(
         "--writer-kwargs", type=str, default=None, metavar="JSON",
-        help='extra writer kwargs as JSON, e.g. \'{"target_chunk_mb": 200}\''
+        help='any mbo_utilities.imwrite() kwargs as JSON, e.g. \'{"target_chunk_mb": 200}\''
     )
 
     # rastermap options
@@ -305,12 +325,20 @@ Examples:
     )
 
     # dynamically add all ops parameters
-    ops_defaults = s2p_ops()
-    ops_help = _get_ops_help()
     ops_group = parser.add_argument_group(
         "suite2p parameters",
-        description="all suite2p ops can be set via --param-name value"
+        description="all suite2p ops can be set via --param-name value; "
+                    "run 'lsp --list-ops' to list them"
     )
+
+    # enumerating every suite2p op requires importing suite2p; skip it for the
+    # fast --help / no-arg paths (see build_parser docstring)
+    if not include_ops:
+        return parser
+
+    from lbm_suite2p_python.default_ops import s2p_ops
+    ops_defaults = s2p_ops()
+    ops_help = _get_ops_help()
 
     # skip params already handled above
     skip_params = {"frames_include"}
@@ -571,7 +599,6 @@ def _run_detect(args):
 
 def main():
     """main CLI entrypoint."""
-    import lbm_suite2p_python as lsp
     from lbm_suite2p_python import __version__
 
     # check for subcommands before parsing
@@ -589,17 +616,22 @@ def main():
         if subcommand == "detect":
             return _run_detect(sys.argv[2:])
 
-    parser = build_parser()
-    args = parser.parse_args()
+    argv = sys.argv[1:]
 
-    # handle info commands
-    if args.version:
+    # fast info paths: don't import suite2p / the pipeline stack just to print
+    if "--version" in argv:
         print(f"lbm_suite2p_python v{__version__}")
         return 0
 
-    if args.list_ops:
+    if "--list-ops" in argv:
         list_ops()
         return 0
+
+    # --help and the no-arg usage dump only need the static parser; building the
+    # full parser enumerates every suite2p op, which imports suite2p.
+    include_ops = bool(argv) and "-h" not in argv and "--help" not in argv
+    parser = build_parser(include_ops=include_ops)
+    args = parser.parse_args()
 
     # validate required args
     if not args.input:
@@ -653,8 +685,14 @@ def main():
     print(f"Input:  {input_path}")
     print(f"Output: {output_path}")
 
-    # build ops (optionally starting from a user-supplied ops file)
-    base_ops = lsp.default_ops(ops=base_extra_ops) if base_extra_ops else lsp.default_ops()
+    # build ops (optionally starting from a user-supplied ops file).
+    # import default_ops directly: build_parser(include_ops=True) already did
+    # `from ...default_ops import s2p_ops`, which binds the default_ops submodule
+    # onto the package, shadowing the lazily-exported function — so
+    # `lsp.default_ops` would resolve to the module here, not the callable.
+    import lbm_suite2p_python as lsp
+    from lbm_suite2p_python.default_ops import default_ops
+    base_ops = default_ops(ops=base_extra_ops) if base_extra_ops else default_ops()
     ops = build_ops(args, base_ops)
 
     # build cell filters
@@ -694,6 +732,7 @@ def main():
             keep_raw=args.keep_raw,
             force_reg=args.force_reg or args.overwrite,
             force_detect=args.force_detect or args.overwrite,
+            stream=args.stream,
             dff_window_size=args.dff_window_size,
             dff_percentile=args.dff_percentile,
             dff_smooth_window=args.dff_smooth_window,
