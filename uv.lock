@@ -1069,7 +1069,7 @@ wheels = [
 
 [[package]]
 name = "lbm-suite2p-python"
-version = "3.3.0"
+version = "3.3.1"
 source = { editable = "." }
 dependencies = [
     { name = "mbo-utilities" },
@@ -1122,7 +1122,7 @@ docs = [
 requires-dist = [
     { name = "cellpose", marker = "extra == 'cellpose'", specifier = ">=4.0.6" },
     { name = "lbm-suite2p-python", extras = ["rastermap", "cellpose"], marker = "extra == 'all'" },
-    { name = "mbo-utilities", specifier = ">=3.3.0" },
+    { name = "mbo-utilities", specifier = ">=3.3.1" },
     { name = "rastermap", marker = "extra == 'rastermap'" },
     { name = "setuptools", specifier = "<81" },
     { name = "suite2p", specifier = ">=1.0.0.1" },
@@ -1303,7 +1303,7 @@ wheels = [
 
 [[package]]
 name = "mbo-utilities"
-version = "3.3.0"
+version = "3.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -1334,9 +1334,9 @@ dependencies = [
     { name = "wgpu" },
     { name = "zarr" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e0/b2/4e43877abff6c6305a749247ca20f6f92d3b949f158481b0c926dc036e4c/mbo_utilities-3.3.0.tar.gz", hash = "sha256:e37a692c21f10bd671be21b75d64dff036e994a84b527059a1403d72c609e96c", size = 4100314, upload-time = "2026-06-24T16:27:05.869Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/85/bd/162b95e82582920d7751b448d5fb6e41ddbb4dd473ce3c46acb971a522ed/mbo_utilities-3.3.1.tar.gz", hash = "sha256:91ea822689a2e7c2f538609a20dab3bc475f0824ec1ebc8a86e5f427af092642", size = 4074037, upload-time = "2026-06-26T14:58:31.964Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a6/1d/3109c15300cab3e20668e03c9989da32c65d682bfcd3620fb6633ea4f79e/mbo_utilities-3.3.0-py3-none-any.whl", hash = "sha256:478cd92e4f33b5db41709ed20e7d3e8a52ea962e2ed2a3936ea4aa0c236f047e", size = 3872660, upload-time = "2026-06-24T16:27:03.992Z" },
+    { url = "https://files.pythonhosted.org/packages/dd/86/359aecbef6305338db50bb7a7ebc14224c12c02b8dec32b8af10350c9368/mbo_utilities-3.3.1-py3-none-any.whl", hash = "sha256:b8c0cd469355dba40b3f0b60d9813ffe4ed13a311e92455ac9dc4bc193b3d7d0", size = 3853435, upload-time = "2026-06-26T14:58:30.357Z" },
 ]
 
 [[package]]

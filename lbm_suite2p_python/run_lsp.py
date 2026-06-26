@@ -1687,8 +1687,20 @@ def run_volume(
                                 message=f"Plane {result_plane_num} complete",
                             )
                     except Exception as e:
-                        print(f"ERROR processing plane {plane_num}: {e}")
-                        traceback.print_exc()
+                        from concurrent.futures.process import BrokenProcessPool
+                        if isinstance(e, BrokenProcessPool):
+                            print(
+                                f"ERROR processing plane {plane_num}: worker process "
+                                f"was killed (SIGKILL — no Python traceback). Most "
+                                f"likely out of memory: peak RAM ~= workers x per-plane "
+                                f"size, and a login node's cgroup is far smaller than a "
+                                f"compute node. Run on a compute node (e.g. mbo hpc run "
+                                f"--mode single) with adequate mem_gb, lower "
+                                f"planes_per_gpu/workers, or process fewer planes."
+                            )
+                        else:
+                            print(f"ERROR processing plane {plane_num}: {e}")
+                            traceback.print_exc()
         finally:
             listener.stop()
 
