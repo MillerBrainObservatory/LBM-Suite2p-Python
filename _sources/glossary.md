@@ -1,0 +1,62 @@
+# Glossary
+
+```{glossary}
+
+skewness
+  How often do you get an outlier in the pixel activity across time, good for calcium indicators because theyre flat relative to a few events over the course of a recording.
+
+mean_img
+  The average of the registered movie over time. Used as a baseline representation of the structural signal.
+
+max_proj
+  The maximum value per pixel over time. Highlights regions with high fluorescence, useful for detecting active areas.
+
+meanImgE
+  Enhanced mean image computed during registration (spatial high-pass of `mean_img`). Shown in the GUI as "E: mean img (enhanced)"; not a cellpose detection input.
+
+anatomical segmentation
+  ROI detection based solely on static images (e.g. mean or max projection), ignoring fluorescence time dynamics.
+
+functional segmentation
+  ROI detection based on pixelwise correlations across time, identifying spatially contiguous regions with similar activity patterns.
+
+seed
+  A pixel or region in the image used as the **starting point** for growing a potential ROI.
+  Seeding is based on high-intensity regions in the filtered image, and forms the initial guess
+  for the shape and location of a neuron.
+
+Delta F over F0
+    $\Delta F / F_0$ (Delta F over F naught) refers to the fractional change in fluorescence relative to a baseline signal F₀.
+    This is a common normalization used in calcium imaging and neural activity recordings.
+
+segmentation
+  The general process of dividing an image based on the contents of that image, in our case, based on neuron location.
+
+source-extraction
+  Umbrella term for all of the individual processes that produce a segmented image.
+
+deconvolution
+  The process performed after segmentation to the resulting traces to infer spike times from flourescence values.
+
+Rigid-registration
+  The object retains shape and size.
+
+Non-rigid-registration
+  The object is moved and transforms shape or size.
+
+pixel-resolution
+  The length of each pixel, in micron (px/um).
+
+roi_stats
+  Dictionary containing per-ROI statistics computed during detection, including area, compactness, skewness, and spatial coordinates.
+
+logistic regression
+  A statistical model that predicts binary outcomes (cell vs non-cell) by fitting a sigmoid function to input features. Suite2p's classifier uses logistic regression on ROI morphological features. The model outputs a probability between 0-1, thresholded at 0.5 by default to make the cell/non-cell decision. Training involves fitting the sigmoid curve to labeled examples so that cells map to high probabilities and non-cells map to low probabilities.
+
+compact
+  Spatial compactness of an ROI, measuring how circular/concentrated the pixels are. Computed as `(4 * pi * area) / perimeter^2`. A perfect circle has compactness of 1.0; elongated or fragmented shapes have lower values. Used by the classifier because real neurons tend to be compact while artifacts are often irregular.
+
+npix_norm
+  Normalized pixel count of an ROI. The raw pixel count divided by expected size based on the `diameter` parameter. Helps the classifier reject ROIs that are abnormally small (noise) or large (merged cells, blood vessels).
+
+```

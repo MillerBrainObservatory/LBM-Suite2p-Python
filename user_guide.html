@@ -1,0 +1,2620 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="./" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>User Guide &#8212; LBM-Suite2p-Python</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="_static/custom.css?v=bdf0de15" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="_static/documentation_options.js?v=0fa21ae5"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=f281be69"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="_static/togglebutton.js?v=b8b12719"></script>
+    <script src="_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script src="_static/design-tabs.js?v=f930bc37"></script>
+    <script defer="defer" src="https://unpkg.com/@popperjs/core@2"></script>
+    <script defer="defer" src="https://unpkg.com/tippy.js@6"></script>
+    <script defer="defer" src="_static/tippy/user_guide.dc78667b-f8de-4b9b-acfd-39722a5c7bc3.js"></script>
+    <script>window.MathJax = {"options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'user_guide';</script>
+    <link rel="icon" href="_static/icon_suite2p.svg"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Projection Images" href="projections.html" />
+    <link rel="prev" title="Quickstart" href="quickstart.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="_static/logo_suit2p.png" class="logo__image only-light" alt="LBM-Suite2p-Python - Home"/>
+    <img src="_static/logo_suit2p.png" class="logo__image only-dark pst-js-only" alt="LBM-Suite2p-Python - Home"/>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://millerbrainobservatory.github.io/" title="MBO User Hub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><img src="_static/icon_mbo_home.png" class="icon-link-image" alt="MBO User Hub"/></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/MillerBrainObservatory/" title="MBO Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">MBO Github</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://mbo.rockefeller.edu/contact/" title="Connect with MBO" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-regular fa-address-card fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Connect with MBO</span></a>
+        </li>
+</ul></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quickstart</a></li>
+<li class="toctree-l1 current active has-children"><a class="current reference internal" href="#">User Guide</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="simple">
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="projections.html">Projection Images</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="simple">
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="postprocessing.html">Postprocessing Functions</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="simple">
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="processing_flow.html">Processing Flow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="classifiers.html">Suite2p ROI Classifiers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="metadata_reference.html">Metadata Processing Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipeline_comparison.html">Pipeline Comparison</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="image_gallery.html">Image Gallery</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/blob/master/docs/user_guide.ipynb?plain=1" target="_blank"
+   class="btn btn-sm btn-source-file-button dropdown-item"
+   title="Show source"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-code"></i>
+  </span>
+<span class="btn__text-container">Show source</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/edit/master/docs/user_guide.ipynb" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/issues/new?title=Issue%20on%20page%20%2Fuser_guide.html&body=Your%20issue%20content%20here." target="_blank"
+   class="btn btn-sm btn-source-issues-button dropdown-item"
+   title="Open an issue"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-lightbulb"></i>
+  </span>
+<span class="btn__text-container">Open issue</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="_sources/user_guide.ipynb" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.ipynb</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>User Guide</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#input-formats">Input formats</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pipeline-basics">Pipeline Basics</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#setting-ops-flat-or-suite2p-s-nested-settings">Setting ops: flat or suite2p’s nested settings</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#pipeline-parameters">Pipeline Parameters</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#reader-and-writer-kwargs">Reader and Writer Kwargs</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#reader-options-for-raw-scanimage-tiffs">Reader Options for Raw ScanImage TIFFs</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#examples">Examples</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#writer-options">Writer Options</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#overwriting-results">Overwriting results</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#planar-pipeline">Planar Pipeline</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#planar-outputs">Planar Outputs</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#data-files">Data Files</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#visualization-files">Visualization Files</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#reference-images">Reference Images</a><ul class="nav section-nav flex-column">
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#how-reference-images-are-computed">How Reference Images Are Computed</a></li>
+</ul>
+</li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#segmentation-overlays">Segmentation Overlays</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#quality-diagnostics">Quality Diagnostics</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#fluorescence-traces">Fluorescence Traces</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#trace-quality-sorting">Trace Quality Sorting</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#activity-f-f-traces">Activity ΔF/F Traces</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#shot-noise-levels">Shot Noise Levels</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#volumetric-pipeline">Volumetric Pipeline</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#volumetric-outputs">Volumetric Outputs</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#all-planes-masks">All Planes Masks</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#orthogonal-slices">Orthogonal Slices</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#d-roi-map">3D ROI Map</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#volume-trace-analysis">Volume Trace Analysis</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#rastermap-volume-wide">Rastermap (Volume-wide)</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#registration-quality-metrics">Registration Quality Metrics</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#loading-results">Loading Results</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#critical-parameters">Critical Parameters</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#anatomical-segmentation-cellpose-recommended">Anatomical Segmentation (Cellpose) - Recommended</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#quick-start-anatomical-detection">Quick Start: Anatomical Detection</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#algorithm-default-sparsery-and-img-default-max-proj-meanimg"><code class="docutils literal notranslate"><span class="pre">algorithm</span></code> (default: <code class="docutils literal notranslate"><span class="pre">"sparsery"</span></code>) and <code class="docutils literal notranslate"><span class="pre">img</span></code> (default: <code class="docutils literal notranslate"><span class="pre">"max_proj</span> <span class="pre">/</span> <span class="pre">meanImg"</span></code>)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#anatomical-only-legacy-default-0"><code class="docutils literal notranslate"><span class="pre">anatomical_only</span></code> (legacy, default: 0)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#diameter-default-0"><code class="docutils literal notranslate"><span class="pre">diameter</span></code> (default: 0)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#cellprob-threshold-default-0-0"><code class="docutils literal notranslate"><span class="pre">cellprob_threshold</span></code> (default: 0.0)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#flow-threshold-default-0-4"><code class="docutils literal notranslate"><span class="pre">flow_threshold</span></code> (default: 0.4)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#spatial-hp-cp-default-0"><code class="docutils literal notranslate"><span class="pre">spatial_hp_cp</span></code> (default: 0)</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#functional-detection-parameters">Functional Detection Parameters</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#visual-parameter-comparisons">Visual Parameter Comparisons</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#threshold-scaling-default-1-0"><code class="docutils literal notranslate"><span class="pre">threshold_scaling</span></code> (default: 1.0)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#tau-default-1-0"><code class="docutils literal notranslate"><span class="pre">tau</span></code> (default: 1.0)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#max-overlap-default-0-75"><code class="docutils literal notranslate"><span class="pre">max_overlap</span></code> (default: 0.75)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#spatial-hp-detect-default-25"><code class="docutils literal notranslate"><span class="pre">spatial_hp_detect</span></code> (default: 25)</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#registration-parameters">Registration Parameters</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#do-registration-default-1"><code class="docutils literal notranslate"><span class="pre">do_registration</span></code> (default: 1)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nonrigid-default-true"><code class="docutils literal notranslate"><span class="pre">nonrigid</span></code> (default: True)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#align-by-chan-default-1"><code class="docutils literal notranslate"><span class="pre">align_by_chan</span></code> (default: 1)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#maxregshift-default-0-1"><code class="docutils literal notranslate"><span class="pre">maxregshift</span></code> (default: 0.1)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#registration-output-files">Registration Output Files</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#registration-metrics-ops-regdx">Registration Metrics (<code class="docutils literal notranslate"><span class="pre">ops['regDX']</span></code>)</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#extraction-parameters">Extraction Parameters</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#neucoeff-default-0-7"><code class="docutils literal notranslate"><span class="pre">neucoeff</span></code> (default: 0.7)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#allow-overlap-default-false"><code class="docutils literal notranslate"><span class="pre">allow_overlap</span></code> (default: False)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#inner-neuropil-radius-default-2"><code class="docutils literal notranslate"><span class="pre">inner_neuropil_radius</span></code> (default: 2)</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#f-f-parameters">ΔF/F Parameters</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#rolling-percentile-baseline-recommended">Rolling Percentile Baseline (Recommended)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#median-filter-baseline">Median Filter Baseline</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#shot-noise-estimation">Shot Noise Estimation</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#spike-deconvolution-tau">Spike Deconvolution &amp; Tau</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#indicator-dynamics">Indicator Dynamics</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#parameter-grid-search">Parameter Grid Search</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#visualizing-grid-search-results">Visualizing Grid Search Results</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#registration-grid-search">Registration Grid Search</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-processing-filters">Post-Processing Filters</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#multi-roi-processing">Multi-ROI Processing</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#f-f-calculation">ΔF/F Calculation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#troubleshooting">Troubleshooting</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#no-cells-detected">No Cells Detected</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#registration-artifacts">Registration Artifacts</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#further-reading">Further Reading</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section class="tex2jax_ignore mathjax_ignore" id="user-guide">
+<span id="id1"></span><h1>User Guide<a class="headerlink" href="#user-guide" title="Link to this heading">#</a></h1>
+<p>For</p>
+<div class="toctree-wrapper compound">
+</div>
+<p>This guide covers everything you need to process volumetric calcium imaging data with LBM-Suite2p-Python.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>For interactive examples, see the <a class="reference external" href="https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/blob/master/demos/notebooks/quickstart.ipynb">Quickstart Notebook</a> and <a class="reference external" href="https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/blob/master/demos/notebooks/grid_search.ipynb">Grid Search Notebook</a>.</p>
+</div>
+<section id="input-formats">
+<h2>Input formats<a class="headerlink" href="#input-formats" title="Link to this heading">#</a></h2>
+<p>The pipeline accepts all filetypes at <a class="reference external" href="https://millerbrainobservatory.github.io/mbo_utilities/array_types.html">mbo_utilities imread()</a> accepts.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>run<span class="w"> </span>mbo<span class="w"> </span>formats
+
+Supported<span class="w"> </span>input<span class="w"> </span>formats:
+<span class="w">  </span>.tif,<span class="w"> </span>.tiff<span class="w">  </span>-<span class="w"> </span>TIFF<span class="w"> </span>files<span class="w"> </span><span class="o">(</span>BigTIFF,<span class="w"> </span>OME-TIFF,<span class="w"> </span>ScanImage<span class="o">)</span>
+<span class="w">  </span>.zarr<span class="w">        </span>-<span class="w"> </span>Zarr<span class="w"> </span>v3<span class="w"> </span>arrays
+<span class="w">  </span>.bin<span class="w">         </span>-<span class="w"> </span>Suite2p<span class="w"> </span>binary<span class="w"> </span>format<span class="w"> </span><span class="o">(</span>with<span class="w"> </span>ops.npy<span class="o">)</span>
+<span class="w">  </span>.h5,<span class="w"> </span>.hdf5<span class="w">   </span>-<span class="w"> </span>HDF5<span class="w"> </span>files
+<span class="w">  </span>.npy<span class="w">         </span>-<span class="w"> </span>NumPy<span class="w"> </span>arrays
+<span class="w">  </span>.json<span class="w">        </span>-<span class="w"> </span>Loads<span class="w"> </span>parent<span class="w"> </span>Zarr<span class="w"> </span>array
+
+Supported<span class="w"> </span>output<span class="w"> </span>formats:
+<span class="w">  </span>.tiff<span class="w">        </span>-<span class="w"> </span>Multi-page<span class="w"> </span>BigTIFF
+<span class="w">  </span>.zarr<span class="w">        </span>-<span class="w"> </span>Zarr<span class="w"> </span>v3<span class="w"> </span>with<span class="w"> </span>OME-NGFF<span class="w"> </span>metadata
+<span class="w">  </span>.bin<span class="w">         </span>-<span class="w"> </span>Suite2p<span class="w"> </span>binary<span class="w"> </span>format
+<span class="w">  </span>.h5<span class="w">          </span>-<span class="w"> </span>HDF5<span class="w"> </span>format
+<span class="w">  </span>.npy<span class="w">         </span>-<span class="w"> </span>NumPy<span class="w"> </span>array<span class="w"> </span><span class="o">(</span>with<span class="w"> </span>.json<span class="w"> </span>metadata<span class="o">)</span>
+</pre></div>
+</div>
+</section>
+<section id="pipeline-basics">
+<h2>Pipeline Basics<a class="headerlink" href="#pipeline-basics" title="Link to this heading">#</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">lsp.pipeline()</span></code> function is the recommended entry point for all processing. It automatically handles:</p>
+<ul class="simple">
+<li><p><strong>Any input type</strong>: Files, directories, or pre-loaded arrays from <code class="docutils literal notranslate"><span class="pre">mbo_utilities</span></code></p></li>
+<li><p><strong>Multi-plane data</strong>: Processes each z-plane independently</p></li>
+<li><p><strong>Multi-ROI data</strong>: Stitches or splits ScanImage multi-ROI acquisitions</p></li>
+<li><p><strong>Metadata extraction</strong>: Auto-populates frame rate, pixel resolution, etc.</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">lbm_suite2p_python</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">lsp</span>
+
+<span class="c1"># Process a directory of raw ScanImage TIFFs</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">lsp</span><span class="o">.</span><span class="n">pipeline</span><span class="p">(</span>
+    <span class="n">input_data</span><span class="o">=</span><span class="s2">&quot;D:/data/raw_tiffs&quot;</span><span class="p">,</span>
+    <span class="n">save_path</span><span class="o">=</span><span class="s2">&quot;D:/results&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Process specific planes from a volume (1-indexed)</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">lsp</span><span class="o">.</span><span class="n">pipeline</span><span class="p">(</span>
+    <span class="n">input_data</span><span class="o">=</span><span class="s2">&quot;D:/data/volume.zarr&quot;</span><span class="p">,</span>
+    <span class="n">save_path</span><span class="o">=</span><span class="s2">&quot;D:/results&quot;</span><span class="p">,</span>
+    <span class="n">planes</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">],</span>  <span class="c1"># 1-indexed, plane 0 is not valid</span>
+<span class="p">)</span>
+
+<span class="c1"># Process a pre-loaded array (e.g., from mbo_utilities GUI)</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">mbo_utilities</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">mbo</span>
+<span class="n">arr</span> <span class="o">=</span> <span class="n">mbo</span><span class="o">.</span><span class="n">imread</span><span class="p">(</span><span class="s2">&quot;D:/data/raw&quot;</span><span class="p">)</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">lsp</span><span class="o">.</span><span class="n">pipeline</span><span class="p">(</span>
+    <span class="n">input_data</span><span class="o">=</span><span class="n">arr</span><span class="p">,</span>
+    <span class="n">save_path</span><span class="o">=</span><span class="s2">&quot;D:/results&quot;</span><span class="p">,</span>
+    <span class="n">roi_mode</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>  <span class="c1"># Split all ROIs into separate outputs</span>
+<span class="p">)</span>
+
+<span class="c1"># Custom Suite2p parameters</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">lsp</span><span class="o">.</span><span class="n">pipeline</span><span class="p">(</span>
+    <span class="n">input_data</span><span class="o">=</span><span class="s2">&quot;D:/data&quot;</span><span class="p">,</span>
+    <span class="n">ops</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;diameter&quot;</span><span class="p">:</span> <span class="mi">8</span><span class="p">,</span> <span class="s2">&quot;threshold_scaling&quot;</span><span class="p">:</span> <span class="mf">0.8</span><span class="p">},</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="setting-ops-flat-or-suite2p-s-nested-settings">
+<h2>Setting ops: flat or suite2p’s nested settings<a class="headerlink" href="#setting-ops-flat-or-suite2p-s-nested-settings" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">ops</span></code> is a <strong>flat dict</strong> — the fork’s convention and what <code class="docutils literal notranslate"><span class="pre">lsp.default_ops()</span></code> returns.
+You can also pass suite2p’s newer <strong>nested</strong> <code class="docutils literal notranslate"><span class="pre">db</span></code> / <code class="docutils literal notranslate"><span class="pre">settings</span></code> dicts; they are flattened
+and merged into <code class="docutils literal notranslate"><span class="pre">ops</span></code> (explicit <code class="docutils literal notranslate"><span class="pre">ops</span></code> keys win). Both reach suite2p the same way, so use
+whichever you have.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># flat (fork) — recommended</span>
+<span class="n">lsp</span><span class="o">.</span><span class="n">pipeline</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="n">ops</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;algorithm&quot;</span><span class="p">:</span> <span class="s2">&quot;cellpose&quot;</span><span class="p">,</span> <span class="s2">&quot;diameter&quot;</span><span class="p">:</span> <span class="mi">6</span><span class="p">})</span>
+
+<span class="c1"># nested (suite2p docs) — also works</span>
+<span class="n">lsp</span><span class="o">.</span><span class="n">pipeline</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="n">settings</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;detection&quot;</span><span class="p">:</span> <span class="p">{</span>
+    <span class="s2">&quot;algorithm&quot;</span><span class="p">:</span> <span class="s2">&quot;cellpose&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;cellpose_settings&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;img&quot;</span><span class="p">:</span> <span class="s2">&quot;meanImg&quot;</span><span class="p">},</span>
+<span class="p">}})</span>
+</pre></div>
+</div>
+<p>Detection is selectable two equivalent ways, kept consistent automatically:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Flat (fork)</p></th>
+<th class="head"><p>suite2p <code class="docutils literal notranslate"><span class="pre">algorithm</span></code> / <code class="docutils literal notranslate"><span class="pre">cellpose_settings.img</span></code></p></th>
+<th class="head"><p>Result</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">anatomical_only=0</span></code> or <code class="docutils literal notranslate"><span class="pre">algorithm=&quot;sparsery&quot;</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">algorithm=&quot;sparsery&quot;</span></code></p></td>
+<td><p>functional (default)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">algorithm=&quot;cellpose&quot;</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">cellpose</span></code>, suite2p default image</p></td>
+<td><p>Cellpose, log-ratio image</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">anatomical_only=1</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">cellpose</span></code> + <code class="docutils literal notranslate"><span class="pre">img=&quot;max_proj</span> <span class="pre">/</span> <span class="pre">meanImg&quot;</span></code></p></td>
+<td><p>Cellpose, log-ratio image</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">anatomical_only=2</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">cellpose</span></code> + <code class="docutils literal notranslate"><span class="pre">img=&quot;meanImg&quot;</span></code></p></td>
+<td><p>Cellpose, mean image</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">anatomical_only=4</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">cellpose</span></code> + <code class="docutils literal notranslate"><span class="pre">img=&quot;max_proj&quot;</span></code></p></td>
+<td><p>Cellpose, max projection</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Setting either spelling fills in the other. Values suite2p doesn’t accept (an unknown
+<code class="docutils literal notranslate"><span class="pre">algorithm</span></code>, or the removed <code class="docutils literal notranslate"><span class="pre">anatomical_only=3</span></code> enhanced-mean image) are <strong>warned and
+mapped</strong> to a valid option: <code class="docutils literal notranslate"><span class="pre">anatomical_only=3</span></code> maps to <code class="docutils literal notranslate"><span class="pre">1</span></code> (suite2p’s default image) —
+use <code class="docutils literal notranslate"><span class="pre">spatial_hp_cp</span></code> (suite2p <code class="docutils literal notranslate"><span class="pre">highpass_spatial</span></code>) &gt; 0 to sharpen, which replaces the old
+enhanced mean.</p>
+<section id="pipeline-parameters">
+<h3>Pipeline Parameters<a class="headerlink" href="#pipeline-parameters" title="Link to this heading">#</a></h3>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">input_data</span></code></p></td>
+<td><p>path, list, array</p></td>
+<td><p>required</p></td>
+<td><p>File, directory, list of files, or lazy array</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">save_path</span></code></p></td>
+<td><p>path</p></td>
+<td><p>None</p></td>
+<td><p>Output directory (auto-detected if None)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ops</span></code></p></td>
+<td><p>dict</p></td>
+<td><p>None</p></td>
+<td><p>Suite2p parameters (uses defaults if None)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">planes</span></code></p></td>
+<td><p>int, list</p></td>
+<td><p>None</p></td>
+<td><p>Which planes to process (1-indexed, 0 is not valid)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">roi_mode</span></code></p></td>
+<td><p>int</p></td>
+<td><p>None</p></td>
+<td><p>ROI handling: None=stitch, 0=split, N=specific ROI</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">keep_reg</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>True</p></td>
+<td><p>Keep registered binary after processing</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">keep_raw</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>False</p></td>
+<td><p>Keep raw binary after processing</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">force_reg</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>False</p></td>
+<td><p>Force re-registration</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">force_detect</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>False</p></td>
+<td><p>Force ROI detection</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">num_timepoints</span></code></p></td>
+<td><p>int</p></td>
+<td><p>None</p></td>
+<td><p>Number of frames to process (None=all)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">dff_window_size</span></code></p></td>
+<td><p>int</p></td>
+<td><p>None</p></td>
+<td><p>Window for ΔF/F baseline (auto-calculated from tau and framerate)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">dff_percentile</span></code></p></td>
+<td><p>int</p></td>
+<td><p>20</p></td>
+<td><p>Percentile for baseline F₀</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">dff_smooth_window</span></code></p></td>
+<td><p>int</p></td>
+<td><p>None</p></td>
+<td><p>Temporal smoothing for dF/F traces (auto-calculated)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">save_json</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>False</p></td>
+<td><p>Save ops as JSON in addition to .npy</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">reader_kwargs</span></code></p></td>
+<td><p>dict</p></td>
+<td><p>None</p></td>
+<td><p>Keyword arguments passed to <code class="docutils literal notranslate"><span class="pre">mbo_utilities.imread()</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">writer_kwargs</span></code></p></td>
+<td><p>dict</p></td>
+<td><p>None</p></td>
+<td><p>Keyword arguments passed to binary writer</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="reader-and-writer-kwargs">
+<h3>Reader and Writer Kwargs<a class="headerlink" href="#reader-and-writer-kwargs" title="Link to this heading">#</a></h3>
+<p>When processing raw ScanImage TIFFs or other input formats, you may need to control how the data is read. The <code class="docutils literal notranslate"><span class="pre">reader_kwargs</span></code> parameter passes arguments directly to <code class="docutils literal notranslate"><span class="pre">mbo_utilities.imread()</span></code>.</p>
+<section id="reader-options-for-raw-scanimage-tiffs">
+<h4>Reader Options for Raw ScanImage TIFFs<a class="headerlink" href="#reader-options-for-raw-scanimage-tiffs" title="Link to this heading">#</a></h4>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">fix_phase</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>True</p></td>
+<td><p>Apply phase correction for bidirectional scanning</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">phasecorr_method</span></code></p></td>
+<td><p>str</p></td>
+<td><p>‘mean’</p></td>
+<td><p>Phase correction method (‘mean’, ‘mode’, ‘median’)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">border</span></code></p></td>
+<td><p>int</p></td>
+<td><p>3</p></td>
+<td><p>Border pixels to ignore during phase estimation</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">use_fft</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>False</p></td>
+<td><p>Use FFT-based subpixel phase correction</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">fft_method</span></code></p></td>
+<td><p>str</p></td>
+<td><p>‘2d’</p></td>
+<td><p>FFT method (‘1d’ or ‘2d’)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">upsample</span></code></p></td>
+<td><p>int</p></td>
+<td><p>5</p></td>
+<td><p>Upsampling factor for subpixel precision</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">max_offset</span></code></p></td>
+<td><p>int</p></td>
+<td><p>4</p></td>
+<td><p>Maximum phase offset to search</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="examples">
+<h4>Examples<a class="headerlink" href="#examples" title="Link to this heading">#</a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">lbm_suite2p_python</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">lsp</span>
+
+<span class="c1"># Enable FFT-based phase correction for higher precision</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">lsp</span><span class="o">.</span><span class="n">pipeline</span><span class="p">(</span>
+    <span class="n">input_data</span><span class="o">=</span><span class="s2">&quot;D:/data/raw_tiffs&quot;</span><span class="p">,</span>
+    <span class="n">save_path</span><span class="o">=</span><span class="s2">&quot;D:/results&quot;</span><span class="p">,</span>
+    <span class="n">reader_kwargs</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">&quot;fix_phase&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="s2">&quot;use_fft&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">},</span>
+<span class="p">)</span>
+
+<span class="c1"># Disable phase correction for already-corrected data</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">lsp</span><span class="o">.</span><span class="n">pipeline</span><span class="p">(</span>
+    <span class="n">input_data</span><span class="o">=</span><span class="s2">&quot;D:/data/corrected_tiffs&quot;</span><span class="p">,</span>
+    <span class="n">save_path</span><span class="o">=</span><span class="s2">&quot;D:/results&quot;</span><span class="p">,</span>
+    <span class="n">reader_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;fix_phase&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">},</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="writer-options">
+<h4>Writer Options<a class="headerlink" href="#writer-options" title="Link to this heading">#</a></h4>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">target_chunk_mb</span></code></p></td>
+<td><p>int</p></td>
+<td><p>100</p></td>
+<td><p>Target chunk size in MB for streaming writes</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">progress_callback</span></code></p></td>
+<td><p>Callable</p></td>
+<td><p>None</p></td>
+<td><p>Callback function for progress updates</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="overwriting-results">
+<h3>Overwriting results<a class="headerlink" href="#overwriting-results" title="Link to this heading">#</a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">force_reg</span></code> and <code class="docutils literal notranslate"><span class="pre">force_detect</span></code> flags control whether to re-run processing when results already exist. This table shows the behavior for all combinations:</p>
+<p><strong>Overwrite registration</strong></p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head text-center"><p>ops[<code class="docutils literal notranslate"><span class="pre">do_registration</span></code>]</p></th>
+<th class="head text-center"><p><code class="docutils literal notranslate"><span class="pre">force_reg</span></code></p></th>
+<th class="head"><p>Behavior</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td class="text-center"><p>1</p></td>
+<td class="text-center"><p>False</p></td>
+<td><p><strong>skip if metrics exist</strong> (refImg, meanImg, xoff/yoff)</p></td>
+</tr>
+<tr class="row-odd"><td class="text-center"><p>1</p></td>
+<td class="text-center"><p>True</p></td>
+<td><p><strong>Always re-register</strong> (overwrite results)</p></td>
+</tr>
+<tr class="row-even"><td class="text-center"><p>0</p></td>
+<td class="text-center"><p>False</p></td>
+<td><p>Skip registration</p></td>
+</tr>
+<tr class="row-odd"><td class="text-center"><p>0</p></td>
+<td class="text-center"><p>True</p></td>
+<td><p><strong>Always re-register</strong> (overwrite results)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Overwrite detection/segmentation</strong></p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head text-center"><p>ops[<code class="docutils literal notranslate"><span class="pre">roidetect</span></code>]</p></th>
+<th class="head text-center"><p><code class="docutils literal notranslate"><span class="pre">force_detect</span></code></p></th>
+<th class="head"><p>Behavior</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td class="text-center"><p>1</p></td>
+<td class="text-center"><p>False</p></td>
+<td><p>Run detection, <strong>skip if <code class="docutils literal notranslate"><span class="pre">stat.npy</span></code> exists and is non-empty</strong></p></td>
+</tr>
+<tr class="row-odd"><td class="text-center"><p>1</p></td>
+<td class="text-center"><p>True</p></td>
+<td><p><strong>Always re-run detection</strong> (overwrite results)</p></td>
+</tr>
+<tr class="row-even"><td class="text-center"><p>0</p></td>
+<td class="text-center"><p>False</p></td>
+<td><p>Skip detection</p></td>
+</tr>
+<tr class="row-odd"><td class="text-center"><p>0</p></td>
+<td class="text-center"><p>True</p></td>
+<td><p><strong>Always re-run detection</strong> (overwrite results)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="planar-pipeline">
+<h2>Planar Pipeline<a class="headerlink" href="#planar-pipeline" title="Link to this heading">#</a></h2>
+<p>For testing parameters or processing individual planes:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">results</span> <span class="o">=</span> <span class="n">lsp</span><span class="o">.</span><span class="n">pipeline</span><span class="p">(</span>
+    <span class="n">input_data</span><span class="o">=</span><span class="n">files</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>        <span class="c1"># path to .zarr, .tiff, or .bin file</span>
+    <span class="n">save_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>             <span class="c1"># default: save next to input file</span>
+    <span class="n">ops</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>                   <span class="c1"># default: use MBO-optimized parameters</span>
+    <span class="n">planes</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>                   <span class="c1"># process single plane (1-indexed)</span>
+    <span class="n">roi_mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>              <span class="c1"># default: stitch multi-ROI data</span>
+    <span class="n">keep_reg</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>              <span class="c1"># default: keep data.bin (registered binary)</span>
+    <span class="n">keep_raw</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>             <span class="c1"># default: delete data_raw.bin after processing</span>
+    <span class="n">force_reg</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>            <span class="c1"># default: skip if already registered</span>
+    <span class="n">force_detect</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>         <span class="c1"># default: skip if stat.npy exists</span>
+    <span class="n">num_timepoints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>        <span class="c1"># default: use all frames</span>
+    <span class="n">dff_window_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>       <span class="c1"># default: auto-calculate from tau and framerate</span>
+    <span class="n">dff_percentile</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>          <span class="c1"># default: 20th percentile for baseline</span>
+    <span class="n">dff_smooth_window</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>     <span class="c1"># default: auto-calculate from tau and framerate</span>
+    <span class="n">save_json</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>            <span class="c1"># default: only save ops.npy</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<section id="planar-outputs">
+<h3>Planar Outputs<a class="headerlink" href="#planar-outputs" title="Link to this heading">#</a></h3>
+<p>Each z-plane directory contains:</p>
+<section id="data-files">
+<h4>Data Files<a class="headerlink" href="#data-files" title="Link to this heading">#</a></h4>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>File</p></th>
+<th class="head"><p>Shape</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ops.npy</span></code></p></td>
+<td><p>dict</p></td>
+<td><p>Processing parameters and metadata</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">stat.npy</span></code></p></td>
+<td><p>(n_rois,)</p></td>
+<td><p>ROI definitions (pixel coordinates, weights, shape stats)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">F.npy</span></code></p></td>
+<td><p>(n_rois, n_frames)</p></td>
+<td><p>Raw fluorescence traces</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Fneu.npy</span></code></p></td>
+<td><p>(n_rois, n_frames)</p></td>
+<td><p>Neuropil fluorescence traces</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">spks.npy</span></code></p></td>
+<td><p>(n_rois, n_frames)</p></td>
+<td><p>Deconvolved spike estimates</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">iscell.npy</span></code></p></td>
+<td><p>(n_rois, 2)</p></td>
+<td><p>Cell classification: <code class="docutils literal notranslate"><span class="pre">[:,</span> <span class="pre">0]</span></code> = is_cell (0/1), <code class="docutils literal notranslate"><span class="pre">[:,</span> <span class="pre">1]</span></code> = probability</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">data.bin</span></code></p></td>
+<td><p>(n_frames, Ly, Lx)</p></td>
+<td><p>Registered movie (if <code class="docutils literal notranslate"><span class="pre">keep_reg=True</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">data_raw.bin</span></code></p></td>
+<td><p>(n_frames, Ly, Lx)</p></td>
+<td><p>Raw movie (if <code class="docutils literal notranslate"><span class="pre">keep_raw=True</span></code>)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="visualization-files">
+<h4>Visualization Files<a class="headerlink" href="#visualization-files" title="Link to this heading">#</a></h4>
+<p>Files are numbered to ensure proper ordering when viewing in file browsers.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>File</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">01_correlation.png</span></code></p></td>
+<td><p>Pixel-wise correlation image</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">01_correlation_segmentation.png</span></code></p></td>
+<td><p>Correlation image with ROI overlay</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">02_max_projection.png</span></code></p></td>
+<td><p>Maximum intensity projection</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">02_max_projection_segmentation.png</span></code></p></td>
+<td><p>Max projection with ROI overlay</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">03_mean.png</span></code></p></td>
+<td><p>Temporal mean image</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">03_mean_segmentation.png</span></code></p></td>
+<td><p>Mean image with ROI overlay</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">04_mean_enhanced.png</span></code></p></td>
+<td><p>Enhanced mean image (edge sharpened)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">04_mean_enhanced_segmentation.png</span></code></p></td>
+<td><p>Enhanced mean with ROI overlay</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">05_quality_diagnostics.png</span></code></p></td>
+<td><p>ROI size, SNR, compactness metrics</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">06_registration.png</span></code></p></td>
+<td><p>Registration quality visualization</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">07_traces_raw.png</span></code></p></td>
+<td><p>Sample raw fluorescence traces</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">08_traces_dff.png</span></code></p></td>
+<td><p>Sample ΔF/F traces</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">09_traces_noise.png</span></code></p></td>
+<td><p>Noise estimation traces (rejected ROIs)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">10_noise_accepted.png</span></code></p></td>
+<td><p>Shot noise histogram (accepted)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">11_noise_rejected.png</span></code></p></td>
+<td><p>Shot noise histogram (rejected)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">12_rastermap.png</span></code></p></td>
+<td><p>Activity sorted by similarity</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">pc_metrics.csv</span></code></p></td>
+<td><p>Registration quality metrics</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">pc_metrics_panels.tif</span></code></p></td>
+<td><p>PC metric visualization panels</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="reference-images">
+<h4>Reference Images<a class="headerlink" href="#reference-images" title="Link to this heading">#</a></h4>
+<p>The pipeline generates several reference images that serve as both quality checks and visualization aids. Each is computed from the registered movie at a different stage.</p>
+<section id="how-reference-images-are-computed">
+<h5>How Reference Images Are Computed<a class="headerlink" href="#how-reference-images-are-computed" title="Link to this heading">#</a></h5>
+<p>During Suite2p detection, the registered movie undergoes temporal high-pass filtering to remove slow baseline fluctuations. This is done via <code class="docutils literal notranslate"><span class="pre">temporal_high_pass_filter(mov,</span> <span class="pre">width=high_pass)</span></code> which subtracts either a Gaussian-filtered or rolling mean version of the movie over time.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Image</p></th>
+<th class="head"><p>Computation</p></th>
+<th class="head"><p>Code</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">meanImg</span></code></p></td>
+<td><p>Mean across time of the registered movie (before temporal HP)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">mov.mean(axis=0)</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">max_proj</span></code></p></td>
+<td><p>Maximum across time of the HP-filtered movie</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">mov_hp.max(axis=0)</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">meanImgE</span></code></p></td>
+<td><p>Spatial high-pass (“enhanced”) of <code class="docutils literal notranslate"><span class="pre">meanImg</span></code>, computed during registration</p></td>
+<td><p>See below</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The <strong>enhanced mean image</strong> (<code class="docutils literal notranslate"><span class="pre">meanImgE</span></code>) is computed by <code class="docutils literal notranslate"><span class="pre">suite2p.registration.highpass_mean_image</span></code> — a spatial sharpen (cellpose <code class="docutils literal notranslate"><span class="pre">normalize_img</span></code>, <code class="docutils literal notranslate"><span class="pre">sharpen_radius=3</span></code>) clipped to [0, 1]. It is a registration / GUI display image, <strong>not</strong> a Cellpose detection input:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">suite2p.registration</span><span class="w"> </span><span class="kn">import</span> <span class="n">highpass_mean_image</span>
+<span class="n">meanImgE</span> <span class="o">=</span> <span class="n">highpass_mean_image</span><span class="p">(</span><span class="n">meanImg</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;float32&quot;</span><span class="p">),</span> <span class="n">aspect</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+</pre></div>
+</div>
+<figure class="align-default" id="ug-fig-max-proj">
+<a class="reference internal image-reference" href="_images/02_max_projection.png"><img alt="Maximum Intensity Projection" src="_images/02_max_projection.png" style="width: 50%;" />
+</a>
+<figcaption>
+<p><span class="caption-text"><strong>Maximum intensity projection</strong> (<code class="docutils literal notranslate"><span class="pre">max_proj</span></code>) computed as <code class="docutils literal notranslate"><span class="pre">mov_hp.max(axis=0)</span></code> from the temporally high-pass filtered registered movie. Highlights the brightest pixels over time, useful for identifying highly active regions and checking for motion artifacts. This is the image used for <code class="docutils literal notranslate"><span class="pre">img=&quot;max_proj&quot;</span></code>.</span><a class="headerlink" href="#ug-fig-max-proj" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+<figure class="align-default" id="ug-fig-mean-enhanced">
+<a class="reference internal image-reference" href="_images/04_mean_enhanced.png"><img alt="Enhanced Mean Image" src="_images/04_mean_enhanced.png" style="width: 50%;" />
+</a>
+<figcaption>
+<p><span class="caption-text"><strong>Enhanced mean image</strong> (<code class="docutils literal notranslate"><span class="pre">meanImgE</span></code>): a spatial high-pass of <code class="docutils literal notranslate"><span class="pre">meanImg</span></code> computed during registration, which sharpens cell boundaries. Shown in the GUI as “E: mean img (enhanced)”; it is not a Cellpose detection input.</span><a class="headerlink" href="#ug-fig-mean-enhanced" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</section>
+</section>
+<section id="segmentation-overlays">
+<h4>Segmentation Overlays<a class="headerlink" href="#segmentation-overlays" title="Link to this heading">#</a></h4>
+<p>Each reference image has a corresponding segmentation overlay showing detected ROIs:</p>
+<figure class="align-default" id="ug-fig-segmentation">
+<a class="reference internal image-reference" href="_images/04_mean_enhanced_segmentation.png"><img alt="Segmentation Overlay" src="_images/04_mean_enhanced_segmentation.png" style="width: 50%;" />
+</a>
+<figcaption>
+<p><span class="caption-text"><strong>Segmentation overlay</strong> on the enhanced mean image. Accepted ROIs are shown as colored outlines. Use this to visually verify that detected cells match actual cell bodies.</span><a class="headerlink" href="#ug-fig-segmentation" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="quality-diagnostics">
+<h4>Quality Diagnostics<a class="headerlink" href="#quality-diagnostics" title="Link to this heading">#</a></h4>
+<p>The quality diagnostics panel provides a multi-metric view of ROI quality:</p>
+<figure class="align-default" id="ug-fig-quality-diag">
+<a class="reference internal image-reference" href="_images/05_quality_diagnostics.png"><img alt="Quality Diagnostics" src="_images/05_quality_diagnostics.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text"><strong>ROI quality diagnostics</strong> showing:</span><a class="headerlink" href="#ug-fig-quality-diag" title="Link to this image">#</a></p>
+<div class="legend">
+<ul class="simple">
+<li><p><strong>Size distribution</strong>: Histogram of ROI areas (pixels) for accepted vs rejected cells</p></li>
+<li><p><strong>SNR distribution</strong>: Signal-to-noise ratio for each ROI</p></li>
+<li><p><strong>Compactness</strong>: How circular each ROI is (1.0 = perfect circle)</p></li>
+<li><p><strong>Skewness</strong>: Positive skew indicates calcium transients</p></li>
+</ul>
+<p>Use these metrics to tune parameters like <code class="docutils literal notranslate"><span class="pre">max_overlap</span></code>, <code class="docutils literal notranslate"><span class="pre">threshold_scaling</span></code>, and post-hoc filters.</p>
+</div>
+</figcaption>
+</figure>
+</section>
+<section id="fluorescence-traces">
+<h4>Fluorescence Traces<a class="headerlink" href="#fluorescence-traces" title="Link to this heading">#</a></h4>
+<figure class="align-default" id="ug-fig-traces-raw">
+<a class="reference internal image-reference" href="_images/07_traces_raw.png"><img alt="Raw Fluorescence Traces" src="_images/07_traces_raw.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text"><strong>Raw fluorescence traces</strong> for the top 20 neurons sorted by quality score. The y-axis shows fluorescence intensity (arbitrary units), x-axis shows time in seconds.</span><a class="headerlink" href="#ug-fig-traces-raw" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+<figure class="align-default" id="ug-fig-traces-dff">
+<a class="reference internal image-reference" href="_images/08_traces_dff.png"><img alt="ΔF/F Traces" src="_images/08_traces_dff.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text"><strong>ΔF/F traces</strong> computed using rolling percentile baseline. These normalized traces are directly comparable across cells and experiments. The quality-sorted display surfaces the most reliable signals first.</span><a class="headerlink" href="#ug-fig-traces-dff" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="trace-quality-sorting">
+<span id="understanding-trace-quality-sorting"></span><h4>Trace Quality Sorting<a class="headerlink" href="#trace-quality-sorting" title="Link to this heading">#</a></h4>
+<p>The trace plots (<code class="docutils literal notranslate"><span class="pre">07_traces_raw.png</span></code>, <code class="docutils literal notranslate"><span class="pre">08_traces_dff.png</span></code>) display the <strong>top 20 neurons sorted by quality score</strong>.
+This weighted score combines three metrics to surface the best traces:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Metric</p></th>
+<th class="head"><p>Weight</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>SNR</strong></p></td>
+<td><p>1.0</p></td>
+<td><p>Signal-to-noise ratio (higher = better)</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Skewness</strong></p></td>
+<td><p>0.8</p></td>
+<td><p>Positive skew indicates calcium transients</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Shot Noise</strong></p></td>
+<td><p>0.5</p></td>
+<td><p>Frame-to-frame variability (lower = better)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Using Quality Sorting in Your Analysis:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">lbm_suite2p_python</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">lsp</span>
+
+<span class="c1"># Load planar results</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">lsp</span><span class="o">.</span><span class="n">load_planar_results</span><span class="p">(</span><span class="s2">&quot;path/to/plane01&quot;</span><span class="p">)</span>
+<span class="n">F</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s2">&quot;F&quot;</span><span class="p">]</span>
+<span class="n">Fneu</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s2">&quot;Fneu&quot;</span><span class="p">]</span>
+<span class="n">stat</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s2">&quot;stat&quot;</span><span class="p">]</span>
+<span class="n">iscell</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s2">&quot;iscell&quot;</span><span class="p">]</span>
+
+<span class="c1"># Filter for accepted cells</span>
+<span class="n">iscell_mask</span> <span class="o">=</span> <span class="n">iscell</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span>
+<span class="n">F_acc</span> <span class="o">=</span> <span class="n">F</span><span class="p">[</span><span class="n">iscell_mask</span><span class="p">]</span>
+<span class="n">Fneu_acc</span> <span class="o">=</span> <span class="n">Fneu</span><span class="p">[</span><span class="n">iscell_mask</span><span class="p">]</span>
+<span class="n">stat_acc</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span><span class="p">,</span> <span class="n">m</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">stat</span><span class="p">,</span> <span class="n">iscell_mask</span><span class="p">)</span> <span class="k">if</span> <span class="n">m</span><span class="p">]</span>
+
+<span class="c1"># Compute quality scores</span>
+<span class="n">quality</span> <span class="o">=</span> <span class="n">lsp</span><span class="o">.</span><span class="n">compute_trace_quality_score</span><span class="p">(</span>
+    <span class="n">F_acc</span><span class="p">,</span> <span class="n">Fneu_acc</span><span class="p">,</span> <span class="n">stat_acc</span><span class="p">,</span>
+    <span class="n">fs</span><span class="o">=</span><span class="mf">30.0</span><span class="p">,</span>  <span class="c1"># Your frame rate</span>
+    <span class="n">weights</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;snr&#39;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span> <span class="s1">&#39;skewness&#39;</span><span class="p">:</span> <span class="mf">0.8</span><span class="p">,</span> <span class="s1">&#39;shot_noise&#39;</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">}</span>  <span class="c1"># Default weights</span>
+<span class="p">)</span>
+
+<span class="c1"># Sort traces by quality (best first)</span>
+<span class="n">sort_idx</span> <span class="o">=</span> <span class="n">quality</span><span class="p">[</span><span class="s1">&#39;sort_idx&#39;</span><span class="p">]</span>
+<span class="n">F_sorted</span> <span class="o">=</span> <span class="n">F_acc</span><span class="p">[</span><span class="n">sort_idx</span><span class="p">]</span>
+
+<span class="c1"># View individual metrics</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;SNR range: </span><span class="si">{</span><span class="n">quality</span><span class="p">[</span><span class="s1">&#39;snr&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> - </span><span class="si">{</span><span class="n">quality</span><span class="p">[</span><span class="s1">&#39;snr&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Best neuron score: </span><span class="si">{</span><span class="n">quality</span><span class="p">[</span><span class="s1">&#39;score&#39;</span><span class="p">][</span><span class="n">sort_idx</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># Plot top 50 neurons</span>
+<span class="n">lsp</span><span class="o">.</span><span class="n">plot_traces</span><span class="p">(</span>
+    <span class="n">F_sorted</span><span class="p">,</span>
+    <span class="n">num_neurons</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>
+    <span class="n">fps</span><span class="o">=</span><span class="mf">30.0</span><span class="p">,</span>
+    <span class="n">scale_bar_label</span><span class="o">=</span><span class="s2">&quot;Raw F&quot;</span><span class="p">,</span>
+    <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Top 50 Neurons by Quality Score&quot;</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Custom Weights:</strong></p>
+<p>Adjust weights based on your priorities:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Prioritize low noise over skewness</span>
+<span class="n">quality</span> <span class="o">=</span> <span class="n">lsp</span><span class="o">.</span><span class="n">compute_trace_quality_score</span><span class="p">(</span>
+    <span class="n">F</span><span class="p">,</span> <span class="n">Fneu</span><span class="p">,</span> <span class="n">stat</span><span class="p">,</span> <span class="n">fs</span><span class="o">=</span><span class="mf">30.0</span><span class="p">,</span>
+    <span class="n">weights</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;snr&#39;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span> <span class="s1">&#39;skewness&#39;</span><span class="p">:</span> <span class="mf">0.3</span><span class="p">,</span> <span class="s1">&#39;shot_noise&#39;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">}</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="activity-f-f-traces">
+<span id="understanding-ff-traces"></span><h4>Activity ΔF/F Traces<a class="headerlink" href="#activity-f-f-traces" title="Link to this heading">#</a></h4>
+<p>The ΔF/F (delta F over F) traces in <code class="docutils literal notranslate"><span class="pre">08_traces_dff.png</span></code> show the change in fluorescence normalized by baseline. This is the standard metric for comparing neural activity across cells and experiments.</p>
+<p><strong>Window Size Selection for ΔF/F:</strong></p>
+<p>The <code class="docutils literal notranslate"><span class="pre">dff_window_size</span></code> parameter controls the rolling window used to estimate baseline F₀. Choosing the right window size is critical:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>window_size = 10 × tau × framerate
+</pre></div>
+</div>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Indicator</p></th>
+<th class="head"><p>Tau (s)</p></th>
+<th class="head"><p>Framerate</p></th>
+<th class="head"><p>Recommended Window</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>GCaMP6f</p></td>
+<td><p>0.7</p></td>
+<td><p>30 Hz</p></td>
+<td><p>~210 frames</p></td>
+</tr>
+<tr class="row-odd"><td><p>GCaMP6s</p></td>
+<td><p>1.8</p></td>
+<td><p>30 Hz</p></td>
+<td><p>~540 frames</p></td>
+</tr>
+<tr class="row-even"><td><p>GCaMP7s</p></td>
+<td><p>1.0</p></td>
+<td><p>17 Hz</p></td>
+<td><p>~170 frames</p></td>
+</tr>
+<tr class="row-odd"><td><p>GCaMP8f</p></td>
+<td><p>0.25</p></td>
+<td><p>30 Hz</p></td>
+<td><p>~75 frames</p></td>
+</tr>
+<tr class="row-even"><td><p>GCaMP8s</p></td>
+<td><p>0.5</p></td>
+<td><p>30 Hz</p></td>
+<td><p>~150 frames</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Why 10× tau × framerate?</strong></p>
+<ul class="simple">
+<li><p>The window must span <strong>multiple calcium transients</strong> so the percentile filter can find true baseline between events</p></li>
+<li><p>Too small: baseline contaminated by transients → underestimated ΔF/F</p></li>
+<li><p>Too large: slow drifts not tracked → baseline mismatch</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Example: GCaMP7s at 17 Hz</span>
+<span class="n">tau</span> <span class="o">=</span> <span class="mf">1.0</span>  <span class="c1"># seconds</span>
+<span class="n">fs</span> <span class="o">=</span> <span class="mf">17.0</span>  <span class="c1"># Hz</span>
+<span class="n">window_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mi">10</span> <span class="o">*</span> <span class="n">tau</span> <span class="o">*</span> <span class="n">fs</span><span class="p">)</span>  <span class="c1"># = 170 frames</span>
+
+<span class="n">dff</span> <span class="o">=</span> <span class="n">lsp</span><span class="o">.</span><span class="n">dff_rolling_percentile</span><span class="p">(</span><span class="n">F</span><span class="p">,</span> <span class="n">window_size</span><span class="o">=</span><span class="n">window_size</span><span class="p">,</span> <span class="n">percentile</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="shot-noise-levels">
+<h4>Shot Noise Levels<a class="headerlink" href="#shot-noise-levels" title="Link to this heading">#</a></h4>
+<p>The noise histograms (<code class="docutils literal notranslate"><span class="pre">10_noise_accepted.png</span></code>, <code class="docutils literal notranslate"><span class="pre">11_noise_rejected.png</span></code>) show <strong>standardized shot noise levels</strong> for each ROI. This metric helps you:</p>
+<ul class="simple">
+<li><p>Compare noise levels across datasets, recordings, and experiments</p></li>
+<li><p>Identify problematic ROIs with unusually high noise</p></li>
+<li><p>Assess overall recording quality</p></li>
+</ul>
+<p><strong>Shot Noise Formula:</strong></p>
+<div class="math notranslate nohighlight">
+\[\nu = \frac{\mathrm{median}_t\left( \left| \frac{\Delta F_t}{F_0} - \frac{\Delta F_{t+1}}{F_0} \right| \right)}{\sqrt{f_r}}\]</div>
+<ul class="simple">
+<li><p><strong>Median of frame-to-frame differences</strong>: Takes advantage of slow calcium dynamics (adjacent frames should be similar)</p></li>
+<li><p><strong>Median (not mean)</strong>: Excludes outliers from fast transient onsets</p></li>
+<li><p><strong>Normalized by √framerate</strong>: Makes metric comparable across different acquisition rates</p></li>
+</ul>
+<p><strong>Interpreting Noise Values:</strong></p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Noise Level</p></th>
+<th class="head"><p>Quality</p></th>
+<th class="head"><p>Interpretation</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>&lt; 0.5 %/√Hz</p></td>
+<td><p>Excellent</p></td>
+<td><p>Very clean signal</p></td>
+</tr>
+<tr class="row-odd"><td><p>0.5-1.0 %/√Hz</p></td>
+<td><p>Good</p></td>
+<td><p>Typical for healthy recordings</p></td>
+</tr>
+<tr class="row-even"><td><p>1.0-2.0 %/√Hz</p></td>
+<td><p>Fair</p></td>
+<td><p>May need filtering or careful analysis</p></td>
+</tr>
+<tr class="row-odd"><td><p>&gt; 2.0 %/√Hz</p></td>
+<td><p>Poor</p></td>
+<td><p>Consider excluding or investigating</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Conditional outputs (if <code class="docutils literal notranslate"><span class="pre">chan2_file</span></code> provided):</strong></p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>File</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">data_chan2.bin</span></code></p></td>
+<td><p>Raw structural channel</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">data_chan2_reg.bin</span></code></p></td>
+<td><p>Registered structural channel</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">F_chan2.npy</span></code></p></td>
+<td><p>Channel 2 fluorescence</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Fneu_chan2.npy</span></code></p></td>
+<td><p>Channel 2 neuropil</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+</section>
+<section id="volumetric-pipeline">
+<h2>Volumetric Pipeline<a class="headerlink" href="#volumetric-pipeline" title="Link to this heading">#</a></h2>
+<p>Instead of a single file, provide a list of z-planes or a directory:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">results</span> <span class="o">=</span> <span class="n">lsp</span><span class="o">.</span><span class="n">pipeline</span><span class="p">(</span>
+    <span class="n">input_data</span><span class="o">=</span><span class="s2">&quot;D:/data/volume&quot;</span><span class="p">,</span>    <span class="c1"># directory or list of plane files</span>
+    <span class="n">save_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>                 <span class="c1"># default: save next to input</span>
+    <span class="n">ops</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>                       <span class="c1"># default: use MBO-optimized parameters</span>
+    <span class="n">planes</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>                    <span class="c1"># default: process all planes (1-indexed)</span>
+    <span class="n">roi_mode</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>                  <span class="c1"># default: stitch multi-ROI data</span>
+    <span class="n">keep_reg</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>                  <span class="c1"># default: keep data.bin (registered binary)</span>
+    <span class="n">keep_raw</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>                 <span class="c1"># default: delete data_raw.bin after processing</span>
+    <span class="n">force_reg</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>                <span class="c1"># default: skip if already registered</span>
+    <span class="n">force_detect</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>             <span class="c1"># default: skip if stat.npy exists</span>
+    <span class="n">num_timepoints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>            <span class="c1"># default: use all frames</span>
+    <span class="n">dff_window_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>           <span class="c1"># default: auto-calculate from tau and framerate</span>
+    <span class="n">dff_percentile</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>              <span class="c1"># default: 20th percentile for baseline</span>
+    <span class="n">dff_smooth_window</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>         <span class="c1"># default: auto-calculate from tau and framerate</span>
+    <span class="n">save_json</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>                <span class="c1"># default: only save ops.npy</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<section id="volumetric-outputs">
+<h3>Volumetric Outputs<a class="headerlink" href="#volumetric-outputs" title="Link to this heading">#</a></h3>
+<p>When processing multiple planes with <code class="docutils literal notranslate"><span class="pre">lsp.pipeline()</span></code>, additional files are generated in the root save directory:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>File</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">all_planes_masks.png</span></code></p></td>
+<td><p>Grid showing ROI masks overlaid on mean images for all planes</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">volume_quality_metrics.png</span></code></p></td>
+<td><p>Compactness, skewness, ROI size, and radius per plane (mean ± std)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">volume_trace_analysis.png</span></code></p></td>
+<td><p>Example traces, SNR and fluorescence per plane, activity heatmap</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">volume_summary.csv</span></code></p></td>
+<td><p>Per-plane statistics table (ROIs, SNR, acceptance rate)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">mean_volume_signal.png</span></code></p></td>
+<td><p>Mean signal intensity across z-depth</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">rastermap.png</span></code></p></td>
+<td><p>Activity sorted by similarity across all planes</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">orthoslices.png</span></code></p></td>
+<td><p>Orthogonal slices through the volume (XY, XZ, YZ)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">roi_map_3d_snr.png</span></code></p></td>
+<td><p>3D scatter plot of ROI centroids colored by SNR</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">volume_stats.npy</span></code></p></td>
+<td><p>Per-plane statistics dictionary</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<section id="all-planes-masks">
+<h4>All Planes Masks<a class="headerlink" href="#all-planes-masks" title="Link to this heading">#</a></h4>
+<figure class="align-default" id="ug-fig-all-planes">
+<a class="reference internal image-reference" href="_images/all_planes_masks.png"><img alt="All Planes Masks" src="_images/all_planes_masks.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text"><strong>ROI masks across all z-planes</strong> arranged in a grid. Each panel shows the enhanced mean image with segmentation overlay for one plane. Use this to quickly assess segmentation quality across the entire volume and identify planes with poor detection.</span><a class="headerlink" href="#ug-fig-all-planes" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="orthogonal-slices">
+<h4>Orthogonal Slices<a class="headerlink" href="#orthogonal-slices" title="Link to this heading">#</a></h4>
+<figure class="align-default" id="ug-fig-orthoslices">
+<a class="reference internal image-reference" href="_images/orthoslices.png"><img alt="Orthoslices" src="_images/orthoslices.png" style="width: 80%;" />
+</a>
+<figcaption>
+<p><span class="caption-text"><strong>Orthogonal slices</strong> through the mean intensity volume. Shows XY (axial), XZ (coronal), and YZ (sagittal) views with crosshairs indicating the slice positions. Useful for verifying volume alignment and identifying depth-dependent signal changes.</span><a class="headerlink" href="#ug-fig-orthoslices" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="d-roi-map">
+<h4>3D ROI Map<a class="headerlink" href="#d-roi-map" title="Link to this heading">#</a></h4>
+<figure class="align-default" id="ug-fig-roi-3d">
+<a class="reference internal image-reference" href="_images/roi_map_3d.png"><img alt="3D ROI Map" src="_images/roi_map_3d.png" style="width: 80%;" />
+</a>
+<figcaption>
+<p><span class="caption-text"><strong>3D scatter plot of ROI centroids</strong> with each point representing a detected cell. Points are colored by SNR (signal-to-noise ratio), revealing the spatial distribution of signal quality through the volume. Brighter colors indicate higher quality cells.</span><a class="headerlink" href="#ug-fig-roi-3d" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="volume-trace-analysis">
+<h4>Volume Trace Analysis<a class="headerlink" href="#volume-trace-analysis" title="Link to this heading">#</a></h4>
+<figure class="align-default" id="ug-fig-vol-trace">
+<a class="reference internal image-reference" href="_images/volume_trace_analysis.png"><img alt="Volume Trace Analysis" src="_images/volume_trace_analysis.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text"><strong>Volume-wide trace analysis</strong> combining multiple views:</span><a class="headerlink" href="#ug-fig-vol-trace" title="Link to this image">#</a></p>
+<div class="legend">
+<ul class="simple">
+<li><p><strong>Left</strong>: Example ΔF/F traces from representative cells across planes</p></li>
+<li><p><strong>Middle</strong>: SNR and mean fluorescence as a function of z-depth</p></li>
+<li><p><strong>Right</strong>: Activity heatmap showing temporal patterns across all cells</p></li>
+</ul>
+<p>This visualization helps identify depth-dependent signal quality and synchronized activity patterns.</p>
+</div>
+</figcaption>
+</figure>
+</section>
+<section id="rastermap-volume-wide">
+<h4>Rastermap (Volume-wide)<a class="headerlink" href="#rastermap-volume-wide" title="Link to this heading">#</a></h4>
+<figure class="align-default" id="ug-fig-rastermap-vol">
+<a class="reference internal image-reference" href="_images/rastermap.png"><img alt="Rastermap" src="_images/rastermap.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text"><strong>Activity sorted by similarity</strong> using the <a class="reference external" href="https://github.com/MouseLand/rastermap">Rastermap</a> algorithm. Cells from all planes are combined and reordered so that neurons with similar activity patterns appear adjacent. This reveals functional clusters and population dynamics that may span multiple z-planes.</span><a class="headerlink" href="#ug-fig-rastermap-vol" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</section>
+</section>
+<section id="registration-quality-metrics">
+<h3>Registration Quality Metrics<a class="headerlink" href="#registration-quality-metrics" title="Link to this heading">#</a></h3>
+<p><strong>Requires at least 1500 frames per plane</strong></p>
+<p>Each plane directory contains PC-based registration quality metrics in <code class="docutils literal notranslate"><span class="pre">pc_metrics/</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>{plane_dir}/pc_metrics/
+├── pc_metrics.csv              # Summary statistics
+├── pc_metrics_panels.tif       # PC spatial patterns (Low/High)
+└── pc_metrics_raw.npy          # Raw regDX array (5, 3)
+</pre></div>
+</div>
+<p><strong>PC metrics visualization</strong>: Top and bottom temporal halves for each principal component, showing spatial patterns used to assess registration quality.</p>
+<p><strong>Example PC metrics table</strong> (<code class="docutils literal notranslate"><span class="pre">pc_metrics.csv</span></code>):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>   Rigid    Avg_NR    Max_NR
+0    0.0  0.072801  0.316228   ← PC1 (strongest spatial pattern)
+1    0.0  0.027177  0.141421   ← PC2
+2    0.0  0.039081  0.200000   ← PC3
+3    0.0  0.020034  0.141421   ← PC4
+4    0.0  0.018639  0.141421   ← PC5 (weakest pattern)
+</pre></div>
+</div>
+<p><strong>What this means:</strong></p>
+<ul class="simple">
+<li><p><strong>Rows 0-4</strong>: First 5 Principal Components of the registered movie</p></li>
+<li><p><strong>Rigid</strong>: Global shift between temporal halves (pixels)</p></li>
+<li><p><strong>Avg_NR</strong>: Average non-rigid shift across blocks (pixels)</p></li>
+<li><p><strong>Max_NR</strong>: Maximum non-rigid shift across blocks (pixels)</p></li>
+</ul>
+<p><strong>Lower values = Better registration quality</strong></p>
+<p><strong>Quality Benchmarks:</strong></p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Metric</p></th>
+<th class="head"><p>Excellent</p></th>
+<th class="head"><p>Good</p></th>
+<th class="head"><p>Fair</p></th>
+<th class="head"><p>Poor</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Rigid</strong></p></td>
+<td><p>&lt; 0.1</p></td>
+<td><p>0.1-0.3</p></td>
+<td><p>0.3-0.5</p></td>
+<td><p>&gt; 0.5</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Avg_NR</strong></p></td>
+<td><p>&lt; 0.1</p></td>
+<td><p>0.1-0.2</p></td>
+<td><p>0.2-0.4</p></td>
+<td><p>&gt; 0.4</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Max_NR</strong></p></td>
+<td><p>&lt; 0.5</p></td>
+<td><p>0.5-1.0</p></td>
+<td><p>1.0-2.0</p></td>
+<td><p>&gt; 2.0</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><em>All values in pixels</em></p>
+<p><strong>Interpreting the example above:</strong></p>
+<ul class="simple">
+<li><p><strong>Rigid = 0.0</strong>: ✅ Excellent! No global shifts detected</p></li>
+<li><p><strong>Avg_NR = 0.02-0.07</strong>: ✅ Excellent! Very small local motion</p></li>
+<li><p><strong>Max_NR = 0.14-0.32</strong>: ✅ Good! Maximum block shifts well-controlled</p></li>
+</ul>
+<p><strong>Common questions:</strong></p>
+<ul class="simple">
+<li><p><strong>Why is Rigid=0 for all PCs?</strong> All PCs have negligible global shifts (&lt; 0.001 pixels, rounded to 0.0)</p></li>
+<li><p><strong>Why do PC3 and PC4 have similar values?</strong> Later PCs capture weaker spatial patterns and often have similar residual motion characteristics</p></li>
+<li><p><strong>Why do I see non-rigid metrics when <code class="docutils literal notranslate"><span class="pre">nonrigid=False</span></code>?</strong> PC metrics always measure potential non-rigid motion to assess registration quality, even if non-rigid registration wasn’t performed</p></li>
+</ul>
+<p><strong>For detailed explanation</strong>, see <a class="reference external" href="https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/blob/master/docs/REGISTRATION_METRICS_EXPLAINED.md">Registration Metrics Guide</a>.</p>
+</section>
+<section id="loading-results">
+<h3>Loading Results<a class="headerlink" href="#loading-results" title="Link to this heading">#</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">lbm_suite2p_python</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_planar_results</span><span class="p">,</span> <span class="n">dff_rolling_percentile</span>
+
+<span class="c1"># Load a single plane&#39;s results</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">load_planar_results</span><span class="p">(</span><span class="n">ops_path</span><span class="p">,</span> <span class="n">z_plane</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="c1"># Returns dict with: F, Fneu, spks, stat, iscell, z_plane</span>
+<span class="c1"># iscell is (n_rois, 2): column 0 is classification (0/1), column 1 is probability</span>
+
+<span class="c1"># Calculate ΔF/F with rolling percentile baseline</span>
+<span class="n">dff</span> <span class="o">=</span> <span class="n">dff_rolling_percentile</span><span class="p">(</span>
+    <span class="n">results</span><span class="p">[</span><span class="s1">&#39;F&#39;</span><span class="p">],</span>
+    <span class="n">window_size</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>  <span class="c1"># frames</span>
+    <span class="n">percentile</span><span class="o">=</span><span class="mi">20</span>     <span class="c1"># baseline percentile</span>
+<span class="p">)</span>
+
+<span class="c1"># Filter for accepted cells only</span>
+<span class="n">iscell_mask</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;iscell&#39;</span><span class="p">][:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span>
+<span class="n">F_cells</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;F&#39;</span><span class="p">][</span><span class="n">iscell_mask</span><span class="p">]</span>
+<span class="n">spks_cells</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;spks&#39;</span><span class="p">][</span><span class="n">iscell_mask</span><span class="p">]</span>
+</pre></div>
+</div>
+<hr class="docutils" />
+</section>
+</section>
+<section id="critical-parameters">
+<span id="parameters"></span><h2>Critical Parameters<a class="headerlink" href="#critical-parameters" title="Link to this heading">#</a></h2>
+<p>Understanding key Suite2p parameters is essential for good segmentation results.</p>
+<div class="tip admonition">
+<p class="admonition-title">Recommended: Anatomical Segmentation</p>
+<p>For LBM data, we recommend <strong>anatomical segmentation with Cellpose</strong> over functional detection. Anatomical detection uses structural features (cell morphology) rather than activity correlations, which works better for densely labeled tissue and datasets with variable activity levels.</p>
+</div>
+<section id="anatomical-segmentation-cellpose-recommended">
+<h3>Anatomical Segmentation (Cellpose) - Recommended<a class="headerlink" href="#anatomical-segmentation-cellpose-recommended" title="Link to this heading">#</a></h3>
+<p>Anatomical segmentation uses <a class="reference external" href="https://www.cellpose.org/">Cellpose</a> to detect cell bodies based on morphology rather than functional activity. This is the recommended approach for LBM data.</p>
+<section id="quick-start-anatomical-detection">
+<h4>Quick Start: Anatomical Detection<a class="headerlink" href="#quick-start-anatomical-detection" title="Link to this heading">#</a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ops</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;algorithm&quot;</span><span class="p">:</span> <span class="s2">&quot;cellpose&quot;</span><span class="p">,</span>        <span class="c1"># enable Cellpose</span>
+    <span class="s2">&quot;img&quot;</span><span class="p">:</span> <span class="s2">&quot;max_proj / meanImg&quot;</span><span class="p">,</span>    <span class="c1"># detection image (default)</span>
+    <span class="s2">&quot;spatial_hp_cp&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>             <span class="c1"># spatial high-pass (sharpening)</span>
+    <span class="s2">&quot;diameter&quot;</span><span class="p">:</span> <span class="mi">6</span><span class="p">,</span>                  <span class="c1"># expected cell diameter in pixels</span>
+    <span class="s2">&quot;cellprob_threshold&quot;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>      <span class="c1"># cell probability threshold</span>
+    <span class="s2">&quot;flow_threshold&quot;</span><span class="p">:</span> <span class="mf">0.4</span><span class="p">,</span>          <span class="c1"># flow error threshold</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="algorithm-default-sparsery-and-img-default-max-proj-meanimg">
+<h4><code class="docutils literal notranslate"><span class="pre">algorithm</span></code> (default: <code class="docutils literal notranslate"><span class="pre">&quot;sparsery&quot;</span></code>) and <code class="docutils literal notranslate"><span class="pre">img</span></code> (default: <code class="docutils literal notranslate"><span class="pre">&quot;max_proj</span> <span class="pre">/</span> <span class="pre">meanImg&quot;</span></code>)<a class="headerlink" href="#algorithm-default-sparsery-and-img-default-max-proj-meanimg" title="Link to this heading">#</a></h4>
+<p>Set <code class="docutils literal notranslate"><span class="pre">algorithm=&quot;cellpose&quot;</span></code> to enable anatomical detection, then choose the image Cellpose segments with <code class="docutils literal notranslate"><span class="pre">img</span></code>:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p><code class="docutils literal notranslate"><span class="pre">img</span></code></p></th>
+<th class="head"><p>Image used</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;max_proj</span> <span class="pre">/</span> <span class="pre">meanImg&quot;</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">log(max_proj</span> <span class="pre">/</span> <span class="pre">mean_img)</span></code></p></td>
+<td><p><strong>default</strong>; ratio highlighting active areas</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;meanImg&quot;</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">mean_img</span></code></p></td>
+<td><p>average image over all frames</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;max_proj&quot;</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">max_proj</span></code></p></td>
+<td><p>maximum projection across frames</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ops</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;algorithm&quot;</span><span class="p">:</span> <span class="s2">&quot;cellpose&quot;</span><span class="p">,</span> <span class="s2">&quot;img&quot;</span><span class="p">:</span> <span class="s2">&quot;meanImg&quot;</span><span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="anatomical-only-legacy-default-0">
+<h4><code class="docutils literal notranslate"><span class="pre">anatomical_only</span></code> (legacy, default: 0)<a class="headerlink" href="#anatomical-only-legacy-default-0" title="Link to this heading">#</a></h4>
+<p>The integer <code class="docutils literal notranslate"><span class="pre">anatomical_only</span></code> is still accepted and maps to <code class="docutils literal notranslate"><span class="pre">algorithm</span></code> / <code class="docutils literal notranslate"><span class="pre">img</span></code>:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Value</p></th>
+<th class="head"><p>Maps to</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>functional</p></td>
+<td><p>correlation-based detection</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">img=&quot;max_proj</span> <span class="pre">/</span> <span class="pre">meanImg&quot;</span></code></p></td>
+<td><p>ratio (default cellpose image)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">2</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">img=&quot;meanImg&quot;</span></code></p></td>
+<td><p>average image</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">3</span></code></p></td>
+<td><p><em>removed</em></p></td>
+<td><p>enhanced mean removed from suite2p; warns and maps to <code class="docutils literal notranslate"><span class="pre">1</span></code>. Use <code class="docutils literal notranslate"><span class="pre">spatial_hp_cp</span></code> to sharpen</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">4</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">img=&quot;max_proj&quot;</span></code></p></td>
+<td><p>maximum projection</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="diameter-default-0">
+<h4><code class="docutils literal notranslate"><span class="pre">diameter</span></code> (default: 0)<a class="headerlink" href="#diameter-default-0" title="Link to this heading">#</a></h4>
+<p>Expected cell diameter in pixels. <strong>Required for Cellpose</strong>.</p>
+<ul class="simple">
+<li><p><strong>0</strong>: Auto-estimate (Suite2p default, but not recommended for Cellpose)</p></li>
+<li><p><strong>4-8</strong>: Typical for LBM data at 2 µm/pixel resolution</p></li>
+<li><p><strong>LBM override</strong>: If <code class="docutils literal notranslate"><span class="pre">diameter</span></code> is 0/None/NaN and Cellpose is enabled, LBM sets it to 8</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ops</span><span class="p">[</span><span class="s2">&quot;diameter&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">6</span>  <span class="c1"># For ~12 µm cells at 2 µm/pixel</span>
+</pre></div>
+</div>
+</section>
+<section id="cellprob-threshold-default-0-0">
+<h4><code class="docutils literal notranslate"><span class="pre">cellprob_threshold</span></code> (default: 0.0)<a class="headerlink" href="#cellprob-threshold-default-0-0" title="Link to this heading">#</a></h4>
+<p>Probability threshold from Cellpose output to determine cell boundaries. More negative values include more pixels.</p>
+<ul class="simple">
+<li><p><strong>0.0</strong>: Standard threshold</p></li>
+<li><p><strong>-2.0</strong>: More permissive (include dimmer cells)</p></li>
+<li><p><strong>2.0</strong>: More stringent (only bright, clear cells)</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ops</span><span class="p">[</span><span class="s2">&quot;cellprob_threshold&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>  <span class="c1"># Standard</span>
+</pre></div>
+</div>
+</section>
+<section id="flow-threshold-default-0-4">
+<h4><code class="docutils literal notranslate"><span class="pre">flow_threshold</span></code> (default: 0.4)<a class="headerlink" href="#flow-threshold-default-0-4" title="Link to this heading">#</a></h4>
+<p>Maximum Cellpose flow error allowed for a mask. Higher values keep more (lower-quality) ROIs.</p>
+<ul class="simple">
+<li><p><strong>0.4</strong>: Suite2p / Cellpose default</p></li>
+<li><p><strong>0.1</strong>: More stringent (fewer ROIs)</p></li>
+<li><p><strong>1.5</strong>: More permissive (more ROIs)</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ops</span><span class="p">[</span><span class="s2">&quot;flow_threshold&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.4</span>
+</pre></div>
+</div>
+</section>
+<section id="spatial-hp-cp-default-0">
+<h4><code class="docutils literal notranslate"><span class="pre">spatial_hp_cp</span></code> (default: 0)<a class="headerlink" href="#spatial-hp-cp-default-0" title="Link to this heading">#</a></h4>
+<p>Spatial high-pass applied to the chosen <code class="docutils literal notranslate"><span class="pre">img</span></code> before Cellpose (upstream <code class="docutils literal notranslate"><span class="pre">cellpose_settings.highpass_spatial</span></code>). Multiplies the cell diameter to set the Gaussian sigma; 0 disables it.</p>
+<ul class="simple">
+<li><p><strong>0</strong>: No filtering (default)</p></li>
+<li><p><strong>0.5-3</strong>: Increasing sharpening; removes background gradients</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ops</span><span class="p">[</span><span class="s2">&quot;spatial_hp_cp&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># sharpen the detection image</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="functional-detection-parameters">
+<h3>Functional Detection Parameters<a class="headerlink" href="#functional-detection-parameters" title="Link to this heading">#</a></h3>
+<p>For datasets where anatomical detection doesn’t work well, or when you need activity-based ROI detection, use functional parameters.</p>
+<div class="dropdown admonition">
+<p class="admonition-title">Example Dataset</p>
+<p>Example dataset collected by Will Snyder with Dr. Charles Gilbert &#64; Rockefeller University.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Value</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Date</p></td>
+<td><p>2025-03-06</p></td>
+</tr>
+<tr class="row-odd"><td><p>Virus</p></td>
+<td><p>jGCaMP8s</p></td>
+</tr>
+<tr class="row-even"><td><p>Framerate</p></td>
+<td><p>17 Hz</p></td>
+</tr>
+<tr class="row-odd"><td><p>FOV (Per ROI)</p></td>
+<td><p>448 µm × 896 µm</p></td>
+</tr>
+<tr class="row-even"><td><p>Resolution</p></td>
+<td><p>2 µm × 2 µm × 16 µm</p></td>
+</tr>
+<tr class="row-odd"><td><p>Num-Planes</p></td>
+<td><p>14</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<section id="visual-parameter-comparisons">
+<h4>Visual Parameter Comparisons<a class="headerlink" href="#visual-parameter-comparisons" title="Link to this heading">#</a></h4>
+<p>To see the effect of each parameter on segmentation results, it’s helpful to start with default parameters as a baseline.</p>
+<figure class="align-default" id="fig-default-params">
+<img alt="Default parameter segmentation results" src="_images/default_parameters.png" />
+<figcaption>
+<p><span class="caption-text">Default parameters yield <strong>324</strong> accepted and <strong>737</strong> rejected neurons.</span><a class="headerlink" href="#fig-default-params" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+<p>Visually it may be evident that we’re missing a few obvious cells:</p>
+<figure class="align-default" id="fig-default-params-subset">
+<img alt="Zoomed view showing missed cells" src="_images/default_parameters_subset.png" />
+<figcaption>
+<p><span class="caption-text">Zoomed view showing several obvious cells that were not detected with default parameters.</span><a class="headerlink" href="#fig-default-params-subset" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+<p>There are generally 2 approaches toward curating a final dataset:</p>
+<ol class="arabic simple">
+<li><p><strong>Approach 1</strong>: Tune parameters, thresholds and scaling factors to properly model your dataset</p></li>
+<li><p><strong>Approach 2</strong>: Use thresholds that maximize the number of cells detected, and use post-hoc correlation/spatial measures to curate cells</p></li>
+</ol>
+</section>
+<section id="threshold-scaling-default-1-0">
+<h4><code class="docutils literal notranslate"><span class="pre">threshold_scaling</span></code> (default: 1.0)<a class="headerlink" href="#threshold-scaling-default-1-0" title="Link to this heading">#</a></h4>
+<p>Multiplier for detection threshold. <strong>Lower values detect more ROIs.</strong></p>
+<ul class="simple">
+<li><p><strong>0.8-1.2</strong>: Good starting range</p></li>
+<li><p><strong>&lt;0.8</strong>: May detect noise/background</p></li>
+<li><p><strong>&gt;1.5</strong>: May miss dim cells</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ops</span><span class="p">[</span><span class="s2">&quot;threshold_scaling&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.9</span>  <span class="c1"># More sensitive detection</span>
+</pre></div>
+</div>
+<figure class="align-default" id="fig-threshold-scaling">
+<img alt="Effect of threshold_scaling on detected cells" src="_images/default_params_thr.png" />
+<figcaption>
+<p><span class="caption-text">Effect of varying <code class="docutils literal notranslate"><span class="pre">threshold_scaling</span></code> on detected cells. Notably, increasing this threshold actually led to several cells being detected that were not otherwise detected, and vice-versa.</span><a class="headerlink" href="#fig-threshold-scaling" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="tau-default-1-0">
+<h4><code class="docutils literal notranslate"><span class="pre">tau</span></code> (default: 1.0)<a class="headerlink" href="#tau-default-1-0" title="Link to this heading">#</a></h4>
+<p>Calcium indicator decay time constant in seconds. <strong>Critical for binning and deconvolution.</strong></p>
+<p>GCaMP expression is slow, often taking between 100 ms to over 1 second for the signal to rise and decay. This is the timescale of the sensor, in seconds. We need this value because one of the main performance optimizations is <a class="reference external" href="https://en.wikipedia.org/wiki/Data_binning">binning</a>. We can bin our data <strong>because of this slow timescale</strong> - we set the bin-size to our sensor’s timescale because we expect all frames in this window to be the same (on average).</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Indicator</p></th>
+<th class="head"><p>Tau (seconds)</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>GCaMP6f</p></td>
+<td><p>0.7-1.0</p></td>
+</tr>
+<tr class="row-odd"><td><p>GCaMP6s</p></td>
+<td><p>1.5-2.0</p></td>
+</tr>
+<tr class="row-even"><td><p>GCaMP7/8 variants</p></td>
+<td><p>~1.0</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>When in doubt, round up!</strong></p>
+<p>Determines bin size: <code class="docutils literal notranslate"><span class="pre">bin_size</span> <span class="pre">=</span> <span class="pre">tau</span> <span class="pre">*</span> <span class="pre">fs</span></code></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ops</span><span class="p">[</span><span class="s2">&quot;tau&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>  <span class="c1"># For GCaMP6f/8 at 17 Hz → ~17 frames/bin</span>
+</pre></div>
+</div>
+<figure class="align-default" id="fig-tau-effect">
+<img alt="Effect of tau on detected cells" src="_images/default_parameters_tau.png" />
+<figcaption>
+<p><span class="caption-text">Effect of varying <code class="docutils literal notranslate"><span class="pre">tau</span></code> on segmentation results. Changing tau has a dramatic influence on detection.</span><a class="headerlink" href="#fig-tau-effect" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+<div class="dropdown admonition">
+<p class="admonition-title">Preview Binned Movie using Tau and Framerate</p>
+<p>You can preview the movie as it will be binned like so:</p>
+<p>```python
+import numpy as np
+import suite2p</p>
+<p>nframes = metadata[“num_frames”]
+bin_size = int(max(1, nframes // ops[“nbinned”], np.round(ops[“tau”] * ops[“fs”])))</p>
+<p>ops = lsp.load_ops(r”./grid_search/registration/two0/plane0/ops.npy”)
+bin_path = r”./grid_search/registration/two0/plane0/data.bin”</p>
+<p>with suite2p.io.BinaryFile(filename=bin_path, Ly=ops[“Ly”], Lx=ops[“Lx”]) as f:
+binned_data = f.bin_movie(
+bin_size=bin_size,
+bad_frames=ops.get(“badframes”),
+y_range=ops[“yrange”],
+x_range=ops[“xrange”],
+)
+```</p>
+</div>
+</section>
+<section id="max-overlap-default-0-75">
+<h4><code class="docutils literal notranslate"><span class="pre">max_overlap</span></code> (default: 0.75)<a class="headerlink" href="#max-overlap-default-0-75" title="Link to this heading">#</a></h4>
+<p>Maximum allowed spatial overlap between ROIs (0-1). If two masks overlap by a fraction &gt; max_overlap, they will be discarded/rejected.</p>
+<ul class="simple">
+<li><p><strong>0.75</strong>: Default, reject ROIs with &gt;75% overlap</p></li>
+<li><p><strong>1.0</strong>: Keep all overlapping ROIs</p></li>
+<li><p><strong>0.5</strong>: More stringent overlap rejection</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ops</span><span class="p">[</span><span class="s2">&quot;max_overlap&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.85</span>  <span class="c1"># Allow more overlap for dense regions</span>
+</pre></div>
+</div>
+<figure class="align-default" id="fig-max-overlap">
+<img alt="Effect of max_overlap on detected cells" src="_images/default_parameters_max_overlap.png" />
+<figcaption>
+<p><span class="caption-text">Effect of varying <code class="docutils literal notranslate"><span class="pre">max_overlap</span></code> on detected cells.</span><a class="headerlink" href="#fig-max-overlap" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="spatial-hp-detect-default-25">
+<h4><code class="docutils literal notranslate"><span class="pre">spatial_hp_detect</span></code> (default: 25)<a class="headerlink" href="#spatial-hp-detect-default-25" title="Link to this heading">#</a></h4>
+<p>Gaussian filter size applied during functional cell detection to reduce background noise.</p>
+<p>A good value for <code class="docutils literal notranslate"><span class="pre">spatial_hp_detect</span></code> will decrease the brightness of the background while increasing the contrast between background and neuron.</p>
+<figure class="align-default" id="fig-spatial-hp">
+<img alt="Effect of spatial_hp_detect on detected cells" src="_images/default_parameters_spatial_hp_detect.png" />
+<figcaption>
+<p><span class="caption-text">Effect of varying <code class="docutils literal notranslate"><span class="pre">spatial_hp_detect</span></code> on detected cells.</span><a class="headerlink" href="#fig-spatial-hp" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Physiologically relevant values for spatial high-pass filters are one of the biggest factors in quality detection.
+It is additionally very easy to set this value in such a way that 0 cells will be detected.
+A grid search is likely the most efficient way to test for the best spatial filter size.</p>
+</div>
+</section>
+</section>
+<section id="registration-parameters">
+<h3>Registration Parameters<a class="headerlink" href="#registration-parameters" title="Link to this heading">#</a></h3>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The terms motion-correction and registration are often used interchangeably.
+Similarly, non-rigid and piecewise-rigid are often used interchangeably.
+Here, piecewise-rigid registration is the <strong>method</strong> used to correct for non-rigid motion.</p>
+</div>
+<p>We use <a class="reference external" href="https://suite2p.readthedocs.io/en/latest/registration.html">Suite2p Registration</a> to ensure spatial alignment across all frames in a movie. This means a neuron that appears in one location in frame 0 remains in the same spot in frame N.</p>
+<p>Suite2p first runs rigid registration (frame-wide shifts using phase correlation), followed by optional non-rigid registration (local shifts in blocks).</p>
+<div class="tip admonition">
+<p class="admonition-title">Recommended tuning</p>
+<ul class="simple">
+<li><p>Increase <code class="docutils literal notranslate"><span class="pre">nimg_init</span></code> if your template looks noisy or blurry</p></li>
+<li><p>If there is remaining motion after rigid, try <code class="docutils literal notranslate"><span class="pre">nonrigid</span> <span class="pre">=</span> <span class="pre">True</span></code></p></li>
+<li><p>If registration looks unstable, try decreasing <code class="docutils literal notranslate"><span class="pre">maxregshift</span></code> or <code class="docutils literal notranslate"><span class="pre">maxregshiftNR</span></code></p></li>
+</ul>
+</div>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>Visual inspection trumps all. Even if registration metrics look good, double check the video. And if it looks good but metrics are high, trust your eyes.</p>
+</div>
+<section id="do-registration-default-1">
+<h4><code class="docutils literal notranslate"><span class="pre">do_registration</span></code> (default: 1)<a class="headerlink" href="#do-registration-default-1" title="Link to this heading">#</a></h4>
+<p>Controls whether to run registration:</p>
+<ul class="simple">
+<li><p><strong>0 or False</strong>: Skip registration entirely</p></li>
+<li><p><strong>1 or True</strong>: Run only if not already done (checks for refImg/meanImg/offsets)</p></li>
+<li><p><strong>2</strong>: Force re-registration even if already completed</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ops</span><span class="p">[</span><span class="s2">&quot;do_registration&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># Automatic: register if needed</span>
+</pre></div>
+</div>
+</section>
+<section id="nonrigid-default-true">
+<h4><code class="docutils literal notranslate"><span class="pre">nonrigid</span></code> (default: True)<a class="headerlink" href="#nonrigid-default-true" title="Link to this heading">#</a></h4>
+<p>Use block-wise non-rigid registration to handle local motion.</p>
+<ul class="simple">
+<li><p><strong>True</strong>: Use non-rigid (recommended for drifting FOV)</p></li>
+<li><p><strong>False</strong>: Use rigid registration only (faster, good for stable FOV)</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ops</span><span class="p">[</span><span class="s2">&quot;nonrigid&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">ops</span><span class="p">[</span><span class="s2">&quot;block_size&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">]</span>  <span class="c1"># Block size for non-rigid</span>
+</pre></div>
+</div>
+</section>
+<section id="align-by-chan-default-1">
+<h4><code class="docutils literal notranslate"><span class="pre">align_by_chan</span></code> (default: 1)<a class="headerlink" href="#align-by-chan-default-1" title="Link to this heading">#</a></h4>
+<p>Which channel to use for registration (1-based indexing):</p>
+<ul class="simple">
+<li><p><strong>1</strong>: Register using functional channel (default)</p></li>
+<li><p><strong>2</strong>: Register using structural channel (requires <code class="docutils literal notranslate"><span class="pre">chan2_file</span></code>)</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Two-channel registration with structural reference</span>
+<span class="n">ops_file</span> <span class="o">=</span> <span class="n">lsp</span><span class="o">.</span><span class="n">run_plane</span><span class="p">(</span>
+    <span class="n">input_path</span><span class="o">=</span><span class="n">functional_file</span><span class="p">,</span>
+    <span class="n">chan2_file</span><span class="o">=</span><span class="n">structural_file</span><span class="p">,</span>  <span class="c1"># Triggers align_by_chan=2</span>
+    <span class="n">ops</span><span class="o">=</span><span class="n">ops</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="maxregshift-default-0-1">
+<h4><code class="docutils literal notranslate"><span class="pre">maxregshift</span></code> (default: 0.1)<a class="headerlink" href="#maxregshift-default-0-1" title="Link to this heading">#</a></h4>
+<p>Maximum allowed registration shift as fraction of frame size.</p>
+<ul class="simple">
+<li><p><strong>0.1</strong>: Allow up to 10% of frame width/height</p></li>
+<li><p><strong>0.05</strong>: More conservative (5%)</p></li>
+<li><p><strong>0.2</strong>: Permissive for large drifts</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ops</span><span class="p">[</span><span class="s2">&quot;maxregshift&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.15</span>  <span class="c1"># Allow 15% shift for large FOV drift</span>
+</pre></div>
+</div>
+</section>
+<section id="registration-output-files">
+<h4>Registration Output Files<a class="headerlink" href="#registration-output-files" title="Link to this heading">#</a></h4>
+<p>Registration produces these files in addition to the main outputs:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>File/Key</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">data.bin</span></code></p></td>
+<td><p>Motion-corrected movie (channel 1)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">data_chan2.bin</span></code></p></td>
+<td><p>Registered channel 2 (if <code class="docutils literal notranslate"><span class="pre">nchannels=2</span></code>)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ops['xoff']</span></code></p></td>
+<td><p>Rigid X shifts for each frame</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ops['yoff']</span></code></p></td>
+<td><p>Rigid Y shifts for each frame</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ops['corrXY']</span></code></p></td>
+<td><p>Phase-correlation scores (frame vs reference)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ops['refImg']</span></code></p></td>
+<td><p>Reference image used for registration</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="registration-metrics-ops-regdx">
+<h4>Registration Metrics (<code class="docutils literal notranslate"><span class="pre">ops['regDX']</span></code>)<a class="headerlink" href="#registration-metrics-ops-regdx" title="Link to this heading">#</a></h4>
+<p>Suite2p computes PC-based metrics to assess registration quality:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Metric</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">regPC</span></code></p></td>
+<td><p>Spatial principal components used for QC</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">tPC</span></code></p></td>
+<td><p>Time courses of principal components</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">regDX</span></code></p></td>
+<td><p>Shift distance between split PCs (lower = better)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>You can compute metrics manually:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">suite2p.registration</span><span class="w"> </span><span class="kn">import</span> <span class="n">metrics</span>
+<span class="n">ops</span> <span class="o">=</span> <span class="n">metrics</span><span class="o">.</span><span class="n">get_pc_metrics</span><span class="p">(</span><span class="n">ops</span><span class="p">,</span> <span class="n">use_red</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="extraction-parameters">
+<h3>Extraction Parameters<a class="headerlink" href="#extraction-parameters" title="Link to this heading">#</a></h3>
+<section id="neucoeff-default-0-7">
+<h4><code class="docutils literal notranslate"><span class="pre">neucoeff</span></code> (default: 0.7)<a class="headerlink" href="#neucoeff-default-0-7" title="Link to this heading">#</a></h4>
+<p>Neuropil subtraction coefficient for deconvolution.</p>
+<ul class="simple">
+<li><p><strong>0.7</strong>: Standard value</p></li>
+<li><p><strong>0.5-1.0</strong>: Typical range</p></li>
+<li><p>Higher values subtract more neuropil</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Corrected fluorescence used in deconvolution:</span>
+<span class="c1"># dF = F - neucoeff * Fneu</span>
+<span class="n">ops</span><span class="p">[</span><span class="s2">&quot;neucoeff&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.7</span>
+</pre></div>
+</div>
+</section>
+<section id="allow-overlap-default-false">
+<h4><code class="docutils literal notranslate"><span class="pre">allow_overlap</span></code> (default: False)<a class="headerlink" href="#allow-overlap-default-false" title="Link to this heading">#</a></h4>
+<p>Whether ROIs can share pixels.</p>
+<ul class="simple">
+<li><p><strong>False</strong>: Overlapping pixels removed (default)</p></li>
+<li><p><strong>True</strong>: Pixels can belong to multiple ROIs (useful for dendrites)</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ops</span><span class="p">[</span><span class="s2">&quot;allow_overlap&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># For overlapping dendritic segments</span>
+</pre></div>
+</div>
+</section>
+<section id="inner-neuropil-radius-default-2">
+<h4><code class="docutils literal notranslate"><span class="pre">inner_neuropil_radius</span></code> (default: 2)<a class="headerlink" href="#inner-neuropil-radius-default-2" title="Link to this heading">#</a></h4>
+<p>Inner radius (pixels) of neuropil annulus around each ROI.</p>
+<ul class="simple">
+<li><p><strong>2</strong>: Standard 2-pixel buffer</p></li>
+<li><p><strong>0</strong>: No buffer (neuropil immediately adjacent)</p></li>
+<li><p><strong>5+</strong>: Larger buffer for very bright cells</p></li>
+</ul>
+</section>
+</section>
+<section id="f-f-parameters">
+<h3>ΔF/F Parameters<a class="headerlink" href="#f-f-parameters" title="Link to this heading">#</a></h3>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>For detailed guidance on choosing <code class="docutils literal notranslate"><span class="pre">window_size</span></code> based on your indicator and framerate, see <a class="reference internal" href="#understanding-ff-traces">Understanding ΔF/F Traces</a> in the Planar Outputs section.</p>
+</div>
+<section id="rolling-percentile-baseline-recommended">
+<h4>Rolling Percentile Baseline (Recommended)<a class="headerlink" href="#rolling-percentile-baseline-recommended" title="Link to this heading">#</a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">lbm_suite2p_python</span><span class="w"> </span><span class="kn">import</span> <span class="n">dff_rolling_percentile</span>
+
+<span class="c1"># Calculate window size: 10 × tau × framerate</span>
+<span class="n">tau</span> <span class="o">=</span> <span class="mf">1.0</span>   <span class="c1"># GCaMP7s decay time constant (seconds)</span>
+<span class="n">fs</span> <span class="o">=</span> <span class="mf">17.0</span>   <span class="c1"># Your acquisition framerate (Hz)</span>
+<span class="n">window_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mi">10</span> <span class="o">*</span> <span class="n">tau</span> <span class="o">*</span> <span class="n">fs</span><span class="p">)</span>  <span class="c1"># = 170 frames</span>
+
+<span class="n">dff</span> <span class="o">=</span> <span class="n">dff_rolling_percentile</span><span class="p">(</span>
+    <span class="n">F</span><span class="p">,</span>
+    <span class="n">window_size</span><span class="o">=</span><span class="n">window_size</span><span class="p">,</span>
+    <span class="n">percentile</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>      <span class="c1"># Use 20th percentile as baseline</span>
+    <span class="n">use_median_floor</span><span class="o">=</span><span class="kc">False</span>  <span class="c1"># Optional: set min F₀ at 1% of median</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Window size rule of thumb:</strong> Use ~10× the indicator decay time constant (tau) × frame rate.
+For example, with jGCaMP7s (tau≈1.0s) at 30Hz: 10 × 1.0 × 30 = 300 frames.
+This ensures the window spans multiple calcium transients so the percentile filter
+can find the baseline between events. See <a class="reference external" href="https://suite2p.readthedocs.io/en/latest/celldetection.html">Suite2p Cell Detection</a> for related binning logic.</p>
+<p><strong>When to use:</strong> Most datasets, handles slow baseline drifts.</p>
+</section>
+<section id="median-filter-baseline">
+<h4>Median Filter Baseline<a class="headerlink" href="#median-filter-baseline" title="Link to this heading">#</a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">lbm_suite2p_python</span><span class="w"> </span><span class="kn">import</span> <span class="n">dff_median_filter</span>
+
+<span class="n">dff</span> <span class="o">=</span> <span class="n">dff_median_filter</span><span class="p">(</span><span class="n">F</span><span class="p">)</span>
+<span class="c1"># Uses 1% of median as F₀ (simple but less adaptive)</span>
+</pre></div>
+</div>
+<p><strong>When to use:</strong> Quick baseline for stable recordings.</p>
+</section>
+<section id="shot-noise-estimation">
+<h4>Shot Noise Estimation<a class="headerlink" href="#shot-noise-estimation" title="Link to this heading">#</a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">lbm_suite2p_python</span><span class="w"> </span><span class="kn">import</span> <span class="n">dff_shot_noise</span>
+
+<span class="n">noise_levels</span> <span class="o">=</span> <span class="n">dff_shot_noise</span><span class="p">(</span><span class="n">dff</span><span class="p">,</span> <span class="n">fr</span><span class="o">=</span><span class="mf">17.0</span><span class="p">)</span>  <span class="c1"># Frame rate in Hz</span>
+<span class="c1"># Returns noise level per neuron in %/√Hz units</span>
+</pre></div>
+</div>
+<p>Quantifies SNR for comparing across datasets.</p>
+</section>
+</section>
+<section id="spike-deconvolution-tau">
+<h3>Spike Deconvolution &amp; Tau<a class="headerlink" href="#spike-deconvolution-tau" title="Link to this heading">#</a></h3>
+<p>Most calcium imaging pipelines model neural activity as an exponential decay process following each spike, making τ (tau) a key hyperparameter.</p>
+<section id="indicator-dynamics">
+<h4>Indicator Dynamics<a class="headerlink" href="#indicator-dynamics" title="Link to this heading">#</a></h4>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p><strong>GCaMP Variant</strong></p></th>
+<th class="head"><p><strong>Optimal Tau (s)</strong></p></th>
+<th class="head"><p><strong>Notes / Sources</strong></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>GCaMP6f (fast)</strong></p></td>
+<td><p>~0.5–0.7 s</p></td>
+<td><p>Suite2p: ~0.7 s. OASIS/CNMF: ~0.5–0.7 s. CaImAn: ~0.4 s.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>GCaMP6m (medium)</strong></p></td>
+<td><p>~1.0–1.25 s</p></td>
+<td><p>Suite2p: ~1.0 s. OASIS: ~1.25 s. CaImAn: ~1.0 s.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>GCaMP6s (slow)</strong></p></td>
+<td><p>~1.5–2.0 s</p></td>
+<td><p>Suite2p: 1.25–1.5 s. OASIS/Suite2p: ~2.0 s. CaImAn: ~1.5–2.0 s.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>GCaMP7f (fast)</strong></p></td>
+<td><p>~0.5 s</p></td>
+<td><p>Similar to GCaMP6f.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>GCaMP7m (medium)</strong></p></td>
+<td><p>~1.0 s (est.)</p></td>
+<td><p>Estimated by analogy to GCaMP6m.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>GCaMP7s (slow)</strong></p></td>
+<td><p>~1.0–1.5 s</p></td>
+<td><p>In vivo half-decay ~0.7 s. Tau ≈ 1.0 s.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>GCaMP8f (fast)</strong></p></td>
+<td><p>~0.3 s</p></td>
+<td><p>Fastest decay; tenfold faster than 6f/7f.</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>GCaMP8m (medium)</strong></p></td>
+<td><p>~0.3 s</p></td>
+<td><p>Slightly slower than 8f, still ~0.3 s.</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>GCaMP8s (slow)</strong></p></td>
+<td><p>~0.7 s</p></td>
+<td><p>Faster than 6s.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sd-container-fluid sd-sphinx-override sd-mb-4 docutils">
+<div class="sd-row docutils">
+<div class="sd-col sd-d-flex-row sd-col-4 sd-col-xs-4 sd-col-sm-4 sd-col-md-4 sd-col-lg-4 docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+GCaMP6 Family</div>
+<p class="sd-card-text">Fast (6f): 0.5 s
+Medium (6m): 1.1 s
+Slow (6s): 1.8 s</p>
+</div>
+</div>
+</div>
+<div class="sd-col sd-d-flex-row sd-col-4 sd-col-xs-4 sd-col-sm-4 sd-col-md-4 sd-col-lg-4 docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+GCaMP7 Family</div>
+<p class="sd-card-text">7f: 0.45 s
+7s: 1.0 s
+7c: 0.8 s</p>
+</div>
+</div>
+</div>
+<div class="sd-col sd-d-flex-row sd-col-4 sd-col-xs-4 sd-col-sm-4 sd-col-md-4 sd-col-lg-4 docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+GCaMP8 Family</div>
+<p class="sd-card-text">8f: 0.25 s
+8m: 0.3 s
+8s: 0.5 s</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p>For a comparison of how different pipelines handle spike deconvolution and τ, see <a class="reference internal" href="pipeline_comparison.html"><span class="doc">Pipeline Comparison - Deconvolution Algorithms</span></a>.</p>
+</div>
+</section>
+</section>
+</section>
+<hr class="docutils" />
+<section id="parameter-grid-search">
+<h2>Parameter Grid Search<a class="headerlink" href="#parameter-grid-search" title="Link to this heading">#</a></h2>
+<div class="dropdown admonition">
+<p class="admonition-title">Example Dataset</p>
+<p>Example dataset collected by Kevin Barber with Dr. Alipasha Vaziri &#64; Rockefeller University.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Value</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Animal</p></td>
+<td><p>mk301</p></td>
+</tr>
+<tr class="row-odd"><td><p>Date</p></td>
+<td><p>2025-03-01</p></td>
+</tr>
+<tr class="row-even"><td><p>Virus</p></td>
+<td><p>jGCaMP8s</p></td>
+</tr>
+<tr class="row-odd"><td><p>Framerate</p></td>
+<td><p>17 Hz</p></td>
+</tr>
+<tr class="row-even"><td><p>FOV</p></td>
+<td><p>900 µm × 900 µm</p></td>
+</tr>
+<tr class="row-odd"><td><p>Resolution</p></td>
+<td><p>2 µm × 2 µm × 16 µm</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>Test multiple parameter combinations systematically. When tuning segmentation parameters, the easiest knobs to turn are <code class="docutils literal notranslate"><span class="pre">threshold_scaling</span></code> and <code class="docutils literal notranslate"><span class="pre">max_overlap</span></code>. Lower <code class="docutils literal notranslate"><span class="pre">threshold_scaling</span></code> → more candidate ROIs. Higher <code class="docutils literal notranslate"><span class="pre">max_overlap</span></code> → more overlapping ROIs are kept. But their effects aren’t linear or always intuitive, so it’s often best to <strong>grid search</strong> them.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">lbm_suite2p_python</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">lsp</span>
+
+<span class="c1"># Define parameter grid</span>
+<span class="n">grid_params</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;threshold_scaling&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.8</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.2</span><span class="p">],</span>
+    <span class="s2">&quot;tau&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.7</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.5</span><span class="p">],</span>
+    <span class="s2">&quot;max_overlap&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.7</span><span class="p">,</span> <span class="mf">0.85</span><span class="p">]</span>
+<span class="p">}</span>
+
+<span class="c1"># Run grid search on a single plane</span>
+<span class="n">lsp</span><span class="o">.</span><span class="n">grid_search</span><span class="p">(</span>
+    <span class="n">input_file</span><span class="o">=</span><span class="n">test_plane_file</span><span class="p">,</span>
+    <span class="n">save_path</span><span class="o">=</span><span class="n">grid_search_dir</span><span class="p">,</span>
+    <span class="n">grid_params</span><span class="o">=</span><span class="n">grid_params</span><span class="p">,</span>
+    <span class="n">ops</span><span class="o">=</span><span class="n">ops</span><span class="p">,</span>
+    <span class="n">force_reg</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">force_detect</span><span class="o">=</span><span class="kc">True</span>  <span class="c1"># Always re-run detection</span>
+<span class="p">)</span>
+
+<span class="c1"># Output structure:</span>
+<span class="c1"># grid_search_dir/</span>
+<span class="c1"># ├── thr0.80_tau0.70_max0.70/</span>
+<span class="c1"># ├── thr0.80_tau0.70_max0.85/</span>
+<span class="c1"># ├── thr0.80_tau1.00_max0.70/</span>
+<span class="c1"># ...</span>
+</pre></div>
+</div>
+<p>Each combination gets its own folder with full Suite2p outputs.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Some values (like <code class="docutils literal notranslate"><span class="pre">spatial_hp_cp</span></code>, <code class="docutils literal notranslate"><span class="pre">tau</span></code>, or <code class="docutils literal notranslate"><span class="pre">high_pass</span></code>) can interact in non-obvious ways.</p>
+<p>Grid searching more than 2 parameters is really the only way to evaluate these interactions, though this can take up a lot of memory and disk space. We encourage making sure <code class="docutils literal notranslate"><span class="pre">ops['keep_movie_raw']=False</span></code> (default) and <code class="docutils literal notranslate"><span class="pre">ops['reg_tif']</span> <span class="pre">=</span> <span class="pre">False</span></code> (default).</p>
+</div>
+<section id="visualizing-grid-search-results">
+<h3>Visualizing Grid Search Results<a class="headerlink" href="#visualizing-grid-search-results" title="Link to this heading">#</a></h3>
+<p>You can loop through the results using the saved <code class="docutils literal notranslate"><span class="pre">ops.npy</span></code> files:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ops</span> <span class="o">=</span> <span class="n">lsp</span><span class="o">.</span><span class="n">load_ops</span><span class="p">(</span><span class="s2">&quot;./grid_search/spatial/max0.75_thr1.00/plane0/ops.npy&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Accepted ROIs:&quot;</span><span class="p">,</span> <span class="n">ops</span><span class="p">[</span><span class="s1">&#39;iscell&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+</pre></div>
+</div>
+</section>
+<section id="registration-grid-search">
+<h3>Registration Grid Search<a class="headerlink" href="#registration-grid-search" title="Link to this heading">#</a></h3>
+<p>To evaluate what registration parameters you should use, you can try both enabling two-step registration and lowering the block-size for rigid registration.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">base_ops</span><span class="p">[</span><span class="s2">&quot;roidetect&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># Skip detection, only register</span>
+
+<span class="n">search_dict</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;two_step_registration&quot;</span><span class="p">:</span> <span class="p">[</span><span class="kc">False</span><span class="p">,</span> <span class="kc">True</span><span class="p">],</span>
+    <span class="s2">&quot;block_size&quot;</span><span class="p">:</span> <span class="p">[[</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">],</span> <span class="p">[</span><span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">]]</span>
+<span class="p">}</span>
+
+<span class="n">lsp</span><span class="o">.</span><span class="n">grid_search</span><span class="p">(</span>
+    <span class="n">input_file</span><span class="o">=</span><span class="n">input_tiff</span><span class="p">,</span>
+    <span class="n">save_path</span><span class="o">=</span><span class="n">save_path</span> <span class="o">/</span> <span class="s2">&quot;registration&quot;</span><span class="p">,</span>
+    <span class="n">grid_params</span><span class="o">=</span><span class="n">search_dict</span><span class="p">,</span>
+    <span class="n">ops</span><span class="o">=</span><span class="n">base_ops</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="post-processing-filters">
+<h2>Post-Processing Filters<a class="headerlink" href="#post-processing-filters" title="Link to this heading">#</a></h2>
+<p>LBM-Suite2p-Python includes filters to refine cell selection after detection. These filters can remove ROIs based on size, shape, and activity metrics.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p>For complete filter documentation and examples, see <a class="reference internal" href="postprocessing.html"><span class="doc">Postprocessing</span></a>.</p>
+</div>
+<p><strong>Quick example:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">lbm_suite2p_python.postprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">filter_by_diameter</span><span class="p">,</span> <span class="n">filter_by_area</span>
+
+<span class="n">iscell</span> <span class="o">=</span> <span class="n">filter_by_diameter</span><span class="p">(</span><span class="n">iscell</span><span class="p">,</span> <span class="n">stat</span><span class="p">,</span> <span class="n">ops</span><span class="p">,</span> <span class="n">min_mult</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">max_mult</span><span class="o">=</span><span class="mf">3.0</span><span class="p">)</span>
+<span class="n">iscell</span> <span class="o">=</span> <span class="n">filter_by_area</span><span class="p">(</span><span class="n">iscell</span><span class="p">,</span> <span class="n">stat</span><span class="p">,</span> <span class="n">min_mult</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span> <span class="n">max_mult</span><span class="o">=</span><span class="mf">4.0</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="multi-roi-processing">
+<h2>Multi-ROI Processing<a class="headerlink" href="#multi-roi-processing" title="Link to this heading">#</a></h2>
+<p>LBM-Suite2p-Python automatically detects and merges ScanImage multi-ROI acquisitions.</p>
+<p><strong>Automatic detection:</strong> If “roi” appears in filename (case-insensitive), merging is triggered.</p>
+<p><strong>Example filenames:</strong></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">plane01_roi00</span><span class="o">.</span><span class="n">tif</span>
+<span class="n">plane01_roi01</span><span class="o">.</span><span class="n">tif</span>
+<span class="n">plane02_roi00</span><span class="o">.</span><span class="n">tif</span>
+<span class="n">plane02_roi01</span><span class="o">.</span><span class="n">tif</span>
+</pre></div>
+</div>
+<p>After <code class="docutils literal notranslate"><span class="pre">run_volume()</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># ROIs are automatically merged per plane</span>
+<span class="c1"># Output structure:</span>
+<span class="c1"># save_path/</span>
+<span class="c1"># ├── plane01_roi00/  # Individual ROI results</span>
+<span class="c1"># ├── plane01_roi01/</span>
+<span class="c1"># ├── merged_mrois/</span>
+<span class="c1"># │   ├── plane01/    # Merged results for plane 1</span>
+<span class="c1"># │   └── plane02/    # Merged results for plane 2</span>
+<span class="c1"># └── volume_stats.npy  # Uses merged results</span>
+</pre></div>
+</div>
+<p>Images are stitched horizontally, stat arrays concatenated.</p>
+</section>
+<hr class="docutils" />
+<section id="f-f-calculation">
+<h2>ΔF/F Calculation<a class="headerlink" href="#f-f-calculation" title="Link to this heading">#</a></h2>
+<p>The gold-standard formula for measuring cellular activity is ΔF/F₀ (delta F over F naught), which normalizes fluorescence change by baseline:</p>
+<div class="math notranslate nohighlight">
+\[\Delta F/F_0 = \frac{F - F_0}{F_0}\]</div>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p>For complete ΔF/F functions, noise estimation, and quality scoring, see <a class="reference internal" href="postprocessing.html"><span class="doc">Postprocessing</span></a>.</p>
+<p>For comparisons of how different pipelines (CaImAn, Suite2p, EXTRACT) handle ΔF/F, see <a class="reference internal" href="pipeline_comparison.html"><span class="doc">Pipeline Comparison</span></a>.</p>
+</div>
+<p><strong>Quick example:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">lbm_suite2p_python</span><span class="w"> </span><span class="kn">import</span> <span class="n">dff_rolling_percentile</span>
+
+<span class="c1"># window_size = 10 × tau × framerate</span>
+<span class="n">dff</span> <span class="o">=</span> <span class="n">dff_rolling_percentile</span><span class="p">(</span><span class="n">F</span><span class="p">,</span> <span class="n">window_size</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">percentile</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading">#</a></h2>
+<section id="no-cells-detected">
+<h3>No Cells Detected<a class="headerlink" href="#no-cells-detected" title="Link to this heading">#</a></h3>
+<p><strong>Possible causes:</strong></p>
+<ol class="arabic simple">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">threshold_scaling</span></code> too high</strong> → Lower to 0.8-0.9</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">tau</span></code> too small</strong> → Increase (when in doubt, round up!)</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">spatial_hp_detect</span></code> too large</strong> → Try 15-25 instead of default</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">diameter</span></code> wrong</strong> → Check actual cell sizes in pixels</p></li>
+</ol>
+<p><strong>Diagnosis:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Check binned movie</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">suite2p</span>
+<span class="n">bin_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ops</span><span class="p">[</span><span class="s2">&quot;tau&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">ops</span><span class="p">[</span><span class="s2">&quot;fs&quot;</span><span class="p">])</span>
+<span class="k">with</span> <span class="n">suite2p</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">BinaryFile</span><span class="p">(</span><span class="n">filename</span><span class="o">=</span><span class="n">data_bin</span><span class="p">,</span> <span class="n">Ly</span><span class="o">=</span><span class="n">ops</span><span class="p">[</span><span class="s2">&quot;Ly&quot;</span><span class="p">],</span> <span class="n">Lx</span><span class="o">=</span><span class="n">ops</span><span class="p">[</span><span class="s2">&quot;Lx&quot;</span><span class="p">])</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">binned</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">bin_movie</span><span class="p">(</span><span class="n">bin_size</span><span class="o">=</span><span class="n">bin_size</span><span class="p">,</span> <span class="n">y_range</span><span class="o">=</span><span class="n">ops</span><span class="p">[</span><span class="s2">&quot;yrange&quot;</span><span class="p">],</span> <span class="n">x_range</span><span class="o">=</span><span class="n">ops</span><span class="p">[</span><span class="s2">&quot;xrange&quot;</span><span class="p">])</span>
+<span class="c1"># Visualize binned data to see if cells are visible</span>
+</pre></div>
+</div>
+</section>
+<section id="registration-artifacts">
+<h3>Registration Artifacts<a class="headerlink" href="#registration-artifacts" title="Link to this heading">#</a></h3>
+<p><strong>Wobbling/warping at edges:</strong></p>
+<ul class="simple">
+<li><p>Increase <code class="docutils literal notranslate"><span class="pre">spatial_taper</span></code> (default 40 → 60-80)</p></li>
+<li><p>Decrease <code class="docutils literal notranslate"><span class="pre">block_size</span></code> (default [128,128] → [64,64])</p></li>
+</ul>
+<p><strong>Large drift not corrected:</strong></p>
+<ul class="simple">
+<li><p>Increase <code class="docutils literal notranslate"><span class="pre">maxregshift</span></code> (default 0.1 → 0.15-0.2)</p></li>
+<li><p>Check <code class="docutils literal notranslate"><span class="pre">refImg</span></code> quality</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="further-reading">
+<h2>Further Reading<a class="headerlink" href="#further-reading" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="api.html"><span class="doc">API Reference</span></a> - Function signatures and docstrings</p></li>
+<li><p><a class="reference internal" href="glossary.html"><span class="doc">Glossary</span></a> - Term definitions</p></li>
+<li><p><a class="reference external" href="https://suite2p.readthedocs.io/">Suite2p Documentation</a> - Detailed Suite2p parameter guide</p></li>
+<li><p><a class="reference external" href="https://cellpose.readthedocs.io/">Cellpose Documentation</a> - Anatomical segmentation details</p></li>
+</ul>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="quickstart.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Quickstart</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="projections.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Projection Images</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#input-formats">Input formats</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pipeline-basics">Pipeline Basics</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#setting-ops-flat-or-suite2p-s-nested-settings">Setting ops: flat or suite2p’s nested settings</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#pipeline-parameters">Pipeline Parameters</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#reader-and-writer-kwargs">Reader and Writer Kwargs</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#reader-options-for-raw-scanimage-tiffs">Reader Options for Raw ScanImage TIFFs</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#examples">Examples</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#writer-options">Writer Options</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#overwriting-results">Overwriting results</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#planar-pipeline">Planar Pipeline</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#planar-outputs">Planar Outputs</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#data-files">Data Files</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#visualization-files">Visualization Files</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#reference-images">Reference Images</a><ul class="nav section-nav flex-column">
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#how-reference-images-are-computed">How Reference Images Are Computed</a></li>
+</ul>
+</li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#segmentation-overlays">Segmentation Overlays</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#quality-diagnostics">Quality Diagnostics</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#fluorescence-traces">Fluorescence Traces</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#trace-quality-sorting">Trace Quality Sorting</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#activity-f-f-traces">Activity ΔF/F Traces</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#shot-noise-levels">Shot Noise Levels</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#volumetric-pipeline">Volumetric Pipeline</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#volumetric-outputs">Volumetric Outputs</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#all-planes-masks">All Planes Masks</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#orthogonal-slices">Orthogonal Slices</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#d-roi-map">3D ROI Map</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#volume-trace-analysis">Volume Trace Analysis</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#rastermap-volume-wide">Rastermap (Volume-wide)</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#registration-quality-metrics">Registration Quality Metrics</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#loading-results">Loading Results</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#critical-parameters">Critical Parameters</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#anatomical-segmentation-cellpose-recommended">Anatomical Segmentation (Cellpose) - Recommended</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#quick-start-anatomical-detection">Quick Start: Anatomical Detection</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#algorithm-default-sparsery-and-img-default-max-proj-meanimg"><code class="docutils literal notranslate"><span class="pre">algorithm</span></code> (default: <code class="docutils literal notranslate"><span class="pre">"sparsery"</span></code>) and <code class="docutils literal notranslate"><span class="pre">img</span></code> (default: <code class="docutils literal notranslate"><span class="pre">"max_proj</span> <span class="pre">/</span> <span class="pre">meanImg"</span></code>)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#anatomical-only-legacy-default-0"><code class="docutils literal notranslate"><span class="pre">anatomical_only</span></code> (legacy, default: 0)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#diameter-default-0"><code class="docutils literal notranslate"><span class="pre">diameter</span></code> (default: 0)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#cellprob-threshold-default-0-0"><code class="docutils literal notranslate"><span class="pre">cellprob_threshold</span></code> (default: 0.0)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#flow-threshold-default-0-4"><code class="docutils literal notranslate"><span class="pre">flow_threshold</span></code> (default: 0.4)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#spatial-hp-cp-default-0"><code class="docutils literal notranslate"><span class="pre">spatial_hp_cp</span></code> (default: 0)</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#functional-detection-parameters">Functional Detection Parameters</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#visual-parameter-comparisons">Visual Parameter Comparisons</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#threshold-scaling-default-1-0"><code class="docutils literal notranslate"><span class="pre">threshold_scaling</span></code> (default: 1.0)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#tau-default-1-0"><code class="docutils literal notranslate"><span class="pre">tau</span></code> (default: 1.0)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#max-overlap-default-0-75"><code class="docutils literal notranslate"><span class="pre">max_overlap</span></code> (default: 0.75)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#spatial-hp-detect-default-25"><code class="docutils literal notranslate"><span class="pre">spatial_hp_detect</span></code> (default: 25)</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#registration-parameters">Registration Parameters</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#do-registration-default-1"><code class="docutils literal notranslate"><span class="pre">do_registration</span></code> (default: 1)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#nonrigid-default-true"><code class="docutils literal notranslate"><span class="pre">nonrigid</span></code> (default: True)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#align-by-chan-default-1"><code class="docutils literal notranslate"><span class="pre">align_by_chan</span></code> (default: 1)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#maxregshift-default-0-1"><code class="docutils literal notranslate"><span class="pre">maxregshift</span></code> (default: 0.1)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#registration-output-files">Registration Output Files</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#registration-metrics-ops-regdx">Registration Metrics (<code class="docutils literal notranslate"><span class="pre">ops['regDX']</span></code>)</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#extraction-parameters">Extraction Parameters</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#neucoeff-default-0-7"><code class="docutils literal notranslate"><span class="pre">neucoeff</span></code> (default: 0.7)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#allow-overlap-default-false"><code class="docutils literal notranslate"><span class="pre">allow_overlap</span></code> (default: False)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#inner-neuropil-radius-default-2"><code class="docutils literal notranslate"><span class="pre">inner_neuropil_radius</span></code> (default: 2)</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#f-f-parameters">ΔF/F Parameters</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#rolling-percentile-baseline-recommended">Rolling Percentile Baseline (Recommended)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#median-filter-baseline">Median Filter Baseline</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#shot-noise-estimation">Shot Noise Estimation</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#spike-deconvolution-tau">Spike Deconvolution &amp; Tau</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#indicator-dynamics">Indicator Dynamics</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#parameter-grid-search">Parameter Grid Search</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#visualizing-grid-search-results">Visualizing Grid Search Results</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#registration-grid-search">Registration Grid Search</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-processing-filters">Post-Processing Filters</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#multi-roi-processing">Multi-ROI Processing</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#f-f-calculation">ΔF/F Calculation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#troubleshooting">Troubleshooting</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#no-cells-detected">No Cells Detected</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#registration-artifacts">Registration Artifacts</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#further-reading">Further Reading</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2024, Elizabeth R. Miller Brain Observatory | The Rockefeller University. All Rights Reserved.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

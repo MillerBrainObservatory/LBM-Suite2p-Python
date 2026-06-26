@@ -1,0 +1,1685 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="./" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Metadata Processing Reference &#8212; LBM-Suite2p-Python</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="_static/custom.css?v=bdf0de15" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="_static/documentation_options.js?v=0fa21ae5"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=f281be69"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="_static/togglebutton.js?v=b8b12719"></script>
+    <script src="_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script src="_static/design-tabs.js?v=f930bc37"></script>
+    <script defer="defer" src="https://unpkg.com/@popperjs/core@2"></script>
+    <script defer="defer" src="https://unpkg.com/tippy.js@6"></script>
+    <script defer="defer" src="_static/tippy/metadata_reference.0061eaf8-8250-4506-be57-063c0429a2b7.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'metadata_reference';</script>
+    <link rel="icon" href="_static/icon_suite2p.svg"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Pipeline Comparison" href="pipeline_comparison.html" />
+    <link rel="prev" title="Suite2p ROI Classifiers" href="classifiers.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="_static/logo_suit2p.png" class="logo__image only-light" alt="LBM-Suite2p-Python - Home"/>
+    <img src="_static/logo_suit2p.png" class="logo__image only-dark pst-js-only" alt="LBM-Suite2p-Python - Home"/>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://millerbrainobservatory.github.io/" title="MBO User Hub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><img src="_static/icon_mbo_home.png" class="icon-link-image" alt="MBO User Hub"/></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/MillerBrainObservatory/" title="MBO Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">MBO Github</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://mbo.rockefeller.edu/contact/" title="Connect with MBO" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-regular fa-address-card fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Connect with MBO</span></a>
+        </li>
+</ul></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quickstart</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="user_guide.html">User Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="simple">
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="projections.html">Projection Images</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="simple">
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="postprocessing.html">Postprocessing Functions</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="simple">
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="processing_flow.html">Processing Flow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="classifiers.html">Suite2p ROI Classifiers</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Metadata Processing Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipeline_comparison.html">Pipeline Comparison</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="image_gallery.html">Image Gallery</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/blob/master/docs/metadata_reference.md?plain=1" target="_blank"
+   class="btn btn-sm btn-source-file-button dropdown-item"
+   title="Show source"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-code"></i>
+  </span>
+<span class="btn__text-container">Show source</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/edit/master/docs/metadata_reference.md" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/issues/new?title=Issue%20on%20page%20%2Fmetadata_reference.html&body=Your%20issue%20content%20here." target="_blank"
+   class="btn btn-sm btn-source-issues-button dropdown-item"
+   title="Open an issue"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-lightbulb"></i>
+  </span>
+<span class="btn__text-container">Open issue</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="_sources/metadata_reference.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Metadata Processing Reference</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#table-of-contents">Table of Contents</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#core-metadata-sources-extraction">1. Core Metadata Sources &amp; Extraction</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#suite2p-ops-dictionary-fields">2. Suite2p ops Dictionary Fields</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#spatial-dimensional-metadata">2.1 Spatial/Dimensional Metadata</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#temporal-metadata">2.2 Temporal Metadata</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#image-metadata-processing-results">2.3 Image Metadata (Processing Results)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#registration-metadata">2.4 Registration Metadata</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#detection-classification-metadata">2.5 Detection/Classification Metadata</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#path-metadata">2.6 Path Metadata</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#stat-npy-array-fields-per-roi-metadata">3. stat.npy Array Fields (Per-ROI Metadata)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#processing-history-metadata">4. Processing History Metadata</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#format-conversion-metadata">5. Format Conversion Metadata</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#suite2p-to-cellpose">5.1 Suite2p to Cellpose</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellpose-to-suite2p">5.2 Cellpose to Suite2p</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#validation-comparison-metadata">6. Validation &amp; Comparison Metadata</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cell-filtering-metadata">7. Cell Filtering Metadata</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#multi-roi-merging-metadata">8. Multi-ROI Merging Metadata</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#normcorre-registration-metadata">9. Normcorre Registration Metadata</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#df-f-computation-metadata">10. dF/F Computation Metadata</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cellpose-training-metadata">11. Cellpose Training Metadata</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#file-format-metadata-storage">12. File Format Metadata Storage</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#lazy-array-metadata-access">13. Lazy Array Metadata Access</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#volume-statistics-metadata">14. Volume Statistics Metadata</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#image-cropping-expansion-logic">15. Image Cropping/Expansion Logic</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#metadata-normalization-functions">16. Metadata Normalization Functions</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#metadata-flow-diagram">17. Metadata Flow Diagram</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#summary">Summary</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section class="tex2jax_ignore mathjax_ignore" id="metadata-processing-reference">
+<h1>Metadata Processing Reference<a class="headerlink" href="#metadata-processing-reference" title="Link to this heading">#</a></h1>
+<p>Complete reference for all metadata handling in LBM-Suite2p-Python.</p>
+<hr class="docutils" />
+<section id="table-of-contents">
+<h2>Table of Contents<a class="headerlink" href="#table-of-contents" title="Link to this heading">#</a></h2>
+<ol class="arabic simple">
+<li><p><a class="reference internal" href="#core-metadata-sources-extraction">Core Metadata Sources</a></p></li>
+<li><p><a class="reference internal" href="#suite2p-ops-dictionary-fields">Suite2p ops Dictionary</a></p></li>
+<li><p><a class="reference internal" href="#stat-npy-array-fields-per-roi-metadata">stat.npy Array Fields</a></p></li>
+<li><p><a class="reference internal" href="#processing-history-metadata">Processing History</a></p></li>
+<li><p><a class="reference internal" href="#format-conversion-metadata">Format Conversion</a></p></li>
+<li><p><a class="reference internal" href="#validation-comparison-metadata">Validation &amp; Comparison</a></p></li>
+<li><p><a class="reference internal" href="#cell-filtering-metadata">Cell Filtering</a></p></li>
+<li><p><a class="reference internal" href="#multi-roi-merging-metadata">Multi-ROI Merging</a></p></li>
+<li><p><a class="reference internal" href="#normcorre-registration-metadata">Normcorre Registration</a></p></li>
+<li><p><a class="reference internal" href="#df-f-computation-metadata">dF/F Computation</a></p></li>
+<li><p><a class="reference internal" href="#cellpose-training-metadata">Cellpose Training</a></p></li>
+<li><p><a class="reference internal" href="#file-format-metadata-storage">File Format Storage</a></p></li>
+<li><p><a class="reference internal" href="#lazy-array-metadata-access">Lazy Array Access</a></p></li>
+<li><p><a class="reference internal" href="#volume-statistics-metadata">Volume Statistics</a></p></li>
+<li><p><a class="reference internal" href="#image-cropping-expansion-logic">Image Cropping Logic</a></p></li>
+<li><p><a class="reference internal" href="#metadata-normalization-functions">Normalization Functions</a></p></li>
+<li><p><a class="reference internal" href="#metadata-flow-diagram">Metadata Flow Diagram</a></p></li>
+</ol>
+</section>
+<hr class="docutils" />
+<section id="core-metadata-sources-extraction">
+<h2>1. Core Metadata Sources &amp; Extraction<a class="headerlink" href="#core-metadata-sources-extraction" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File:Line</p></th>
+<th class="head"><p>Input</p></th>
+<th class="head"><p>Output Fields</p></th>
+<th class="head"><p>Notes</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">get_param(metadata,</span> <span class="pre">key)</span></code></p></td>
+<td><p>mbo_utilities</p></td>
+<td><p>ScanImage metadata dict</p></td>
+<td><p>Single value (fs, nframes, etc.)</p></td>
+<td><p>primary metadata accessor from mbo_utilities</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">get_voxel_size(metadata)</span></code></p></td>
+<td><p>mbo_utilities</p></td>
+<td><p>Metadata dict or ops</p></td>
+<td><p>VoxelSize object with <code class="docutils literal notranslate"><span class="pre">.dx</span></code>, <code class="docutils literal notranslate"><span class="pre">.dy</span></code>, <code class="docutils literal notranslate"><span class="pre">.dz</span></code>, <code class="docutils literal notranslate"><span class="pre">.pixel_resolution</span></code></p></td>
+<td><p>returns microns/pixel; defaults to 1.0 if unavailable</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">detect_stack_type(metadata)</span></code></p></td>
+<td><p>mbo_utilities</p></td>
+<td><p>ScanImage metadata</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;lbm&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;piezo&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;single&quot;</span></code></p></td>
+<td><p>determines acquisition mode from SI metadata</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">default_ops(metadata,</span> <span class="pre">ops)</span></code></p></td>
+<td><p>default_ops.py:170-222</p></td>
+<td><p>Optional metadata dict</p></td>
+<td><p>ops dict with <code class="docutils literal notranslate"><span class="pre">fs</span></code>, <code class="docutils literal notranslate"><span class="pre">dx</span></code>, <code class="docutils literal notranslate"><span class="pre">dy</span></code> populated</p></td>
+<td><p>merges defaults with extracted metadata</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">s2p_ops()</span></code></p></td>
+<td><p>default_ops.py:6-167</p></td>
+<td><p>None</p></td>
+<td><p>Complete Suite2p default parameters</p></td>
+<td><p>80+ fields for registration, detection, extraction</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<hr class="docutils" />
+<section id="suite2p-ops-dictionary-fields">
+<h2>2. Suite2p ops Dictionary Fields<a class="headerlink" href="#suite2p-ops-dictionary-fields" title="Link to this heading">#</a></h2>
+<section id="spatial-dimensional-metadata">
+<h3>2.1 Spatial/Dimensional Metadata<a class="headerlink" href="#spatial-dimensional-metadata" title="Link to this heading">#</a></h3>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Source</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Ly</span></code></p></td>
+<td><p>int</p></td>
+<td><p>Binary write</p></td>
+<td><p>image height in pixels</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Lx</span></code></p></td>
+<td><p>int</p></td>
+<td><p>Binary write</p></td>
+<td><p>image width in pixels</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">nframes</span></code></p></td>
+<td><p>int</p></td>
+<td><p>Binary size / metadata</p></td>
+<td><p>total frame count</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">nframes_chan1</span></code></p></td>
+<td><p>int</p></td>
+<td><p>Suite2p</p></td>
+<td><p>frames in functional channel</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">nplanes</span></code></p></td>
+<td><p>int</p></td>
+<td><p>default_ops</p></td>
+<td><p>number of z-planes</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">nchannels</span></code></p></td>
+<td><p>int</p></td>
+<td><p>default_ops</p></td>
+<td><p>channels per acquisition</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">yrange</span></code></p></td>
+<td><p>[int, int]</p></td>
+<td><p>Registration</p></td>
+<td><p>valid Y crop region after registration</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">xrange</span></code></p></td>
+<td><p>[int, int]</p></td>
+<td><p>Registration</p></td>
+<td><p>valid X crop region after registration</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">dx</span></code></p></td>
+<td><p>float</p></td>
+<td><p>get_voxel_size</p></td>
+<td><p>X pixel size in microns</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">dy</span></code></p></td>
+<td><p>float</p></td>
+<td><p>get_voxel_size</p></td>
+<td><p>Y pixel size in microns</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">dz</span></code></p></td>
+<td><p>float</p></td>
+<td><p>get_voxel_size</p></td>
+<td><p>Z-plane spacing in microns</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">pixel_resolution</span></code></p></td>
+<td><p>[dx, dy, dz]</p></td>
+<td><p>grid_search</p></td>
+<td><p>combined voxel dimensions</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">aspect</span></code></p></td>
+<td><p>float</p></td>
+<td><p>default_ops</p></td>
+<td><p>aspect ratio (um/px X / um/px Y)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="temporal-metadata">
+<h3>2.2 Temporal Metadata<a class="headerlink" href="#temporal-metadata" title="Link to this heading">#</a></h3>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Source</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">fs</span></code></p></td>
+<td><p>float</p></td>
+<td><p>get_param(metadata, “fs”)</p></td>
+<td><p>frame rate in Hz (per plane)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">tau</span></code></p></td>
+<td><p>float</p></td>
+<td><p>default_ops (1.0)</p></td>
+<td><p>calcium indicator decay constant (seconds)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">num_timepoints</span></code></p></td>
+<td><p>int</p></td>
+<td><p>pipeline</p></td>
+<td><p>actual volume timepoints (frames/planes)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">frames_include</span></code></p></td>
+<td><p>int</p></td>
+<td><p>default_ops (-1)</p></td>
+<td><p>number of frames to process (-1=all)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="image-metadata-processing-results">
+<h3>2.3 Image Metadata (Processing Results)<a class="headerlink" href="#image-metadata-processing-results" title="Link to this heading">#</a></h3>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Shape</p></th>
+<th class="head"><p>Notes</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">meanImg</span></code></p></td>
+<td><p>(Ly, Lx)</p></td>
+<td><p>full-size mean projection</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">meanImgE</span></code></p></td>
+<td><p>(Ly, Lx)</p></td>
+<td><p>full-size enhanced mean (neuropil)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">refImg</span></code></p></td>
+<td><p>(Ly, Lx)</p></td>
+<td><p>full-size registration reference</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">max_proj</span></code></p></td>
+<td><p>(yrange, xrange)</p></td>
+<td><p>cropped max projection</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Vcorr</span></code></p></td>
+<td><p>(yrange, xrange)</p></td>
+<td><p>cropped correlation map</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">sdmov</span></code></p></td>
+<td><p>(Ly, Lx)</p></td>
+<td><p>standard deviation of movie</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="registration-metadata">
+<h3>2.4 Registration Metadata<a class="headerlink" href="#registration-metadata" title="Link to this heading">#</a></h3>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">do_registration</span></code></p></td>
+<td><p>bool/int</p></td>
+<td><p>whether registration was performed</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">do_bidiphase</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>compute bidirectional phase offset</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">bidiphase</span></code></p></td>
+<td><p>float</p></td>
+<td><p>phase offset value in pixels</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">bidi_corrected</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>whether bidirectional correction applied</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">nonrigid</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>use piecewise-rigid registration</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">block_size</span></code></p></td>
+<td><p>[int, int]</p></td>
+<td><p>patch size for nonrigid registration</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">maxregshift</span></code></p></td>
+<td><p>float</p></td>
+<td><p>max allowed shift as fraction of frame</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">smooth_sigma</span></code></p></td>
+<td><p>float</p></td>
+<td><p>gaussian smoothing before registration</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">smooth_sigma_time</span></code></p></td>
+<td><p>float</p></td>
+<td><p>temporal smoothing for reference</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">two_step_registration</span></code></p></td>
+<td><p>int</p></td>
+<td><p>enable two-step registration (coarse then fine)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="detection-classification-metadata">
+<h3>2.5 Detection/Classification Metadata<a class="headerlink" href="#detection-classification-metadata" title="Link to this heading">#</a></h3>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">roidetect</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>whether to run ROI detection</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">anatomical_only</span></code></p></td>
+<td><p>int</p></td>
+<td><p>0=functional; 1/2/4 enable cellpose and select <code class="docutils literal notranslate"><span class="pre">cellpose_settings.img</span></code> (1=<code class="docutils literal notranslate"><span class="pre">max_proj</span> <span class="pre">/</span> <span class="pre">meanImg</span></code>, 2=<code class="docutils literal notranslate"><span class="pre">meanImg</span></code>, 4=<code class="docutils literal notranslate"><span class="pre">max_proj</span></code>); 3 (enhanced mean) removed</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">diameter</span></code></p></td>
+<td><p>int/list</p></td>
+<td><p>expected cell diameter in pixels</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">diameter_user</span></code></p></td>
+<td><p>int/list</p></td>
+<td><p>original user-specified diameter (preserved)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">spatial_scale</span></code></p></td>
+<td><p>int</p></td>
+<td><p>ROI scale: 0=multi, 1=6px, 2=12px, 3=24px, 4=48px</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">threshold_scaling</span></code></p></td>
+<td><p>float</p></td>
+<td><p>detection threshold multiplier</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">cellprob_threshold</span></code></p></td>
+<td><p>float</p></td>
+<td><p>cellpose probability threshold</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">flow_threshold</span></code></p></td>
+<td><p>float</p></td>
+<td><p>cellpose flow error threshold</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">sparse_mode</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>use sparse detection algorithm</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">connected</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>keep ROIs fully connected</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="path-metadata">
+<h3>2.6 Path Metadata<a class="headerlink" href="#path-metadata" title="Link to this heading">#</a></h3>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">save_path</span></code></p></td>
+<td><p>plane output directory</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">save_path0</span></code></p></td>
+<td><p>parent results directory</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">save_folder</span></code></p></td>
+<td><p>results folder name</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">data_path</span></code></p></td>
+<td><p>input data path</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ops_path</span></code></p></td>
+<td><p>path to ops.npy</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">raw_file</span></code></p></td>
+<td><p>path to data_raw.bin</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">reg_file</span></code></p></td>
+<td><p>path to data.bin</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">chan2_file</span></code></p></td>
+<td><p>path to structural channel binary</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="stat-npy-array-fields-per-roi-metadata">
+<h2>3. stat.npy Array Fields (Per-ROI Metadata)<a class="headerlink" href="#stat-npy-array-fields-per-roi-metadata" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ypix</span></code></p></td>
+<td><p>np.int32[]</p></td>
+<td><p>Y pixel coordinates of ROI</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">xpix</span></code></p></td>
+<td><p>np.int32[]</p></td>
+<td><p>X pixel coordinates of ROI</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">zpix</span></code></p></td>
+<td><p>np.int32[]</p></td>
+<td><p>Z pixel coordinates (if 3D)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">npix</span></code></p></td>
+<td><p>int</p></td>
+<td><p>number of pixels in ROI</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lam</span></code></p></td>
+<td><p>np.float32[]</p></td>
+<td><p>intensity weights (sum=1)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">overlap</span></code></p></td>
+<td><p>bool[]</p></td>
+<td><p>mask of overlapping pixels</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">med</span></code></p></td>
+<td><p>[y, x]</p></td>
+<td><p>centroid position</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">med_z</span></code></p></td>
+<td><p>float</p></td>
+<td><p>median Z position (if 3D)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">radius</span></code></p></td>
+<td><p>float</p></td>
+<td><p>fitted radius in pixels</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">aspect_ratio</span></code></p></td>
+<td><p>float</p></td>
+<td><p>elongation metric (height/width)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">compact</span></code></p></td>
+<td><p>float</p></td>
+<td><p>compactness (npix / πr²)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">mean_intensity</span></code></p></td>
+<td><p>float</p></td>
+<td><p>mean pixel value in ROI</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">max_intensity</span></code></p></td>
+<td><p>float</p></td>
+<td><p>max pixel value in ROI</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">footprint</span></code></p></td>
+<td><p>int</p></td>
+<td><p>source algorithm (0=suite2p, 1=cellpose)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">mrs</span></code></p></td>
+<td><p>float</p></td>
+<td><p>mean registration shift</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">mrs0</span></code></p></td>
+<td><p>float</p></td>
+<td><p>mean rigid shift</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">mrs1</span></code></p></td>
+<td><p>float</p></td>
+<td><p>mean nonrigid shift</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<hr class="docutils" />
+<section id="processing-history-metadata">
+<h2>4. Processing History Metadata<a class="headerlink" href="#processing-history-metadata" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File:Line</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">_add_processing_step()</span></code></p></td>
+<td><p>run_lsp.py:82-130</p></td>
+<td><p>appends step to <code class="docutils literal notranslate"><span class="pre">ops[&quot;processing_history&quot;]</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Each history entry contains:</strong></p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Content</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">step</span></code></p></td>
+<td><p>str</p></td>
+<td><p>step name (binary_write, registration, detection, etc.)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">timestamp</span></code></p></td>
+<td><p>str</p></td>
+<td><p>ISO format datetime</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lbm_suite2p_python_version</span></code></p></td>
+<td><p>str</p></td>
+<td><p>package version</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">suite2p_version</span></code></p></td>
+<td><p>str</p></td>
+<td><p>suite2p version</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">input_files</span></code></p></td>
+<td><p>list[str]</p></td>
+<td><p>source file paths</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">duration_seconds</span></code></p></td>
+<td><p>float</p></td>
+<td><p>processing time</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">extra</span></code></p></td>
+<td><p>dict</p></td>
+<td><p>step-specific metadata</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<hr class="docutils" />
+<section id="format-conversion-metadata">
+<h2>5. Format Conversion Metadata<a class="headerlink" href="#format-conversion-metadata" title="Link to this heading">#</a></h2>
+<section id="suite2p-to-cellpose">
+<h3>5.1 Suite2p to Cellpose<a class="headerlink" href="#suite2p-to-cellpose" title="Link to this heading">#</a></h3>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File:Line</p></th>
+<th class="head"><p>Input</p></th>
+<th class="head"><p>Output</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">suite2p_to_cellpose()</span></code></p></td>
+<td><p>conversion.py:269-349</p></td>
+<td><p>ops.npy, stat.npy</p></td>
+<td><p>masks.npy, cellpose_seg.npy</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">export_for_gui()</span></code></p></td>
+<td><p>conversion.py:552-642</p></td>
+<td><p>Suite2p dir</p></td>
+<td><p>{name}.tif + {name}_seg.npy</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">stat_to_masks()</span></code></p></td>
+<td><p>conversion.py:221-246</p></td>
+<td><p>stat array, shape</p></td>
+<td><p>label mask (0=bg, N=ROI_ID)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>cellpose_seg.npy structure:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;img&quot;</span><span class="p">:</span> <span class="n">projection_image</span><span class="p">,</span>      <span class="c1"># summary image</span>
+    <span class="s2">&quot;masks&quot;</span><span class="p">:</span> <span class="n">label_mask</span><span class="p">,</span>          <span class="c1"># uint16 label image</span>
+    <span class="s2">&quot;outlines&quot;</span><span class="p">:</span> <span class="n">outline_mask</span><span class="p">,</span>     <span class="c1"># binary outlines</span>
+    <span class="s2">&quot;chan_choose&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>        <span class="c1"># channel selection</span>
+    <span class="s2">&quot;ismanual&quot;</span><span class="p">:</span> <span class="n">bool_array</span><span class="p">,</span>       <span class="c1"># manual edit flags</span>
+    <span class="s2">&quot;filename&quot;</span><span class="p">:</span> <span class="n">projection_path</span><span class="p">,</span>  <span class="c1"># source image path</span>
+    <span class="s2">&quot;flows&quot;</span><span class="p">:</span> <span class="n">flow_fields</span><span class="p">,</span>         <span class="c1"># optical flow (or None)</span>
+    <span class="s2">&quot;est_diam&quot;</span><span class="p">:</span> <span class="n">diameter</span><span class="p">,</span>         <span class="c1"># estimated diameter</span>
+    <span class="s2">&quot;cellprob_threshold&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>  <span class="c1"># detection threshold</span>
+    <span class="s2">&quot;flow_threshold&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>      <span class="c1"># flow error threshold</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="cellpose-to-suite2p">
+<h3>5.2 Cellpose to Suite2p<a class="headerlink" href="#cellpose-to-suite2p" title="Link to this heading">#</a></h3>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File:Line</p></th>
+<th class="head"><p>Input</p></th>
+<th class="head"><p>Output</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">cellpose_to_suite2p()</span></code></p></td>
+<td><p>conversion.py:352-465</p></td>
+<td><p>masks.npy, cellpose_seg.npy</p></td>
+<td><p>ops.npy, stat.npy, iscell.npy</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">import_from_gui()</span></code></p></td>
+<td><p>conversion.py:645-728</p></td>
+<td><p>edited _seg.npy</p></td>
+<td><p>updated stat.npy, iscell.npy</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">masks_to_stat()</span></code></p></td>
+<td><p>conversion.py:249-266</p></td>
+<td><p>label mask, image</p></td>
+<td><p>stat array</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>conversion_meta.npy structure:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;source_format&quot;</span><span class="p">:</span> <span class="s2">&quot;suite2p&quot;</span> <span class="o">|</span> <span class="s2">&quot;cellpose&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;source_path&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">&quot;converted_at&quot;</span><span class="p">:</span> <span class="n">ISO_timestamp</span><span class="p">,</span>
+    <span class="s2">&quot;n_rois&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="s2">&quot;shape&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">Ly</span><span class="p">,</span> <span class="n">Lx</span><span class="p">],</span>
+    <span class="s2">&quot;img_key&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>              <span class="c1"># for suite2p to cellpose</span>
+    <span class="s2">&quot;traces_extracted&quot;</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>    <span class="c1"># for cellpose to suite2p</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="validation-comparison-metadata">
+<h2>6. Validation &amp; Comparison Metadata<a class="headerlink" href="#validation-comparison-metadata" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File:Line</p></th>
+<th class="head"><p>Returns</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">validate_format()</span></code></p></td>
+<td><p>conversion.py:31-119</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">{valid,</span> <span class="pre">format,</span> <span class="pre">files,</span> <span class="pre">n_rois,</span> <span class="pre">shape,</span> <span class="pre">warnings}</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">compare_detections()</span></code></p></td>
+<td><p>conversion.py:731-811</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">{n_a,</span> <span class="pre">n_b,</span> <span class="pre">n_matched,</span> <span class="pre">matched_pairs,</span> <span class="pre">unique_to_a,</span> <span class="pre">unique_to_b,</span> <span class="pre">mean_iou}</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<hr class="docutils" />
+<section id="cell-filtering-metadata">
+<h2>7. Cell Filtering Metadata<a class="headerlink" href="#cell-filtering-metadata" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File:Line</p></th>
+<th class="head"><p>Metadata Used</p></th>
+<th class="head"><p>Notes</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">filter_by_max_diameter()</span></code></p></td>
+<td><p>postprocessing.py:179-314</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">stat[i][&quot;radius&quot;]</span></code>, <code class="docutils literal notranslate"><span class="pre">ops[&quot;dx&quot;]</span></code>, <code class="docutils literal notranslate"><span class="pre">ops[&quot;dy&quot;]</span></code></p></td>
+<td><p>converts µm to px via voxel size</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">filter_by_area()</span></code></p></td>
+<td><p>postprocessing.py:317-412</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">len(stat[i][&quot;xpix&quot;])</span></code></p></td>
+<td><p>pixel count per ROI</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">filter_by_eccentricity()</span></code></p></td>
+<td><p>postprocessing.py:415-494</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">stat[i][&quot;ypix&quot;]</span></code>, <code class="docutils literal notranslate"><span class="pre">stat[i][&quot;xpix&quot;]</span></code> ranges</p></td>
+<td><p>aspect ratio from bounding box</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">apply_filters()</span></code></p></td>
+<td><p>postprocessing.py:497-600</p></td>
+<td><p>filter config list</p></td>
+<td><p>returns iscell_filtered, removed_mask, filter_results</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Filter result metadata:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;filter_name&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="s2">&quot;n_removed&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="s2">&quot;n_remaining&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="s2">&quot;threshold&quot;</span><span class="p">:</span> <span class="n">value</span><span class="p">,</span>
+    <span class="s2">&quot;removed_indices&quot;</span><span class="p">:</span> <span class="n">array</span><span class="p">,</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="multi-roi-merging-metadata">
+<h2>8. Multi-ROI Merging Metadata<a class="headerlink" href="#multi-roi-merging-metadata" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File:Line</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">group_plane_rois()</span></code></p></td>
+<td><p>merging.py:11-44</p></td>
+<td><p>groups directories by plane from pattern <code class="docutils literal notranslate"><span class="pre">planeXX_roiYY</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">merge_mrois()</span></code></p></td>
+<td><p>merging.py:105-232</p></td>
+<td><p>merges ROI directories into single plane</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Coordinate transformations during merge:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">stat[&quot;xpix&quot;]</span> <span class="pre">+=</span> <span class="pre">x_offset</span></code> (horizontal concatenation)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">stat[&quot;med&quot;][1]</span> <span class="pre">+=</span> <span class="pre">x_offset</span></code> (centroid update)</p></li>
+<li><p>traces concatenated along ROI axis</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="normcorre-registration-metadata">
+<h2>9. Normcorre Registration Metadata<a class="headerlink" href="#normcorre-registration-metadata" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File:Line</p></th>
+<th class="head"><p>Parameters</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">normcorre_ops()</span></code></p></td>
+<td><p>normcorre.py:35-76</p></td>
+<td><p>default registration parameters</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>normcorre_ops fields:</strong></p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">max_shifts</span></code></p></td>
+<td><p>(10, 10)</p></td>
+<td><p>max (y, x) shift in pixels</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">strides</span></code></p></td>
+<td><p>(48, 48)</p></td>
+<td><p>patch size for piecewise-rigid</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">overlaps</span></code></p></td>
+<td><p>(24, 24)</p></td>
+<td><p>patch overlap</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">upsample_factor</span></code></p></td>
+<td><p>10</p></td>
+<td><p>subpixel precision</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">max_deviation_rigid</span></code></p></td>
+<td><p>3</p></td>
+<td><p>threshold for rigid vs. piecewise</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">border_nan</span></code></p></td>
+<td><p>“copy”</p></td>
+<td><p>how to handle borders</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">template_method</span></code></p></td>
+<td><p>“median”</p></td>
+<td><p>template computation method</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">template_max_frames</span></code></p></td>
+<td><p>500</p></td>
+<td><p>max frames for template</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<hr class="docutils" />
+<section id="df-f-computation-metadata">
+<h2>10. dF/F Computation Metadata<a class="headerlink" href="#df-f-computation-metadata" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File:Line</p></th>
+<th class="head"><p>Metadata Parameters</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">dff_rolling_percentile()</span></code></p></td>
+<td><p>postprocessing.py:794-900+</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">fs</span></code>, <code class="docutils literal notranslate"><span class="pre">tau</span></code>, <code class="docutils literal notranslate"><span class="pre">window_size</span></code>, <code class="docutils literal notranslate"><span class="pre">percentile</span></code>, <code class="docutils literal notranslate"><span class="pre">smooth_window</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Auto-calculation from metadata:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">window_size</span> <span class="pre">=</span> <span class="pre">~10</span> <span class="pre">×</span> <span class="pre">tau</span> <span class="pre">×</span> <span class="pre">fs</span></code> (baseline window)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">smooth_window</span> <span class="pre">=</span> <span class="pre">~0.5</span> <span class="pre">×</span> <span class="pre">tau</span> <span class="pre">×</span> <span class="pre">fs</span></code> (temporal smoothing)</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="cellpose-training-metadata">
+<h2>11. Cellpose Training Metadata<a class="headerlink" href="#cellpose-training-metadata" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File:Line</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">train_cellpose()</span></code></p></td>
+<td><p>cellpose.py</p></td>
+<td><p>train custom model from pretrained cpsam</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">prepare_training_data()</span></code></p></td>
+<td><p>cellpose.py</p></td>
+<td><p>export images + masks for training</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">annotate()</span></code></p></td>
+<td><p>cellpose.py</p></td>
+<td><p>launch GUI for manual annotation</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Training requires paired files:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">{name}.tif</span></code> - image file</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">{name}_seg.npy</span></code> - matching segmentation (naming convention critical)</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="file-format-metadata-storage">
+<h2>12. File Format Metadata Storage<a class="headerlink" href="#file-format-metadata-storage" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Format</p></th>
+<th class="head"><p>Metadata Location</p></th>
+<th class="head"><p>Access Method</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">.bin</span></code></p></td>
+<td><p>Separate <code class="docutils literal notranslate"><span class="pre">ops.npy</span></code></p></td>
+<td><p>dimensions from <code class="docutils literal notranslate"><span class="pre">ops[&quot;Ly&quot;]</span></code>, <code class="docutils literal notranslate"><span class="pre">ops[&quot;Lx&quot;]</span></code>, file size</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">.npy</span></code></p></td>
+<td><p>Embedded (allow_pickle=True)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">np.load(path,</span> <span class="pre">allow_pickle=True).item()</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">.tif</span></code></p></td>
+<td><p>TIFF tags + ScanImage metadata</p></td>
+<td><p>mbo_utilities extraction</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">.zarr</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">.zattrs</span></code> JSON</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">arr.metadata</span></code> attribute</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">.h5</span></code></p></td>
+<td><p>HDF5 attributes</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ops[&quot;h5py_key&quot;]</span></code> for dataset access</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">.json</span></code></p></td>
+<td><p>ops.json export</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ops_to_json()</span></code> for human-readable</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<hr class="docutils" />
+<section id="lazy-array-metadata-access">
+<h2>13. Lazy Array Metadata Access<a class="headerlink" href="#lazy-array-metadata-access" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Array Type</p></th>
+<th class="head"><p>Metadata Attribute</p></th>
+<th class="head"><p>Source</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">MboRawArray</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">.metadata</span></code></p></td>
+<td><p>ScanImage TIFF headers</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ScanImageArray</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">.metadata</span></code></p></td>
+<td><p>ScanImage JSON embedded</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LBMArray</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">.metadata</span></code></p></td>
+<td><p>inherited from base</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">PiezoArray</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">.metadata</span></code></p></td>
+<td><p>inherited from base</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Suite2pArray</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">.metadata</span></code></p></td>
+<td><p>loaded from ops.npy</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ZarrArray</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">.metadata</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">.zattrs</span></code> file</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">H5Array</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">.metadata</span></code></p></td>
+<td><p>HDF5 attributes</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">BinArray</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">.metadata</span></code></p></td>
+<td><p>associated ops.npy</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Additional MboRawArray properties:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">.fix_phase</span></code> - phase correction enabled</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">.use_fft</span></code> - FFT subpixel correction</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">.roi</span></code> - current ROI mode</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">.num_rois</span></code> - total ROI count</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="volume-statistics-metadata">
+<h2>14. Volume Statistics Metadata<a class="headerlink" href="#volume-statistics-metadata" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File:Line</p></th>
+<th class="head"><p>Collected Data</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">get_volume_stats()</span></code></p></td>
+<td><p>volume.py:276+</p></td>
+<td><p>per-plane ops aggregation</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Volume metadata structure:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;planes&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">plane_indices</span><span class="p">],</span>
+    <span class="s2">&quot;n_rois_per_plane&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">counts</span><span class="p">],</span>
+    <span class="s2">&quot;total_rois&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="s2">&quot;voxel_size&quot;</span><span class="p">:</span> <span class="p">(</span><span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">dz</span><span class="p">),</span>
+    <span class="s2">&quot;volume_shape&quot;</span><span class="p">:</span> <span class="p">(</span><span class="n">nz</span><span class="p">,</span> <span class="n">ny</span><span class="p">,</span> <span class="n">nx</span><span class="p">),</span>
+    <span class="s2">&quot;processing_times&quot;</span><span class="p">:</span> <span class="p">{</span><span class="n">plane</span><span class="p">:</span> <span class="n">seconds</span><span class="p">},</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="image-cropping-expansion-logic">
+<h2>15. Image Cropping/Expansion Logic<a class="headerlink" href="#image-cropping-expansion-logic" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File:Line</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">_get_summary_image()</span></code></p></td>
+<td><p>conversion.py:130-206</p></td>
+<td><p>handles full vs. cropped images</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Size handling:</strong></p>
+<ul class="simple">
+<li><p>Full-size images (<code class="docutils literal notranslate"><span class="pre">meanImg</span></code>, <code class="docutils literal notranslate"><span class="pre">meanImgE</span></code>, <code class="docutils literal notranslate"><span class="pre">refImg</span></code>): Shape = (Ly, Lx)</p></li>
+<li><p>Cropped images (<code class="docutils literal notranslate"><span class="pre">max_proj</span></code>, <code class="docutils literal notranslate"><span class="pre">Vcorr</span></code>): Shape = (yrange[1]-yrange[0], xrange[1]-xrange[0])</p></li>
+<li><p>Expansion: cropped images padded with zeros to (Ly, Lx) using <code class="docutils literal notranslate"><span class="pre">yrange</span></code>, <code class="docutils literal notranslate"><span class="pre">xrange</span></code></p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="metadata-normalization-functions">
+<h2>16. Metadata Normalization Functions<a class="headerlink" href="#metadata-normalization-functions" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File:Line</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">_normalize_iscell()</span></code></p></td>
+<td><p>postprocessing.py:13-17</p></td>
+<td><p>converts (n, 2) to (n,) boolean</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">load_ops()</span></code></p></td>
+<td><p>postprocessing.py:1223-1249</p></td>
+<td><p>loads ops from path, dir, or returns dict</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ops_to_json()</span></code></p></td>
+<td><p>postprocessing.py:695-747</p></td>
+<td><p>serializes numpy types for JSON export</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>JSON serialization handles:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">np.ndarray</span></code> → <code class="docutils literal notranslate"><span class="pre">list</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">np.integer</span></code> → <code class="docutils literal notranslate"><span class="pre">int</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">np.floating</span></code> → <code class="docutils literal notranslate"><span class="pre">float</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">np.bool_</span></code> → <code class="docutils literal notranslate"><span class="pre">bool</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Path</span></code> → <code class="docutils literal notranslate"><span class="pre">str</span></code></p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="metadata-flow-diagram">
+<h2>17. Metadata Flow Diagram<a class="headerlink" href="#metadata-flow-diagram" title="Link to this heading">#</a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Input Files (TIFF/Zarr/HDF5)
+        │
+        ▼
+┌─────────────────────┐
+│   mbo_utilities     │
+│  - get_param()      │
+│  - get_voxel_size() │
+│  - detect_stack_type│
+└─────────┬───────────┘
+          │
+          ▼
+┌─────────────────────┐
+│    default_ops()    │
+│  Merge: defaults +  │
+│  metadata + user    │
+└─────────┬───────────┘
+          │
+          ▼
+┌─────────────────────┐
+│     pipeline()      │──────┐
+│  - plane_ops copy   │      │
+│  - processing_history      │
+└─────────┬───────────┘      │
+          │                  │
+          ▼                  ▼
+┌─────────────────┐  ┌──────────────┐
+│  Binary Write   │  │ run_plane_bin│
+│  Updates: Ly,Lx │  │ Suite2p core │
+│  nframes, shape │  └──────┬───────┘
+└─────────────────┘         │
+                            ▼
+                   ┌────────────────┐
+                   │  Registration  │
+                   │ Updates: yrange│
+                   │ xrange, refImg │
+                   └────────┬───────┘
+                            │
+                            ▼
+                   ┌────────────────┐
+                   │   Detection    │
+                   │ Creates: stat  │
+                   │ iscell, F, Fneu│
+                   └────────┬───────┘
+                            │
+                            ▼
+                   ┌────────────────┐
+                   │ Postprocessing │
+                   │ - Cell filters │
+                   │ - dF/F compute │
+                   │ - Plot generate│
+                   └────────┬───────┘
+                            │
+                            ▼
+                   ┌────────────────┐
+                   │   Output Files │
+                   │ ops.npy, stat  │
+                   │ F, Fneu, spks  │
+                   │ iscell, norm   │
+                   └────────────────┘
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="summary">
+<h2>Summary<a class="headerlink" href="#summary" title="Link to this heading">#</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">ops</span></code> dictionary serves as the central metadata hub in Suite2p, with additional structured data in:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">stat.npy</span></code> - per-ROI spatial and intensity metadata</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">iscell.npy</span></code> - classification results (n_rois, 2)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">F.npy</span></code>, <code class="docutils literal notranslate"><span class="pre">Fneu.npy</span></code>, <code class="docutils literal notranslate"><span class="pre">spks.npy</span></code>, <code class="docutils literal notranslate"><span class="pre">norm_traces.npy</span></code> - trace data (n_rois, nframes)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">processing_history</span></code> - append-only log within ops</p></li>
+</ul>
+<p>All metadata flows through the pipeline with consistent access patterns via mbo_utilities for input extraction and numpy serialization for output storage.</p>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="classifiers.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Suite2p ROI Classifiers</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="pipeline_comparison.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Pipeline Comparison</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#table-of-contents">Table of Contents</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#core-metadata-sources-extraction">1. Core Metadata Sources &amp; Extraction</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#suite2p-ops-dictionary-fields">2. Suite2p ops Dictionary Fields</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#spatial-dimensional-metadata">2.1 Spatial/Dimensional Metadata</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#temporal-metadata">2.2 Temporal Metadata</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#image-metadata-processing-results">2.3 Image Metadata (Processing Results)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#registration-metadata">2.4 Registration Metadata</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#detection-classification-metadata">2.5 Detection/Classification Metadata</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#path-metadata">2.6 Path Metadata</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#stat-npy-array-fields-per-roi-metadata">3. stat.npy Array Fields (Per-ROI Metadata)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#processing-history-metadata">4. Processing History Metadata</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#format-conversion-metadata">5. Format Conversion Metadata</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#suite2p-to-cellpose">5.1 Suite2p to Cellpose</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cellpose-to-suite2p">5.2 Cellpose to Suite2p</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#validation-comparison-metadata">6. Validation &amp; Comparison Metadata</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cell-filtering-metadata">7. Cell Filtering Metadata</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#multi-roi-merging-metadata">8. Multi-ROI Merging Metadata</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#normcorre-registration-metadata">9. Normcorre Registration Metadata</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#df-f-computation-metadata">10. dF/F Computation Metadata</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cellpose-training-metadata">11. Cellpose Training Metadata</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#file-format-metadata-storage">12. File Format Metadata Storage</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#lazy-array-metadata-access">13. Lazy Array Metadata Access</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#volume-statistics-metadata">14. Volume Statistics Metadata</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#image-cropping-expansion-logic">15. Image Cropping/Expansion Logic</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#metadata-normalization-functions">16. Metadata Normalization Functions</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#metadata-flow-diagram">17. Metadata Flow Diagram</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#summary">Summary</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2024, Elizabeth R. Miller Brain Observatory | The Rockefeller University. All Rights Reserved.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

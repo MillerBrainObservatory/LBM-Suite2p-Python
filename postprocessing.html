@@ -1,0 +1,1229 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="./" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Postprocessing Functions &#8212; LBM-Suite2p-Python</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="_static/custom.css?v=bdf0de15" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="_static/documentation_options.js?v=0fa21ae5"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=f281be69"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="_static/togglebutton.js?v=b8b12719"></script>
+    <script src="_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script src="_static/design-tabs.js?v=f930bc37"></script>
+    <script defer="defer" src="https://unpkg.com/@popperjs/core@2"></script>
+    <script defer="defer" src="https://unpkg.com/tippy.js@6"></script>
+    <script defer="defer" src="_static/tippy/postprocessing.871bc150-2e1a-4912-99b0-d762097ff522.js"></script>
+    <script>window.MathJax = {"options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'postprocessing';</script>
+    <link rel="icon" href="_static/icon_suite2p.svg"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Processing Flow" href="processing_flow.html" />
+    <link rel="prev" title="Projection Images" href="projections.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="_static/logo_suit2p.png" class="logo__image only-light" alt="LBM-Suite2p-Python - Home"/>
+    <img src="_static/logo_suit2p.png" class="logo__image only-dark pst-js-only" alt="LBM-Suite2p-Python - Home"/>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://millerbrainobservatory.github.io/" title="MBO User Hub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><img src="_static/icon_mbo_home.png" class="icon-link-image" alt="MBO User Hub"/></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/MillerBrainObservatory/" title="MBO Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">MBO Github</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://mbo.rockefeller.edu/contact/" title="Connect with MBO" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-regular fa-address-card fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Connect with MBO</span></a>
+        </li>
+</ul></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quickstart</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="user_guide.html">User Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="simple">
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="projections.html">Projection Images</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="simple">
+</ul>
+</details></li>
+<li class="toctree-l1 current active has-children"><a class="current reference internal" href="#">Postprocessing Functions</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="simple">
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="processing_flow.html">Processing Flow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="classifiers.html">Suite2p ROI Classifiers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="metadata_reference.html">Metadata Processing Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipeline_comparison.html">Pipeline Comparison</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="image_gallery.html">Image Gallery</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/blob/master/docs/postprocessing.md?plain=1" target="_blank"
+   class="btn btn-sm btn-source-file-button dropdown-item"
+   title="Show source"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-code"></i>
+  </span>
+<span class="btn__text-container">Show source</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/edit/master/docs/postprocessing.md" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/issues/new?title=Issue%20on%20page%20%2Fpostprocessing.html&body=Your%20issue%20content%20here." target="_blank"
+   class="btn btn-sm btn-source-issues-button dropdown-item"
+   title="Open an issue"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-lightbulb"></i>
+  </span>
+<span class="btn__text-container">Open issue</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="_sources/postprocessing.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Postprocessing Functions</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#data-loaders">Data Loaders</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#load-planar-results">Load Planar Results</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#load-ops">Load Ops</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#load-traces-accepted-only">Load Traces (Accepted Only)</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#f-f-calculation">ΔF/F Calculation</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#rolling-percentile-baseline">Rolling Percentile Baseline</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#z-score">Z-Score</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#normalized-traces-output">Normalized traces output</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#window-size-effect">Window Size Effect</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#median-filter-baseline">Median Filter Baseline</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#noise-estimation">Noise Estimation</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#shot-noise">Shot Noise</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quality-scoring">Quality Scoring</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#compute-trace-quality-score">Compute Trace Quality Score</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#sort-traces-by-quality">Sort Traces by Quality</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#roi-filtering">ROI Filtering</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#pipeline-integrated-filtering">Pipeline-Integrated Filtering</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#default-filter-behavior">Default Filter Behavior</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#custom-filters-via-cell-filters">Custom Filters via cell_filters</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#available-filters">Available Filters</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#disable-all-filtering">Disable All Filtering</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#accept-all-cells-parameter">accept_all_cells Parameter</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#filter-summary-figures">Filter Summary Figures</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#programmatic-filtering-with-apply-filters">Programmatic Filtering with apply_filters</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#manual-filter-functions">Manual Filter Functions</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#filter-by-diameter">Filter by Diameter</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#filter-by-area">Filter by Area</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#filter-by-eccentricity">Filter by Eccentricity</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#combined-filtering-example">Combined Filtering Example</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#event-detection">Event Detection</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#event-exceptionality">Event Exceptionality</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#export-utilities">Export Utilities</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ops-to-json">Ops to JSON</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#complete-workflow-example">Complete Workflow Example</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section class="tex2jax_ignore mathjax_ignore" id="postprocessing-functions">
+<span id="postprocessing"></span><h1>Postprocessing Functions<a class="headerlink" href="#postprocessing-functions" title="Link to this heading">#</a></h1>
+<p>This guide covers the postprocessing functions available in LBM-Suite2p-Python for analyzing and refining calcium imaging traces after Suite2p extraction.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="user_guide.html"><span class="doc">User Guide</span></a> - Complete pipeline examples and parameter tuning</p></li>
+<li><p><a class="reference internal" href="processing_flow.html"><span class="doc">Processing Flow</span></a> - Suite2p internal processing steps</p></li>
+<li><p><a class="reference internal" href="pipeline_comparison.html"><span class="doc">Pipeline Comparison</span></a> - How CaImAn, Suite2p, EXTRACT compare</p></li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+</div>
+<section id="data-loaders">
+<h2>Data Loaders<a class="headerlink" href="#data-loaders" title="Link to this heading">#</a></h2>
+<section id="load-planar-results">
+<h3>Load Planar Results<a class="headerlink" href="#load-planar-results" title="Link to this heading">#</a></h3>
+<p>Load all Suite2p outputs from a plane directory:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">lbm_suite2p_python</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_planar_results</span>
+
+<span class="n">results</span> <span class="o">=</span> <span class="n">load_planar_results</span><span class="p">(</span><span class="s2">&quot;path/to/plane01&quot;</span><span class="p">)</span>
+<span class="c1"># or</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">load_planar_results</span><span class="p">(</span><span class="s2">&quot;path/to/plane01/ops.npy&quot;</span><span class="p">)</span>
+
+<span class="c1"># Access data</span>
+<span class="n">F</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;F&#39;</span><span class="p">]</span>           <span class="c1"># (n_rois, n_frames) fluorescence</span>
+<span class="n">Fneu</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;Fneu&#39;</span><span class="p">]</span>     <span class="c1"># (n_rois, n_frames) neuropil</span>
+<span class="n">spks</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;spks&#39;</span><span class="p">]</span>     <span class="c1"># (n_rois, n_frames) deconvolved spikes</span>
+<span class="n">stat</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;stat&#39;</span><span class="p">]</span>     <span class="c1"># ROI statistics array</span>
+<span class="n">iscell</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;iscell&#39;</span><span class="p">]</span> <span class="c1"># (n_rois, 2) classification</span>
+
+<span class="c1"># Filter for accepted cells</span>
+<span class="n">iscell_mask</span> <span class="o">=</span> <span class="n">iscell</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span>
+<span class="n">F_cells</span> <span class="o">=</span> <span class="n">F</span><span class="p">[</span><span class="n">iscell_mask</span><span class="p">]</span>
+</pre></div>
+</div>
+</section>
+<section id="load-ops">
+<h3>Load Ops<a class="headerlink" href="#load-ops" title="Link to this heading">#</a></h3>
+<p>Simple utility to load ops.npy:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">lbm_suite2p_python</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_ops</span>
+
+<span class="n">ops</span> <span class="o">=</span> <span class="n">load_ops</span><span class="p">(</span><span class="s2">&quot;path/to/ops.npy&quot;</span><span class="p">)</span>
+<span class="c1"># or</span>
+<span class="n">ops</span> <span class="o">=</span> <span class="n">load_ops</span><span class="p">(</span><span class="s2">&quot;path/to/plane01&quot;</span><span class="p">)</span>  <span class="c1"># auto-finds ops.npy</span>
+</pre></div>
+</div>
+</section>
+<section id="load-traces-accepted-only">
+<h3>Load Traces (Accepted Only)<a class="headerlink" href="#load-traces-accepted-only" title="Link to this heading">#</a></h3>
+<p>Load only accepted cell traces:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">lbm_suite2p_python.postprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_traces</span>
+
+<span class="n">F</span><span class="p">,</span> <span class="n">Fneu</span><span class="p">,</span> <span class="n">spks</span> <span class="o">=</span> <span class="n">load_traces</span><span class="p">(</span><span class="n">ops</span><span class="p">)</span>
+<span class="c1"># Returns only traces where iscell[:, 0] == True</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="f-f-calculation">
+<h2>ΔF/F Calculation<a class="headerlink" href="#f-f-calculation" title="Link to this heading">#</a></h2>
+<section id="rolling-percentile-baseline">
+<h3>Rolling Percentile Baseline<a class="headerlink" href="#rolling-percentile-baseline" title="Link to this heading">#</a></h3>
+<p>The recommended method for computing ΔF/F₀ uses a rolling percentile baseline that adapts to slow drifts in fluorescence:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">lbm_suite2p_python</span><span class="w"> </span><span class="kn">import</span> <span class="n">dff_rolling_percentile</span>
+
+<span class="c1"># Basic usage</span>
+<span class="n">dff</span> <span class="o">=</span> <span class="n">dff_rolling_percentile</span><span class="p">(</span><span class="n">F</span><span class="p">,</span> <span class="n">window_size</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">percentile</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+
+<span class="c1"># With auto-calculated window sizes based on indicator kinetics</span>
+<span class="n">dff</span> <span class="o">=</span> <span class="n">dff_rolling_percentile</span><span class="p">(</span>
+    <span class="n">F</span><span class="p">,</span>
+    <span class="n">tau</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>        <span class="c1"># GCaMP decay constant (seconds)</span>
+    <span class="n">fs</span><span class="o">=</span><span class="mf">30.0</span><span class="p">,</span>        <span class="c1"># Frame rate (Hz)</span>
+    <span class="n">percentile</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>  <span class="c1"># Baseline percentile</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Parameters:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">window_size</span></code>: Rolling window in frames (~10 × tau × fs recommended)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">percentile</span></code>: Percentile for baseline (20 is typical for calcium imaging)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tau</span></code>, <code class="docutils literal notranslate"><span class="pre">fs</span></code>: Auto-calculate window sizes from indicator kinetics</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">smooth_window</span></code>: Optional temporal smoothing (~0.5 × tau × fs)</p></li>
+</ul>
+<figure class="align-default" id="fig-dff-methods">
+<a class="reference internal image-reference" href="_images/dff_methods_comparison.png"><img alt="Comparison of dF/F methods" src="_images/dff_methods_comparison.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Comparison of different ΔF/F calculation methods. Rolling percentile (20th) provides robust baseline estimation that handles slow drifts while preserving transient peaks.</span><a class="headerlink" href="#fig-dff-methods" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="z-score">
+<h3>Z-Score<a class="headerlink" href="#z-score" title="Link to this heading">#</a></h3>
+<p>As an alternative to ΔF/F, traces can be z-scored per ROI (<code class="docutils literal notranslate"><span class="pre">(F</span> <span class="pre">-</span> <span class="pre">mean)</span> <span class="pre">/</span> <span class="pre">std</span></code> over time):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">lbm_suite2p_python</span><span class="w"> </span><span class="kn">import</span> <span class="n">zscore_trace</span>
+
+<span class="n">z</span> <span class="o">=</span> <span class="n">zscore_trace</span><span class="p">(</span><span class="n">F</span><span class="p">,</span> <span class="n">smooth_window</span><span class="o">=</span><span class="mi">15</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="normalized-traces-output">
+<h3>Normalized traces output<a class="headerlink" href="#normalized-traces-output" title="Link to this heading">#</a></h3>
+<p>The pipeline writes the normalized trace to <code class="docutils literal notranslate"><span class="pre">norm_traces.npy</span></code>. Choose the method with <code class="docutils literal notranslate"><span class="pre">norm_method</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">lbm_suite2p_python</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">lsp</span>
+
+<span class="n">lsp</span><span class="o">.</span><span class="n">pipeline</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="n">norm_method</span><span class="o">=</span><span class="s2">&quot;zscore&quot;</span><span class="p">)</span>  <span class="c1"># per-ROI z-score (default)</span>
+<span class="n">lsp</span><span class="o">.</span><span class="n">pipeline</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="n">norm_method</span><span class="o">=</span><span class="s2">&quot;dff&quot;</span><span class="p">)</span>     <span class="c1"># rolling-percentile ΔF/F</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">dff_window_size</span></code> / <code class="docutils literal notranslate"><span class="pre">dff_percentile</span></code> / <code class="docutils literal notranslate"><span class="pre">dff_smooth_window</span></code> parameters apply when <code class="docutils literal notranslate"><span class="pre">norm_method=&quot;dff&quot;</span></code>. Quality metrics (SNR, skew, shot-noise) always use a static-baseline ΔF/F (<code class="xref py py-func docutils literal notranslate"><span class="pre">baseline_percentile_dff()</span></code>) regardless of <code class="docutils literal notranslate"><span class="pre">norm_method</span></code>.</p>
+</section>
+<section id="window-size-effect">
+<h3>Window Size Effect<a class="headerlink" href="#window-size-effect" title="Link to this heading">#</a></h3>
+<p>The window size critically affects baseline estimation:</p>
+<figure class="align-default" id="fig-dff-window">
+<a class="reference internal image-reference" href="_images/dff_window_size_effect.png"><img alt="Effect of window size on dF/F" src="_images/dff_window_size_effect.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Effect of window size on ΔF/F calculation. Smaller windows track faster baseline changes but may contaminate baseline with transients. Larger windows provide stable baselines but miss slow drifts.</span><a class="headerlink" href="#fig-dff-window" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+<p><strong>Rule of thumb:</strong> Use ~10× the indicator decay time constant (tau) × frame rate.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Indicator</p></th>
+<th class="head"><p>Tau (s)</p></th>
+<th class="head"><p>Frame Rate</p></th>
+<th class="head"><p>Recommended Window</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>GCaMP6f</p></td>
+<td><p>0.4</p></td>
+<td><p>30 Hz</p></td>
+<td><p>~120 frames</p></td>
+</tr>
+<tr class="row-odd"><td><p>GCaMP6s</p></td>
+<td><p>1.0</p></td>
+<td><p>30 Hz</p></td>
+<td><p>~300 frames</p></td>
+</tr>
+<tr class="row-even"><td><p>GCaMP7s</p></td>
+<td><p>1.0</p></td>
+<td><p>17 Hz</p></td>
+<td><p>~170 frames</p></td>
+</tr>
+<tr class="row-odd"><td><p>GCaMP8f</p></td>
+<td><p>0.25</p></td>
+<td><p>30 Hz</p></td>
+<td><p>~75 frames</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="median-filter-baseline">
+<h3>Median Filter Baseline<a class="headerlink" href="#median-filter-baseline" title="Link to this heading">#</a></h3>
+<p>A simpler alternative for stable recordings:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">lbm_suite2p_python</span><span class="w"> </span><span class="kn">import</span> <span class="n">dff_median_filter</span>
+
+<span class="n">dff</span> <span class="o">=</span> <span class="n">dff_median_filter</span><span class="p">(</span><span class="n">F</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Uses 1% of the median fluorescence as F₀. Fast but less adaptive to baseline drifts.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="noise-estimation">
+<h2>Noise Estimation<a class="headerlink" href="#noise-estimation" title="Link to this heading">#</a></h2>
+<section id="shot-noise">
+<h3>Shot Noise<a class="headerlink" href="#shot-noise" title="Link to this heading">#</a></h3>
+<p>Quantify recording quality using standardized shot noise levels:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">lbm_suite2p_python</span><span class="w"> </span><span class="kn">import</span> <span class="n">dff_shot_noise</span>
+
+<span class="n">noise</span> <span class="o">=</span> <span class="n">dff_shot_noise</span><span class="p">(</span><span class="n">dff</span><span class="p">,</span> <span class="n">fr</span><span class="o">=</span><span class="mf">30.0</span><span class="p">)</span>  <span class="c1"># Returns noise in %/√Hz</span>
+</pre></div>
+</div>
+<p>The shot noise metric from <a class="reference external" href="https://gcamp6f.com/2021/10/04/large-scale-calcium-imaging-noise-levels/">Rupprecht et al. (2021)</a> enables comparison across datasets:</p>
+<div class="math notranslate nohighlight">
+\[\nu = \frac{\mathrm{median}_t\left( \left| \Delta F/F_{t+1} - \Delta F/F_t \right| \right)}{\sqrt{f_r}}\]</div>
+<figure class="align-default" id="fig-shot-noise">
+<a class="reference internal image-reference" href="_images/shot_noise_analysis.png"><img alt="Shot noise analysis" src="_images/shot_noise_analysis.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Shot noise distribution comparing accepted vs rejected cells. Lower noise indicates cleaner recordings. The trace panel shows example neurons with low noise (cyan, top) vs high noise (red, bottom).</span><a class="headerlink" href="#fig-shot-noise" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+<p><strong>Quality Benchmarks:</strong></p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Noise Level</p></th>
+<th class="head"><p>Quality</p></th>
+<th class="head"><p>Interpretation</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>&lt; 0.5 %/√Hz</p></td>
+<td><p>Excellent</p></td>
+<td><p>Very clean signal</p></td>
+</tr>
+<tr class="row-odd"><td><p>0.5-1.0 %/√Hz</p></td>
+<td><p>Good</p></td>
+<td><p>Typical for healthy recordings</p></td>
+</tr>
+<tr class="row-even"><td><p>1.0-2.0 %/√Hz</p></td>
+<td><p>Fair</p></td>
+<td><p>May need filtering</p></td>
+</tr>
+<tr class="row-odd"><td><p>&gt; 2.0 %/√Hz</p></td>
+<td><p>Poor</p></td>
+<td><p>Consider excluding</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="quality-scoring">
+<h2>Quality Scoring<a class="headerlink" href="#quality-scoring" title="Link to this heading">#</a></h2>
+<section id="compute-trace-quality-score">
+<h3>Compute Trace Quality Score<a class="headerlink" href="#compute-trace-quality-score" title="Link to this heading">#</a></h3>
+<p>Combine multiple metrics to rank neurons by signal quality:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">lbm_suite2p_python</span><span class="w"> </span><span class="kn">import</span> <span class="n">compute_trace_quality_score</span>
+
+<span class="n">result</span> <span class="o">=</span> <span class="n">compute_trace_quality_score</span><span class="p">(</span>
+    <span class="n">F</span><span class="p">,</span> <span class="n">Fneu</span><span class="p">,</span> <span class="n">stat</span><span class="p">,</span>
+    <span class="n">fs</span><span class="o">=</span><span class="mf">30.0</span><span class="p">,</span>
+    <span class="n">weights</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;snr&#39;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span> <span class="s1">&#39;skewness&#39;</span><span class="p">:</span> <span class="mf">0.8</span><span class="p">,</span> <span class="s1">&#39;shot_noise&#39;</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">}</span>
+<span class="p">)</span>
+
+<span class="c1"># Access results</span>
+<span class="n">sorted_F</span> <span class="o">=</span> <span class="n">F</span><span class="p">[</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;sort_idx&#39;</span><span class="p">]]</span>  <span class="c1"># Traces sorted best to worst</span>
+<span class="n">snr</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;snr&#39;</span><span class="p">]</span>               <span class="c1"># SNR values</span>
+<span class="n">scores</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;score&#39;</span><span class="p">]</span>          <span class="c1"># Combined scores</span>
+</pre></div>
+</div>
+<p><strong>Metrics combined:</strong></p>
+<ul class="simple">
+<li><p><strong>SNR</strong>: Signal standard deviation / noise estimate (higher = better)</p></li>
+<li><p><strong>Skewness</strong>: Positive skew indicates calcium transients (higher = better)</p></li>
+<li><p><strong>Shot noise</strong>: Frame-to-frame variability (lower = better, inverted in score)</p></li>
+</ul>
+<p><strong>Neuropil correction and rectification:</strong></p>
+<p>Neuropil subtraction (<code class="docutils literal notranslate"><span class="pre">F</span> <span class="pre">-</span> <span class="pre">0.7</span> <span class="pre">*</span> <span class="pre">Fneu</span></code>) can produce negative fluorescence values, especially in ROIs where the neuropil signal is strong relative to the soma. Negative values drag down the mean fluorescence while preserving the same standard deviation, which artificially suppresses the SNR toward or below 1.</p>
+<p>To correct this, <code class="docutils literal notranslate"><span class="pre">compute_trace_quality_score</span></code> and <code class="docutils literal notranslate"><span class="pre">compute_roi_stats</span></code> rectify the corrected trace by clipping negative values to zero before computing dF/F:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">F_corr</span> <span class="o">=</span> <span class="n">F</span> <span class="o">-</span> <span class="mf">0.7</span> <span class="o">*</span> <span class="n">Fneu</span>
+<span class="n">F_corr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">F_corr</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>  <span class="c1"># rectify negatives</span>
+</pre></div>
+</div>
+<p>This ensures the baseline estimate (20th percentile) remains meaningful and SNR values are &gt; 1 for active neurons. If you compute dF/F manually (e.g. via <code class="docutils literal notranslate"><span class="pre">dff_rolling_percentile</span></code>), apply the same rectification to your neuropil-corrected traces before passing them in.</p>
+<figure class="align-default" id="fig-quality-score">
+<a class="reference internal image-reference" href="_images/quality_score_breakdown.png"><img alt="Quality score breakdown" src="_images/quality_score_breakdown.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Quality score component distributions (SNR, skewness, shot noise) and example traces. The bottom panel shows top 5 quality neurons (cyan, top) vs bottom 5 quality neurons (red, bottom).</span><a class="headerlink" href="#fig-quality-score" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="sort-traces-by-quality">
+<h3>Sort Traces by Quality<a class="headerlink" href="#sort-traces-by-quality" title="Link to this heading">#</a></h3>
+<p>Convenience function to sort traces:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">lbm_suite2p_python</span><span class="w"> </span><span class="kn">import</span> <span class="n">sort_traces_by_quality</span>
+
+<span class="n">F_sorted</span><span class="p">,</span> <span class="n">sort_idx</span><span class="p">,</span> <span class="n">quality</span> <span class="o">=</span> <span class="n">sort_traces_by_quality</span><span class="p">(</span><span class="n">F</span><span class="p">,</span> <span class="n">Fneu</span><span class="p">,</span> <span class="n">stat</span><span class="p">,</span> <span class="n">fs</span><span class="o">=</span><span class="mf">30.0</span><span class="p">)</span>
+
+<span class="c1"># Use sort_idx to sort other arrays</span>
+<span class="n">stat_sorted</span> <span class="o">=</span> <span class="n">stat</span><span class="p">[</span><span class="n">sort_idx</span><span class="p">]</span>
+<span class="n">iscell_sorted</span> <span class="o">=</span> <span class="n">iscell</span><span class="p">[</span><span class="n">sort_idx</span><span class="p">]</span>
+</pre></div>
+</div>
+<figure class="align-default" id="fig-trace-sorting">
+<a class="reference internal image-reference" href="_images/trace_sorting_comparison.png"><img alt="Trace sorting comparison" src="_images/trace_sorting_comparison.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Comparison of traces in original order (left) vs sorted by quality score (right). Quality-sorted display shows best neurons at top with color gradient from high quality (yellow) to lower quality (purple).</span><a class="headerlink" href="#fig-trace-sorting" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</section>
+</section>
+<hr class="docutils" />
+<section id="roi-filtering">
+<h2>ROI Filtering<a class="headerlink" href="#roi-filtering" title="Link to this heading">#</a></h2>
+<section id="pipeline-integrated-filtering">
+<h3>Pipeline-Integrated Filtering<a class="headerlink" href="#pipeline-integrated-filtering" title="Link to this heading">#</a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">lsp.pipeline()</span></code> function automatically applies cell filters after suite2p detection. This is the recommended approach for most workflows.</p>
+<section id="default-filter-behavior">
+<h4>Default Filter Behavior<a class="headerlink" href="#default-filter-behavior" title="Link to this heading">#</a></h4>
+<p>By default, if pixel resolution is available in the metadata, <code class="docutils literal notranslate"><span class="pre">lsp.pipeline()</span></code> applies a diameter filter of <strong>4-35 µm</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># default behavior - auto-applies 4-35 µm filter if pixel_size available</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">lsp</span><span class="o">.</span><span class="n">pipeline</span><span class="p">(</span><span class="s2">&quot;D:/data/raw&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="custom-filters-via-cell-filters">
+<h4>Custom Filters via cell_filters<a class="headerlink" href="#custom-filters-via-cell-filters" title="Link to this heading">#</a></h4>
+<p>Override the default with the <code class="docutils literal notranslate"><span class="pre">cell_filters</span></code> parameter:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># custom filters</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">lsp</span><span class="o">.</span><span class="n">pipeline</span><span class="p">(</span>
+    <span class="s2">&quot;D:/data/raw&quot;</span><span class="p">,</span>
+    <span class="n">cell_filters</span><span class="o">=</span><span class="p">[</span>
+        <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;max_diameter&quot;</span><span class="p">,</span> <span class="s2">&quot;min_diameter_um&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span> <span class="s2">&quot;max_diameter_um&quot;</span><span class="p">:</span> <span class="mi">25</span><span class="p">},</span>
+        <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;eccentricity&quot;</span><span class="p">,</span> <span class="s2">&quot;max_ratio&quot;</span><span class="p">:</span> <span class="mf">4.0</span><span class="p">},</span>
+    <span class="p">],</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="available-filters">
+<h4>Available Filters<a class="headerlink" href="#available-filters" title="Link to this heading">#</a></h4>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Filter Name</p></th>
+<th class="head"><p>Parameters</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">max_diameter</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">min_diameter_um</span></code>, <code class="docutils literal notranslate"><span class="pre">max_diameter_um</span></code>, <code class="docutils literal notranslate"><span class="pre">min_diameter_px</span></code>, <code class="docutils literal notranslate"><span class="pre">max_diameter_px</span></code></p></td>
+<td><p>Filter by ROI diameter</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">area</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">min_area_px</span></code>, <code class="docutils literal notranslate"><span class="pre">max_area_px</span></code>, <code class="docutils literal notranslate"><span class="pre">min_mult</span></code>, <code class="docutils literal notranslate"><span class="pre">max_mult</span></code></p></td>
+<td><p>Filter by pixel count</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">eccentricity</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">max_ratio</span></code>, <code class="docutils literal notranslate"><span class="pre">min_ratio</span></code></p></td>
+<td><p>Filter by bounding box aspect ratio</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">diameter</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">min_mult</span></code>, <code class="docutils literal notranslate"><span class="pre">max_mult</span></code></p></td>
+<td><p>Filter relative to <code class="docutils literal notranslate"><span class="pre">ops[&quot;diameter&quot;]</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="disable-all-filtering">
+<h4>Disable All Filtering<a class="headerlink" href="#disable-all-filtering" title="Link to this heading">#</a></h4>
+<p>To skip all cell filters, pass an empty list:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">results</span> <span class="o">=</span> <span class="n">lsp</span><span class="o">.</span><span class="n">pipeline</span><span class="p">(</span><span class="s2">&quot;D:/data/raw&quot;</span><span class="p">,</span> <span class="n">cell_filters</span><span class="o">=</span><span class="p">[])</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="accept-all-cells-parameter">
+<h3>accept_all_cells Parameter<a class="headerlink" href="#accept-all-cells-parameter" title="Link to this heading">#</a></h3>
+<p>Suite2p’s internal classifier may reject ROIs based on morphological properties. Use <code class="docutils literal notranslate"><span class="pre">accept_all_cells=True</span></code> to accept all detected ROIs regardless of suite2p’s classification:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">results</span> <span class="o">=</span> <span class="n">lsp</span><span class="o">.</span><span class="n">pipeline</span><span class="p">(</span>
+    <span class="s2">&quot;D:/data/raw&quot;</span><span class="p">,</span>
+    <span class="n">accept_all_cells</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># mark all suite2p-rejected ROIs as accepted</span>
+    <span class="n">cell_filters</span><span class="o">=</span><span class="p">[],</span>        <span class="c1"># optionally skip additional filtering too</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Important notes:</strong></p>
+<ul class="simple">
+<li><p>This does <strong>NOT</strong> disable suite2p’s internal detection filters (overlap removal, neuropil requirements, etc.) - those happen during detection</p></li>
+<li><p>It only flips the <code class="docutils literal notranslate"><span class="pre">iscell</span></code> classification after detection completes</p></li>
+<li><p>The original suite2p classification is saved as <code class="docutils literal notranslate"><span class="pre">iscell_suite2p.npy</span></code></p></li>
+<li><p>Cell probabilities (column 1 of iscell) are preserved</p></li>
+</ul>
+<p><strong>Use cases:</strong></p>
+<ul class="simple">
+<li><p>Comparing your filtering to suite2p’s classification</p></li>
+<li><p>Manual curation workflows where you want all candidates</p></li>
+<li><p>Debugging why certain ROIs were rejected</p></li>
+</ul>
+</section>
+<section id="filter-summary-figures">
+<h3>Filter Summary Figures<a class="headerlink" href="#filter-summary-figures" title="Link to this heading">#</a></h3>
+<p>When filters reject cells, the pipeline generates diagnostic figures:</p>
+<p><strong>Planar outputs</strong> (in each plane directory):</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">13_filtered_cells.png</span></code> - side-by-side before/after comparison</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">14_filter_&lt;name&gt;.png</span></code> - per-filter exclusion visualization</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">15_filter_summary.png</span></code> - combined summary showing all filtering stages</p></li>
+</ul>
+<p><strong>Volumetric output</strong> (in suite2p root):</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">volume_filter_summary.png</span></code> - stacked bar chart per plane + pie chart summary</p></li>
+</ul>
+<p>These figures distinguish between:</p>
+<ul class="simple">
+<li><p><strong>suite2p rejected</strong> - rejected by suite2p’s classifier (red)</p></li>
+<li><p><strong>filter rejected</strong> - rejected by your <code class="docutils literal notranslate"><span class="pre">cell_filters</span></code> (orange)</p></li>
+<li><p><strong>accepted</strong> - final accepted cells (green)</p></li>
+</ul>
+</section>
+<section id="programmatic-filtering-with-apply-filters">
+<h3>Programmatic Filtering with apply_filters<a class="headerlink" href="#programmatic-filtering-with-apply-filters" title="Link to this heading">#</a></h3>
+<p>For more control, use <code class="docutils literal notranslate"><span class="pre">apply_filters()</span></code> directly:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">lbm_suite2p_python.postprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">apply_filters</span>
+
+<span class="n">iscell_filtered</span><span class="p">,</span> <span class="n">removed_mask</span><span class="p">,</span> <span class="n">filter_results</span> <span class="o">=</span> <span class="n">apply_filters</span><span class="p">(</span>
+    <span class="n">plane_dir</span><span class="o">=</span><span class="s2">&quot;path/to/plane01&quot;</span><span class="p">,</span>
+    <span class="n">filters</span><span class="o">=</span><span class="p">[</span>
+        <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;max_diameter&quot;</span><span class="p">,</span> <span class="s2">&quot;min_diameter_um&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span> <span class="s2">&quot;max_diameter_um&quot;</span><span class="p">:</span> <span class="mi">25</span><span class="p">},</span>
+        <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;eccentricity&quot;</span><span class="p">,</span> <span class="s2">&quot;max_ratio&quot;</span><span class="p">:</span> <span class="mf">4.0</span><span class="p">},</span>
+    <span class="p">],</span>
+    <span class="n">save</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># save updated iscell.npy</span>
+<span class="p">)</span>
+
+<span class="c1"># filter_results contains per-filter info</span>
+<span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">filter_results</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">: removed </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;removed_mask&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="si">}</span><span class="s2"> ROIs&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="manual-filter-functions">
+<h3>Manual Filter Functions<a class="headerlink" href="#manual-filter-functions" title="Link to this heading">#</a></h3>
+<p>For fine-grained control, use the individual filter functions:</p>
+<section id="filter-by-diameter">
+<h4>Filter by Diameter<a class="headerlink" href="#filter-by-diameter" title="Link to this heading">#</a></h4>
+<p>Remove ROIs with abnormal sizes:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">lbm_suite2p_python.postprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">filter_by_diameter</span>
+
+<span class="n">iscell</span> <span class="o">=</span> <span class="n">filter_by_diameter</span><span class="p">(</span>
+    <span class="n">iscell</span><span class="p">,</span> <span class="n">stat</span><span class="p">,</span> <span class="n">ops</span><span class="p">,</span>
+    <span class="n">min_mult</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>  <span class="c1"># Reject if &lt; 30% of expected diameter</span>
+    <span class="n">max_mult</span><span class="o">=</span><span class="mf">3.0</span>   <span class="c1"># Reject if &gt; 300% of expected diameter</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="filter-by-area">
+<h3>Filter by Area<a class="headerlink" href="#filter-by-area" title="Link to this heading">#</a></h3>
+<p>Filter based on pixel count:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">lbm_suite2p_python.postprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">filter_by_area</span>
+
+<span class="n">iscell</span> <span class="o">=</span> <span class="n">filter_by_area</span><span class="p">(</span>
+    <span class="n">iscell</span><span class="p">,</span> <span class="n">stat</span><span class="p">,</span>
+    <span class="n">min_mult</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span>  <span class="c1"># Reject if &lt; 25% of median area</span>
+    <span class="n">max_mult</span><span class="o">=</span><span class="mf">4.0</span>    <span class="c1"># Reject if &gt; 400% of median area</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="filter-by-eccentricity">
+<h3>Filter by Eccentricity<a class="headerlink" href="#filter-by-eccentricity" title="Link to this heading">#</a></h3>
+<p>Remove elongated ROIs that are likely not cell bodies:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">lbm_suite2p_python.postprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">filter_by_eccentricity</span>
+
+<span class="n">iscell</span> <span class="o">=</span> <span class="n">filter_by_eccentricity</span><span class="p">(</span>
+    <span class="n">iscell</span><span class="p">,</span> <span class="n">stat</span><span class="p">,</span>
+    <span class="n">max_ratio</span><span class="o">=</span><span class="mf">5.0</span>  <span class="c1"># Reject if bounding box ratio &gt; 5:1</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="combined-filtering-example">
+<h3>Combined Filtering Example<a class="headerlink" href="#combined-filtering-example" title="Link to this heading">#</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">lbm_suite2p_python.postprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">filter_by_diameter</span><span class="p">,</span>
+    <span class="n">filter_by_area</span><span class="p">,</span>
+    <span class="n">filter_by_eccentricity</span>
+<span class="p">)</span>
+
+<span class="c1"># Load results</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">lsp</span><span class="o">.</span><span class="n">load_planar_results</span><span class="p">(</span><span class="n">ops_path</span><span class="p">)</span>
+<span class="n">iscell</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;iscell&#39;</span><span class="p">][:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span>
+<span class="n">stat</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;stat&#39;</span><span class="p">]</span>
+<span class="n">ops</span> <span class="o">=</span> <span class="n">lsp</span><span class="o">.</span><span class="n">load_ops</span><span class="p">(</span><span class="n">ops_path</span><span class="p">)</span>
+
+<span class="c1"># Apply filters sequentially</span>
+<span class="n">iscell</span> <span class="o">=</span> <span class="n">filter_by_diameter</span><span class="p">(</span><span class="n">iscell</span><span class="p">,</span> <span class="n">stat</span><span class="p">,</span> <span class="n">ops</span><span class="p">,</span> <span class="n">min_mult</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">max_mult</span><span class="o">=</span><span class="mf">3.0</span><span class="p">)</span>
+<span class="n">iscell</span> <span class="o">=</span> <span class="n">filter_by_area</span><span class="p">(</span><span class="n">iscell</span><span class="p">,</span> <span class="n">stat</span><span class="p">,</span> <span class="n">min_mult</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span> <span class="n">max_mult</span><span class="o">=</span><span class="mf">4.0</span><span class="p">)</span>
+<span class="n">iscell</span> <span class="o">=</span> <span class="n">filter_by_eccentricity</span><span class="p">(</span><span class="n">iscell</span><span class="p">,</span> <span class="n">stat</span><span class="p">,</span> <span class="n">max_ratio</span><span class="o">=</span><span class="mf">5.0</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Accepted after filtering: </span><span class="si">{</span><span class="n">iscell</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="event-detection">
+<h2>Event Detection<a class="headerlink" href="#event-detection" title="Link to this heading">#</a></h2>
+<section id="event-exceptionality">
+<h3>Event Exceptionality<a class="headerlink" href="#event-exceptionality" title="Link to this heading">#</a></h3>
+<p>Identify neurons with exceptional (rare) events using the method from Suite2p:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">lbm_suite2p_python.postprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">compute_event_exceptionality</span>
+
+<span class="n">fitness</span><span class="p">,</span> <span class="n">erfc</span><span class="p">,</span> <span class="n">sd_r</span><span class="p">,</span> <span class="n">md</span> <span class="o">=</span> <span class="n">compute_event_exceptionality</span><span class="p">(</span>
+    <span class="n">traces</span><span class="p">,</span>      <span class="c1"># dF/F or spike traces</span>
+    <span class="n">N</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>         <span class="c1"># Number of consecutive samples</span>
+    <span class="n">robust_std</span><span class="o">=</span><span class="kc">False</span>
+<span class="p">)</span>
+
+<span class="c1"># Lower fitness = more exceptional events</span>
+<span class="n">best_neurons</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">fitness</span><span class="p">)[:</span><span class="mi">20</span><span class="p">]</span>
+</pre></div>
+</div>
+<p><strong>Returns:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">fitness</span></code>: Event exceptionality score (lower = more exceptional)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">erfc</span></code>: Log-probability traces</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sd_r</span></code>: Noise standard deviation estimates</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">md</span></code>: Mode estimates (baseline)</p></li>
+</ul>
+<figure class="align-default" id="fig-exceptionality">
+<a class="reference internal image-reference" href="_images/event_exceptionality.png"><img alt="Event exceptionality detection" src="_images/event_exceptionality.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Event exceptionality analysis. The fitness score distribution shows most neurons have moderate exceptionality. Lower fitness scores indicate neurons with rarer, more exceptional events. The trace panel shows the 5 most exceptional neurons (lowest fitness scores) with best-quality neurons displayed at top.</span><a class="headerlink" href="#fig-exceptionality" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</section>
+</section>
+<hr class="docutils" />
+<section id="export-utilities">
+<h2>Export Utilities<a class="headerlink" href="#export-utilities" title="Link to this heading">#</a></h2>
+<section id="ops-to-json">
+<h3>Ops to JSON<a class="headerlink" href="#ops-to-json" title="Link to this heading">#</a></h3>
+<p>Export ops dictionary to JSON for reproducibility:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">lbm_suite2p_python.postprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">ops_to_json</span>
+
+<span class="c1"># From ops.npy file</span>
+<span class="n">ops_to_json</span><span class="p">(</span><span class="s2">&quot;path/to/ops.npy&quot;</span><span class="p">,</span> <span class="n">outpath</span><span class="o">=</span><span class="s2">&quot;ops.json&quot;</span><span class="p">)</span>
+
+<span class="c1"># From dictionary</span>
+<span class="n">ops_to_json</span><span class="p">(</span><span class="n">ops_dict</span><span class="p">,</span> <span class="n">outpath</span><span class="o">=</span><span class="s2">&quot;ops.json&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="complete-workflow-example">
+<h2>Complete Workflow Example<a class="headerlink" href="#complete-workflow-example" title="Link to this heading">#</a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">lbm_suite2p_python</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">lsp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="c1"># Load results</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">lsp</span><span class="o">.</span><span class="n">load_planar_results</span><span class="p">(</span><span class="s2">&quot;path/to/plane01&quot;</span><span class="p">)</span>
+<span class="n">ops</span> <span class="o">=</span> <span class="n">lsp</span><span class="o">.</span><span class="n">load_ops</span><span class="p">(</span><span class="s2">&quot;path/to/plane01&quot;</span><span class="p">)</span>
+
+<span class="n">F</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;F&#39;</span><span class="p">]</span>
+<span class="n">Fneu</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;Fneu&#39;</span><span class="p">]</span>
+<span class="n">stat</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;stat&#39;</span><span class="p">]</span>
+<span class="n">iscell</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;iscell&#39;</span><span class="p">]</span>
+<span class="n">fs</span> <span class="o">=</span> <span class="n">ops</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;fs&#39;</span><span class="p">,</span> <span class="mf">30.0</span><span class="p">)</span>
+
+<span class="c1"># 1. Apply ROI filters</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">lbm_suite2p_python.postprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">filter_by_diameter</span><span class="p">,</span> <span class="n">filter_by_area</span><span class="p">,</span> <span class="n">filter_by_eccentricity</span>
+<span class="p">)</span>
+
+<span class="n">iscell_mask</span> <span class="o">=</span> <span class="n">iscell</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span>
+<span class="n">iscell_mask</span> <span class="o">=</span> <span class="n">filter_by_diameter</span><span class="p">(</span><span class="n">iscell_mask</span><span class="p">,</span> <span class="n">stat</span><span class="p">,</span> <span class="n">ops</span><span class="p">)</span>
+<span class="n">iscell_mask</span> <span class="o">=</span> <span class="n">filter_by_area</span><span class="p">(</span><span class="n">iscell_mask</span><span class="p">,</span> <span class="n">stat</span><span class="p">)</span>
+<span class="n">iscell_mask</span> <span class="o">=</span> <span class="n">filter_by_eccentricity</span><span class="p">(</span><span class="n">iscell_mask</span><span class="p">,</span> <span class="n">stat</span><span class="p">)</span>
+
+<span class="c1"># 2. Filter arrays</span>
+<span class="n">F_filt</span> <span class="o">=</span> <span class="n">F</span><span class="p">[</span><span class="n">iscell_mask</span><span class="p">]</span>
+<span class="n">Fneu_filt</span> <span class="o">=</span> <span class="n">Fneu</span><span class="p">[</span><span class="n">iscell_mask</span><span class="p">]</span>
+<span class="n">stat_filt</span> <span class="o">=</span> <span class="n">stat</span><span class="p">[</span><span class="n">iscell_mask</span><span class="p">]</span>
+
+<span class="c1"># 3. Calculate dF/F</span>
+<span class="n">dff</span> <span class="o">=</span> <span class="n">lsp</span><span class="o">.</span><span class="n">dff_rolling_percentile</span><span class="p">(</span>
+    <span class="n">F_filt</span> <span class="o">-</span> <span class="mf">0.7</span> <span class="o">*</span> <span class="n">Fneu_filt</span><span class="p">,</span>
+    <span class="n">tau</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">fs</span><span class="o">=</span><span class="n">fs</span>
+<span class="p">)</span>
+
+<span class="c1"># 4. Estimate noise quality</span>
+<span class="n">noise</span> <span class="o">=</span> <span class="n">lsp</span><span class="o">.</span><span class="n">dff_shot_noise</span><span class="p">(</span><span class="n">dff</span><span class="p">,</span> <span class="n">fs</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Median noise: </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">noise</span><span class="p">)</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> %/√Hz&quot;</span><span class="p">)</span>
+
+<span class="c1"># 5. Sort by quality</span>
+<span class="n">F_sorted</span><span class="p">,</span> <span class="n">sort_idx</span><span class="p">,</span> <span class="n">quality</span> <span class="o">=</span> <span class="n">lsp</span><span class="o">.</span><span class="n">sort_traces_by_quality</span><span class="p">(</span>
+    <span class="n">F_filt</span><span class="p">,</span> <span class="n">Fneu_filt</span><span class="p">,</span> <span class="n">stat_filt</span><span class="p">,</span> <span class="n">fs</span>
+<span class="p">)</span>
+
+<span class="c1"># 6. Visualize top neurons</span>
+<span class="n">lsp</span><span class="o">.</span><span class="n">plot_traces</span><span class="p">(</span>
+    <span class="n">F_sorted</span><span class="p">[:</span><span class="mi">20</span><span class="p">],</span>
+    <span class="n">fps</span><span class="o">=</span><span class="n">fs</span><span class="p">,</span>
+    <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Top 20 Neurons by Quality&quot;</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="projections.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Projection Images</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="processing_flow.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Processing Flow</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#data-loaders">Data Loaders</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#load-planar-results">Load Planar Results</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#load-ops">Load Ops</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#load-traces-accepted-only">Load Traces (Accepted Only)</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#f-f-calculation">ΔF/F Calculation</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#rolling-percentile-baseline">Rolling Percentile Baseline</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#z-score">Z-Score</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#normalized-traces-output">Normalized traces output</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#window-size-effect">Window Size Effect</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#median-filter-baseline">Median Filter Baseline</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#noise-estimation">Noise Estimation</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#shot-noise">Shot Noise</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quality-scoring">Quality Scoring</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#compute-trace-quality-score">Compute Trace Quality Score</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#sort-traces-by-quality">Sort Traces by Quality</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#roi-filtering">ROI Filtering</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#pipeline-integrated-filtering">Pipeline-Integrated Filtering</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#default-filter-behavior">Default Filter Behavior</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#custom-filters-via-cell-filters">Custom Filters via cell_filters</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#available-filters">Available Filters</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#disable-all-filtering">Disable All Filtering</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#accept-all-cells-parameter">accept_all_cells Parameter</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#filter-summary-figures">Filter Summary Figures</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#programmatic-filtering-with-apply-filters">Programmatic Filtering with apply_filters</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#manual-filter-functions">Manual Filter Functions</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#filter-by-diameter">Filter by Diameter</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#filter-by-area">Filter by Area</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#filter-by-eccentricity">Filter by Eccentricity</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#combined-filtering-example">Combined Filtering Example</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#event-detection">Event Detection</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#event-exceptionality">Event Exceptionality</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#export-utilities">Export Utilities</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ops-to-json">Ops to JSON</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#complete-workflow-example">Complete Workflow Example</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2024, Elizabeth R. Miller Brain Observatory | The Rockefeller University. All Rights Reserved.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

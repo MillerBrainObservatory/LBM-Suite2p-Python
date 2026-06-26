@@ -1,0 +1,707 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="./" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Pipeline Comparison &#8212; LBM-Suite2p-Python</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="_static/custom.css?v=bdf0de15" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="_static/documentation_options.js?v=0fa21ae5"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=f281be69"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="_static/togglebutton.js?v=b8b12719"></script>
+    <script src="_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script src="_static/design-tabs.js?v=f930bc37"></script>
+    <script defer="defer" src="https://unpkg.com/@popperjs/core@2"></script>
+    <script defer="defer" src="https://unpkg.com/tippy.js@6"></script>
+    <script defer="defer" src="_static/tippy/pipeline_comparison.0272a669-5fd9-4d3f-88b9-393681dc5540.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'pipeline_comparison';</script>
+    <link rel="icon" href="_static/icon_suite2p.svg"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="API" href="api.html" />
+    <link rel="prev" title="Metadata Processing Reference" href="metadata_reference.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="_static/logo_suit2p.png" class="logo__image only-light" alt="LBM-Suite2p-Python - Home"/>
+    <img src="_static/logo_suit2p.png" class="logo__image only-dark pst-js-only" alt="LBM-Suite2p-Python - Home"/>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://millerbrainobservatory.github.io/" title="MBO User Hub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><img src="_static/icon_mbo_home.png" class="icon-link-image" alt="MBO User Hub"/></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/MillerBrainObservatory/" title="MBO Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">MBO Github</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://mbo.rockefeller.edu/contact/" title="Connect with MBO" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-regular fa-address-card fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Connect with MBO</span></a>
+        </li>
+</ul></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quickstart</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="user_guide.html">User Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="simple">
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="projections.html">Projection Images</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="simple">
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="postprocessing.html">Postprocessing Functions</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="simple">
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="processing_flow.html">Processing Flow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="classifiers.html">Suite2p ROI Classifiers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="metadata_reference.html">Metadata Processing Reference</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Pipeline Comparison</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="image_gallery.html">Image Gallery</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/blob/master/docs/pipeline_comparison.md?plain=1" target="_blank"
+   class="btn btn-sm btn-source-file-button dropdown-item"
+   title="Show source"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-code"></i>
+  </span>
+<span class="btn__text-container">Show source</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/edit/master/docs/pipeline_comparison.md" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/issues/new?title=Issue%20on%20page%20%2Fpipeline_comparison.html&body=Your%20issue%20content%20here." target="_blank"
+   class="btn btn-sm btn-source-issues-button dropdown-item"
+   title="Open an issue"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-lightbulb"></i>
+  </span>
+<span class="btn__text-container">Open issue</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="_sources/pipeline_comparison.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Pipeline Comparison</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#f-f-calculation-methods">ΔF/F Calculation Methods</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#caiman">CaImAn</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#suite2p">Suite2p</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#extract">EXTRACT</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#deconvolution-algorithms">Deconvolution Algorithms</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See Also</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section class="tex2jax_ignore mathjax_ignore" id="pipeline-comparison">
+<span id="id1"></span><h1>Pipeline Comparison<a class="headerlink" href="#pipeline-comparison" title="Link to this heading">#</a></h1>
+<p>This page compares how different calcium imaging analysis pipelines handle ΔF/F calculation, neuropil correction, and spike deconvolution.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><strong>Unit Awareness:</strong> Different pipelines use different units and conventions. Suite2p outputs raw fluorescence values while CaImAn outputs ΔF/F directly. Always check the documentation for each pipeline to understand what units your traces are in before comparing across tools.</p>
+</div>
+<section id="f-f-calculation-methods">
+<h2>ΔF/F Calculation Methods<a class="headerlink" href="#f-f-calculation-methods" title="Link to this heading">#</a></h2>
+<p>Different pipelines handle ΔF/F₀ differently:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p><strong>Pipeline</strong></p></th>
+<th class="head"><p><strong>F₀ Method</strong></p></th>
+<th class="head"><p><strong>ΔF/F₀</strong></p></th>
+<th class="head"><p><strong>Neuropil</strong></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>CaImAn</strong></p></td>
+<td><p>8th percentile, 500-frame window</p></td>
+<td><p>Yes, in pipeline</p></td>
+<td><p>Modeled via CNMF, no manual subtraction</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Suite2p</strong></p></td>
+<td><p>Maximin (default) or 8th percentile</p></td>
+<td><p>No, user divides post hoc</p></td>
+<td><p>0.7 × Fneu subtracted before baseline</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>EXTRACT</strong></p></td>
+<td><p>User-defined (e.g. 10th percentile)</p></td>
+<td><p>No, user computes</p></td>
+<td><p>Implicitly handled via robust model</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<section id="caiman">
+<h3>CaImAn<a class="headerlink" href="#caiman" title="Link to this heading">#</a></h3>
+<p>CaImAn computes ΔF/F₀ using a <strong>running low-percentile baseline</strong>. By default, it uses the <strong>8th percentile</strong> over a <strong>500 frame</strong> window. The idea is to track the lower envelope of the signal to get F₀ without being biased by transients.</p>
+<p><strong>Neuropil/background:</strong> CaImAn handles this as part of its CNMF model. Background and neuropil are explicitly separated into distinct spatial/temporal components, so the output traces are background subtracted during this factorization.</p>
+<figure class="align-default" id="pc-fig-dff-caiman">
+<a class="reference internal image-reference" href="_images/dff_baseline_strategies_caiman.png"><img alt="CaImAn default DF/F strategy" src="_images/dff_baseline_strategies_caiman.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text"><a class="reference external" href="https://github.com/flatironinstitute/CaImAn">CaImAn</a> uses a default baseline of the <code class="docutils literal notranslate"><span class="pre">lower</span> <span class="pre">8th</span> <span class="pre">percentile</span></code> and a moving window of <code class="docutils literal notranslate"><span class="pre">200</span> <span class="pre">frames</span></code>.</span><a class="headerlink" href="#pc-fig-dff-caiman" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="suite2p">
+<h3>Suite2p<a class="headerlink" href="#suite2p" title="Link to this heading">#</a></h3>
+<p>Suite2p does <strong>not</strong> output traces in ΔF/F₀ format directly. Instead, it gives you the raw trace and the neuropil, along with spike estimates if you ran deconvolution. The neuropil represents fluorescence from the surrounding non-somatic tissue. As an optional step, many experimenters apply a fixed subtraction:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># F is an [n_neurons x time] array of raw signal</span>
+<span class="c1"># Fneu is an [n_neurons x time] array of neuropil</span>
+<span class="n">F_corrected</span> <span class="o">=</span> <span class="n">F</span> <span class="o">-</span> <span class="mf">0.7</span> <span class="o">*</span> <span class="n">Fneu</span>
+</pre></div>
+</div>
+<p>The 0.7 is an empirically chosen scalar to account for the partial contamination. Essentially you subtract 70% of the signal contained in the surrounding neuropil.</p>
+<figure class="align-default" id="pc-fig-dff-oasis">
+<a class="reference internal image-reference" href="_images/dff_oasis.png"><img alt="_images/dff_oasis.png" src="_images/dff_oasis.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Raw, neuropil, ΔF/F₀ and resulting deconvolved spikes as output by <a class="reference external" href="https://github.com/MouseLand/suite2p">Suite2p</a>.</span><a class="headerlink" href="#pc-fig-dff-oasis" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="extract">
+<h3>EXTRACT<a class="headerlink" href="#extract" title="Link to this heading">#</a></h3>
+<p><a class="reference external" href="https://github.com/schnitzer-lab/EXTRACT-public">EXTRACT</a> outputs raw fluorescence signals without built-in ΔF/F₀ calculation. You compute it yourself using something like a low-percentile (e.g. 10%) as F₀. Most users apply a global or sliding percentile window.</p>
+<p><strong>Neuropil:</strong> Handled implicitly. The algorithm uses robust factorization to ignore background and neuropil. There’s no explicit subtraction or coefficient to tune—it isolates only what fits a consistent spatial footprint and suppresses outliers by design.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="deconvolution-algorithms">
+<h2>Deconvolution Algorithms<a class="headerlink" href="#deconvolution-algorithms" title="Link to this heading">#</a></h2>
+<p>Different pipelines use different approaches to spike deconvolution, each with their own τ (tau) handling:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p><strong>Pipeline</strong></p></th>
+<th class="head"><p><strong>Uses τ?</strong></p></th>
+<th class="head"><p><strong>Range (s)</strong></p></th>
+<th class="head"><p><strong>Method</strong></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>FOOPSI</strong></p></td>
+<td><p>Yes</p></td>
+<td><p>~1.0</p></td>
+<td><p>Fixed exponential</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>OASIS / CNMF</strong></p></td>
+<td><p>Yes</p></td>
+<td><p>0.3 – 2.0</p></td>
+<td><p>AR(1/2) model</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Suite2p</strong></p></td>
+<td><p>Yes</p></td>
+<td><p>0.7 – 1.5</p></td>
+<td><p>OASIS internal</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>CaImAn</strong></p></td>
+<td><p>Yes</p></td>
+<td><p>0.4 – 2.0</p></td>
+<td><p>CNMF-E fit</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>CASCADE</strong></p></td>
+<td><p>Implicit</p></td>
+<td><p>0.3 – 2.0</p></td>
+<td><p>Learned dynamics</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sd-container-fluid sd-sphinx-override sd-mb-4 docutils">
+<div class="sd-row docutils">
+<div class="sd-col sd-d-flex-row sd-col-12 sd-col-xs-12 sd-col-sm-12 sd-col-md-12 sd-col-lg-12 docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+Key Takeaways</div>
+<ul class="simple">
+<li><p class="sd-card-text">τ defines calcium transient decay and sets temporal resolution of spike inference</p></li>
+<li><p class="sd-card-text">Optimal τ depends on both <strong>indicator kinetics</strong> and <strong>frame rate</strong></p></li>
+<li><p class="sd-card-text">Pipelines like Suite2p and CaImAn require τ tuning per GECI</p></li>
+<li><p class="sd-card-text">CASCADE bypasses explicit τ by learning it implicitly</p></li>
+<li><p class="sd-card-text">GCaMP8 series are ~3× faster than GCaMP6</p></li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>All τ values summarized here reflect <em>in vivo</em> mammalian calcium imaging (typically ~30 Hz frame rate).
+In vitro or temperature-controlled decay times (e.g., 37 °C) can be &gt;10× shorter.
+Choosing an incorrect τ biases both spike amplitude and inferred firing rate.</p>
+</div>
+</section>
+<hr class="docutils" />
+<section id="see-also">
+<h2>See Also<a class="headerlink" href="#see-also" title="Link to this heading">#</a></h2>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="user_guide.html"><span class="doc">User Guide</span></a> - Complete processing guide</p></li>
+<li><p><a class="reference internal" href="processing_flow.html"><span class="doc">Processing Flow</span></a> - Suite2p internal processing steps</p></li>
+<li><p><a class="reference internal" href="postprocessing.html"><span class="doc">Postprocessing</span></a> - ΔF/F and filtering functions</p></li>
+<li><p><a class="reference external" href="https://suite2p.readthedocs.io/">Suite2p Documentation</a> - Suite2p parameter details</p></li>
+<li><p><a class="reference external" href="https://caiman.readthedocs.io/">CaImAn Documentation</a> - CaImAn algorithm details</p></li>
+</ul>
+</div>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="metadata_reference.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Metadata Processing Reference</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="api.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">API</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#f-f-calculation-methods">ΔF/F Calculation Methods</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#caiman">CaImAn</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#suite2p">Suite2p</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#extract">EXTRACT</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#deconvolution-algorithms">Deconvolution Algorithms</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See Also</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2024, Elizabeth R. Miller Brain Observatory | The Rockefeller University. All Rights Reserved.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

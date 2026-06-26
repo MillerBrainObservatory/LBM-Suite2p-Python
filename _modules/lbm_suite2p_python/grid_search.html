@@ -1,0 +1,1341 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>lbm_suite2p_python.grid_search &#8212; LBM-Suite2p-Python</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="../../_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=bdf0de15" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../../_static/documentation_options.js?v=0fa21ae5"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../_static/copybutton.js?v=f281be69"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../../_static/togglebutton.js?v=b8b12719"></script>
+    <script src="../../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/lbm_suite2p_python/grid_search';</script>
+    <link rel="icon" href="../../_static/icon_suite2p.svg"/>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../_static/logo_suit2p.png" class="logo__image only-light" alt="LBM-Suite2p-Python - Home"/>
+    <img src="../../_static/logo_suit2p.png" class="logo__image only-dark pst-js-only" alt="LBM-Suite2p-Python - Home"/>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://millerbrainobservatory.github.io/" title="MBO User Hub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><img src="../../_static/icon_mbo_home.png" class="icon-link-image" alt="MBO User Hub"/></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/MillerBrainObservatory/" title="MBO Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">MBO Github</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://mbo.rockefeller.edu/contact/" title="Connect with MBO" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-regular fa-address-card fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Connect with MBO</span></a>
+        </li>
+</ul></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../user_guide.html">User Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="simple">
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../projections.html">Projection Images</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="simple">
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../postprocessing.html">Postprocessing Functions</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="simple">
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="../../processing_flow.html">Processing Flow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../classifiers.html">Suite2p ROI Classifiers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../metadata_reference.html">Metadata Processing Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../pipeline_comparison.html">Pipeline Comparison</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../image_gallery.html">Image Gallery</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+<a href="https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/issues/new?title=Issue%20on%20page%20%2F_modules/lbm_suite2p_python/grid_search.html&body=Your%20issue%20content%20here." target="_blank"
+   class="btn btn-sm btn-source-issues-button"
+   title="Open an issue"
+   data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-lightbulb"></i>
+  </span>
+
+</a>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1></h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for lbm_suite2p_python.grid_search</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">grid search module for parameter optimization.</span>
+
+<span class="sd">provides functions to:</span>
+<span class="sd">- run grid search over suite2p/cellpose parameters</span>
+<span class="sd">- collect and compare results across parameter combinations</span>
+<span class="sd">- visualize quality metrics and detection results</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">itertools</span><span class="w"> </span><span class="kn">import</span> <span class="n">product</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.stats</span><span class="w"> </span><span class="kn">import</span> <span class="n">skew</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">lbm_suite2p_python.postprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">load_ops</span><span class="p">,</span>
+    <span class="n">load_planar_results</span><span class="p">,</span>
+    <span class="n">dff_shot_noise</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">lbm_suite2p_python.zplane</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">plot_zplane_figures</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># registration parameters that require re-registration when changed</span>
+<span class="n">REGISTRATION_PARAMS</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;do_registration&quot;</span><span class="p">,</span> <span class="s2">&quot;two_step_registration&quot;</span><span class="p">,</span> <span class="s2">&quot;keep_movie_raw&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;nimg_init&quot;</span><span class="p">,</span> <span class="s2">&quot;batch_size&quot;</span><span class="p">,</span> <span class="s2">&quot;maxregshift&quot;</span><span class="p">,</span> <span class="s2">&quot;align_by_chan&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;reg_tif&quot;</span><span class="p">,</span> <span class="s2">&quot;reg_tif_chan2&quot;</span><span class="p">,</span> <span class="s2">&quot;subpixel&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;smooth_sigma_time&quot;</span><span class="p">,</span> <span class="s2">&quot;smooth_sigma&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;th_badframes&quot;</span><span class="p">,</span> <span class="s2">&quot;norm_frames&quot;</span><span class="p">,</span> <span class="s2">&quot;force_refImg&quot;</span><span class="p">,</span> <span class="s2">&quot;pad_fft&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;nonrigid&quot;</span><span class="p">,</span> <span class="s2">&quot;block_size&quot;</span><span class="p">,</span> <span class="s2">&quot;snr_thresh&quot;</span><span class="p">,</span> <span class="s2">&quot;maxregshiftNR&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;1Preg&quot;</span><span class="p">,</span> <span class="s2">&quot;spatial_hp_reg&quot;</span><span class="p">,</span> <span class="s2">&quot;pre_smooth&quot;</span><span class="p">,</span> <span class="s2">&quot;spatial_taper&quot;</span><span class="p">,</span>
+<span class="p">}</span>
+
+
+<div class="viewcode-block" id="grid_search">
+<a class="viewcode-back" href="../../api.html#lbm_suite2p_python.grid_search">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">grid_search</span><span class="p">(</span>
+    <span class="n">input_data</span><span class="p">,</span>
+    <span class="n">save_path</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">grid_params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+    <span class="n">ops</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">planes</span><span class="p">:</span> <span class="nb">list</span> <span class="o">|</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">roi_mode</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">force_reg</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">force_detect</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">reader_kwargs</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">writer_kwargs</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="c1"># deprecated parameters</span>
+    <span class="n">roi</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Run a grid search over all combinations of Suite2p parameters.</span>
+
+<span class="sd">    Tests all combinations of parameters in `grid_params`, running detection</span>
+<span class="sd">    for each combination. When only searching detection parameters, the binary</span>
+<span class="sd">    is written and registered once, then reused for all combinations.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    input_data : str, Path, list, or lazy array</span>
+<span class="sd">        Input data source. Can be:</span>
+<span class="sd">        - Path to a file (TIFF, Zarr, HDF5, .bin)</span>
+<span class="sd">        - Path to a directory containing supported files</span>
+<span class="sd">        - An mbo_utilities lazy array (MboRawArray, Suite2pArray, etc.)</span>
+<span class="sd">    save_path : str or Path</span>
+<span class="sd">        Root directory where results will be saved.</span>
+<span class="sd">    grid_params : dict</span>
+<span class="sd">        Dictionary mapping parameter names to lists of values to test.</span>
+<span class="sd">        All combinations will be tested (Cartesian product).</span>
+<span class="sd">    ops : dict, optional</span>
+<span class="sd">        Base ops dictionary. If None, uses `default_ops()`.</span>
+<span class="sd">    planes : int or list, optional</span>
+<span class="sd">        Which z-planes to process (1-indexed, 0 is not valid).</span>
+<span class="sd">    roi_mode : int, optional</span>
+<span class="sd">        ROI handling for multi-ROI ScanImage data.</span>
+<span class="sd">    force_reg : bool, default False</span>
+<span class="sd">        If True, force registration even if already done.</span>
+<span class="sd">    force_detect : bool, default True</span>
+<span class="sd">        If True, force ROI detection for each combination.</span>
+<span class="sd">    reader_kwargs : dict, optional</span>
+<span class="sd">        Keyword arguments passed to mbo_utilities.imread().</span>
+<span class="sd">    writer_kwargs : dict, optional</span>
+<span class="sd">        Keyword arguments passed when writing binary files.</span>
+<span class="sd">    **kwargs</span>
+<span class="sd">        Additional arguments passed to Suite2p.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Path</span>
+<span class="sd">        Path to save_path directory containing all results.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; import lbm_suite2p_python as lsp</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # search detection params on plane 7</span>
+<span class="sd">    &gt;&gt;&gt; lsp.grid_search(</span>
+<span class="sd">    ...     input_data=&quot;D:/data/raw.tif&quot;,</span>
+<span class="sd">    ...     save_path=&quot;D:/results/grid_search&quot;,</span>
+<span class="sd">    ...     planes=7,</span>
+<span class="sd">    ...     grid_params={</span>
+<span class="sd">    ...         &quot;threshold_scaling&quot;: [0.8, 1.0, 1.2],</span>
+<span class="sd">    ...         &quot;diameter&quot;: [6, 8],</span>
+<span class="sd">    ...     },</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &gt;&gt;&gt;</span>
+<span class="sd">    &gt;&gt;&gt; # collect and analyze results</span>
+<span class="sd">    &gt;&gt;&gt; df = lsp.collect_grid_results(&quot;D:/results/grid_search&quot;, grid_params)</span>
+<span class="sd">    &gt;&gt;&gt; best = lsp.get_best_parameters(df)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+
+    <span class="c1"># validate planes parameter (1-indexed, 0 is not valid)</span>
+    <span class="k">if</span> <span class="n">planes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">planes_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">planes</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">planes</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="k">else</span> <span class="nb">list</span><span class="p">(</span><span class="n">planes</span><span class="p">)</span>
+        <span class="k">if</span> <span class="mi">0</span> <span class="ow">in</span> <span class="n">planes_list</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;planes parameter uses 1-based indexing. &quot;</span>
+                <span class="s2">&quot;Plane 0 is not valid - use 1 for the first plane.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">p</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">planes_list</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;planes parameter cannot contain negative values. &quot;</span>
+                <span class="s2">&quot;Use 1-based indexing (1 for first plane, 2 for second, etc.).&quot;</span>
+            <span class="p">)</span>
+
+    <span class="c1"># handle deprecated parameter names</span>
+    <span class="k">if</span> <span class="n">roi</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="s2">&quot;The &#39;roi&#39; parameter is deprecated and will be removed in a future version. &quot;</span>
+            <span class="s2">&quot;Use &#39;roi_mode&#39; instead.&quot;</span><span class="p">,</span>
+            <span class="ne">DeprecationWarning</span><span class="p">,</span>
+            <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">roi_mode</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">roi_mode</span> <span class="o">=</span> <span class="n">roi</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot specify both &#39;roi&#39; (deprecated) and &#39;roi_mode&#39;.&quot;</span><span class="p">)</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">mbo_utilities</span><span class="w"> </span><span class="kn">import</span> <span class="n">imread</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">mbo_utilities._writers</span><span class="w"> </span><span class="kn">import</span> <span class="n">_write_plane</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">mbo_utilities.metadata</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_param</span><span class="p">,</span> <span class="n">get_voxel_size</span><span class="p">,</span> <span class="n">detect_stack_type</span>
+
+    <span class="kn">from</span><span class="w"> </span><span class="nn">lbm_suite2p_python.default_ops</span><span class="w"> </span><span class="kn">import</span> <span class="n">default_ops</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">lbm_suite2p_python.run_lsp</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+        <span class="n">run_plane</span><span class="p">,</span>
+        <span class="n">run_plane_bin</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">lbm_suite2p_python.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">_is_lazy_array</span><span class="p">,</span> <span class="n">_get_num_planes</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">mbo_utilities.arrays</span><span class="w"> </span><span class="kn">import</span> <span class="n">_normalize_planes</span><span class="p">,</span> <span class="n">supports_roi</span>
+
+    <span class="n">save_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">save_path</span><span class="p">)</span>
+    <span class="n">save_path</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">reader_kwargs</span> <span class="o">=</span> <span class="n">reader_kwargs</span> <span class="ow">or</span> <span class="p">{}</span>
+    <span class="n">writer_kwargs</span> <span class="o">=</span> <span class="n">writer_kwargs</span> <span class="ow">or</span> <span class="p">{}</span>
+
+    <span class="c1"># always start with full default ops, then overlay user ops</span>
+    <span class="n">base_default_ops</span> <span class="o">=</span> <span class="n">default_ops</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">ops</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">base_default_ops</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">ops</span><span class="p">)</span>
+    <span class="n">ops</span> <span class="o">=</span> <span class="n">base_default_ops</span>
+
+    <span class="c1"># check if any registration parameters are being searched</span>
+    <span class="n">reg_params_in_grid</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">grid_params</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">&amp;</span> <span class="n">REGISTRATION_PARAMS</span>
+    <span class="n">searching_reg_params</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">reg_params_in_grid</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+
+    <span class="k">if</span> <span class="n">searching_reg_params</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Registration parameters in grid: </span><span class="si">{</span><span class="n">reg_params_in_grid</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Each combination will require separate registration.&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Only detection parameters in grid - will reuse registered binary.&quot;</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Grid search: </span><span class="si">{</span><span class="n">save_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Parameters: </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">grid_params</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># load input data</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Loading input data...&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">_is_lazy_array</span><span class="p">(</span><span class="n">input_data</span><span class="p">):</span>
+        <span class="n">arr</span> <span class="o">=</span> <span class="n">input_data</span>
+        <span class="n">filenames</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="s2">&quot;filenames&quot;</span><span class="p">,</span> <span class="p">[])</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Input: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> (pre-loaded array)&quot;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">)):</span>
+        <span class="n">input_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">input_data</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Input: </span><span class="si">{</span><span class="n">input_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">arr</span> <span class="o">=</span> <span class="n">imread</span><span class="p">(</span><span class="n">input_path</span><span class="p">,</span> <span class="o">**</span><span class="n">reader_kwargs</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Loaded as: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">filenames</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="s2">&quot;filenames&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">input_path</span><span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;input_data must be a path or lazy array. Got: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">input_data</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+
+    <span class="c1"># configure ROI on the lazy array</span>
+    <span class="k">if</span> <span class="n">roi_mode</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">supports_roi</span><span class="p">(</span><span class="n">arr</span><span class="p">):</span>
+        <span class="n">arr</span><span class="o">.</span><span class="n">roi</span> <span class="o">=</span> <span class="n">roi_mode</span>
+
+    <span class="c1"># get dimensions</span>
+    <span class="n">num_planes</span> <span class="o">=</span> <span class="n">_get_num_planes</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span>
+    <span class="n">num_frames</span> <span class="o">=</span> <span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">Ly</span><span class="p">,</span> <span class="n">Lx</span> <span class="o">=</span> <span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">],</span> <span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Dataset info:&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Shape: </span><span class="si">{</span><span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Frames: </span><span class="si">{</span><span class="n">num_frames</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Planes: </span><span class="si">{</span><span class="n">num_planes</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Dimensions: </span><span class="si">{</span><span class="n">Ly</span><span class="si">}</span><span class="s2"> x </span><span class="si">{</span><span class="n">Lx</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># normalize planes to process</span>
+    <span class="n">planes_to_process</span> <span class="o">=</span> <span class="n">_normalize_planes</span><span class="p">(</span><span class="n">planes</span><span class="p">,</span> <span class="n">num_planes</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Processing planes: </span><span class="si">{</span><span class="p">[</span><span class="n">p</span><span class="o">+</span><span class="mi">1</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">p</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">planes_to_process</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># extract metadata and configure base ops</span>
+    <span class="n">metadata</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="s2">&quot;metadata&quot;</span><span class="p">,</span> <span class="p">{})</span> <span class="ow">or</span> <span class="p">{})</span>
+    <span class="n">fs</span> <span class="o">=</span> <span class="n">get_param</span><span class="p">(</span><span class="n">metadata</span><span class="p">,</span> <span class="s2">&quot;fs&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">fs</span><span class="p">:</span>
+        <span class="n">ops</span><span class="p">[</span><span class="s2">&quot;fs&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">fs</span>
+
+    <span class="n">voxel</span> <span class="o">=</span> <span class="n">get_voxel_size</span><span class="p">(</span><span class="n">metadata</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">voxel</span><span class="o">.</span><span class="n">dx</span> <span class="o">!=</span> <span class="mf">1.0</span> <span class="ow">or</span> <span class="n">voxel</span><span class="o">.</span><span class="n">dy</span> <span class="o">!=</span> <span class="mf">1.0</span><span class="p">:</span>
+        <span class="n">ops</span><span class="p">[</span><span class="s2">&quot;dx&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">voxel</span><span class="o">.</span><span class="n">dx</span>
+        <span class="n">ops</span><span class="p">[</span><span class="s2">&quot;dy&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">voxel</span><span class="o">.</span><span class="n">dy</span>
+        <span class="n">ops</span><span class="p">[</span><span class="s2">&quot;pixel_resolution&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">voxel</span><span class="o">.</span><span class="n">pixel_resolution</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">voxel</span><span class="o">.</span><span class="n">dz</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">ops</span><span class="p">[</span><span class="s2">&quot;dz&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">voxel</span><span class="o">.</span><span class="n">dz</span>
+
+    <span class="c1"># detect stack type for metadata</span>
+    <span class="n">stack_type</span> <span class="o">=</span> <span class="n">detect_stack_type</span><span class="p">(</span><span class="n">metadata</span><span class="p">)</span>
+    <span class="n">ops</span><span class="p">[</span><span class="s2">&quot;stack_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">stack_type</span>
+
+    <span class="n">param_names</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">grid_params</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+    <span class="n">param_values</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">grid_params</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+    <span class="n">param_combos</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">product</span><span class="p">(</span><span class="o">*</span><span class="n">param_values</span><span class="p">))</span>
+    <span class="n">n_total</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">param_combos</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Total combinations: </span><span class="si">{</span><span class="n">n_total</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># process each plane</span>
+    <span class="k">for</span> <span class="n">plane_idx</span> <span class="ow">in</span> <span class="n">planes_to_process</span><span class="p">:</span>
+        <span class="n">plane_num</span> <span class="o">=</span> <span class="n">plane_idx</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="si">{</span><span class="s1">&#39;=&#39;</span><span class="o">*</span><span class="mi">60</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Processing plane </span><span class="si">{</span><span class="n">plane_num</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="s1">&#39;=&#39;</span><span class="o">*</span><span class="mi">60</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="c1"># get plane spatial dimensions</span>
+        <span class="c1"># mbo_utilities arrays are 5D TCZYX; legacy 4D TZYX and 3D TYX still supported</span>
+        <span class="n">ndim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">ndim</span> <span class="o">==</span> <span class="mi">5</span><span class="p">:</span>
+            <span class="n">plane_Ly</span><span class="p">,</span> <span class="n">plane_Lx</span> <span class="o">=</span> <span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">ndim</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+            <span class="n">plane_Ly</span><span class="p">,</span> <span class="n">plane_Lx</span> <span class="o">=</span> <span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">plane_Ly</span><span class="p">,</span> <span class="n">plane_Lx</span> <span class="o">=</span> <span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">],</span> <span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="c1"># create plane subdirectory</span>
+        <span class="n">plane_tag</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;plane</span><span class="si">{</span><span class="n">plane_num</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">planes_to_process</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+        <span class="n">plane_save_path</span> <span class="o">=</span> <span class="n">save_path</span> <span class="o">/</span> <span class="n">plane_tag</span> <span class="k">if</span> <span class="n">plane_tag</span> <span class="k">else</span> <span class="n">save_path</span>
+        <span class="n">plane_save_path</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># if not searching registration params, write binary once to _base directory</span>
+        <span class="n">base_dir</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">base_ops_file</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">searching_reg_params</span><span class="p">:</span>
+            <span class="n">base_dir</span> <span class="o">=</span> <span class="n">plane_save_path</span> <span class="o">/</span> <span class="s2">&quot;_base&quot;</span>
+            <span class="n">base_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">base_bin_file</span> <span class="o">=</span> <span class="n">base_dir</span> <span class="o">/</span> <span class="s2">&quot;data_raw.bin&quot;</span>
+            <span class="n">base_ops_file</span> <span class="o">=</span> <span class="n">base_dir</span> <span class="o">/</span> <span class="s2">&quot;ops.npy&quot;</span>
+
+            <span class="c1"># build base ops for this plane (start with defaults, then user ops)</span>
+            <span class="n">base_ops</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">default_ops</span><span class="p">())</span>
+            <span class="n">base_ops</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">ops</span><span class="p">)</span>
+            <span class="n">base_ops</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+                <span class="s2">&quot;Ly&quot;</span><span class="p">:</span> <span class="n">plane_Ly</span><span class="p">,</span>
+                <span class="s2">&quot;Lx&quot;</span><span class="p">:</span> <span class="n">plane_Lx</span><span class="p">,</span>
+                <span class="s2">&quot;nframes&quot;</span><span class="p">:</span> <span class="n">num_frames</span><span class="p">,</span>
+                <span class="s2">&quot;nframes_chan1&quot;</span><span class="p">:</span> <span class="n">num_frames</span><span class="p">,</span>
+                <span class="s2">&quot;plane&quot;</span><span class="p">:</span> <span class="n">plane_num</span><span class="p">,</span>
+                <span class="s2">&quot;data_path&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">plane_save_path</span><span class="p">),</span>
+                <span class="s2">&quot;save_path&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">base_dir</span><span class="p">),</span>
+                <span class="s2">&quot;ops_path&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">base_ops_file</span><span class="p">),</span>
+                <span class="s2">&quot;raw_file&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">base_bin_file</span><span class="p">),</span>
+                <span class="s2">&quot;reg_file&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">base_dir</span> <span class="o">/</span> <span class="s2">&quot;data.bin&quot;</span><span class="p">),</span>
+                <span class="s2">&quot;shape&quot;</span><span class="p">:</span> <span class="p">(</span><span class="n">num_frames</span><span class="p">,</span> <span class="n">plane_Ly</span><span class="p">,</span> <span class="n">plane_Lx</span><span class="p">),</span>
+            <span class="p">})</span>
+
+            <span class="c1"># write binary if needed</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">base_bin_file</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="ow">or</span> <span class="n">force_reg</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Writing base binary (</span><span class="si">{</span><span class="n">num_frames</span><span class="si">}</span><span class="s2"> frames, </span><span class="si">{</span><span class="n">plane_Ly</span><span class="si">}</span><span class="s2">x</span><span class="si">{</span><span class="n">plane_Lx</span><span class="si">}</span><span class="s2">)...&quot;</span><span class="p">)</span>
+                <span class="n">_write_plane</span><span class="p">(</span>
+                    <span class="n">arr</span><span class="p">,</span>
+                    <span class="n">base_bin_file</span><span class="p">,</span>
+                    <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="n">metadata</span><span class="o">=</span><span class="n">base_ops</span><span class="p">,</span>
+                    <span class="n">plane_index</span><span class="o">=</span><span class="n">plane_idx</span> <span class="k">if</span> <span class="n">num_planes</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="o">**</span><span class="n">writer_kwargs</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">base_ops_file</span><span class="p">,</span> <span class="n">base_ops</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Using existing base binary: </span><span class="si">{</span><span class="n">base_bin_file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+            <span class="c1"># run registration once on base (or skip if user disabled it)</span>
+            <span class="n">base_reg_file</span> <span class="o">=</span> <span class="n">base_dir</span> <span class="o">/</span> <span class="s2">&quot;data.bin&quot;</span>
+            <span class="n">user_wants_reg</span> <span class="o">=</span> <span class="n">ops</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;do_registration&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">base_reg_file</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="ow">or</span> <span class="n">force_reg</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">user_wants_reg</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Running registration on base...&quot;</span><span class="p">)</span>
+                    <span class="n">reg_ops</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">default_ops</span><span class="p">())</span>
+                    <span class="k">if</span> <span class="n">base_ops_file</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+                        <span class="n">reg_ops</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">load_ops</span><span class="p">(</span><span class="n">base_ops_file</span><span class="p">))</span>
+                    <span class="n">reg_ops</span><span class="p">[</span><span class="s2">&quot;do_registration&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+                    <span class="n">reg_ops</span><span class="p">[</span><span class="s2">&quot;roidetect&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">base_ops_file</span><span class="p">,</span> <span class="n">reg_ops</span><span class="p">)</span>
+                    <span class="n">run_plane_bin</span><span class="p">(</span><span class="n">base_ops_file</span><span class="p">)</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Registration complete.&quot;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Registration disabled, using raw binary as base.&quot;</span><span class="p">)</span>
+                    <span class="n">shutil</span><span class="o">.</span><span class="n">copy2</span><span class="p">(</span><span class="n">base_bin_file</span><span class="p">,</span> <span class="n">base_reg_file</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Using existing registered binary: </span><span class="si">{</span><span class="n">base_reg_file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="c1"># run each parameter combination</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">combo</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">param_combos</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">combo_dict</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">param_names</span><span class="p">,</span> <span class="n">combo</span><span class="p">))</span>
+
+            <span class="c1"># create readable folder name</span>
+            <span class="n">tag</span> <span class="o">=</span> <span class="n">_combo_to_tag</span><span class="p">(</span><span class="n">combo_dict</span><span class="p">)</span>
+            <span class="n">combo_save_path</span> <span class="o">=</span> <span class="n">plane_save_path</span> <span class="o">/</span> <span class="n">tag</span>
+
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">[</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">n_total</span><span class="si">}</span><span class="s2">] </span><span class="si">{</span><span class="n">tag</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+            <span class="n">combo_ops_file</span> <span class="o">=</span> <span class="n">combo_save_path</span> <span class="o">/</span> <span class="s2">&quot;ops.npy&quot;</span>
+            <span class="n">stat_file</span> <span class="o">=</span> <span class="n">combo_save_path</span> <span class="o">/</span> <span class="s2">&quot;stat.npy&quot;</span>
+
+            <span class="c1"># skip if already processed</span>
+            <span class="k">if</span> <span class="n">combo_ops_file</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="ow">and</span> <span class="n">stat_file</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">force_detect</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Skipping: already complete&quot;</span><span class="p">)</span>
+                <span class="k">continue</span>
+
+            <span class="n">combo_save_path</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">searching_reg_params</span><span class="p">:</span>
+                <span class="n">base_reg_file</span> <span class="o">=</span> <span class="n">base_dir</span> <span class="o">/</span> <span class="s2">&quot;data.bin&quot;</span>
+                <span class="n">combo_reg_file</span> <span class="o">=</span> <span class="n">combo_save_path</span> <span class="o">/</span> <span class="s2">&quot;data.bin&quot;</span>
+
+                <span class="k">if</span> <span class="n">base_reg_file</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">combo_reg_file</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+                    <span class="n">shutil</span><span class="o">.</span><span class="n">copy2</span><span class="p">(</span><span class="n">base_reg_file</span><span class="p">,</span> <span class="n">combo_reg_file</span><span class="p">)</span>
+
+                <span class="n">base_loaded_ops</span> <span class="o">=</span> <span class="n">load_ops</span><span class="p">(</span><span class="n">base_ops_file</span><span class="p">)</span>
+                <span class="n">combo_ops</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">default_ops</span><span class="p">())</span>
+                <span class="n">combo_ops</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">base_loaded_ops</span><span class="p">)</span>
+                <span class="n">combo_ops</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">combo_dict</span><span class="p">)</span>
+                <span class="n">combo_ops</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+                    <span class="s2">&quot;save_path&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">combo_save_path</span><span class="p">),</span>
+                    <span class="s2">&quot;ops_path&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">combo_ops_file</span><span class="p">),</span>
+                    <span class="s2">&quot;reg_file&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">combo_reg_file</span><span class="p">),</span>
+                    <span class="s2">&quot;do_registration&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+                    <span class="s2">&quot;roidetect&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+                <span class="p">})</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">combo_ops_file</span><span class="p">,</span> <span class="n">combo_ops</span><span class="p">)</span>
+
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Running detection...&quot;</span><span class="p">)</span>
+                <span class="n">run_plane_bin</span><span class="p">(</span><span class="n">combo_ops_file</span><span class="p">)</span>
+
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">combo_ops</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">default_ops</span><span class="p">())</span>
+                <span class="n">combo_ops</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">ops</span><span class="p">)</span>
+                <span class="n">combo_ops</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">combo_dict</span><span class="p">)</span>
+
+                <span class="n">run_plane</span><span class="p">(</span>
+                    <span class="n">input_data</span><span class="o">=</span><span class="n">input_data</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">))</span> <span class="k">else</span> <span class="n">filenames</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">filenames</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="n">save_path</span><span class="o">=</span><span class="n">plane_save_path</span><span class="p">,</span>
+                    <span class="n">ops</span><span class="o">=</span><span class="n">combo_ops</span><span class="p">,</span>
+                    <span class="n">keep_reg</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="n">keep_raw</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                    <span class="n">force_reg</span><span class="o">=</span><span class="n">force_reg</span><span class="p">,</span>
+                    <span class="n">force_detect</span><span class="o">=</span><span class="n">force_detect</span><span class="p">,</span>
+                    <span class="n">plane_name</span><span class="o">=</span><span class="n">tag</span><span class="p">,</span>
+                    <span class="n">reader_kwargs</span><span class="o">=</span><span class="n">reader_kwargs</span><span class="p">,</span>
+                    <span class="n">writer_kwargs</span><span class="o">=</span><span class="n">writer_kwargs</span><span class="p">,</span>
+                    <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+                <span class="p">)</span>
+
+            <span class="c1"># generate plots</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">plot_zplane_figures</span><span class="p">(</span>
+                    <span class="n">combo_save_path</span><span class="p">,</span>
+                    <span class="n">dff_percentile</span><span class="o">=</span><span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;dff_percentile&quot;</span><span class="p">,</span> <span class="mi">20</span><span class="p">),</span>
+                    <span class="n">dff_window_size</span><span class="o">=</span><span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;dff_window_size&quot;</span><span class="p">),</span>
+                    <span class="n">dff_smooth_window</span><span class="o">=</span><span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;dff_smooth_window&quot;</span><span class="p">),</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Warning: Plot generation failed: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="si">{</span><span class="s1">&#39;=&#39;</span><span class="o">*</span><span class="mi">60</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Grid search complete: </span><span class="si">{</span><span class="n">n_total</span><span class="si">}</span><span class="s2"> combinations&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Results in: </span><span class="si">{</span><span class="n">save_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="s1">&#39;=&#39;</span><span class="o">*</span><span class="mi">60</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">save_path</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_combo_to_tag</span><span class="p">(</span><span class="n">combo_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert parameter combo dict to folder name tag.&quot;&quot;&quot;</span>
+    <span class="n">tag_parts</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">k</span><span class="p">[:</span><span class="mi">3</span><span class="p">]</span><span class="si">}{</span><span class="n">v</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">k</span><span class="p">[:</span><span class="mi">3</span><span class="p">]</span><span class="si">}{</span><span class="n">v</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">combo_dict</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+    <span class="p">]</span>
+    <span class="k">return</span> <span class="s2">&quot;_&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tag_parts</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="collect_grid_results">
+<a class="viewcode-back" href="../../api.html#lbm_suite2p_python.collect_grid_results">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">collect_grid_results</span><span class="p">(</span>
+    <span class="n">save_path</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">grid_params</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Collect quality metrics from all grid search combinations.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    save_path : Path or str</span>
+<span class="sd">        Root directory containing grid search results.</span>
+<span class="sd">    grid_params : dict, optional</span>
+<span class="sd">        Grid parameters dict to extract parameter values from ops.</span>
+<span class="sd">        If None, only combo name is included.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    pd.DataFrame</span>
+<span class="sd">        DataFrame with one row per combination, containing:</span>
+<span class="sd">        - combo: folder name</span>
+<span class="sd">        - n_accepted, n_rejected: cell counts</span>
+<span class="sd">        - snr_median, snr_iqr: signal-to-noise ratio</span>
+<span class="sd">        - skew_median, skew_iqr: trace skewness</span>
+<span class="sd">        - noise_median, noise_iqr: shot noise</span>
+<span class="sd">        - parameter columns from grid_params</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">save_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">save_path</span><span class="p">)</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">combo_dir</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">save_path</span><span class="o">.</span><span class="n">iterdir</span><span class="p">()):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">combo_dir</span><span class="o">.</span><span class="n">is_dir</span><span class="p">():</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="n">combo_dir</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;_base&quot;</span><span class="p">,</span> <span class="s2">&quot;__pycache__&quot;</span><span class="p">):</span>
+            <span class="k">continue</span>
+
+        <span class="n">ops_file</span> <span class="o">=</span> <span class="n">combo_dir</span> <span class="o">/</span> <span class="s2">&quot;ops.npy&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">ops_file</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="c1"># check subdirectories</span>
+            <span class="k">for</span> <span class="n">subdir</span> <span class="ow">in</span> <span class="n">combo_dir</span><span class="o">.</span><span class="n">iterdir</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">subdir</span><span class="o">.</span><span class="n">is_dir</span><span class="p">()</span> <span class="ow">and</span> <span class="p">(</span><span class="n">subdir</span> <span class="o">/</span> <span class="s2">&quot;ops.npy&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+                    <span class="n">ops_file</span> <span class="o">=</span> <span class="n">subdir</span> <span class="o">/</span> <span class="s2">&quot;ops.npy&quot;</span>
+                    <span class="k">break</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">metrics</span> <span class="o">=</span> <span class="n">compute_combo_metrics</span><span class="p">(</span><span class="n">ops_file</span><span class="p">)</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;combo&quot;</span><span class="p">:</span> <span class="n">combo_dir</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">ops_file</span><span class="p">),</span> <span class="o">**</span><span class="n">metrics</span><span class="p">}</span>
+
+            <span class="c1"># add grid parameters</span>
+            <span class="k">if</span> <span class="n">grid_params</span><span class="p">:</span>
+                <span class="n">loaded_ops</span> <span class="o">=</span> <span class="n">load_ops</span><span class="p">(</span><span class="n">ops_file</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">grid_params</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                    <span class="n">result</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="o">=</span> <span class="n">loaded_ops</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">param</span><span class="p">)</span>
+
+            <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Skipping </span><span class="si">{</span><span class="n">combo_dir</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">results</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No results found!&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
+
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">&quot;snr_median&quot;</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">df</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_combo_metrics</span><span class="p">(</span><span class="n">ops_path</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span> <span class="n">neuropil_coef</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.7</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute quality metrics for a single parameter combination.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    ops_path : Path or str</span>
+<span class="sd">        Path to ops.npy file or directory containing it.</span>
+<span class="sd">    neuropil_coef : float, default 0.7</span>
+<span class="sd">        Neuropil correction coefficient.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        Dictionary containing:</span>
+<span class="sd">        - n_accepted, n_rejected: cell counts</span>
+<span class="sd">        - snr_median, snr_iqr: signal-to-noise ratio statistics</span>
+<span class="sd">        - skew_median, skew_iqr: skewness statistics</span>
+<span class="sd">        - noise_median, noise_iqr: shot noise statistics</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="n">load_planar_results</span><span class="p">(</span><span class="n">ops_path</span><span class="p">)</span>
+    <span class="n">ops</span> <span class="o">=</span> <span class="n">load_ops</span><span class="p">(</span><span class="n">ops_path</span><span class="p">)</span>
+    <span class="n">fs</span> <span class="o">=</span> <span class="n">ops</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;fs&quot;</span><span class="p">,</span> <span class="mf">30.0</span><span class="p">)</span>
+
+    <span class="n">iscell</span> <span class="o">=</span> <span class="n">res</span><span class="p">[</span><span class="s2">&quot;iscell&quot;</span><span class="p">]</span>
+    <span class="n">mask</span> <span class="o">=</span> <span class="n">iscell</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span> <span class="k">if</span> <span class="n">iscell</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">else</span> <span class="n">iscell</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span>
+    <span class="n">n_accepted</span> <span class="o">=</span> <span class="n">mask</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="n">n_rejected</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span> <span class="o">-</span> <span class="n">n_accepted</span>
+
+    <span class="k">if</span> <span class="n">n_accepted</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;n_accepted&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+            <span class="s2">&quot;n_rejected&quot;</span><span class="p">:</span> <span class="n">n_rejected</span><span class="p">,</span>
+            <span class="s2">&quot;snr_median&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span>
+            <span class="s2">&quot;snr_iqr&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span>
+            <span class="s2">&quot;skew_median&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span>
+            <span class="s2">&quot;skew_iqr&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span>
+            <span class="s2">&quot;noise_median&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span>
+            <span class="s2">&quot;noise_iqr&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span>
+        <span class="p">}</span>
+
+    <span class="n">F</span> <span class="o">=</span> <span class="n">res</span><span class="p">[</span><span class="s2">&quot;F&quot;</span><span class="p">][</span><span class="n">mask</span><span class="p">]</span>
+    <span class="n">Fneu</span> <span class="o">=</span> <span class="n">res</span><span class="p">[</span><span class="s2">&quot;Fneu&quot;</span><span class="p">][</span><span class="n">mask</span><span class="p">]</span>
+    <span class="n">stat</span> <span class="o">=</span> <span class="n">res</span><span class="p">[</span><span class="s2">&quot;stat&quot;</span><span class="p">][</span><span class="n">mask</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">res</span><span class="p">[</span><span class="s2">&quot;stat&quot;</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="k">else</span> <span class="p">[</span>
+        <span class="n">s</span> <span class="k">for</span> <span class="n">s</span><span class="p">,</span> <span class="n">m</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">res</span><span class="p">[</span><span class="s2">&quot;stat&quot;</span><span class="p">],</span> <span class="n">mask</span><span class="p">)</span> <span class="k">if</span> <span class="n">m</span>
+    <span class="p">]</span>
+
+    <span class="c1"># neuropil-corrected fluorescence and dF/F</span>
+    <span class="n">F_corr</span> <span class="o">=</span> <span class="n">F</span> <span class="o">-</span> <span class="n">neuropil_coef</span> <span class="o">*</span> <span class="n">Fneu</span>
+    <span class="n">baseline</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">F_corr</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">baseline</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">baseline</span><span class="p">,</span> <span class="mf">1e-6</span><span class="p">)</span>
+    <span class="n">dff</span> <span class="o">=</span> <span class="p">(</span><span class="n">F_corr</span> <span class="o">-</span> <span class="n">baseline</span><span class="p">)</span> <span class="o">/</span> <span class="n">baseline</span>
+
+    <span class="c1"># snr: signal std / noise (MAD estimator)</span>
+    <span class="n">signal</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">dff</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">noise_est</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">dff</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="mf">0.6745</span>
+    <span class="n">snr</span> <span class="o">=</span> <span class="n">signal</span> <span class="o">/</span> <span class="p">(</span><span class="n">noise_est</span> <span class="o">+</span> <span class="mf">1e-6</span><span class="p">)</span>
+
+    <span class="c1"># shot noise using existing function</span>
+    <span class="n">shot_noise</span> <span class="o">=</span> <span class="n">dff_shot_noise</span><span class="p">(</span><span class="n">dff</span><span class="p">,</span> <span class="n">fs</span><span class="p">)</span>
+
+    <span class="c1"># skewness from stat if available, else compute</span>
+    <span class="n">skewness</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">stat</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="s2">&quot;skew&quot;</span> <span class="ow">in</span> <span class="n">s</span><span class="p">:</span>
+            <span class="n">skewness</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="s2">&quot;skew&quot;</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">skewness</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">skew</span><span class="p">(</span><span class="n">dff</span><span class="p">[</span><span class="n">i</span><span class="p">]))</span>
+    <span class="n">skewness</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">skewness</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">&quot;n_accepted&quot;</span><span class="p">:</span> <span class="n">n_accepted</span><span class="p">,</span>
+        <span class="s2">&quot;n_rejected&quot;</span><span class="p">:</span> <span class="n">n_rejected</span><span class="p">,</span>
+        <span class="s2">&quot;snr_median&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">snr</span><span class="p">),</span>
+        <span class="s2">&quot;snr_iqr&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">snr</span><span class="p">,</span> <span class="mi">75</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">snr</span><span class="p">,</span> <span class="mi">25</span><span class="p">),</span>
+        <span class="s2">&quot;skew_median&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">skewness</span><span class="p">),</span>
+        <span class="s2">&quot;skew_iqr&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">skewness</span><span class="p">,</span> <span class="mi">75</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">skewness</span><span class="p">,</span> <span class="mi">25</span><span class="p">),</span>
+        <span class="s2">&quot;noise_median&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">shot_noise</span><span class="p">),</span>
+        <span class="s2">&quot;noise_iqr&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">shot_noise</span><span class="p">,</span> <span class="mi">75</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">shot_noise</span><span class="p">,</span> <span class="mi">25</span><span class="p">),</span>
+    <span class="p">}</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">get_best_parameters</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">grid_params</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Find best parameter combinations by different criteria.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    df : pd.DataFrame</span>
+<span class="sd">        Results DataFrame from collect_grid_results().</span>
+<span class="sd">    grid_params : dict, optional</span>
+<span class="sd">        Grid parameters to include in output.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        Dictionary with keys &#39;best_snr&#39;, &#39;best_skew&#39;, &#39;best_noise&#39;,</span>
+<span class="sd">        each containing the best row as a dict.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{}</span>
+
+    <span class="n">result</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="c1"># best by SNR (highest)</span>
+    <span class="n">best_snr_idx</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;snr_median&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">idxmax</span><span class="p">()</span>
+    <span class="n">result</span><span class="p">[</span><span class="s2">&quot;best_snr&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">best_snr_idx</span><span class="p">]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+
+    <span class="c1"># best by skewness (highest = more events)</span>
+    <span class="n">best_skew_idx</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;skew_median&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">idxmax</span><span class="p">()</span>
+    <span class="n">result</span><span class="p">[</span><span class="s2">&quot;best_skew&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">best_skew_idx</span><span class="p">]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+
+    <span class="c1"># best by noise (lowest)</span>
+    <span class="n">best_noise_idx</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;noise_median&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">idxmin</span><span class="p">()</span>
+    <span class="n">result</span><span class="p">[</span><span class="s2">&quot;best_noise&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">best_noise_idx</span><span class="p">]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+
+    <span class="c1"># best by cell count (highest)</span>
+    <span class="n">best_count_idx</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;n_accepted&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">idxmax</span><span class="p">()</span>
+    <span class="n">result</span><span class="p">[</span><span class="s2">&quot;best_count&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">best_count_idx</span><span class="p">]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">result</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">print_best_parameters</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">grid_params</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Print summary of best parameters by different criteria.&quot;&quot;&quot;</span>
+    <span class="n">best</span> <span class="o">=</span> <span class="n">get_best_parameters</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">grid_params</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">best</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No results to analyze.&quot;</span><span class="p">)</span>
+        <span class="k">return</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Best Parameters by Different Criteria:&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">criterion</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">best</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="n">criterion</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;best_&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;combo&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Cells: </span><span class="si">{</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;n_accepted&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  SNR: </span><span class="si">{</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;snr_median&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Skewness: </span><span class="si">{</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;skew_median&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Shot Noise: </span><span class="si">{</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;noise_median&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">grid_params</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">grid_params</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">row</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">row</span><span class="p">[</span><span class="n">p</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="plot_grid_metrics">
+<a class="viewcode-back" href="../../api.html#lbm_suite2p_python.plot_grid_metrics">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_grid_metrics</span><span class="p">(</span>
+    <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+    <span class="n">grid_params</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">save_path</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">figsize</span><span class="p">:</span> <span class="nb">tuple</span> <span class="o">=</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Plot quality metrics comparison across grid search combinations.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    df : pd.DataFrame</span>
+<span class="sd">        Results DataFrame from collect_grid_results().</span>
+<span class="sd">    grid_params : dict, optional</span>
+<span class="sd">        Grid parameters for parameter effect plots.</span>
+<span class="sd">    save_path : Path or str, optional</span>
+<span class="sd">        Path to save figure. If None, displays with plt.show().</span>
+<span class="sd">    figsize : tuple, default (15, 10)</span>
+<span class="sd">        Figure size.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    matplotlib.figure.Figure</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No results to plot.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="n">plt</span><span class="o">.</span><span class="n">style</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="s2">&quot;dark_background&quot;</span><span class="p">)</span>
+    <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="n">figsize</span><span class="p">)</span>
+
+    <span class="n">metrics</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">(</span><span class="s2">&quot;snr_median&quot;</span><span class="p">,</span> <span class="s2">&quot;SNR (median)&quot;</span><span class="p">,</span> <span class="s2">&quot;higher is better&quot;</span><span class="p">,</span> <span class="s2">&quot;#2ecc71&quot;</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;skew_median&quot;</span><span class="p">,</span> <span class="s2">&quot;Skewness (median)&quot;</span><span class="p">,</span> <span class="s2">&quot;higher = more events&quot;</span><span class="p">,</span> <span class="s2">&quot;#9b59b6&quot;</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;noise_median&quot;</span><span class="p">,</span> <span class="s2">&quot;Shot Noise (median)&quot;</span><span class="p">,</span> <span class="s2">&quot;lower is better&quot;</span><span class="p">,</span> <span class="s2">&quot;#e74c3c&quot;</span><span class="p">),</span>
+    <span class="p">]</span>
+
+    <span class="c1"># row 1: metrics by combination</span>
+    <span class="k">for</span> <span class="n">col</span><span class="p">,</span> <span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">label</span><span class="p">,</span> <span class="n">note</span><span class="p">,</span> <span class="n">color</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">metrics</span><span class="p">):</span>
+        <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">col</span><span class="p">]</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">))</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">df</span><span class="p">[</span><span class="n">metric</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="s2">&quot;white&quot;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xticklabels</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;combo&quot;</span><span class="p">],</span> <span class="n">rotation</span><span class="o">=</span><span class="mi">45</span><span class="p">,</span> <span class="n">ha</span><span class="o">=</span><span class="s2">&quot;right&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="n">label</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="se">\n</span><span class="s2">(</span><span class="si">{</span><span class="n">note</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">metric</span><span class="p">]</span><span class="o">.</span><span class="n">median</span><span class="p">(),</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;white&quot;</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s2">&quot;--&quot;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+
+    <span class="c1"># row 2: parameter effects on SNR</span>
+    <span class="n">params</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">grid_params</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="k">if</span> <span class="n">grid_params</span> <span class="k">else</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">col</span><span class="p">,</span> <span class="n">param</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">params</span><span class="p">[:</span><span class="mi">3</span><span class="p">]):</span>
+        <span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="n">col</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">param</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s2">&quot;off&quot;</span><span class="p">)</span>
+            <span class="k">continue</span>
+
+        <span class="n">grouped</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">param</span><span class="p">)[</span><span class="s2">&quot;snr_median&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">agg</span><span class="p">([</span><span class="s2">&quot;mean&quot;</span><span class="p">,</span> <span class="s2">&quot;std&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">grouped</span><span class="p">))</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span>
+            <span class="n">x</span><span class="p">,</span> <span class="n">grouped</span><span class="p">[</span><span class="s2">&quot;mean&quot;</span><span class="p">],</span> <span class="n">yerr</span><span class="o">=</span><span class="n">grouped</span><span class="p">[</span><span class="s2">&quot;std&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+            <span class="n">color</span><span class="o">=</span><span class="s2">&quot;#3498db&quot;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="s2">&quot;white&quot;</span><span class="p">,</span> <span class="n">capsize</span><span class="o">=</span><span class="mi">5</span>
+        <span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xticklabels</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">grouped</span><span class="p">[</span><span class="n">param</span><span class="p">]])</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="n">fontweight</span><span class="o">=</span><span class="s2">&quot;bold&quot;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;SNR (mean ± std)&quot;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Effect of </span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="s2"> on SNR&quot;</span><span class="p">)</span>
+
+    <span class="c1"># hide unused subplots</span>
+    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">params</span><span class="p">),</span> <span class="mi">3</span><span class="p">):</span>
+        <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s2">&quot;off&quot;</span><span class="p">)</span>
+
+    <span class="n">plt</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="s2">&quot;Grid Search Quality Metrics&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">fontweight</span><span class="o">=</span><span class="s2">&quot;bold&quot;</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">1.02</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">save_path</span><span class="p">:</span>
+        <span class="n">save_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">save_path</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">&quot;tight&quot;</span><span class="p">,</span> <span class="n">facecolor</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved: </span><span class="si">{</span><span class="n">save_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">fig</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_grid_distributions</span><span class="p">(</span>
+    <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+    <span class="n">results_dir</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">n_top</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+    <span class="n">save_path</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">figsize</span><span class="p">:</span> <span class="nb">tuple</span> <span class="o">=</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Plot distributions of quality metrics for top combinations.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    df : pd.DataFrame</span>
+<span class="sd">        Results DataFrame from collect_grid_results().</span>
+<span class="sd">    results_dir : Path or str</span>
+<span class="sd">        Root directory containing grid search results.</span>
+<span class="sd">    n_top : int, default 4</span>
+<span class="sd">        Number of top combinations to include.</span>
+<span class="sd">    save_path : Path or str, optional</span>
+<span class="sd">        Path to save figure.</span>
+<span class="sd">    figsize : tuple, default (15, 5)</span>
+<span class="sd">        Figure size.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    matplotlib.figure.Figure</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No results to plot.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="n">results_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">results_dir</span><span class="p">)</span>
+    <span class="n">top_combos</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="n">n_top</span><span class="p">)[</span><span class="s2">&quot;combo&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+
+    <span class="n">plt</span><span class="o">.</span><span class="n">style</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="s2">&quot;dark_background&quot;</span><span class="p">)</span>
+    <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="n">figsize</span><span class="p">)</span>
+    <span class="n">colors</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;#2ecc71&quot;</span><span class="p">,</span> <span class="s2">&quot;#3498db&quot;</span><span class="p">,</span> <span class="s2">&quot;#e74c3c&quot;</span><span class="p">,</span> <span class="s2">&quot;#f39c12&quot;</span><span class="p">,</span> <span class="s2">&quot;#9b59b6&quot;</span><span class="p">,</span> <span class="s2">&quot;#1abc9c&quot;</span><span class="p">]</span>
+
+    <span class="k">for</span> <span class="n">combo</span><span class="p">,</span> <span class="n">color</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">top_combos</span><span class="p">,</span> <span class="n">colors</span><span class="p">):</span>
+        <span class="n">combo_dir</span> <span class="o">=</span> <span class="n">results_dir</span> <span class="o">/</span> <span class="n">combo</span>
+        <span class="n">ops_file</span> <span class="o">=</span> <span class="n">combo_dir</span> <span class="o">/</span> <span class="s2">&quot;ops.npy&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">ops_file</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="k">continue</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">load_planar_results</span><span class="p">(</span><span class="n">ops_file</span><span class="p">)</span>
+            <span class="n">ops</span> <span class="o">=</span> <span class="n">load_ops</span><span class="p">(</span><span class="n">ops_file</span><span class="p">)</span>
+            <span class="n">fs</span> <span class="o">=</span> <span class="n">ops</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;fs&quot;</span><span class="p">,</span> <span class="mf">30.0</span><span class="p">)</span>
+
+            <span class="n">mask</span> <span class="o">=</span> <span class="n">res</span><span class="p">[</span><span class="s2">&quot;iscell&quot;</span><span class="p">][:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">mask</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+            <span class="n">F</span> <span class="o">=</span> <span class="n">res</span><span class="p">[</span><span class="s2">&quot;F&quot;</span><span class="p">][</span><span class="n">mask</span><span class="p">]</span>
+            <span class="n">Fneu</span> <span class="o">=</span> <span class="n">res</span><span class="p">[</span><span class="s2">&quot;Fneu&quot;</span><span class="p">][</span><span class="n">mask</span><span class="p">]</span>
+            <span class="n">stat</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span><span class="p">,</span> <span class="n">m</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">res</span><span class="p">[</span><span class="s2">&quot;stat&quot;</span><span class="p">],</span> <span class="n">mask</span><span class="p">)</span> <span class="k">if</span> <span class="n">m</span><span class="p">]</span>
+
+            <span class="n">F_corr</span> <span class="o">=</span> <span class="n">F</span> <span class="o">-</span> <span class="mf">0.7</span> <span class="o">*</span> <span class="n">Fneu</span>
+            <span class="n">baseline</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">F_corr</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">baseline</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">baseline</span><span class="p">,</span> <span class="mf">1e-6</span><span class="p">)</span>
+            <span class="n">dff</span> <span class="o">=</span> <span class="p">(</span><span class="n">F_corr</span> <span class="o">-</span> <span class="n">baseline</span><span class="p">)</span> <span class="o">/</span> <span class="n">baseline</span>
+
+            <span class="c1"># compute metrics</span>
+            <span class="n">signal</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">dff</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">noise</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">dff</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="mf">0.6745</span>
+            <span class="n">snr</span> <span class="o">=</span> <span class="n">signal</span> <span class="o">/</span> <span class="p">(</span><span class="n">noise</span> <span class="o">+</span> <span class="mf">1e-6</span><span class="p">)</span>
+            <span class="n">shot_noise</span> <span class="o">=</span> <span class="n">dff_shot_noise</span><span class="p">(</span><span class="n">dff</span><span class="p">,</span> <span class="n">fs</span><span class="p">)</span>
+            <span class="n">skewness</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
+                <span class="n">s</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;skew&quot;</span><span class="p">,</span> <span class="n">skew</span><span class="p">(</span><span class="n">dff</span><span class="p">[</span><span class="n">i</span><span class="p">]))</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">stat</span><span class="p">)</span>
+            <span class="p">])</span>
+
+            <span class="c1"># plot distributions</span>
+            <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">snr</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">combo</span><span class="p">,</span> <span class="n">density</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">skewness</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">combo</span><span class="p">,</span> <span class="n">density</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">shot_noise</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">combo</span><span class="p">,</span> <span class="n">density</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error loading </span><span class="si">{</span><span class="n">combo</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;SNR&quot;</span><span class="p">)</span>
+    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;Density&quot;</span><span class="p">)</span>
+    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;SNR Distribution&quot;</span><span class="p">)</span>
+    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+
+    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;Skewness&quot;</span><span class="p">)</span>
+    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;Density&quot;</span><span class="p">)</span>
+    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Skewness Distribution&quot;</span><span class="p">)</span>
+
+    <span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;Shot Noise&quot;</span><span class="p">)</span>
+    <span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;Density&quot;</span><span class="p">)</span>
+    <span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Shot Noise Distribution&quot;</span><span class="p">)</span>
+
+    <span class="n">plt</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Quality Metric Distributions (Top </span><span class="si">{</span><span class="n">n_top</span><span class="si">}</span><span class="s2"> by SNR)&quot;</span><span class="p">,</span> <span class="n">fontweight</span><span class="o">=</span><span class="s2">&quot;bold&quot;</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">1.02</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">save_path</span><span class="p">:</span>
+        <span class="n">save_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">save_path</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">&quot;tight&quot;</span><span class="p">,</span> <span class="n">facecolor</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved: </span><span class="si">{</span><span class="n">save_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">fig</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_grid_masks</span><span class="p">(</span>
+    <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+    <span class="n">results_dir</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">n_top</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+    <span class="n">img_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;meanImg&quot;</span><span class="p">,</span>
+    <span class="n">save_path</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">figsize</span><span class="p">:</span> <span class="nb">tuple</span> <span class="o">=</span> <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">12</span><span class="p">),</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Plot detection masks for top combinations side-by-side.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    df : pd.DataFrame</span>
+<span class="sd">        Results DataFrame from collect_grid_results().</span>
+<span class="sd">    results_dir : Path or str</span>
+<span class="sd">        Root directory containing grid search results.</span>
+<span class="sd">    n_top : int, default 4</span>
+<span class="sd">        Number of top combinations to show.</span>
+<span class="sd">    img_key : str, default &quot;meanImg&quot;</span>
+<span class="sd">        Background image key from ops.</span>
+<span class="sd">    save_path : Path or str, optional</span>
+<span class="sd">        Path to save figure.</span>
+<span class="sd">    figsize : tuple, default (12, 12)</span>
+<span class="sd">        Figure size.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    matplotlib.figure.Figure</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No results to plot.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="n">results_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">results_dir</span><span class="p">)</span>
+    <span class="n">top_combos</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="n">n_top</span><span class="p">)</span>
+
+    <span class="c1"># determine grid layout</span>
+    <span class="n">n_cols</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">n_top</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="n">n_rows</span> <span class="o">=</span> <span class="p">(</span><span class="n">n_top</span> <span class="o">+</span> <span class="n">n_cols</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="n">n_cols</span>
+
+    <span class="n">plt</span><span class="o">.</span><span class="n">style</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="s2">&quot;dark_background&quot;</span><span class="p">)</span>
+    <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">n_rows</span><span class="p">,</span> <span class="n">n_cols</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="n">figsize</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">n_top</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">axes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="n">axes</span><span class="p">]])</span>
+    <span class="k">elif</span> <span class="n">n_rows</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">axes</span> <span class="o">=</span> <span class="n">axes</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">n_cols</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">axes</span> <span class="o">=</span> <span class="n">axes</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">axes</span> <span class="o">=</span> <span class="n">axes</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+
+    <span class="k">for</span> <span class="n">ax</span><span class="p">,</span> <span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">row</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">axes</span><span class="p">,</span> <span class="n">top_combos</span><span class="o">.</span><span class="n">iterrows</span><span class="p">()):</span>
+        <span class="n">combo_dir</span> <span class="o">=</span> <span class="n">results_dir</span> <span class="o">/</span> <span class="n">row</span><span class="p">[</span><span class="s2">&quot;combo&quot;</span><span class="p">]</span>
+        <span class="n">ops_file</span> <span class="o">=</span> <span class="n">combo_dir</span> <span class="o">/</span> <span class="s2">&quot;ops.npy&quot;</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">ops_file</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s2">&quot;off&quot;</span><span class="p">)</span>
+            <span class="k">continue</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">ops</span> <span class="o">=</span> <span class="n">load_ops</span><span class="p">(</span><span class="n">ops_file</span><span class="p">)</span>
+            <span class="n">img</span> <span class="o">=</span> <span class="n">ops</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">img_key</span><span class="p">,</span> <span class="n">ops</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;refImg&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">512</span><span class="p">,</span> <span class="mi">512</span><span class="p">))))</span>
+
+            <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span>
+                <span class="n">img</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;gray&quot;</span><span class="p">,</span>
+                <span class="n">vmin</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
+                <span class="n">vmax</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="mi">99</span><span class="p">)</span>
+            <span class="p">)</span>
+
+            <span class="c1"># draw ROIs</span>
+            <span class="n">stat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">combo_dir</span> <span class="o">/</span> <span class="s2">&quot;stat.npy&quot;</span><span class="p">,</span> <span class="n">allow_pickle</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">iscell</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">combo_dir</span> <span class="o">/</span> <span class="s2">&quot;iscell.npy&quot;</span><span class="p">)[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">stat</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">iscell</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span>
+                    <span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="s2">&quot;xpix&quot;</span><span class="p">],</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;ypix&quot;</span><span class="p">],</span> <span class="n">s</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="s2">&quot;lime&quot;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
+
+            <span class="n">title</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;combo&#39;</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="si">{</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;n_accepted&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> cells, SNR=</span><span class="si">{</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;snr_median&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;combo&#39;</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s2">Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+
+        <span class="n">ax</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s2">&quot;off&quot;</span><span class="p">)</span>
+
+    <span class="c1"># hide unused axes</span>
+    <span class="k">for</span> <span class="n">ax</span> <span class="ow">in</span> <span class="n">axes</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">top_combos</span><span class="p">):]:</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s2">&quot;off&quot;</span><span class="p">)</span>
+
+    <span class="n">plt</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Top </span><span class="si">{</span><span class="n">n_top</span><span class="si">}</span><span class="s2"> by SNR&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">fontweight</span><span class="o">=</span><span class="s2">&quot;bold&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">save_path</span><span class="p">:</span>
+        <span class="n">save_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">save_path</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">&quot;tight&quot;</span><span class="p">,</span> <span class="n">facecolor</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved: </span><span class="si">{</span><span class="n">save_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">fig</span>
+
+
+<div class="viewcode-block" id="save_grid_results">
+<a class="viewcode-back" href="../../api.html#lbm_suite2p_python.save_grid_results">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">save_grid_results</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">save_path</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Save grid search results to CSV.&quot;&quot;&quot;</span>
+    <span class="n">save_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">save_path</span><span class="p">)</span>
+    <span class="n">csv_path</span> <span class="o">=</span> <span class="n">save_path</span> <span class="o">/</span> <span class="s2">&quot;grid_search_results.csv&quot;</span>
+    <span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">csv_path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved: </span><span class="si">{</span><span class="n">csv_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">csv_path</span></div>
+
+</pre></div>
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2024, Elizabeth R. Miller Brain Observatory | The Rockefeller University. All Rights Reserved.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

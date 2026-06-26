@@ -1,0 +1,691 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="./" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Projection Images &#8212; LBM-Suite2p-Python</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="_static/custom.css?v=bdf0de15" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="_static/documentation_options.js?v=0fa21ae5"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=f281be69"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="_static/togglebutton.js?v=b8b12719"></script>
+    <script src="_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script src="_static/design-tabs.js?v=f930bc37"></script>
+    <script defer="defer" src="https://unpkg.com/@popperjs/core@2"></script>
+    <script defer="defer" src="https://unpkg.com/tippy.js@6"></script>
+    <script defer="defer" src="_static/tippy/projections.415ad5e8-9673-4a2c-997a-670cc74ec18b.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'projections';</script>
+    <link rel="icon" href="_static/icon_suite2p.svg"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Postprocessing Functions" href="postprocessing.html" />
+    <link rel="prev" title="User Guide" href="user_guide.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="_static/logo_suit2p.png" class="logo__image only-light" alt="LBM-Suite2p-Python - Home"/>
+    <img src="_static/logo_suit2p.png" class="logo__image only-dark pst-js-only" alt="LBM-Suite2p-Python - Home"/>
+  
+  
+</a></div>
+        <div class="sidebar-primary-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://millerbrainobservatory.github.io/" title="MBO User Hub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><img src="_static/icon_mbo_home.png" class="icon-link-image" alt="MBO User Hub"/></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/MillerBrainObservatory/" title="MBO Github" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">MBO Github</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://mbo.rockefeller.edu/contact/" title="Connect with MBO" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-regular fa-address-card fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Connect with MBO</span></a>
+        </li>
+</ul></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quickstart</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="user_guide.html">User Guide</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="simple">
+</ul>
+</details></li>
+<li class="toctree-l1 current active has-children"><a class="current reference internal" href="#">Projection Images</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="simple">
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="postprocessing.html">Postprocessing Functions</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="simple">
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="processing_flow.html">Processing Flow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="classifiers.html">Suite2p ROI Classifiers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="metadata_reference.html">Metadata Processing Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pipeline_comparison.html">Pipeline Comparison</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="image_gallery.html">Image Gallery</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/blob/master/docs/projections.ipynb?plain=1" target="_blank"
+   class="btn btn-sm btn-source-file-button dropdown-item"
+   title="Show source"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-code"></i>
+  </span>
+<span class="btn__text-container">Show source</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/edit/master/docs/projections.ipynb" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/MillerBrainObservatory/LBM-Suite2p-Python/issues/new?title=Issue%20on%20page%20%2Fprojections.html&body=Your%20issue%20content%20here." target="_blank"
+   class="btn btn-sm btn-source-issues-button dropdown-item"
+   title="Open an issue"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-lightbulb"></i>
+  </span>
+<span class="btn__text-container">Open issue</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="_sources/projections.ipynb" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.ipynb</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Projection Images</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#processing-pipeline">Processing Pipeline</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cellpose-input-images">Cellpose Input Images</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#spatial-high-pass-filter">Spatial High-Pass Filter</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#recommendations">Recommendations</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See Also</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section class="tex2jax_ignore mathjax_ignore" id="projection-images">
+<span id="projections"></span><h1>Projection Images<a class="headerlink" href="#projection-images" title="Link to this heading">#</a></h1>
+<div class="toctree-wrapper compound">
+</div>
+<p>Suite2p computes several reference images during registration and detection. These images are used for quality assessment and as inputs to Cellpose anatomical segmentation.</p>
+<section id="processing-pipeline">
+<h2>Processing Pipeline<a class="headerlink" href="#processing-pipeline" title="Link to this heading">#</a></h2>
+<p>Images stored in <code class="docutils literal notranslate"><span class="pre">ops.npy</span></code> are computed at different stages:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Step</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Disable</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Temporal Binning</p></td>
+<td><p>Average consecutive frames to reduce noise</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ops[&quot;nbinned&quot;]</span> <span class="pre">=</span> <span class="pre">nframes</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Temporal High-Pass</p></td>
+<td><p>Remove slow baseline drift from movie</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ops[&quot;high_pass&quot;]</span> <span class="pre">=</span> <span class="pre">0</span></code>*</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>* The MBO fork allows disabling <code class="docutils literal notranslate"><span class="pre">high_pass</span></code>; standard Suite2p always applies it.</p>
+<p><strong>What’s stored:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">meanImg</span></code> - mean of <strong>binned</strong> movie (computed <strong>before</strong> HP filter)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">meanImgE</span></code> - enhanced mean from registration (spatial high-pass of <code class="docutils literal notranslate"><span class="pre">meanImg</span></code>); GUI display only, not a Cellpose input</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">max_proj</span></code> - max of <strong>binned + HP filtered</strong> movie</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Vcorr</span></code> - correlation map or cellpose input image</p></li>
+</ul>
+</section>
+<section id="cellpose-input-images">
+<h2>Cellpose Input Images<a class="headerlink" href="#cellpose-input-images" title="Link to this heading">#</a></h2>
+<p>Cellpose segments one static image, chosen by <code class="docutils literal notranslate"><span class="pre">cellpose_settings.img</span></code>. Suite2p 1.1.0 accepts three values:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p><code class="docutils literal notranslate"><span class="pre">img</span></code></p></th>
+<th class="head"><p>Image</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;max_proj</span> <span class="pre">/</span> <span class="pre">meanImg&quot;</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">log(max_proj</span> <span class="pre">/</span> <span class="pre">mean_img)</span></code></p></td>
+<td><p><strong>default</strong>; log ratio emphasizes active regions</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;meanImg&quot;</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">mean_img</span></code></p></td>
+<td><p>temporal mean</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;max_proj&quot;</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">max_proj</span></code></p></td>
+<td><p>maximum projection of HP-filtered movie</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The enhanced mean image (<code class="docutils literal notranslate"><span class="pre">meanImgE</span></code>) is no longer a Cellpose input; the old <code class="docutils literal notranslate"><span class="pre">anatomical_only=3</span></code> was removed upstream.</p>
+<p><strong>Selecting the image (recommended).</strong> Enable Cellpose with <code class="docutils literal notranslate"><span class="pre">algorithm=&quot;cellpose&quot;</span></code> and pick <code class="docutils literal notranslate"><span class="pre">img</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ops</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;algorithm&quot;</span><span class="p">:</span> <span class="s2">&quot;cellpose&quot;</span><span class="p">,</span> <span class="s2">&quot;img&quot;</span><span class="p">:</span> <span class="s2">&quot;max_proj / meanImg&quot;</span><span class="p">}</span>  <span class="c1"># default</span>
+<span class="n">ops</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;algorithm&quot;</span><span class="p">:</span> <span class="s2">&quot;cellpose&quot;</span><span class="p">,</span> <span class="s2">&quot;img&quot;</span><span class="p">:</span> <span class="s2">&quot;meanImg&quot;</span><span class="p">}</span>
+<span class="n">ops</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;algorithm&quot;</span><span class="p">:</span> <span class="s2">&quot;cellpose&quot;</span><span class="p">,</span> <span class="s2">&quot;img&quot;</span><span class="p">:</span> <span class="s2">&quot;max_proj&quot;</span><span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Legacy.</strong> The integer <code class="docutils literal notranslate"><span class="pre">anatomical_only</span></code> still works and maps to <code class="docutils literal notranslate"><span class="pre">img</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ops</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;anatomical_only&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}</span>   <span class="c1"># img = &quot;max_proj / meanImg&quot; (default)</span>
+<span class="n">ops</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;anatomical_only&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}</span>   <span class="c1"># img = &quot;meanImg&quot;</span>
+<span class="n">ops</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;anatomical_only&quot;</span><span class="p">:</span> <span class="mi">4</span><span class="p">}</span>   <span class="c1"># img = &quot;max_proj&quot;</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">anatomical_only=0</span></code> (or <code class="docutils literal notranslate"><span class="pre">algorithm=&quot;sparsery&quot;</span></code>/<code class="docutils literal notranslate"><span class="pre">&quot;sourcery&quot;</span></code>) uses functional detection. <code class="docutils literal notranslate"><span class="pre">anatomical_only=3</span></code> warns and falls back to 1.</p>
+<figure class="align-default" id="proj-fig-anatomical">
+<a class="reference internal image-reference" href="_images/01_anatomical_modes.png"><img alt="Cellpose input images" src="_images/01_anatomical_modes.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">The three Cellpose input images. <strong><code class="docutils literal notranslate"><span class="pre">meanImg</span></code></strong>: temporal mean. <strong><code class="docutils literal notranslate"><span class="pre">max_proj</span></code></strong>: maximum projection of the HP-filtered movie. <strong><code class="docutils literal notranslate"><span class="pre">max_proj</span> <span class="pre">/</span> <span class="pre">meanImg</span></code></strong> (default): log ratio highlights active regions.</span><a class="headerlink" href="#proj-fig-anatomical" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+<p>The image is built exactly as in <code class="docutils literal notranslate"><span class="pre">suite2p/detection/anatomical.py::select_rois</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="n">img</span> <span class="o">==</span> <span class="s2">&quot;max_proj / meanImg&quot;</span><span class="p">:</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="mf">1e-3</span><span class="p">,</span> <span class="n">max_proj</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="mf">1e-3</span><span class="p">,</span> <span class="n">mean_img</span><span class="p">)))</span>
+<span class="k">elif</span> <span class="n">img</span> <span class="o">==</span> <span class="s2">&quot;meanImg&quot;</span><span class="p">:</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">mean_img</span>
+<span class="k">elif</span> <span class="n">img</span> <span class="o">==</span> <span class="s2">&quot;max_proj&quot;</span><span class="p">:</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">max_proj</span>
+</pre></div>
+</div>
+</section>
+<section id="spatial-high-pass-filter">
+<h2>Spatial High-Pass Filter<a class="headerlink" href="#spatial-high-pass-filter" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">spatial_hp_cp</span></code> (upstream <code class="docutils literal notranslate"><span class="pre">cellpose_settings.highpass_spatial</span></code>; integer, default 0) sharpens the chosen <code class="docutils literal notranslate"><span class="pre">img</span></code> before Cellpose. It is separate from the temporal <code class="docutils literal notranslate"><span class="pre">high_pass</span></code> used during detection, and does not modify the stored <code class="docutils literal notranslate"><span class="pre">meanImg</span></code> or <code class="docutils literal notranslate"><span class="pre">max_proj</span></code>.</p>
+<figure class="align-default" id="proj-fig-hp">
+<a class="reference internal image-reference" href="_images/02_spatial_hp_filter.png"><img alt="Spatial HP Filter" src="_images/02_spatial_hp_filter.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Effect of <code class="docutils literal notranslate"><span class="pre">spatial_hp_cp</span></code> values (0, 0.5, 1, 3) on the max projection. Higher values sharpen cell boundaries but may amplify noise.</span><a class="headerlink" href="#proj-fig-hp" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+<p>When <code class="docutils literal notranslate"><span class="pre">spatial_hp_cp</span> <span class="pre">&gt;</span> <span class="pre">0</span></code>, the image is normalized to [0, 1] and a Gaussian-blurred copy (sigma = <code class="docutils literal notranslate"><span class="pre">diameter</span> <span class="pre">×</span> <span class="pre">spatial_hp_cp</span></code>) is subtracted twice:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">scipy.ndimage</span><span class="w"> </span><span class="kn">import</span> <span class="n">gaussian_filter</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cellpose.transforms</span><span class="w"> </span><span class="kn">import</span> <span class="n">normalize99</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">apply_hp_filter</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">diameter</span><span class="p">,</span> <span class="n">spatial_hp_cp</span><span class="p">):</span>
+    <span class="n">img</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">normalize99</span><span class="p">(</span><span class="n">img</span><span class="p">),</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">sigma</span> <span class="o">=</span> <span class="n">diameter</span> <span class="o">*</span> <span class="n">spatial_hp_cp</span>
+    <span class="n">img</span> <span class="o">=</span> <span class="n">img</span> <span class="o">-</span> <span class="n">gaussian_filter</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">sigma</span><span class="p">)</span>
+    <span class="n">img</span> <span class="o">=</span> <span class="n">img</span> <span class="o">-</span> <span class="n">gaussian_filter</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">sigma</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">img</span>
+</pre></div>
+</div>
+</section>
+<section id="recommendations">
+<h2>Recommendations<a class="headerlink" href="#recommendations" title="Link to this heading">#</a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ops</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;algorithm&quot;</span><span class="p">:</span> <span class="s2">&quot;cellpose&quot;</span><span class="p">,</span>         <span class="c1"># enable Cellpose</span>
+    <span class="s2">&quot;img&quot;</span><span class="p">:</span> <span class="s2">&quot;max_proj / meanImg&quot;</span><span class="p">,</span>     <span class="c1"># detection image (default)</span>
+    <span class="s2">&quot;spatial_hp_cp&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>              <span class="c1"># increase to sharpen the input image</span>
+    <span class="s2">&quot;diameter&quot;</span><span class="p">:</span> <span class="mi">6</span><span class="p">,</span>                   <span class="c1"># cell size in pixels</span>
+    <span class="s2">&quot;cellprob_threshold&quot;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="s2">&quot;flow_threshold&quot;</span><span class="p">:</span> <span class="mf">0.4</span><span class="p">,</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>If detection is poor:</p>
+<ul class="simple">
+<li><p>Try <code class="docutils literal notranslate"><span class="pre">img=&quot;max_proj&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">img=&quot;meanImg&quot;</span></code></p></li>
+<li><p>Increase <code class="docutils literal notranslate"><span class="pre">spatial_hp_cp</span></code> to 1-3 to sharpen cell boundaries</p></li>
+<li><p>Adjust <code class="docutils literal notranslate"><span class="pre">diameter</span></code> to match cell sizes</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">img=&quot;max_proj</span> <span class="pre">/</span> <span class="pre">meanImg&quot;</span></code> (default) suits data with strong baseline fluorescence</p></li>
+</ul>
+</section>
+<section id="see-also">
+<h2>See Also<a class="headerlink" href="#see-also" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="user_guide.html"><span class="doc">User Guide</span></a> - Complete parameter reference</p></li>
+<li><p><a class="reference external" href="https://cellpose.readthedocs.io/">Cellpose Documentation</a> - Cellpose model details</p></li>
+</ul>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="user_guide.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">User Guide</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="postprocessing.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Postprocessing Functions</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#processing-pipeline">Processing Pipeline</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cellpose-input-images">Cellpose Input Images</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#spatial-high-pass-filter">Spatial High-Pass Filter</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#recommendations">Recommendations</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#see-also">See Also</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2024, Elizabeth R. Miller Brain Observatory | The Rockefeller University. All Rights Reserved.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>
