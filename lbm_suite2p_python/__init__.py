@@ -24,6 +24,7 @@ _LAZY_ATTRS = {
     "compute_enhanced_mean_image": "run_lsp",
     # streaming
     "StreamingBinaryFile": "streaming",
+    "apply_shifts": "streaming",
     # cellpose
     "train_cellpose": "cellpose",
     "annotate": "cellpose",
@@ -110,6 +111,7 @@ __all__ = [
     "run_plane",
     "run_plane_stream",
     "StreamingBinaryFile",
+    "apply_shifts",
     "default_ops",
     "add_processing_step",
     "generate_plane_dirname",

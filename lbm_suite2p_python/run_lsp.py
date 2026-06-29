@@ -2379,6 +2379,56 @@ def _default_block_size(ops):
     return (int(bs[0]), int(bs[1]))
 
 
+def _stamp_replay_keys(ops, file, input_path, reader_kwargs, plane, frame_indices):
+    """Record what a later replay needs to reproduce the exact raw frames the
+    shifts were computed on, so a run can drop data.bin and still reconstitute
+    registered frames via `apply_shifts` / `imread(<plane_dir>)`:
+
+      - raw_source / reader_kwargs : how to re-open the same assembled volume.
+      - stream_frame_indices       : the source frame map (strided/offset runs).
+      - raw_fingerprint            : a content hash that makes a re-assembled or
+                                     re-pointed source fail loudly instead of
+                                     silently replaying onto the wrong pixels.
+
+    Best-effort — a fingerprint failure is logged and skipped, never fatal.
+    """
+    if file is None:
+        return
+    try:
+        ops["reader_kwargs"] = dict(reader_kwargs or {})
+    except Exception:
+        ops["reader_kwargs"] = {}
+    src = getattr(file, "source_path", None)
+    ops["raw_source"] = str(src) if src else str(input_path)
+    if frame_indices is not None:
+        ops["stream_frame_indices"] = [int(i) for i in frame_indices]
+    else:
+        ops.pop("stream_frame_indices", None)
+    try:
+        from lbm_suite2p_python.streaming import raw_fingerprint
+
+        # the fingerprint must hash the frames suite2p actually registered so a
+        # later replay can prove its source matches. binary path: that is
+        # data_raw.bin (imwrite may transform frames vs a direct lazy read, e.g.
+        # axial-shift correction), so reconstitution is only valid from a source
+        # that reproduces it. streaming path: the lazy frames are registered
+        # directly, so fingerprint the lazy array.
+        save_path = Path(ops.get("save_path", "."))
+        raw_bin = save_path / "data_raw.bin"
+        Ly, Lx = ops.get("Ly"), ops.get("Lx")
+        if raw_bin.exists() and Ly and Lx:
+            n = raw_bin.stat().st_size // (int(Ly) * int(Lx) * 2)
+            mm = np.memmap(raw_bin, dtype=np.int16, mode="r", shape=(int(n), int(Ly), int(Lx)))
+            ops["raw_fingerprint"] = raw_fingerprint(mm[:, None, None], 0, 0)
+        else:
+            pidx = (int(plane) - 1) if _get_num_planes(file) > 1 else 0
+            ops["raw_fingerprint"] = raw_fingerprint(
+                file, pidx, 0, frame_indices=frame_indices
+            )
+    except Exception as e:
+        logger.debug(f"raw_fingerprint skipped for plane {plane}: {e}")
+
+
 def run_plane_stream(ops, arr, plane_index, channel_index=0, frame_indices=None):
     """Run Suite2p on a streamed mbo lazy-array plane — no data_raw.bin/data.bin.
 
@@ -2503,6 +2553,26 @@ def run_plane_stream(ops, arr, plane_index, channel_index=0, frame_indices=None)
         ops["meanImgE"] = compute_enhanced_mean_image(
             ops["meanImg"].astype(np.float32), ops
         )
+
+    # self-validation keys for a later replay. run_plane already stamps these for
+    # the normal pipeline path; stamp here too (using the exact plane/channel the
+    # shifts were computed on) so direct run_plane_stream callers also persist a
+    # fingerprint and a viewer can verify the raw source on reopen.
+    if "raw_fingerprint" not in ops:
+        try:
+            from lbm_suite2p_python.streaming import raw_fingerprint as _rfp
+
+            ops["raw_fingerprint"] = _rfp(
+                arr, plane_index, channel_index, frame_indices=frame_indices
+            )
+            if frame_indices is not None:
+                ops["stream_frame_indices"] = [int(i) for i in frame_indices]
+            if not ops.get("raw_source"):
+                _src = getattr(arr, "source_path", None)
+                if _src:
+                    ops["raw_source"] = str(_src)
+        except Exception as e:
+            logger.debug(f"raw_fingerprint skipped: {e}")
 
     save_ops_db_settings(ops["ops_path"], ops)
     return True
@@ -3100,15 +3170,10 @@ def run_plane(
             _n_stream = min(_n_stream, int(_s5[0]))
         _set_frame_count_aliases(ops, _n_stream)
         ops["nframes_chan1"] = _n_stream
-        # record the reader settings the raw was read with so a later viewer
-        # (mbo studio's RegisteredStreamArray) can reproduce the exact frames
+        # record raw source / reader_kwargs / frame map / fingerprint so a later
+        # replay (apply_shifts / imread of the plane dir) reads the exact frames
         # the shifts were computed on.
-        ops["reader_kwargs"] = dict(reader_kwargs)
-        # record the canonical raw source imread can reconstruct the FULL
-        # assembled volume from (the dir/series), not just data_path's first
-        # file — so the viewer reads the same frames the shifts were computed on.
-        _raw_src = getattr(file, "source_path", None)
-        ops["raw_source"] = str(_raw_src) if _raw_src else str(input_path)
+        _stamp_replay_keys(ops, file, input_path, reader_kwargs, plane, frame_indices)
 
     # Write binary
     if progress_callback:
@@ -3145,6 +3210,9 @@ def run_plane(
         # Reload ops from disk to get Lx, Ly, and other metadata added by imwrite
         if ops_file.exists():
             ops = np.load(ops_file, allow_pickle=True).item()
+        # stamp replay keys after the reload so a binary run whose data.bin is
+        # later deleted can still reconstitute registered frames from the raw.
+        _stamp_replay_keys(ops, file, input_path, reader_kwargs, plane, frame_indices)
         _add_processing_step(
             ops,
             "binary_write",
