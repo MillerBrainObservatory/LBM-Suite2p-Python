@@ -6,17 +6,20 @@ Registered with mbo_utilities via the ``mbo_utilities.lazy_arrays`` entry point
 ``RegisteredStreamArray`` when the directory has:
 
 - ``ops.npy`` + ``reg_outputs.npy`` (the registration shifts), and
-- **no** ``data.bin`` / ``data_raw.bin`` (a streamed run, or a binary run whose
-  ``.bin`` files were cleaned up by the default ``keep_reg``/``keep_raw=False``),
-  and
-- a locatable raw source (``ops['data_path']``).
+- **no** ``data.bin`` / ``data_raw.bin`` — a streamed run (no ``.bin`` is ever
+  written), or a binary run invoked with ``keep_reg=False`` so ``data.bin`` was
+  removed. Defaults keep ``data.bin``, which routes to ``Suite2pArray``; pass
+  ``keep_reg=False`` to land here, and
+- a locatable raw source (``raw_source`` / ``data_path``).
 
 It carries ``PRIORITY`` above ``Suite2pArray`` (100) so it claims those dirs
 first; when a real binary is present, ``can_open`` returns False and
-``Suite2pArray`` reads it directly. The class is intentionally isolated from
-``streaming.py`` (the pipeline-critical module): if the mbo base classes ever
-move, only the entry-point load fails — mbo skips it and the pipeline is
-unaffected.
+``Suite2pArray`` reads it directly.
+
+This is a thin shim: all replay, raw-source resolution, device selection, and
+validation live in ``streaming.py`` (array-agnostic, reusable via
+``apply_shifts``). The class only adapts that to mbo's 5D ``LazyArray`` surface
+and the entry-point ``can_open`` contract, so it stays cheap to remove later.
 """
 
 from __future__ import annotations
@@ -28,7 +31,7 @@ import numpy as np
 from mbo_utilities.lazy_array import LazyArray
 from mbo_utilities.arrays._base import ReductionMixin, _normalize_key
 
-from lbm_suite2p_python.streaming import StreamingBinaryFile
+from lbm_suite2p_python.streaming import apply_shifts, _open_raw_source
 
 
 def _recorded_raw_exists(ops: dict) -> bool:
@@ -46,66 +49,8 @@ def _recorded_raw_exists(ops: dict) -> bool:
     return False
 
 
-def _open_raw(ops: dict, n_needed: int):
-    """imread the raw source as the FULL assembled volume.
-
-    ``data_path`` records only the first raw file; ``imread`` of that single
-    file can return fewer/un-assembled frames than the run processed. So try, in
-    order: the recorded ``raw_source``, the containing directory of
-    ``data_path`` (which reconstructs the assembled series), then ``data_path``
-    itself — and prefer the first whose timepoint count covers the registered
-    frames. Returns the opened array, or None when nothing is usable.
-    """
-    from mbo_utilities import imread
-
-    cands = []
-    rs = ops.get("raw_source")
-    if rs:
-        cands.append(Path(rs))
-    dp = ops.get("data_path")
-    if dp:
-        p = Path(dp)
-        if p.suffix and p.parent != p:
-            cands.append(p.parent)  # series dir -> assembled volume
-        cands.append(p)
-
-    seen, fallback = set(), None
-    for c in cands:
-        s = str(c)
-        if s in seen or not c.exists():
-            continue
-        seen.add(s)
-        try:
-            arr = imread(c, **(ops.get("reader_kwargs") or {}))
-        except Exception:
-            continue
-        try:
-            nt = int(arr._shape5d()[0])
-        except Exception:
-            nt = None
-        if nt is None or nt >= n_needed:
-            return arr
-        fallback = fallback or arr  # short, but better than nothing
-    return fallback
-
-
 def _has_binary(plane_dir: Path) -> bool:
     return (plane_dir / "data.bin").exists() or (plane_dir / "data_raw.bin").exists()
-
-
-def _pick_device():
-    """cuda if usable, else cpu, else None (torch absent)."""
-    try:
-        import torch
-    except Exception:
-        return None
-    try:
-        if torch.cuda.is_available():
-            torch.zeros(1, device="cuda")
-            return torch.device("cuda")
-    except Exception:
-        pass
-    return torch.device("cpu")
 
 
 class RegisteredStreamArray(ReductionMixin, LazyArray):
@@ -113,7 +58,7 @@ class RegisteredStreamArray(ReductionMixin, LazyArray):
 
     Presents a 5D ``(T, 1, 1, Ly, Lx)`` array whose frames are the registered
     frames suite2p would have written to ``data.bin`` — reconstituted on demand
-    from the raw source and ``reg_outputs.npy`` via ``StreamingBinaryFile``.
+    from the raw source and ``reg_outputs.npy`` via ``apply_shifts``.
     """
 
     PRIORITY = 150  # above Suite2pArray (100): claim binary-less reg dirs first
@@ -135,10 +80,7 @@ class RegisteredStreamArray(ReductionMixin, LazyArray):
         except Exception:
             return False
 
-    def __init__(self, path, device=None):
-        from mbo_utilities import imread
-        from lbm_suite2p_python.utils import _get_num_planes
-
+    def __init__(self, path, device=None, raw=None, validate=True):
         p = Path(path)
         if p.name == "ops.npy":
             p = p.parent
@@ -148,24 +90,25 @@ class RegisteredStreamArray(ReductionMixin, LazyArray):
         reg_outputs = np.load(p / "reg_outputs.npy", allow_pickle=True).item()
         self._nt = int(len(np.asarray(reg_outputs["yoff"])))
 
-        # re-read raw (with the run's reader_kwargs) as the full assembled volume.
-        self._raw = _open_raw(self._ops, self._nt)
-        if self._raw is None:
-            raise FileNotFoundError(
-                f"RegisteredStreamArray: raw source not found for {p}. "
-                f"raw_source={self._ops.get('raw_source')!r}, "
-                f"data_path={self._ops.get('data_path')!r} are not on disk. "
-                "Re-point the raw data or open the plane with its data.bin."
-            )
+        if raw is None:
+            # a strided run maps shifts onto larger source indices than _nt.
+            fi = self._ops.get("stream_frame_indices")
+            n_needed = (int(np.max(fi)) + 1) if fi else self._nt
+            raw = _open_raw_source(self._ops, n_needed)
+            if raw is None:
+                raise FileNotFoundError(
+                    f"RegisteredStreamArray: raw source not found for {p}. "
+                    f"raw_source={self._ops.get('raw_source')!r}, "
+                    f"data_path={self._ops.get('data_path')!r} are not on disk. "
+                    "Re-point the raw data or open the plane with its data.bin."
+                )
+        self._raw = raw
 
-        plane = int(self._ops.get("plane", 1) or 1)
-        self._plane_index = (plane - 1) if _get_num_planes(self._raw) > 1 else 0
-        self._device = device if device is not None else _pick_device()
-
-        self._stream = StreamingBinaryFile.from_run(
-            self._raw, p, plane_index=self._plane_index,
-            n_frames=self._nt, device=self._device,
-        )
+        # all replay/validation/device logic lives in apply_shifts (plane_index,
+        # frame map, recorded device, and the raw-source fingerprint check).
+        self._stream = apply_shifts(raw, p, device=device, validate=validate)
+        self._plane_index = self._stream._z
+        self._device = self._stream._device
         self._Ly, self._Lx = self._stream.Ly, self._stream.Lx
         self.filenames = [p / "ops.npy"]
 
