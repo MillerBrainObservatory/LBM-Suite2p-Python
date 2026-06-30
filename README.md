@@ -214,5 +214,3 @@ Contributions are welcome! This project uses:
 - **Ruff** for linting and formatting (line length: 88, numpy docstring style)
 - **pytest** for testing
 - **Sphinx** for documentation
-
-test123
