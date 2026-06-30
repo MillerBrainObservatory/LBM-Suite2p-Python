@@ -91,6 +91,20 @@ def _get_ops_help() -> dict[str, str]:
     }
 
 
+def _fork_ignored_ops() -> set[str]:
+    """suite2p ops the fork never forwards, so they get no CLI flag.
+
+    ``_call_upstream_pipeline`` passes suite2p only the ``settings`` dict and
+    discards ``db``, so every ``_DB_KEYS`` entry (data_path, save_folder,
+    nplanes, nchannels, functional_chan, ...) is inert. ``delete_bin`` /
+    ``move_bin`` are superseded by the fork's --keep-raw / --no-keep-reg
+    binary cleanup.
+    """
+    from lbm_suite2p_python.db_settings import _DB_KEYS
+
+    return {"delete_bin", "move_bin", *_DB_KEYS}
+
+
 def build_parser(include_ops: bool = True) -> argparse.ArgumentParser:
     """build the argument parser with all pipeline and ops parameters.
 
@@ -340,8 +354,8 @@ Examples:
     ops_defaults = s2p_ops()
     ops_help = _get_ops_help()
 
-    # skip params already handled above
-    skip_params = {"frames_include"}
+    # skip params already handled above or ignored by the fork
+    skip_params = {"frames_include"} | _fork_ignored_ops()
 
     for key, default in ops_defaults.items():
         if key in skip_params:
@@ -390,14 +404,29 @@ def list_ops():
 
     ops = s2p_ops()
     ops_help = _get_ops_help()
+    ignored = _fork_ignored_ops()
 
-    print("\nSuite2p Parameters (use --param-name value to set):\n")
-    print(f"{'Parameter':<25} {'Default':<20} Description")
+    def _row(key):
+        default = ops[key]
+        help_text = ops_help.get(key, "")
+        kebab = _snake_to_kebab(key)
+        if isinstance(default, bool):
+            name = f"--{kebab} / --no-{kebab}"
+            val = "on" if default else "off"
+        else:
+            name = f"--{kebab}"
+            val = str(default)[:18]
+        print(f"  {name:<40} {val:<10} {help_text}")
+
+    print("\nSuite2p Parameters\n")
+    print("  value:  --name VALUE        e.g. --tau 1.3")
+    print("  toggle: --name / --no-name  e.g. --nonrigid / --no-nonrigid")
+    print("  list:   --name V1 V2        e.g. --block-size 128 128")
     print("-" * 80)
 
     # group by category
     categories = {
-        "Main Settings": ["nplanes", "nchannels", "fs", "tau", "frames_include"],
+        "Main Settings": ["fs", "tau", "frames_include"],
         "Registration": ["do_registration", "nonrigid", "batch_size", "maxregshift",
                         "smooth_sigma", "nimg_init", "subpixel"],
         "Cell Detection": ["roidetect", "algorithm", "sparse_mode", "spatial_scale",
@@ -407,29 +436,27 @@ def list_ops():
                     "pretrained_model", "spatial_hp_cp"],
         "Signal Extraction": ["neuropil_extract", "neucoeff", "spikedetect",
                              "baseline", "win_baseline"],
-        "Output": ["delete_bin", "reg_tif", "save_mat", "save_NWB"],
+        "Output": ["reg_tif", "save_mat", "save_NWB"],
     }
 
     printed = set()
     for category, keys in categories.items():
         print(f"\n{category}:")
         for key in keys:
-            if key in ops:
-                default = ops[key]
-                help_text = ops_help.get(key, "")
-                default_str = str(default)[:18]
-                print(f"  --{_snake_to_kebab(key):<22} {default_str:<20} {help_text}")
+            if key in ops and key not in ignored:
+                _row(key)
                 printed.add(key)
 
     # print remaining
-    remaining = set(ops.keys()) - printed
+    remaining = sorted(set(ops.keys()) - printed - ignored)
     if remaining:
         print("\nOther:")
-        for key in sorted(remaining):
-            default = ops[key]
-            help_text = ops_help.get(key, "")
-            default_str = str(default)[:18]
-            print(f"  --{_snake_to_kebab(key):<22} {default_str:<20} {help_text}")
+        for key in remaining:
+            _row(key)
+
+    print("\nBinary cleanup (pipeline flags, not ops):")
+    print("  --no-keep-reg    delete data.bin after processing")
+    print("  --keep-raw       keep data_raw.bin (deleted by default)")
 
 
 class _Tee:
