@@ -21,18 +21,12 @@ dependencies = [
 	"mbo_utilities>=3.3.4",
 	"suite2p>=1.0.0.1",
 	"setuptools<81",
-	"torch",
-	"torchvision",
 ]
 
 [project.scripts]
 lsp = "lbm_suite2p_python.__main__:main"
 cellpose-gui = "lbm_suite2p_python.gui:main"
 
-# Open a binary-less suite2p plane dir (ops.npy + reg_outputs.npy, no .bin) as a
-# lazy registered array in mbo / mbo studio — raw frames + saved shifts applied
-# on the fly. mbo auto-discovers this via its lazy-array plugin group; a load
-# failure is skipped, so this can never break mbo_utilities.
 [project.entry-points."mbo_utilities.lazy_arrays"]
 lbm_registered_stream = "lbm_suite2p_python.streaming_array:RegisteredStreamArray"
 
@@ -40,11 +34,9 @@ lbm_registered_stream = "lbm_suite2p_python.streaming_array:RegisteredStreamArra
 rastermap = [
 	"rastermap",
 ]
-# Cellpose for anatomical cell detection (requires PyTorch)
 cellpose = [
 	"cellpose>=4.0.6",
 ]
-# All optional dependencies
 all = [
 	"lbm_suite2p_python[rastermap,cellpose]",
 ]
@@ -76,14 +68,8 @@ docs = [
 	"suite2p",
 ]
 
-[tool.uv.sources]
-torch = [{ index = "pytorch-cu126" }]
-torchvision = [{ index = "pytorch-cu126" }]
-
-[[tool.uv.index]]
-name = "pytorch-cu126"
-url = "https://download.pytorch.org/whl/cu126"
-explicit = true
+[tool.uv]
+default-groups = ["cuda", "dev"]
 
 # https://github.com/charliermarsh/ruff
 [tool.ruff]
