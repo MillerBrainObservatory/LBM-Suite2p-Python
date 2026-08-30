@@ -2045,6 +2045,7 @@ def run_plane_bin(ops) -> bool:
             f"Available keys: {list(ops.keys())}"
         )
     Ly, Lx = int(Ly), int(Lx)
+    _fit_block_size_to_frame(ops, Ly, Lx)
 
     # run_registration governs whether we actually need data_raw.bin.
     # compute it here (up from the block that previously defined it) so
@@ -2379,6 +2380,27 @@ def _default_block_size(ops):
     return (int(bs[0]), int(bs[1]))
 
 
+def _fit_block_size_to_frame(ops, Ly, Lx):
+    """Shrink block_size (or drop to rigid) so nonrigid gets >1 block per axis."""
+    if not bool(ops.get("nonrigid", True)):
+        return
+    by, bx = _default_block_size(ops)
+    new_y = by if by < Ly else Ly // 2
+    new_x = bx if bx < Lx else Lx // 2
+    # a block smaller than the kriging pad makes the shift field noise
+    if new_y < 8 or new_x < 8:
+        print(
+            f"NOTE: frame {Ly}x{Lx} too small for nonrigid blocks - using rigid only."
+        )
+        ops["nonrigid"] = False
+    elif (new_y, new_x) != (by, bx):
+        print(
+            f"NOTE: block_size {(by, bx)} does not fit a {Ly}x{Lx} frame "
+            f"- using {(new_y, new_x)}."
+        )
+        ops["block_size"] = [new_y, new_x]
+
+
 def _stamp_replay_keys(ops, file, input_path, reader_kwargs, plane, frame_indices):
     """Record what a later replay needs to reproduce the exact raw frames the
     shifts were computed on, so a run can drop data.bin and still reconstitute
@@ -2463,6 +2485,7 @@ def run_plane_stream(ops, arr, plane_index, channel_index=0, frame_indices=None)
     ops["ops_path"] = str(save_path / "ops.npy")
 
     Ly, Lx = int(ops["Ly"]), int(ops["Lx"])
+    _fit_block_size_to_frame(ops, Ly, Lx)
     n_align = ops.get("nframes_chan1") or ops.get("nframes") or ops.get("n_frames")
     if n_align is None:
         raise KeyError("Missing nframes_chan1 / nframes / n_frames in ops")
@@ -3390,7 +3413,8 @@ def run_plane(
                 return ops_file
             print(f"Error in run_plane_bin: {e}")
             traceback.print_exc()
-            _cleanup_bin_files(plane_dir, keep_raw, keep_reg)
+            # keep data_raw.bin regardless of keep_raw: a retry needs it
+            _cleanup_bin_files(plane_dir, keep_raw=True, keep_reg=keep_reg)
             raise
 
         if not processed:
