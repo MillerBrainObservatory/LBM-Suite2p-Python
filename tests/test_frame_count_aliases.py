@@ -202,10 +202,9 @@ class TestStridedSelections:
     """
 
     def test_helper_skips_dz_when_no_plane_indices(self):
-        """When called with frame_indices but no plane_indices (the
-        per-plane layer in run_plane), the helper must NOT touch dz —
-        otherwise it clobbers a correctly-scaled value already set by
-        the outer run_volume call.
+        """Without plane_indices the helper must NOT touch dz — otherwise it
+        clobbers a correctly-scaled value already set by the outer
+        run_volume call.
         """
         from lbm_suite2p_python.run_lsp import _apply_reactive_metadata
         ops = {"dz": 20.0}  # already-scaled from outer layer
@@ -213,7 +212,6 @@ class TestStridedSelections:
             ops=ops,
             source_metadata={"fs": 30.0, "dz": 10.0},
             source_shape=(200, 1, 8, 32, 32),
-            frame_indices=list(range(0, 200, 2)),
             plane_indices=None,  # no plane context here
         )
         assert ops["dz"] == 20.0, \
@@ -227,15 +225,15 @@ class TestStridedSelections:
             ops=ops,
             source_metadata={"fs": 30.0, "dz": 10.0},
             source_shape=(200, 1, 8, 32, 32),
-            frame_indices=list(range(0, 200, 2)),
             plane_indices=[0, 2, 4, 6],
         )
         assert ops["dz"] == 20.0, f"expected dz=20, got {ops.get('dz')}"
 
     def test_helper_does_not_scale_fs(self):
-        """fs scaling is owned by mbo's writer (which sees `frames=`).
-        The lbm helper must NOT touch fs, otherwise it gets double-
-        scaled when the writer also runs.
+        """fs scaling is owned by mbo's writer (which sees `timepoints=`).
+        The lbm helper must NOT touch fs, nor stamp an fs stride into
+        `_metadata_provenance`: the writer accumulates onto that stamp, so
+        a stride of 2 here became fs/4 in ops.npy.
         """
         from lbm_suite2p_python.run_lsp import _apply_reactive_metadata
         ops = {"fs": 30.0}
@@ -243,10 +241,11 @@ class TestStridedSelections:
             ops=ops,
             source_metadata={"fs": 30.0, "dz": 10.0},
             source_shape=(200, 1, 8, 32, 32),
-            frame_indices=list(range(0, 200, 2)),
             plane_indices=[0, 2, 4, 6],
         )
         assert ops["fs"] == 30.0, "helper must NOT touch fs"
+        fs_prov = ops.get("_metadata_provenance", {}).get("fs", {})
+        assert fs_prov.get("stride", 1) == 1, fs_prov
 
     def test_run_plane_strided_frames(self, tmp_path):
         """Direct `run_plane` with `frame_indices` writes the strided

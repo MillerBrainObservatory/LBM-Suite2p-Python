@@ -290,37 +290,29 @@ def _apply_reactive_metadata(
     ops: dict,
     source_metadata: dict | None,
     source_shape: tuple | None = None,
-    frame_indices: list[int] | None = None,
     plane_indices: list[int] | None = None,
     logger=None,
 ) -> None:
-    """Reactively scale fs/dz in `ops` from a source metadata dict and
-    the user's stride selections, in place.
+    """Scale dz (and dx/dy) in `ops` from the source metadata and the
+    plane selection, in place.
 
-    Uses `mbo_utilities.metadata.OutputMetadata` so the scaling rules
-    stay aligned with the writer side. Without this, every-other-
-    timepoint produces ops.npy with raw source `fs` (factor of 2
-    wrong), and every-other-plane produces ops.npy with raw source `dz`.
+    Uses `mbo_utilities.metadata.OutputMetadata` so the scaling rules stay
+    aligned with the writer side. `fs` is left to mbo's writer: it scales fs
+    from the `timepoints=` it receives and stamps `_metadata_provenance`, so
+    a T selection here would compound the stride (fs/4 for every-other-frame).
+    Only this layer sees the FULL plane list, so the z-stride lives here.
 
     Parameters
     ----------
     ops : dict
-        ops dict to mutate. Existing keys are NOT overwritten unless
-        the reactive value differs (so user-set explicit overrides win
-        over the reactive computation).
+        ops dict to mutate.
     source_metadata : dict | None
-        Source acquisition metadata (must contain `fs`, `dz` etc. for
-        scaling to work). If None, function is a no-op.
+        Source acquisition metadata (`dz` etc.). None is a no-op.
     source_shape : tuple | None
-        Source shape tuple (T, C, Z, Y, X). If None, OutputMetadata
-        falls back to whatever it can infer.
-    frame_indices : list[int] | None
-        0-based timepoint indices the user selected. The implicit
-        stride scales `fs`. None means no T-stride scaling.
+        Source shape (T, C, Z, Y, X). Only the selection matters here.
     plane_indices : list[int] | None
-        0-based z-plane indices the user selected (FULL list, not just
-        the current plane). The implicit stride scales `dz`. None
-        means no Z-stride scaling.
+        0-based z-plane indices selected (FULL list, not just the current
+        plane). The implicit stride scales `dz`. None is a no-op.
     logger : optional
         If provided, a missing `fs` produces a `.warning(...)` call.
     """
@@ -330,7 +322,6 @@ def _apply_reactive_metadata(
     try:
         from mbo_utilities.metadata import OutputMetadata, get_param
     except ImportError:
-        # mbo_utilities not available — caller's choice to handle this
         return
 
     if logger is not None and get_param(source_metadata, "fs") is None:
@@ -340,43 +331,24 @@ def _apply_reactive_metadata(
             "metadata editor or fix the source TIFF metadata."
         )
 
-    selections: dict = {}
-    if frame_indices is not None:
-        selections["T"] = list(frame_indices)
-    if plane_indices is not None:
-        selections["Z"] = list(plane_indices)
-
-    if not selections:
+    if plane_indices is None:
         return
 
-    # OutputMetadata's accessors crash on `source_shape=None`. Default
-    # to an empty tuple — the reactive scaling for fs/dz only needs the
-    # selections, not the absolute shape.
+    # OutputMetadata's accessors crash on `source_shape=None`.
     out_meta = OutputMetadata(
         source=dict(source_metadata),
         source_shape=source_shape if source_shape is not None else (),
         source_dims=("T", "C", "Z", "Y", "X"),
-        selections=selections,
+        selections={"Z": list(plane_indices)},
     )
-
     scaled = out_meta.to_dict()
-    # Split-responsibility scaling:
-    #   - `fs` is owned by mbo's writer (`_imwrite_base` builds its own
-    #     OutputMetadata from `frames=` and scales fs there). If we
-    #     also scaled fs here, the writer would re-scale our already-
-    #     scaled value and end up with fs/4 instead of fs/2.
-    #   - `dz` (and dx/dy) are owned by lbm because mbo's writer only
-    #     sees the per-plane data, not the FULL plane selection list,
-    #     so it cannot compute the implicit z-stride.
-    # We also propagate `_metadata_provenance` so the next pass (a
-    # re-run of this ops through OutputMetadata) reads the stamped
-    # base+stride and doesn't double-scale dz.
-    if plane_indices is not None:
-        for key in ("dz", "dx", "dy", "z_step",
-                    "umPerPixZ", "umPerPixX", "umPerPixY",
-                    "_metadata_provenance"):
-            if key in scaled and scaled[key] is not None:
-                ops[key] = scaled[key]
+    # `_metadata_provenance` rides along so the writer's pass reads the
+    # stamped base+stride and does not double-scale dz.
+    for key in ("dz", "dx", "dy", "z_step",
+                "umPerPixZ", "umPerPixX", "umPerPixY",
+                "_metadata_provenance"):
+        if key in scaled and scaled[key] is not None:
+            ops[key] = scaled[key]
 
 
 from lbm_suite2p_python.zplane import (
@@ -780,7 +752,6 @@ def _prepare_plane_ops(*, base_ops, plane_idx, num_planes, input_arr,
         ops=current_ops,
         source_metadata=volume_source_meta,
         source_shape=volume_source_shape,
-        frame_indices=frame_indices,
         plane_indices=z_selection,
         logger=logger,
     )
@@ -3147,29 +3118,6 @@ def run_plane(
         # user explicitly set in their ops_user dict.
         if ops.get("fs") in (None, 10.0) or "fs" not in ops_user:
             ops["fs"] = float(src_fs)
-
-    # When called directly (not via run_volume), the caller may pass
-    # frame_indices for stride scaling. run_volume already invoked the
-    # reactive helper before reaching us, so re-running it here is a
-    # no-op when there's no T stride. When there IS a T stride from
-    # this entry point, scale fs from the source metadata via the
-    # reactive helper. plane_indices is None here because we only see
-    # one plane at a time at this layer.
-    if frame_indices is not None and file is not None:
-        _src_meta = (
-            dict(file.metadata) if hasattr(file, "metadata") else None
-        )
-        _src_shape = (
-            tuple(file._shape5d()) if hasattr(file, "_shape5d") else None
-        )
-        _apply_reactive_metadata(
-            ops=ops,
-            source_metadata=_src_meta,
-            source_shape=_src_shape,
-            frame_indices=frame_indices,
-            plane_indices=None,  # this layer only sees one plane
-            logger=logger,
-        )
 
     # store source filename info in ops for traceability
     ops["source_dirname"] = plane_dir.name
