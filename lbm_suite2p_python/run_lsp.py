@@ -1954,6 +1954,7 @@ def run_plane_bin(ops) -> bool:
     """
     from contextlib import nullcontext
     from suite2p.io.binary import BinaryFile
+    from lbm_suite2p_python.binary import ClippedBinaryFile
 
     ops = load_ops(ops)
 
@@ -2282,7 +2283,7 @@ def run_plane_bin(ops) -> bool:
     with (
         BinaryFile(Ly=Ly, Lx=Lx, filename=str(reg_file), n_frames=n_align, write=True) as f_reg,
         (
-            BinaryFile(Ly=Ly, Lx=Lx, filename=str(raw_file), n_frames=n_align)
+            ClippedBinaryFile(Ly=Ly, Lx=Lx, filename=str(raw_file), n_frames=n_align)
             if _open_raw
             else nullcontext()
         ) as f_raw,
@@ -2292,7 +2293,7 @@ def run_plane_bin(ops) -> bool:
             else nullcontext()
         ) as f_reg_chan2,
         (
-            BinaryFile(Ly=Ly, Lx=Lx, filename=str(chan2_file), n_frames=n_align)
+            ClippedBinaryFile(Ly=Ly, Lx=Lx, filename=str(chan2_file), n_frames=n_align)
             if use_chan2
             else nullcontext()
         ) as f_raw_chan2,
