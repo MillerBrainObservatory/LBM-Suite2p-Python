@@ -123,6 +123,19 @@ class TestRunPlaneBinAliasConsistency:
         run_plane_bin(ops)
         return np.load(plane_dir / "ops.npy", allow_pickle=True).item()
 
+    def test_single_block_frame_disables_nonrigid(self, tmp_path):
+        """A frame no larger than the nonrigid block (32x32 vs 128x128) would
+        crash suite2p's transform_data; the fork turns nonrigid off and
+        records that in ops.npy.
+        """
+        plane = tmp_path / "plane01"
+        plane.mkdir()
+        ops = self._build_plane(plane, nt_chan1=100)
+        assert ops["nonrigid"] is True
+        after = self._run_and_reload(plane, ops)
+        assert after["nonrigid"] is False
+        assert "yoff1" not in after
+
     def test_single_channel_preserves_aliases(self, tmp_path):
         """No trimming → all aliases unchanged from input."""
         plane = tmp_path / "plane01"

@@ -48,6 +48,8 @@ def _call_upstream_pipeline(ops, f_reg, f_raw, f_reg_chan2, f_raw_chan2,
     save_path = ops.get("save_path") or ops.get("ops_path")
     if save_path is None:
         raise ValueError("ops must carry 'save_path' or 'ops_path' to call upstream pipeline")
+    if ops.get("Ly") and ops.get("Lx"):
+        _disable_nonrigid_if_single_block(ops, int(ops["Ly"]), int(ops["Lx"]))
     save_path = str(Path(save_path).parent) if str(save_path).endswith("ops.npy") else str(save_path)
 
     # build settings by overlaying ops-derived values onto the full upstream
@@ -2379,6 +2381,26 @@ def _default_block_size(ops):
     return (int(bs[0]), int(bs[1]))
 
 
+def _disable_nonrigid_if_single_block(ops, Ly, Lx):
+    """Turn nonrigid off when a frame side does not exceed its block.
+
+    suite2p's ``calculate_nblocks`` makes one block for ``L <= block_size``,
+    and ``nonrigid.transform_data`` then interpolates the shift field onto a
+    zero-size grid and raises. Recorded in ``ops["nonrigid"]`` so the saved
+    ops.npy and any later shift replay agree with what registration did.
+    """
+    if not ops.get("nonrigid", True):
+        return
+    block_y, block_x = _default_block_size(ops)
+    if Ly <= block_y or Lx <= block_x:
+        logger.warning(
+            "nonrigid registration disabled: frame %dx%d needs more than one "
+            "%dx%d block per axis",
+            Ly, Lx, block_y, block_x,
+        )
+        ops["nonrigid"] = False
+
+
 def _stamp_replay_keys(ops, file, input_path, reader_kwargs, plane, frame_indices):
     """Record what a later replay needs to reproduce the exact raw frames the
     shifts were computed on, so a run can drop data.bin and still reconstitute
@@ -2516,6 +2538,7 @@ def run_plane_stream(ops, arr, plane_index, channel_index=0, frame_indices=None)
     )
 
     if run_registration:
+        _disable_nonrigid_if_single_block(ops, raw_stream.Ly, raw_stream.Lx)
         f_raw = raw_stream
         f_reg = StreamingBinaryFile(
             arr, plane_index, channel_index=channel_index, n_frames=n_align,
