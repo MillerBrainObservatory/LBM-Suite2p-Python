@@ -77,6 +77,9 @@ docs = [
 ]
 
 [tool.uv.sources]
+# 3.3.4 on PyPI pins fastplotlib 0.6 / wgpu 0.28 / imgui-bundle 1.92.5; master
+# carries the fastplotlib 0.7 stack. Drop once mbo_utilities 3.3.5 is released.
+mbo_utilities = { git = "https://github.com/MillerBrainObservatory/mbo_utilities", branch = "master" }
 torch = [{ index = "pytorch-cu126" }]
 torchvision = [{ index = "pytorch-cu126" }]
 
