@@ -7,9 +7,6 @@ ensuring they work correctly and don't overwrite existing data on reruns.
 Usage:
     pytest tests/test_pipeline_parameters.py -v --tb=short
 
-    # Or run directly:
-    python tests/test_pipeline_parameters.py
-
 Environment:
     Set TEST_DATA_PATH to override the default test data location:
     export TEST_DATA_PATH="~/.mbo/tests/lbm/lbm_suite2p_python"
@@ -17,8 +14,6 @@ Environment:
 
 import json
 import os
-import shutil
-import sys
 import time
 from datetime import datetime
 from pathlib import Path
@@ -28,9 +23,6 @@ import pytest
 
 # Test configuration
 DEFAULT_TEST_DATA_PATH = Path.home() / ".mbo" / "tests" / "lbm" / "lbm_suite2p_python"
-TEST_OUTPUT_DIR = Path(__file__).parent / "_test_outputs"
-SUMMARY_FILE = TEST_OUTPUT_DIR / "test_summary.json"
-IMAGES_DIR = Path(__file__).parent  # Save images directly to tests/ folder
 
 
 def get_test_data_path():
@@ -123,11 +115,9 @@ def test_tiffs(test_data_path, output_dir):
 
 
 @pytest.fixture(scope="module")
-def output_dir():
-    """Fixture providing output directory for test results."""
-    TEST_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    # IMAGES_DIR is tests/ folder itself, no need to create
-    return TEST_OUTPUT_DIR
+def output_dir(tmp_path_factory):
+    """Per-session scratch directory for run outputs, images and the summary."""
+    return tmp_path_factory.mktemp("lsp_outputs")
 
 
 @pytest.fixture(scope="module")
@@ -142,8 +132,8 @@ def test_summary(output_dir):
         "images": [],
     }
     yield summary
-    # Save summary after all tests
-    with open(SUMMARY_FILE, "w") as f:
+    summary_file = output_dir / "test_summary.json"
+    with open(summary_file, "w") as f:
         json.dump(summary, f, indent=2)
     print(f"\n{'='*60}")
     print("TEST SUMMARY")
@@ -152,7 +142,7 @@ def test_summary(output_dir):
     print(f"Failed: {summary['failed']}")
     print(f"Skipped: {summary['skipped']}")
     print(f"Images saved: {len(summary['images'])}")
-    print(f"Summary saved to: {SUMMARY_FILE}")
+    print(f"Summary saved to: {summary_file}")
     print(f"{'='*60}")
 
 
@@ -339,12 +329,12 @@ class TestPlotTraces:
         """Setup for each test."""
         self.output_dir = output_dir
         self.summary = test_summary
-        self.images_dir = IMAGES_DIR
+        self.images_dir = output_dir
 
     def _get_test_traces(self):
         """Get or create test traces."""
         # Check if we have processed data from previous tests
-        test_output = TEST_OUTPUT_DIR / "run_plane_tests" / "basic"
+        test_output = self.output_dir / "run_plane_tests" / "basic"
         if (test_output / "F.npy").exists():
             F = np.load(test_output / "F.npy")
             return F
@@ -474,7 +464,7 @@ class TestDFFCalculation:
 
     def _get_test_traces(self):
         """Get or create test traces."""
-        test_output = TEST_OUTPUT_DIR / "run_plane_tests" / "basic"
+        test_output = self.output_dir / "run_plane_tests" / "basic"
         if (test_output / "F.npy").exists():
             return np.load(test_output / "F.npy")
 
@@ -582,73 +572,3 @@ class TestDFFCalculation:
                          time.time() - start, {"error": str(e)})
             raise
 
-
-def run_all_tests():
-    """Run all tests and generate summary."""
-    import subprocess
-
-    result = subprocess.run(
-        [sys.executable, "-m", "pytest", __file__, "-v", "--tb=short"],
-        capture_output=True,
-        text=True,
-    )
-
-    print(result.stdout)
-    if result.stderr:
-        print(result.stderr)
-
-    return result.returncode
-
-
-def print_ci_summary():
-    """Print summary suitable for CI output."""
-    if not SUMMARY_FILE.exists():
-        print("No test summary found. Run tests first.")
-        return
-
-    with open(SUMMARY_FILE) as f:
-        summary = json.load(f)
-
-    print("\n" + "="*60)
-    print("LBM-Suite2p-Python Pipeline Parameter Tests")
-    print("="*60)
-    print(f"Timestamp: {summary['timestamp']}")
-    print(f"Total tests: {len(summary['tests'])}")
-    print(f"  [PASS] Passed: {summary['passed']}")
-    print(f"  [FAIL] Failed: {summary['failed']}")
-    print(f"  [SKIP] Skipped: {summary['skipped']}")
-    print(f"Images generated: {len(summary['images'])}")
-    print("-"*60)
-
-    for test in summary['tests']:
-        status_icon = "[PASS]" if test['status'] == 'passed' else "[FAIL]" if test['status'] == 'failed' else "[SKIP]"
-        print(f"  {status_icon} {test['name']} ({test['duration_seconds']:.1f}s)")
-        if test['details'] and test['status'] == 'failed':
-            print(f"      Error: {test['details'].get('error', 'Unknown')}")
-
-    print("="*60)
-
-    if summary['images']:
-        print("\nGenerated images:")
-        for img in summary['images']:
-            print(f"  - {img}")
-
-
-if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Run LBM-Suite2p-Python parameter tests")
-    parser.add_argument("--summary", action="store_true", help="Print CI summary only")
-    parser.add_argument("--clean", action="store_true", help="Clean test outputs before running")
-    args = parser.parse_args()
-
-    if args.summary:
-        print_ci_summary()
-    else:
-        if args.clean and TEST_OUTPUT_DIR.exists():
-            shutil.rmtree(TEST_OUTPUT_DIR)
-            print(f"Cleaned {TEST_OUTPUT_DIR}")
-
-        exit_code = run_all_tests()
-        print_ci_summary()
-        sys.exit(exit_code)
