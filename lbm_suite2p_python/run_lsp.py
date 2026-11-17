@@ -3362,7 +3362,8 @@ def run_plane(
                 return ops_file
             print(f"Error in run_plane_bin: {e}")
             traceback.print_exc()
-            _cleanup_bin_files(plane_dir, keep_raw, keep_reg)
+            # keep data_raw.bin regardless of keep_raw: a retry needs it
+            _cleanup_bin_files(plane_dir, keep_raw=True, keep_reg=keep_reg)
             raise
 
         if not processed:
